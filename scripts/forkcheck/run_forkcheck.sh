@@ -4,7 +4,8 @@
 #
 # Usage: run_forkcheck.sh [out_dir]
 #   env overrides: N_GAMES (default 500), SEED (default 20260703), HEAP (default 2g),
-#                  FORGE_DIR (default ~/Everything/Projects/forge)
+#                  FORGE_DIR (default ~/Everything/Projects/forge),
+#                  EXTRA_ARGS (e.g. "-freshrng" or "-perturb")
 #
 # Detached via nohup — survives the launching terminal. Stop with:
 #   kill "$(cat <out_dir>/run.pid)"
@@ -28,7 +29,7 @@ mkdir -p "$OUT_DIR"
   echo "engine_commit=$(git -C "$FORGE_DIR" rev-parse HEAD)"
   echo "engine_dirty=$(git -C "$FORGE_DIR" status --porcelain | wc -l)"
   echo "jar=$JAR"
-  echo "n_games=$N_GAMES seed=$SEED heap=$HEAP"
+  echo "n_games=$N_GAMES seed=$SEED heap=$HEAP extra_args=${EXTRA_ARGS:-}"
   echo "deck1=$DECK1"
   echo "deck2=$DECK2"
   java -version 2>&1 | head -1
@@ -37,7 +38,7 @@ mkdir -p "$OUT_DIR"
 cd "$FORGE_GUI_DIR"
 nohup java -Xms"$HEAP" -Xmx"$HEAP" \
   -jar "$JAR" forkcheck -d "$DECK1" "$DECK2" -f Commander \
-  -n "$N_GAMES" -s "$SEED" -o "$OUT_DIR/results.jsonl" \
+  -n "$N_GAMES" -s "$SEED" -o "$OUT_DIR/results.jsonl" ${EXTRA_ARGS:-} \
   > "$OUT_DIR/run.log" 2>&1 &
 RUN_PID=$!
 echo "$RUN_PID" > "$OUT_DIR/run.pid"
