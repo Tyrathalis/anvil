@@ -35,8 +35,9 @@ mkdir -p "$OUT_DIR"
   java -version 2>&1 | head -1
 } > "$OUT_DIR/meta.txt"
 
+# Low priority: the desktop stays responsive; an idle box measures the same.
 cd "$FORGE_GUI_DIR"
-nohup java -Xms"$HEAP" -Xmx"$HEAP" \
+nohup nice -n 19 java -Xms"$HEAP" -Xmx"$HEAP" \
   -jar "$JAR" forkcheck -d "$DECK1" "$DECK2" -f Commander \
   -n "$N_GAMES" -s "$SEED" -o "$OUT_DIR/results.jsonl" ${EXTRA_ARGS:-} \
   > "$OUT_DIR/run.log" 2>&1 &

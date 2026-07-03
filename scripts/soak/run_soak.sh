@@ -36,8 +36,9 @@ mkdir -p "$OUT_DIR"
 
 # Fixed heap (-Xms=-Xmx): a true leak shows as climbing heap-after-GC or OOM,
 # not as ambiguous RSS drift from lazy heap growth.
+# Low priority: the desktop stays responsive; an idle box measures the same.
 cd "$FORGE_GUI_DIR"
-nohup java -Xms"$HEAP" -Xmx"$HEAP" \
+nohup nice -n 19 java -Xms"$HEAP" -Xmx"$HEAP" \
   -Xlog:gc*:file="$OUT_DIR/gc.log":time,uptime \
   -jar "$JAR" sim -d "$DECK1" "$DECK2" -f Commander -n "$N_GAMES" -q \
   > "$OUT_DIR/sim.log" 2>&1 &

@@ -49,7 +49,9 @@ for W in $WORKER_COUNTS; do
     WDIR="$CFG_DIR/worker$i"
     mkdir -p "$WDIR"
     STARTS[$i]=$(date +%s)
-    java -Xms"$HEAP" -Xmx"$HEAP" \
+    # Low priority: desktop use preempts workers. If the box is touched mid-config,
+    # that config's games/h dips — per-config timing.csv makes it visible.
+    nice -n 19 java -Xms"$HEAP" -Xmx"$HEAP" \
       -Xlog:gc*:file="$WDIR/gc.log":time,uptime \
       -jar "$JAR" sim -d "$DECK1" "$DECK2" -f Commander -n "$GAMES_PER_WORKER" -q \
       > "$WDIR/sim.log" 2>&1 &

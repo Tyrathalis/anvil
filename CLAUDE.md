@@ -40,6 +40,7 @@ Update this section as milestones land.
 - **Seed everything; deterministic replay.** State forking with seed control is load-bearing for four systems.
 - **Provenance on all trajectories:** source, engine hash, checkpoint, drill-template ID.
 - **Fork discipline:** pinned Forge versions per run; engine upgrades are dataset boundary events. Upstream PRs stay small, tested, human-reviewed.
+- **Long-running jobs launch at low priority** (`nice -n 19`) so the desktop preempts them; harnesses are designed for graceful stop + seeded game-granularity resume (design §9, "disposable workers"). Calibrated measurements are the exception: schedule them on a quiet box instead.
 - Python ~60% / Java ~40% overall; Java work is archaeology in the Forge fork, not here.
 
 ## Repo layout
