@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.python-version
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Experiment tracking / artifacts
+wandb/
+mlruns/
+runs/
+
+# Data & model artifacts (provenance store lives outside git)
+data/
+checkpoints/
+*.ckpt
+*.pt
+*.onnx
+*.safetensors
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
