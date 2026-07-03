@@ -16,7 +16,8 @@ Initial scope: 1v1 Duel Commander, curated ~1–2K card pool (union of DC meta d
 
 ## Status
 
-- **Current milestone: pre-M0.** Next deliverable is the M0 harness (batch harness + JVM↔Python bridge + random-legal agent) whose purpose is to measure **games/sec — the number that calibrates every schedule after it**. Before M0: survey ygo-agent and MageZero (design doc §12).
+- **Current milestone: pre-M0.** Next deliverable is the M0 harness (batch harness + JVM↔Python bridge + random-legal agent) whose purpose is to measure **games/sec — the number that calibrates every schedule after it**.
+- Pre-M0 prior-work survey **done** (2026-07-02): [docs/design/prior-work-survey.md](docs/design/prior-work-survey.md). Key upshots: memory/allocation pressure is the recurring Java-engine killer (M0 must include an RSS/GC soak test); Forge's `GameCopier`/simulation layer is reportedly unstable, raising risk on state forking (§9); Forge design conversations go in PRs/Discord, never issues (stale bot, ~35 days).
 - Forge fork: not yet created. It will be a **separate repo** (preserving Forge history for upstream PRs); this repo pins it by commit hash.
 - Nothing is measured yet; all estimates are the design doc's priors (§15).
 
