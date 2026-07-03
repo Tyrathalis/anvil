@@ -8,7 +8,10 @@
 # Usage: run_scaling.sh [out_dir]   (BLOCKING — run under nohup or a background task)
 #   env overrides: GAMES_PER_WORKER (default 300), HEAP (default 2g),
 #                  WORKER_COUNTS (default "1 2 4 8 16"),
-#                  FORGE_DIR (default ~/Everything/Projects/forge)
+#                  FORGE_DIR (default ~/Everything/Projects/forge),
+#                  EXTRA_JVM_OPTS (e.g. "-XX:ActiveProcessorCount=2" to cap
+#                  per-worker GC threads — by default each JVM sizes its GC
+#                  pool as if it owned all 32 CPUs)
 set -euo pipefail
 
 FORGE_DIR="${FORGE_DIR:-$HOME/Everything/Projects/forge}"
@@ -28,7 +31,7 @@ mkdir -p "$OUT_DIR"
   echo "engine_commit=$(git -C "$FORGE_DIR" rev-parse HEAD)"
   echo "engine_dirty=$(git -C "$FORGE_DIR" status --porcelain | wc -l)"
   echo "jar=$JAR"
-  echo "games_per_worker=$GAMES_PER_WORKER heap=$HEAP worker_counts=$WORKER_COUNTS"
+  echo "games_per_worker=$GAMES_PER_WORKER heap=$HEAP worker_counts=$WORKER_COUNTS extra_jvm_opts=${EXTRA_JVM_OPTS:-}"
   echo "deck1=$DECK1"
   echo "deck2=$DECK2"
   nproc
@@ -51,7 +54,7 @@ for W in $WORKER_COUNTS; do
     STARTS[$i]=$(date +%s)
     # Low priority: desktop use preempts workers. If the box is touched mid-config,
     # that config's games/h dips — per-config timing.csv makes it visible.
-    nice -n 19 java -Xms"$HEAP" -Xmx"$HEAP" \
+    nice -n 19 java -Xms"$HEAP" -Xmx"$HEAP" ${EXTRA_JVM_OPTS:-} \
       -Xlog:gc*:file="$WDIR/gc.log":time,uptime \
       -jar "$JAR" sim -d "$DECK1" "$DECK2" -f Commander -n "$GAMES_PER_WORKER" -q \
       > "$WDIR/sim.log" 2>&1 &
