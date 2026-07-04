@@ -64,6 +64,18 @@ Stream is worker-initiated; all messages carry `game_id` and a strictly increasi
 
 Per game: seed set via `MyRandom.setRandom(new Random(seed))` before match creation (forkcheck pattern). The bridged answers are part of the trajectory record, so deterministic replay = same engine hash + seed + answer log, with fallback decisions reproduced by the (deterministic-given-RNG) heuristic. Engine/fork hashes live in `WorkerHello` and trajectory metadata only; no observation or option payload may embed them.
 
+## Measured (2026-07-04, calibrated, w=16, 320 games/arm, chunk 20, quiet box, seed base 20260704)
+
+| arm | wall | total g/h | notes |
+|---|---|---|---|
+| heuristic-only (`--tags none`) | 382 s | 3,016 | includes 16 JVM startups (20-game chunks amortize poorly; production chunk 200 is 10× better); `sim`-based ceiling was 3,818 |
+| local-random (control) | 650 s | 1,772 | random-legal games are longer (median 35 turns vs 19) |
+| gRPC echo | 667 s | 1,727 | **bridge tax = +2.6% at w=16** |
+
+- **Zero transport failures** in ~200K+ round-trips; one Python server handled all 16 workers without visible strain.
+- **Echo-instrument fidelity at scale:** 314/320 games bit-identical across local vs gRPC arms; the 6 divergences have identical seeds *and identical winners* (lengths differ) — heuristic-fallback nondeterminism (warm-JVM identity-hash order differs by construction in the gRPC arm, plus AI wall-clock timeouts), not answer mismatches. This is the same ~2% irreducible floor ADR-0002 characterized.
+- **M0's calibrating number: bridge-in-the-loop self-play runs at ~1,700+ games/h on this box** (≈29 games/min, ≈41K games/day dedicated) for random-legal play with the M0 tag set; the §15 schedule assumptions survive with large margin.
+
 ## M0 measurement plan (what this protocol is for)
 
 - **Throughput delta:** same workload as the scaling sweeps (Commander precons, w=16, 2 GB heaps, `ActiveProcessorCount=2`), three arms: heuristic-only (baseline 3,818 g/h), bridged with `bridged_tags = {mtg.priority}`, bridged with the full M0 tag set (priority, mulligan, triggers, binary, number). The delta is the bridge tax; §9's napkin math says loopback gRPC + protobuf at O(10²–10³) round-trips/game should cost single-digit percent — measure, don't assume.
