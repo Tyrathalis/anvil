@@ -10,7 +10,12 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     la = sub.add_parser("launch")
-    la.add_argument("--decks", nargs=2, required=True)
+    group = la.add_mutually_exclusive_group(required=True)
+    group.add_argument("--decks", nargs=2, default=None)
+    group.add_argument("--pool", action="store_true",
+                       help="deck pairs scheduled over the latest pool manifest")
+    la.add_argument("--games-per-pair", type=int, default=5,
+                    help="games per scheduled pair (pool mode; default 5)")
     la.add_argument("--games", type=int, required=True)
     la.add_argument("--format", default="Commander")
     la.add_argument("--workers", type=int, default=16)

@@ -175,8 +175,10 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
             f.write(json.dumps(outcomes[i]) + "\n")
 
     if pool_version is None:
-        print("[ingest] WARNING: no --pool-version given; provenance is incomplete",
-              file=sys.stderr)
+        pool_version = run_manifest.get("pool_version")
+    if pool_version is None:
+        print("[ingest] WARNING: no pool version in run.json or --pool-version; "
+              "provenance is incomplete", file=sys.stderr)
     manifest = {
         "run_id": run_id,
         "source": "selfplay-heuristic",
@@ -189,7 +191,8 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
         # run pins, verbatim (fork/jar/anvil hashes, seeds, decks, flags)
         "run": {k: run_manifest[k] for k in
                 ("purpose", "created", "fork_commit", "fork_dirty", "anvil_commit",
-                 "jar_sha256", "protocol_version", "decks", "format", "seed_base",
+                 "jar_sha256", "protocol_version", "decks", "pairs_sha256", "n_pairs",
+                 "games_per_pair", "format", "seed_base",
                  "games", "bridge", "tags") if k in run_manifest},
     }
     (dest / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

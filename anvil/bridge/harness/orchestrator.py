@@ -15,7 +15,8 @@ anvil commit, protocol version, seeds, flags. Manifests are immutable;
 changing worker count or flags mid-run is a new run.
 
 Verbs (python -m anvil.bridge.harness ...):
-  launch --decks D1 D2 --games N [--workers 16] [--colocated] [--bridge MODE]
+  launch (--decks D1 D2 | --pool [--games-per-pair 5]) --games N
+         [--workers 16] [--colocated] [--bridge MODE]
          [--tags CSV] [--purpose TXT] [--seed-base X] [--chunk 200] [--calibrated]
   resume <run-dir>      status <run-dir>       pause <run-dir>
   replay <run-dir> <index>                     summarize <run-dir>
@@ -110,6 +111,14 @@ class Run:
 
     # ---------- worker launch ----------
 
+    def _deck_args(self) -> list[str]:
+        """-d for fixed-pair runs, -pairs/-gpp for pool-schedule runs."""
+        m = self.manifest
+        if m.get("pairs_file"):
+            return ["-pairs", str(self.dir / m["pairs_file"]),
+                    "-gpp", str(m["games_per_pair"])]
+        return ["-d", m["decks"][0], m["decks"][1]]
+
     def _verify_jar(self) -> Path:
         jar = Path(self.manifest["jar"])
         if not jar.exists() or _sha256(jar) != self.manifest["jar_sha256"]:
@@ -127,7 +136,7 @@ class Run:
             cmd += ["nice", "-n", "19"]
         cmd += ["java", f"-Xms{m['heap']}", f"-Xmx{m['heap']}", *m["jvm_opts"],
                 "-jar", str(jar), "anvil",
-                "-d", m["decks"][0], m["decks"][1], "-f", m["format"],
+                *self._deck_args(), "-f", m["format"],
                 "-range", str(span[0]), str(span[1]),
                 "-seedbase", str(m["seed_base"]),
                 "-results", str(wdir / "games.jsonl"),
@@ -214,6 +223,25 @@ def launch(a) -> Path:
     run_id = f"{a.purpose}-{_dt.datetime.now():%Y%m%d-%H%M%S}"
     run_dir = RUNS_DIR / run_id
     (run_dir / "workers").mkdir(parents=True)
+
+    pool_fields = {}
+    if a.pool:
+        from anvil.bridge.harness.pairs import (latest_pool_manifest, pair_schedule,
+                                                write_pairs_file)
+        pool = latest_pool_manifest()
+        n_pairs = -(-a.games // a.games_per_pair)  # ceil
+        pairs = pair_schedule([d["file"] for d in pool["decks"]], n_pairs, a.seed_base)
+        write_pairs_file(run_dir / "pairs.txt", pairs)
+        pool_fields = {
+            "pool_version": pool["pool_version"],
+            "pairs_file": "pairs.txt",
+            "pairs_sha256": _sha256(run_dir / "pairs.txt"),
+            "n_pairs": n_pairs,
+            "games_per_pair": a.games_per_pair,
+        }
+        print(f"[harness] pool {pool['pool_version']}: {len(pool['decks'])} decks -> "
+              f"{n_pairs} pairs x {a.games_per_pair} games")
+
     manifest = {
         "run_id": run_id, "purpose": a.purpose,
         "created": _dt.datetime.now().isoformat(timespec="seconds"),
@@ -222,7 +250,7 @@ def launch(a) -> Path:
         "anvil_commit": _git(Path(__file__).parents[3], "rev-parse", "HEAD"),
         "jar": str(jar), "jar_sha256": _sha256(jar),
         "protocol_version": PROTOCOL_VERSION,
-        "decks": a.decks, "format": a.format,
+        "decks": a.decks, "format": a.format, **pool_fields,
         "seed_base": a.seed_base, "games": a.games, "chunk": a.chunk,
         "workers": 12 if a.colocated else a.workers,
         "heap": "2g", "jvm_opts": ["-XX:ActiveProcessorCount=2"],
@@ -270,7 +298,7 @@ def replay(run_dir: Path, index: int) -> None:
           f"(seed {game_seed(m['seed_base'], index)}) of {m['run_id']}")
     r._verify_jar()
     cmd = ["java", f"-Xms{m['heap']}", f"-Xmx{m['heap']}", *m["jvm_opts"],
-           "-jar", m["jar"], "anvil", "-d", m["decks"][0], m["decks"][1],
+           "-jar", m["jar"], "anvil", *r._deck_args(),
            "-f", m["format"], "-range", str(index), "1",
            "-seedbase", str(m["seed_base"]), "-b", m["bridge"]]
     if m.get("tags"):
@@ -293,6 +321,10 @@ def summarize(run_dir: Path) -> None:
             f.write(json.dumps(done[i]) + "\n")
     games = list(done.values())
     ms = sorted(g["ms"] for g in games) or [0]
+    obs_bytes = sum(f.stat().st_size for f in r.workers_dir.glob("inv-*/obs.zst"))
+    # Wall-clock tail = the convoke/improvise watch-item (M1 plan D3): the
+    # slowest games are the ones to pull frames for if the tail is ugly.
+    slowest = sorted(games, key=lambda g: -g["ms"])[:10]
     summary = {
         "games": len(games), "skipped": sorted(r.skipped()),
         "decisive": sum(1 for g in games if g["status"] == "won"),
@@ -301,7 +333,13 @@ def summarize(run_dir: Path) -> None:
                      for s in {g["status"] for g in games}},
         "turns_median": sorted(g["turns"] for g in games)[len(games) // 2] if games else 0,
         "ms_median": ms[len(ms) // 2],
+        "ms_p90": ms[int(len(ms) * 0.9)] if games else 0,
+        "ms_max": ms[-1],
         "game_hours_played": sum(g["ms"] for g in games) / 3.6e6,
+        "obs_bytes": obs_bytes,
+        "obs_kb_per_game": round(obs_bytes / max(len(games), 1) / 1e3, 1),
+        "slowest_games": [{k: g.get(k) for k in ("i", "seed", "ms", "turns", "decks")}
+                          for g in slowest],
     }
     (r.dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary, indent=2))
