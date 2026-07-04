@@ -9,7 +9,7 @@ A Python orchestrator (package `anvil/bridge/harness/`, §9 module) manages N JV
 
 ## The chunk: one mechanism for recycling, resume, and pause
 
-**A run is a list of globally-indexed games; workers consume them in chunks.** Game `i` has seed `seed(seed_base, i)` (deterministic, documented function; SplitMix64 of `seed_base ^ i` — not `base + i`, to avoid overlapping streams across runs with nearby bases). A worker invocation = one JVM given one chunk (a contiguous index range, default **200 games**); it plays them in order, appends one JSONL record per completed game, and **exits when the chunk is done**. The orchestrator launches a fresh worker with the next unclaimed chunk.
+**A run is a list of globally-indexed games; workers consume them in chunks.** Game `i` has seed `seed(seed_base, i)` (deterministic, documented function; the i-th output of a SplitMix64 stream seeded at `seed_base`, i.e. `mix(seed_base + (i+1)·GOLDEN)` — a keyed stream, because both `base ^ i` and `base + i` collide structurally across nearby bases; implementation-pinned by a Java↔Python lockstep test). A worker invocation = one JVM given one chunk (a contiguous index range, default **200 games**); it plays them in order, appends one JSONL record per completed game, and **exits when the chunk is done**. The orchestrator launches a fresh worker with the next unclaimed chunk.
 
 Everything the design asks for falls out of this one mechanism:
 
@@ -57,6 +57,6 @@ Everything the design asks for falls out of this one mechanism:
 ## What M0 acceptance looks like
 
 1. The three-arm measurement from bridge-protocol-v0 (heuristic-only / priority-bridged / full-M0-tag-set) runs as three manifested runs with no manual bookkeeping, producing the bridge-tax number.
-2. `replay` reproduces any flagged game bit-identically (same outcome digest) from manifest + index alone.
+2. `replay` reproduces any flagged game bit-identically (same outcome digest) from manifest + index alone. *(Measured 2026-07-04: replay is **self-consistent** — two solo replays agree exactly — but can drift from the in-run instance (observed: 54 vs 55 turns, same winner) because the in-run game played mid-sequence in a warm JVM: identity-hash allocation order + the heuristic AI's wall-clock decision timeouts differ, the exact nondeterminism ADR-0002 characterized. A stable solo repro satisfies the debugging use-case; bit-identical in-run reproduction arrives when all decisions are bridged and replayed from the logged answer stream (protocol doc: replay = seed + answer log), or when the fork-API work lands identity-hash-free iteration.)*
 3. A mid-run `pause` + machine reboot + `resume` completes the run with zero lost completed games and correct totals.
 4. Overnight unattended run at w=16 sustains ≥90% of the 3,818 g/h baseline with recycling on (chunk boundaries invisible in the throughput curve).
