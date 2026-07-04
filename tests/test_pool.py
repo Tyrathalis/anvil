@@ -48,6 +48,22 @@ def test_basics_exempt_from_singleton():
     deck_from_export(1, EXPORT, {})  # 96 Forest passes
 
 
+def test_parse_card_names_flavorname_maps_to_primary():
+    script = (
+        "Name:Rick, Steadfast Leader\n"
+        "Variant:UniversesWithin:FlavorName:Greymond, Avacyn's Stalwart\n"
+        "ManaCost:2 W W\n")
+    names = forge_db.parse_card_names(script)
+    assert names["Rick, Steadfast Leader"] == "Rick, Steadfast Leader"
+    assert names["Greymond, Avacyn's Stalwart"] == "Rick, Steadfast Leader"
+
+
+def test_parse_card_names_faces_map_to_themselves():
+    script = "Name:Fire\nManaCost:1 R\nAlternateMode:Split\nALTERNATE\nName:Ice\n"
+    names = forge_db.parse_card_names(script)
+    assert names == {"Fire": "Fire", "Ice": "Ice"}
+
+
 def test_normalize_diacritics_and_case():
     assert forge_db.normalize("Lim-Dûl's  Vault") == forge_db.normalize("lim-dul's vault")
 

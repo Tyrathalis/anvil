@@ -1,9 +1,13 @@
-"""Forge card-name universe: every Name: line in the fork's cardsfolder.
+"""Forge card-name universe: every Name: line in the fork's cardsfolder,
+plus Variant FlavorNames mapped to their canonical name.
 
 Split/DFC/adventure card scripts carry one Name: per face; collecting all of
 them means face names resolve directly, which is also how Forge's own CardDb
-looks cards up. Cached per fork commit (the cardsfolder is part of the pinned
-engine state).
+looks cards up. Universes Within twins (182 cards, e.g. "Greymond, Avacyn's
+Stalwart" = "Rick, Steadfast Leader") appear as `Variant:...:FlavorName:` and
+resolve to the file's primary Name — decklists cite whichever name was
+printed, .dck output always gets the canonical one. Cached per fork commit
+(the cardsfolder is part of the pinned engine state).
 """
 
 from __future__ import annotations
@@ -27,19 +31,34 @@ def fork_commit() -> str:
                           capture_output=True, text=True, check=True).stdout.strip()
 
 
-def _scan_cardsfolder() -> list[str]:
-    names = set()
+def parse_card_names(script: str) -> dict[str, str]:
+    """card-script text -> {referencable name: canonical name}. Face Name:
+    lines map to themselves; FlavorName variants map to the primary Name."""
+    names: dict[str, str] = {}
+    primary = None
+    for line in script.splitlines():
+        if line.startswith("Name:"):
+            face = line[5:].strip()
+            names[face] = face
+            if primary is None:
+                primary = face
+        elif line.startswith("Variant:") and "FlavorName:" in line and primary:
+            flavor = line.split("FlavorName:", 1)[1].strip()
+            names[flavor] = primary
+    return names
+
+
+def _scan_cardsfolder() -> dict[str, str]:
+    names: dict[str, str] = {}
     for path in CARDSFOLDER.rglob("*.txt"):
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if line.startswith("Name:"):
-                names.add(line[5:].strip())
-    return sorted(names)
+        names.update(parse_card_names(path.read_text(encoding="utf-8", errors="replace")))
+    return names
 
 
 def load_names() -> dict[str, str]:
     """normalized name -> canonical Forge name, cached per fork commit."""
     commit = fork_commit()
-    cache = CACHE_DIR / f"forge-names-{commit[:12]}.json"
+    cache = CACHE_DIR / f"forge-names-v2-{commit[:12]}.json"  # v2: +FlavorName mapping
     if cache.exists():
         names = json.loads(cache.read_text())
     else:
@@ -48,7 +67,7 @@ def load_names() -> dict[str, str]:
             raise RuntimeError(f"cardsfolder scan found only {len(names)} names at {CARDSFOLDER} — wrong FORGE_DIR?")
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(names))
-    return {normalize(n): n for n in names}
+    return {normalize(n): canonical for n, canonical in names.items()}
 
 
 def resolve(raw: str, universe: dict[str, str], overrides: dict[str, str]) -> str | None:
