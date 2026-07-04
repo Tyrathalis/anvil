@@ -1,0 +1,181 @@
+// Anvil bridge protocol v0 — canonical copy.
+// Spec: docs/design/bridge-protocol-v0.md. The fork's Java worker builds from
+// a synced copy at forge-gui-desktop/src/main/proto/anvil_bridge.proto; keep
+// them identical (header comment there points back here).
+syntax = "proto3";
+
+package anvil.bridge.v0;
+
+option java_package = "forge.anvil.bridge.v0";
+option java_multiple_files = true;
+
+service DecisionBridge {
+  // One long-lived bidirectional stream per worker.
+  rpc Session (stream WorkerMsg) returns (stream ServerMsg);
+}
+
+message WorkerMsg {
+  oneof msg {
+    WorkerHello hello = 1;
+    GameStart game_start = 2;
+    DecisionRequest request = 3;
+    GameEnd game_end = 4;
+    Ping ping = 5;
+  }
+}
+
+message ServerMsg {
+  oneof msg {
+    ServerHello hello = 1;
+    DecisionResponse response = 2;
+    Drain drain = 3;
+    Ping ping = 4;
+  }
+}
+
+enum AnswerShape {
+  SELECT_ONE = 0;
+  SELECT_K = 1;
+  INT_IN_RANGE = 2;
+  BOOL = 3;
+  ORDER_N = 4;
+  CONSTRUCT = 5;
+}
+
+message WorkerHello {
+  uint32 protocol_version = 1;   // 0 for this draft
+  string worker_id = 2;
+  string engine_commit = 3;      // upstream base
+  string fork_commit = 4;
+  repeated string capabilities = 5;
+}
+
+message ServerHello {
+  uint32 protocol_version = 1;
+  // Decision tags this session answers over the wire; the worker resolves
+  // everything else locally without a round-trip (server-driven coverage).
+  repeated string bridged_tags = 2;
+  bool one_shot_cast = 3;        // M1; CastPlan composite answers to mtg.priority
+  uint32 default_deadline_ms = 4;
+}
+
+message GameStart {
+  string game_id = 1;
+  uint64 seed = 2;
+  string format_tag = 3;         // e.g. "mtg.commander"
+  repeated DeckRef decks = 4;
+  string provenance = 5;         // opaque blob: run id, drill-template id, ...
+}
+
+message DeckRef {
+  string name = 1;
+  string content_hash = 2;
+}
+
+message Option {
+  uint32 id = 1;
+  string label = 2;              // human-readable; debugging + M0 realism
+  bytes features = 3;            // Java-built feature blob; empty at M0
+}
+
+message Constraints {
+  int64 min = 1;
+  int64 max = 2;
+  uint32 k = 3;
+}
+
+message DecisionRequest {
+  string game_id = 1;
+  uint64 decision_seq = 2;
+  string decision_tag = 3;       // "mtg.priority", ... — data, not schema
+  AnswerShape shape = 4;
+  repeated Option options = 5;
+  Constraints constraints = 6;
+  bytes context = 7;             // game-namespaced context message; empty at M0
+  bytes observation = 8;         // entity-token features at M1; empty at M0
+  uint64 retry_of = 9;           // set when engine validation re-asks
+  uint32 deadline_ms = 10;
+  // M0 measurement instrument only, never a protocol feature: when set, the
+  // worker pre-drew the answer from its seeded RNG and the server must echo
+  // it verbatim. Makes gRPC-arm games bit-identical to local-arm games so the
+  // throughput delta isolates serialization + transport. Absent at M1.
+  DecisionResponse echo_answer = 15;
+}
+
+message IndexList {
+  repeated uint32 indices = 1;
+}
+
+message DecisionResponse {
+  uint64 decision_seq = 1;
+  oneof answer {
+    uint32 index = 2;            // SELECT_ONE
+    IndexList indices = 3;       // SELECT_K
+    int64 value = 4;             // INT_IN_RANGE
+    bool flag = 5;               // BOOL
+    IndexList ordering = 6;      // ORDER_N
+    Construct construct = 7;     // CONSTRUCT
+  }
+  bool fallback = 8;             // server declines; worker answers locally, tags it
+  bytes yield_directive = 9;     // reserved, M1 (design §3b macro-stops)
+}
+
+message Construct {
+  oneof kind {
+    AttackMap attack_map = 1;
+    BlockMap block_map = 2;
+    TargetPlan target_plan = 3;
+    CastPlan cast_plan = 4;      // M1
+  }
+}
+
+message AttackMap {
+  message Assignment {
+    uint32 attacker_option = 1;  // index into engine-enumerated legal attackers
+    uint32 defender_option = 2;
+  }
+  repeated Assignment assignments = 1;
+}
+
+message BlockMap {
+  message Assignment {
+    uint32 blocker_option = 1;
+    uint32 attacker_option = 2;
+  }
+  repeated Assignment assignments = 1;
+}
+
+message TargetPlan {
+  message Requirement {
+    repeated uint32 candidate_options = 1;
+  }
+  repeated Requirement requirements = 1;
+}
+
+message CastPlan {
+  uint32 spell_option = 1;
+  repeated uint32 mode_options = 2;
+  int64 x_value = 3;
+  TargetPlan targets = 4;
+  repeated uint32 optional_cost_options = 5;
+  repeated uint32 payment_class_options = 6;  // only when engine flags payment consequential (§3c)
+}
+
+message GameEnd {
+  string game_id = 1;
+  string winner = 2;             // empty = draw
+  uint32 turns = 3;
+  uint64 wall_ms = 4;
+  map<string, uint32> decisions_by_tag = 5;
+  uint32 fallback_count = 6;
+  repeated string fallback_reasons = 7;
+  bool draw_clock_hit = 8;
+}
+
+message Ping {
+  uint64 nonce = 1;
+}
+
+message Drain {
+  string reason = 1;             // finish current game, flush, exit
+}
