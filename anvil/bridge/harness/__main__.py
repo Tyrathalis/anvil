@@ -21,6 +21,8 @@ def main() -> None:
     la.add_argument("--seed-base", type=int, default=None)
     la.add_argument("--chunk", type=int, default=200)
     la.add_argument("--calibrated", action="store_true")
+    la.add_argument("--obs", action="store_true",
+                    help="write observation logs (obs.zst per worker; observation-schema-v1)")
 
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)

@@ -104,12 +104,26 @@ def main() -> None:
                 kv.append(f'"{n}", {e}')
         kv_str = (", " + ", ".join(kv)) if kv else ""
         decl = f"public {tparams + ' ' if tparams else ''}{ret} {name}({sig_params})"
-        ret_kw = "" if ret == "void" else "return "
+        # Obs (observation-schema-v1): observation at entry for every callback;
+        # the answer joined at exit for non-void ones. Game passed to both so
+        # stale threads (post hard-cap) can't write into the next game's frame.
+        if ret == "void":
+            tail = (
+                f'        Obs.dec(getGame(), getPlayer(), "{name}"{kv_str});\n'
+                f"        super.{name}({call_args});\n"
+            )
+        else:
+            tail = (
+                f'        long __s = Obs.dec(getGame(), getPlayer(), "{name}"{kv_str});\n'
+                f"        {ret} __r = super.{name}({call_args});\n"
+                f"        Obs.ret(getGame(), __s, __r);\n"
+                f"        return __r;\n"
+            )
         body.append(
             f"    @Override\n"
             f"    {decl} {{\n"
             f'        Census.rec(getGame(), getPlayer(), "{name}"{kv_str});\n'
-            f"        {ret_kw}super.{name}({call_args});\n"
+            f"{tail}"
             f"    }}\n"
         )
 

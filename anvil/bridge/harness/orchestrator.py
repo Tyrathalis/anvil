@@ -135,6 +135,8 @@ class Run:
                 "-b", m["bridge"]]
         if m.get("tags"):
             cmd += ["-tags", m["tags"]]
+        if m.get("obs"):
+            cmd += ["-obs", str(wdir / "obs.zst")]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
         return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
@@ -225,6 +227,7 @@ def launch(a) -> Path:
         "workers": 12 if a.colocated else a.workers,
         "heap": "2g", "jvm_opts": ["-XX:ActiveProcessorCount=2"],
         "bridge": a.bridge, "tags": a.tags, "nice": not a.calibrated,
+        "obs": a.obs, "obs_schema": 1 if a.obs else None,
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "
