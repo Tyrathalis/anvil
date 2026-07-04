@@ -49,3 +49,28 @@ Notable near-silent decisions: `chooseTargetsFor` 96 calls (9% of games), `choos
 - **Nothing structural.** The override plan's verdicts and the protocol's answer shapes survive contact with data; the two `CastPlan` refinements (X/targets injected, modes answered at two interception points, optional costs folded into the priority answer) are worker-side implementation details of the plan executor, not protocol changes.
 - **Phase-2 serialization order is now data:** payment (`payManaCost`/`chooseColor`) is the second-biggest surface after priority — but per §3c the *engine-default* payment answer is the design intent anyway; bridging it is deferred until the consequential-payment flag exists. Combat (`declareAttackers`/`assignCombatDamage`/`declareBlockers`) is the real next serialization target, then the ordering family (`orderSimultaneousSa`, `orderMoveToZoneList`, scry/surveil).
 - **Caveat for the record:** single deck pair. The 64-silent-method list will shrink as the DC pool arrives (e.g. `sideboard` never fires in single games by construction; X-spells are absent from these precons' AI-playable range). Frequency *ranks* among the top ~15 should be robust; re-run the census when the DC decklist pipeline lands — it's one command.
+
+---
+
+# DC-pool re-run (2026-07-04)
+
+**Setup:** 500 games — 100 deck pairs × 5 games, pairs sampled deterministically from pool `f568b187` (111 decks, every deck appears ≥1×; driver `scripts/census/run_dc_census.py`, seed base 20260704, 4 lanes, fork commit `80b66aa262`). Data: `data/census/run-20260704-dcpool/`. All 500 decisive, zero draws; **turns median 21, mean 23.2, p90 34, max 59** — real DC decks play only modestly longer than the precons' median 19 (the pipeline smoke game's 161 turns was an outlier, not the distribution).
+
+## Headline numbers vs the precon census
+
+- **567,927 callbacks; mean 1,136/game (median 1,015, max 4,379)** — up 46% on the precon mean of 776. Traffic grew faster than turns (+22%): richer decks decide more per turn.
+- **64 of 109 methods fired** (precon: 45). The silent list shrank from 64 to 45; the 19 newly-awake methods are pool-driven (`chooseCardsForConvokeOrImprovise`, `chooseCardsToDelve`, `chooseCounterType`, `chooseSingleStaticAbility`, `vote`, `chooseCardName`, `payCombatCost`, …).
+- **`chooseSpellAbilityToPlay` is 51% of traffic** (579.7/game; precon 56%). **Top five are 80%** (same five members as precon: priority, `payManaCost`, `playChosenSpellAbility`, `autoPassCancel`, `playSpellAbilityNoStack`) — the top-rank robustness prediction held.
+- **The M0 bridged tag set covers ~52% of callbacks** (precon ~57%). The precon-near-silent tags woke up but stayed small: `chooseBinary` 55 calls (was 0), `chooseNumber` 109 (was 26), `playTrigger` 11.1/game in 65% of games (triggers are real traffic now).
+- **New heavy mid-table arrivals** the precon pair never showed: `chooseOptionalCosts` 29.2/game in 35% of games (was 8.1 in 14%), `chooseCardsForConvokeOrImprovise` 28.4/game mean **with a pathological max of 2,788 calls in one game** — an apparent AI convoke/improvise re-evaluation loop worth a look before M2 (logged, not investigated), `chooseSingleReplacementEffect` 9.6/game (replacement effects are ubiquitous in the real pool), `chooseSingleStaticAbility` 9.1/game.
+
+## Cast path: structural claims survive the pool
+
+27,010 cast windows: **22% complete with zero nested callbacks** (precon 27%); `payManaCost` chains remain the dominant window body; `chooseModeForAbility` again appears both outside and nested (both interception points, as the CastPlan executor design expects); `chooseTargetsFor` stays out of cast windows and near-absent overall (103 calls, 7.6% of games); `announceRequirements`, `specifyManaCombo`, `chooseNewTargetsFor`, `sideboard` remain never-fired. One new in-window pattern: `chooseSingleReplacementEffect → playSpellAbilityNoStack` sequences (replacement effects triggering during casting) — mid-resolution machinery, handled by micro-step per the existing invariant, no protocol change.
+
+## What this changes
+
+- **Bridge-tax napkin math scales but doesn't move class:** priority-only round-trips are now ~580/game (was ~437, +33%); full M0 set ~596/game. Wall-clock per game grows roughly in step, so the measured 2.6%-at-w=16 tax should hold within noise on the real pool; re-measure only if M1's inference latency changes the equation anyway.
+- **Throughput expectation for the real pool:** games are +22% turns / +46% callbacks vs precons — plan M1 corpus schedules on ~⅔–¾ of the precon-calibrated games/hour, not on the 161-turn scare number.
+- **Phase-2 serialization order updated by real traffic:** after combat, the replacement/static-choice family (`chooseSingleReplacementEffect`, `chooseSingleStaticAbility`, `chooseCounterType`) now outranks the scry/surveil ordering family; `chooseOptionalCosts` grew 3.6× and reinforces the CastPlan composite-answer design.
+- **M1 tag coverage basis switches from provisional (precon) to measured (pool)** — ADR-0003's provisional-basis caveat is discharged.
