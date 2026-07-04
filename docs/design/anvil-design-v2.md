@@ -199,14 +199,14 @@ Pro games punch above volume: eval benchmark, Grindstone seeds from the true com
 
 ## 13. Sequencing
 
-- **M0 — Harness:** batch harness + bridge + random-legal agent. Exists to measure games/sec; **the number calibrates every schedule after it** (2 min/game instead of 20 sec → everything stretches 5x, Rust bet moves to phase one). Survey ygo-agent and MageZero first.
+- **M0 — Harness:** batch harness + bridge + random-legal agent. Exists to measure games/sec; **the number calibrates every schedule after it** (2 min/game instead of 20 sec → everything stretches 5x, Rust bet moves to phase one). Survey ygo-agent and MageZero first. **Done 2026-07-04 ([ADR-0003](../decisions/ADR-0003-m0-closeout.md)): ~1,700 g/h bridged / 3,016 g/h heuristic at w=16, bridge tax 2.6% — no stretch, Rust bet stays phase-two.**
 - **M1 — BC:** encoder + trunk + policy head, pure supervised. Validates representations with zero RL machinery.
 - **M2 — RL:** critic + Ante certification test + first V-trace self-play from BC start.
 - **Then, attaching to a running loop:** Grindstone + error accounting → match play & sideboarding → Tutor → Mentor → pro-data pipeline → skill conditioning → pivotal-turn search + distillation → Android + recording. Build vertically to a trained artifact at each stage.
 
 ## 14. Budget to "Beats the Heuristic AI"
 
-~20–30K lines (60/40 Python/Java; the Java is archaeology-heavy); ~500K BC games (2–4K core-days) + 1–3M self-play games; ~200–500 4090-hours total; the existing 4090 + a 32-core box (~$1–2K used or $3–6K cloud); 4–8 months solo at nights-and-weekends with heavy LLM assistance. Risk concentrated almost entirely in the M0 games/hour number — measure first.
+~20–30K lines (60/40 Python/Java; the Java is archaeology-heavy); ~500K BC games (2–4K core-days) + 1–3M self-play games; ~200–500 4090-hours total; the existing 4090 + a 32-core box (~$1–2K used or $3–6K cloud); 4–8 months solo at nights-and-weekends with heavy LLM assistance. Risk concentrated almost entirely in the M0 games/hour number — measure first. **Measured ([ADR-0003](../decisions/ADR-0003-m0-closeout.md)): throughput risk retired — 64 games/min heuristic / 29 games/min bridged at w=16 on the existing box, no 32-core purchase; the ~500K-game BC corpus ≈ 6 days wall-clock. Remaining calendar risk shifts to representation quality (M1) and RL machinery (M2).**
 
 ## 15. Standing Probability Estimates (selected)
 
@@ -214,7 +214,7 @@ Pro games punch above volume: eval benchmark, Grindstone seeds from the true com
 |---|---|
 | Pilot clearly beats Forge heuristic, curated pool, this budget | ~80% |
 | BC reaches high-80s action agreement (M1) | 80% |
-| Post-optimization Forge: 10+ games/min on 32 cores | 60% ← least certain; measured first |
+| Post-optimization Forge: 10+ games/min on 32 cores | **resolved true, 6× margin pre-optimization ([ADR-0002](../decisions/ADR-0002-fork-api-gate-resolution.md)/[0003](../decisions/ADR-0003-m0-closeout.md)): 64 g/min heuristic, 29 g/min bridged, 16 cores** |
 | Own-decklist state pays for itself in sample efficiency | 90% |
 | Zero-shot generalization to unseen cards via text embeddings | ~50% (the open research question) |
 | Belief head + asymmetric critic suffice sans CFR (exploiter test) | 70% |
