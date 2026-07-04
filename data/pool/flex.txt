@@ -1,0 +1,3 @@
+# Flex slots: hand-curated additions to the DC meta-decklist union.
+# One card name per line; '#' comments. Tagged source=flex in the manifest.
+# Empty until the pool's gaps are assessed against the first build report.

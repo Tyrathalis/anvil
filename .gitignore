@@ -17,8 +17,13 @@ wandb/
 mlruns/
 runs/
 
-# Data & model artifacts (provenance store lives outside git)
-data/
+# Data & model artifacts (provenance store lives outside git),
+# except hand-curated pool-pipeline inputs (config, not data)
+data/*
+!data/pool/
+data/pool/*
+!data/pool/flex.txt
+!data/pool/overrides.json
 checkpoints/
 *.ckpt
 *.pt
