@@ -67,6 +67,37 @@ Entity (battlefield, hands, graveyards, exiles, command zones; libraries omitted
 
 **Visibility defaults by zone:** battlefield/graveyard/exile/stack/command → public; hand → controller-only; (library → none, unlogged). `vis` is logged only on deviation: `"all"` (revealed hand card), `"c"` (face-down battlefield/exile — controller knows), `"none"` (face-down exile nobody may inspect). The transform's information-set rule: perspective player P sees `n` iff the effective visibility includes P; invisible entities collapse into (zone, controller) count aggregates. Hidden-zone ground truth thus stays in the record for M2 belief labels without ever reaching the M1 policy input.
 
+### CastPlan labels (M1 D2 amendment, 2026-07-04)
+
+The priority window's `dec`/`ret` pair is upgraded into the CastPlan composite label ([m1-bc-plan.md](m1-bc-plan.md) D2; census: targets/X/modes/optional costs never surface as callbacks, so they must be read off the chosen SA at decision time).
+
+```jsonc
+// dec for chooseSpellAbilityToPlay now carries structured opts: the
+// engine-legal option set (same scan as the bridged path — legal, payable
+// spells + land drops), materialized because replay drift forbids
+// recomputing legality later and the gate metric's single-legal-option
+// exclusion needs it. Pass is NOT an entry; a null ret is the pass.
+{"k":"dec", ..., "m":"chooseSpellAbilityToPlay",
+ "opts":[{"e":81,"sa":"Lightning Bolt ...","kind":"spell"},
+         {"e":70,"sa":"Play Mountain","kind":"land"}], "obs":{...}}
+
+// ret: the chosen SA list (usually one), CastPlan-shaped. Applies to every
+// SpellAbility-valued answer (getAbilityToPlay, chooseModeForAbility, ...).
+{"k":"ret","s":17,"v":[
+ {"e":81,"sa":"Lightning Bolt ...","kind":"spell",   // host entity + debug/join string
+  "tgt":[{"e":5},{"pi":0},{"e":123,"stk":1}],        // observation idiom; stk = targets a
+                                                      //   stack SA (joins on stack host id)
+  "x":3,                                              // getXManaCostPaid, absent when unset
+  "alt":"Flashback",                                  // AlternativeCost, absent when none
+  "opt":["Kicker1"],"mk":2,                           // OptionalCost names; multikicker count
+  "modes":[{...}],                                    // chosen modes IF bound at decision time
+  "sub":[{"i":1,"tgt":[{"e":9}]}]}]}                  // sub-ability chain links with own targets
+```
+
+Facts the shape encodes (census-proven, archaeology-verified): the returned SA already **is** the optional-cost copy (`GameActionUtil.addOptionalCosts`), so `opt` reads off it; X and targets are pre-set during `canPlaySa` evaluation; `modes` is usually **absent for cast spells** — they bind later at `chooseModeForAbility`, which is its own labeled `dec`/`ret` (mode subs serialize CastPlan-shaped too, carrying their targets). Option entries match the chosen plan at host-entity level. The option scan iterates `getOriginalAndAltCostAbilities(getSpellAbilities(...))` — the AI's own iteration set — so alternative/additional-cost variants are payability-checked individually; a spell payable *only* via its alternative cost (Snuff Out's 4 life) must be an option or the logged legality mask would forbid the heuristic's own pick (caught by the D2 smoke validator on the first 20-game batch).
+
+**D2 smoke measurements (2026-07-04, 20 pool games, single worker).** Validator: 9,547 windows / 860 cast labels, zero errors. 42 KB/game at 75× (500K ≈ ~21 GB; the options lists are the growth over D1's 28 KB). Determinism, measured three ways: **same-seed runs with logging on reproduce outcomes 20/20** — the only record diffs are mana-payment micro-order (`payManaCost`/`chooseColor` land-tap order, 3/20 frames, ADR-0002's identity-hash floor; payment is engine-default per §3c and unlabeled, so corpus-harmless. **But the option scan is *not* a pure observer** (that D1 claim now covers the serializer only): same seeds with vs without `-obs` diverge 6/20 with winner flips — the scan changes *which* deterministic trajectory a seed plays, without informing the AI (ordering/tie-break perturbation, not signal). Consequences: corpus games replay only under the same logging configuration (harness `replay` now passes `-obs` for obs runs), and the with-obs and without-obs game distributions are the same policy but different draws. **Cost flag for D3:** obs+scan haircut measured **+52% single-worker** on identical-trajectory games (D1 serialization alone: 4.3% — the legality scan duplicating the AI's own availability work is the cost); D3 measures at w=16 and decides whether to share the AI's scan instead of re-running it. Bridged-path (M0) opts stay plain strings with `"pass"` at index 0 — readers distinguish by entry type. Validation contract lives in `anvil/store/castplan.py` (`python -m anvil.store validate`): host/targets ⊆ own observation, chosen ∈ options, label matches the following `playChosenSpellAbility` window per seat.
+
 **Magic vocabulary is data, not schema** (§1 hygiene): zone strings, phase names, counter names, method names, tag names are opaque vocabularies to the store; only `anvil/encoder`'s transform (behind the `mtg.` namespace) assigns them meaning. The envelope keys (`k`,`s`,`g`,`ents`,`glob`,`players`,`obs`,`vis`,...) are game-agnostic.
 
 ## Worker output and store v0
@@ -93,7 +124,7 @@ Reader API (`anvil.store.TrajectoryStore`): `store.game(i)` → header + decisio
 
 Midgame commander observation ≈ 40–80 logged entities × ~50–70 B + globals ≈ **2–6 KB raw** — the plan's band, with libraries-omitted doing the heavy lifting. ×1,136 callbacks/game (pool census mean) ≈ ~4 MB raw/game ≈ 2 TB raw at 500K games; consecutive-observation redundancy is extreme by construction (one entity flips per record, key strings repeat every line), which is what the 10–30× → **100–200 GB** target leans on. D3 measures; decision 7 lists the levers if it misses.
 
-**First smoke measurement (2026-07-04, 5 pool games, single worker):** ~2 MB raw/game (in band), zstd-3 per-game frames compress **~70×** → **28 KB/game** — 500K games ≈ **~14 GB**, an order of magnitude inside the target. Serialization haircut ~4.3% single-worker (small sample; D3 is the real measurement). Same seeds with/without `-obs`: **bit-identical outcomes** — the serializer is a pure observer.
+**First smoke measurement (2026-07-04, 5 pool games, single worker):** ~2 MB raw/game (in band), zstd-3 per-game frames compress **~70×** → **28 KB/game** — 500K games ≈ **~14 GB**, an order of magnitude inside the target. Serialization haircut ~4.3% single-worker (small sample; D3 is the real measurement). Same seeds with/without `-obs`: **bit-identical outcomes** — the serializer is a pure observer. *(True of the D1 build — the serializer alone. D2's option scan ends this; see the CastPlan section's measurements.)*
 
 ## Deliberately v2 (recorded so D3/D5 don't relitigate silently)
 

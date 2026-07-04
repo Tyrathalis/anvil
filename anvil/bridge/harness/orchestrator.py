@@ -275,6 +275,12 @@ def replay(run_dir: Path, index: int) -> None:
            "-seedbase", str(m["seed_base"]), "-b", m["bridge"]]
     if m.get("tags"):
         cmd += ["-tags", m["tags"]]
+    if m.get("obs"):
+        # The priority-option scan perturbs which trajectory a seed plays
+        # (D2 smoke, 2026-07-04: 14/20 identical without it) — a replay must
+        # match the original run's logging configuration to reproduce it.
+        # The replay's own observation output is a throwaway.
+        cmd += ["-obs", str(run_dir / f"replay-{index}-obs.zst")]
     subprocess.run(cmd, cwd=FORGE_GUI_DIR, check=False)
 
 

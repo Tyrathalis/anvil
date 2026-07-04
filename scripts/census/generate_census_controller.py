@@ -25,6 +25,14 @@ SIZE_PREFIXES = (
 )
 NAME_TYPES = {"SpellAbility", "Card", "Player", "GameEntity", "WrappedAbility"}
 
+# M1 D2: methods whose dec record needs more than the generic entry (Obs owns
+# the implementation; the generator only swaps the call). Priority windows
+# materialize the engine-legal option set into structured opts so the CastPlan
+# label has a logged legality basis (replay drift forbids recomputing it later).
+DEC_OVERRIDES = {
+    "chooseSpellAbilityToPlay": "Obs.decPriority(getGame(), getPlayer())",
+}
+
 
 def split_params(paramstr: str) -> list[tuple[str, str]]:
     """Split a parameter list at depth-0 commas; return (type, name) pairs."""
@@ -107,14 +115,15 @@ def main() -> None:
         # Obs (observation-schema-v1): observation at entry for every callback;
         # the answer joined at exit for non-void ones. Game passed to both so
         # stale threads (post hard-cap) can't write into the next game's frame.
+        dec_call = DEC_OVERRIDES.get(name, f'Obs.dec(getGame(), getPlayer(), "{name}"{kv_str})')
         if ret == "void":
             tail = (
-                f'        Obs.dec(getGame(), getPlayer(), "{name}"{kv_str});\n'
+                f"        {dec_call};\n"
                 f"        super.{name}({call_args});\n"
             )
         else:
             tail = (
-                f'        long __s = Obs.dec(getGame(), getPlayer(), "{name}"{kv_str});\n'
+                f"        long __s = {dec_call};\n"
                 f"        {ret} __r = super.{name}({call_args});\n"
                 f"        Obs.ret(getGame(), __s, __r);\n"
                 f"        return __r;\n"
