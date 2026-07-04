@@ -13,9 +13,9 @@ All line references are to the fork at `8907112` (upstream base `0bfdaa5`).
 - Precedents for non-heuristic controllers exist: `PlayerControllerForTests` (`forge-gui-desktop/src/test/.../gamesimulationtests/util/PlayerControllerForTests.java:62`) extends `PlayerController` directly and runs headless; our own `forkcheck` (`ForkFidelityCheck.java`) already builds players/matches the same way `SimulateMatch` does.
 - The factory interface also demands `createMindSlaveController(master, slave)` (Mind Slaver effects). Rare; heuristic fallback is fine indefinitely.
 
-### The decision surface: 110 methods, ~88 real decisions
+### The decision surface: 109 methods, ~88 real decisions
 
-`PlayerController` (`forge-game/.../player/PlayerController.java`, abstract, ctor `(Game, Player, LobbyPlayer)`) has **110 abstract methods**: ~88 real decisions, ~16 pure notifications (`reveal`, `notifyOfValue`, …), ~6 utility/no-ops. By family (counts approximate):
+`PlayerController` (`forge-game/.../player/PlayerController.java`, abstract, ctor `(Game, Player, LobbyPlayer)`) has **109 abstract methods** (corrected from 110 by the census generator's parse): ~88 real decisions, ~16 pure notifications (`reveal`, `notifyOfValue`, …), ~6 utility/no-ops. By family (counts approximate):
 
 | Family | ~Count | Examples |
 |---|---|---|
@@ -81,7 +81,7 @@ Per-family verdicts:
 
 **Module placement:** package `forge.ai.anvil` inside forge-ai (the class extends `PlayerControllerAi`, and forge-ai is where `GameCopier` already lives); launcher command `anvil` in `forge-gui-desktop` alongside `SimulateMatch`/`ForkFidelityCheck`, registered in `Main.java` — the exact forkcheck precedent, no parent-pom surgery. Lives in the fork only, never upstreamed (the fork-API contribution is separate and stays Anvil-agnostic).
 
-**First implementation step — instrumented callback census:** before any bridge code, wrap `PlayerControllerAi` in a logging decorator (or subclass logging `method, args-summary, phase, stack-depth` then delegating to `super`), run a few hundred games, and get (a) the **empirical frequency of every one of the 110 callbacks** under real Commander games — this ranks phase-2/3 serialization work by actual traffic, and (b) the **exact callback sequence on the AI cast path for modal/X/optional-cost spells** — the one place where this note's granularity analysis is inferred from code reading rather than observed (the human path's mode/X callbacks may or may not fire on the AI path depending on how `AiCostDecision` and mode-choosing interleave). Cheap (a session), and its output is a table the bridge-protocol draft can cite as ground truth.
+**First implementation step — instrumented callback census** (*done 2026-07-03: [callback-census-results.md](callback-census-results.md) — 500 games, 388K callbacks; verdicts below confirmed, cast-path claim resolved*)**:** before any bridge code, wrap `PlayerControllerAi` in a logging decorator (or subclass logging `method, args-summary, phase, stack-depth` then delegating to `super`), run a few hundred games, and get (a) the **empirical frequency of every one of the 110 callbacks** under real Commander games — this ranks phase-2/3 serialization work by actual traffic, and (b) the **exact callback sequence on the AI cast path for modal/X/optional-cost spells** — the one place where this note's granularity analysis is inferred from code reading rather than observed (the human path's mode/X callbacks may or may not fire on the AI path depending on how `AiCostDecision` and mode-choosing interleave). Cheap (a session), and its output is a table the bridge-protocol draft can cite as ground truth.
 
 ## What this resolves for the bridge-protocol draft (next item)
 
