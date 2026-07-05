@@ -1,6 +1,6 @@
 {
   "comment": "mtg.* vocabularies for the observation transform (observation-schema-v1). Grown data-driven; unknown entries are loud errors at transform time, never silent zeros.",
-  "zones": ["battlefield", "hand", "graveyard", "exile", "command", "stack"],
+  "zones": ["battlefield", "hand", "graveyard", "exile", "command", "stack", "library"],
   "phases": ["UNTAP", "UPKEEP", "DRAW", "MAIN1", "COMBAT_BEGIN", "COMBAT_DECLARE_ATTACKERS",
              "COMBAT_DECLARE_BLOCKERS", "COMBAT_FIRST_STRIKE_DAMAGE", "COMBAT_DAMAGE",
              "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"],

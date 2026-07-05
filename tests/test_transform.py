@@ -94,3 +94,27 @@ def test_globals_and_players_perspective():
     out1 = assemble(_dec([], p=1), _header())
     assert out1["globals"][2] == 0.0
     assert out1["players"][0][0] == 40.0
+
+
+def test_library_top_visibility():
+    """Schema v1 amendment (M1 D3): library-top rows carry explicit vis;
+    'c' stays controller-only, 'all' is public, missing vis = hidden."""
+    forge = [{"e": 20, "n": "Mystic Forge Top", "z": "library", "c": 1, "vis": "c"}]
+    courser = [{"e": 21, "n": "Courser Top", "z": "library", "c": 1, "vis": "all"}]
+    bare = [{"e": 22, "n": "Never Serialized Like This", "z": "library", "c": 1}]
+
+    assert assemble(_dec(forge, p=0), _header())["entity_names"] == [None]
+    assert assemble(_dec(forge, p=1), _header(), perspective=1)["entity_names"] == [
+        "Mystic Forge Top"]
+    assert assemble(_dec(courser, p=0), _header())["entity_names"] == ["Courser Top"]
+    assert not visible_to(bare[0], 0) and not visible_to(bare[0], 1)
+
+
+def test_library_top_leak_invariance():
+    """Opponent's controller-only library top must not leak identity."""
+    a = [{"e": 20, "n": "Bolas Citadel Pick A", "z": "library", "c": 1, "vis": "c"}]
+    b = [{"e": 20, "n": "Something Else Entirely", "z": "library", "c": 1, "vis": "c"}]
+    out_a = assemble(_dec(a, p=0), _header())
+    out_b = assemble(_dec(b, p=0), _header())
+    np.testing.assert_array_equal(out_a["entities"], out_b["entities"])
+    assert out_a["entity_names"] == out_b["entity_names"] == [None]

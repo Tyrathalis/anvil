@@ -15,7 +15,13 @@ Validator checks, per priority decision:
   4. opts        — when structured opts were logged, the chosen host id is one
                    of the option host ids (pass = null ret is always valid;
                    options are base SAs, so matching is at host-entity level —
-                   an optional-cost copy keeps its host).
+                   an optional-cost copy keeps its host). Options are
+                   TIMING-LEGAL CANDIDATES, not payable actions (M1 D3:
+                   payability needs target/X context the scan can't have —
+                   the set is a superset of the expert's castable actions by
+                   construction; affordability is learned, and the gate
+                   metric's single-legal-option exclusion is defined on this
+                   candidate basis).
   5. play match  — the next playChosenSpellAbility window for the same seat
                    names the same SA (string prefix match; the census arg is
                    truncated at 60 chars, the label at 120).

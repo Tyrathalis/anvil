@@ -95,6 +95,10 @@ def visible_to(ent: dict[str, Any], perspective: int) -> bool:
         return ent["c"] == perspective
     if ent["z"] == "hand":
         return ent["c"] == perspective
+    if ent["z"] == "library":
+        # Library rows exist only under engine look permission (schema v1
+        # amendment, M1 D3) and always carry vis; hidden if one ever doesn't.
+        return False
     return not ent.get("fd")
 
 
