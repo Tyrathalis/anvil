@@ -93,14 +93,21 @@ class TrajectoryStore:
             raise ValueError(f"index says game {g}, frame header says {header['g']}")
         return GameTrajectory(header, decisions, end, entry)
 
-    def games(self) -> Iterator[GameTrajectory]:
+    def games(self, skip_undecodable: bool = False) -> Iterator[GameTrajectory]:
+        """skip_undecodable: quarantine truncated/corrupt frames (a hard-capped
+        game killed mid-write) instead of raising — training readers want the
+        49,999 good games, not an exception on the one bad frame."""
         for g in self.game_indices():
-            yield self.game(g)
+            try:
+                yield self.game(g)
+            except Exception:
+                if not skip_undecodable:
+                    raise
 
     def iter_decisions(self, method: str | None = None,
                        by: str | None = None) -> Iterator[tuple[dict, dict]]:
         """Yield (game_header, dec_record) across the store, streaming."""
-        for traj in self.games():
+        for traj in self.games(skip_undecodable=True):
             for dec in traj.decisions:
                 if method is not None and dec["m"] != method:
                     continue

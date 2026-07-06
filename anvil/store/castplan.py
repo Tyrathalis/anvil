@@ -103,6 +103,10 @@ class ValidationReport:
     windows_with_opts: int = 0  # decs that logged structured options
     obs_null: int = 0           # dec had no observation (serializer error)
     errors: list[str] = dataclasses.field(default_factory=list)
+    # frames that fail to decode (e.g. a hard-capped game killed mid-write):
+    # quarantined — excluded from the corpus, reported loudly, but not label
+    # errors (an unreadable frame can't poison training; it can't be read)
+    undecodable: list[str] = dataclasses.field(default_factory=list)
 
     def error(self, game: int, seq: int, msg: str) -> None:
         self.errors.append(f"game {game} s={seq}: {msg}")
@@ -121,6 +125,10 @@ class ValidationReport:
         ]
         if self.obs_null:
             lines.append(f"WARNING: {self.obs_null} windows had obs:null")
+        if self.undecodable:
+            lines.append(f"QUARANTINED: {len(self.undecodable)} undecodable frame(s) "
+                         "excluded from the corpus:")
+            lines.extend("  " + u for u in self.undecodable[:10])
         lines.append("OK" if self.ok else f"{len(self.errors)} ERRORS")
         lines.extend("  " + e for e in self.errors[:50])
         if len(self.errors) > 50:
@@ -206,7 +214,12 @@ def validate_game(traj: GameTrajectory, report: ValidationReport) -> None:
 
 def validate(store: TrajectoryStore, limit: int | None = None) -> ValidationReport:
     report = ValidationReport()
-    for traj in store.games():
+    for g in store.game_indices():
+        try:
+            traj = store.game(g)
+        except Exception as e:  # truncated/corrupt frame: quarantine, keep going
+            report.undecodable.append(f"game {g}: {type(e).__name__}: {str(e)[:80]}")
+            continue
         validate_game(traj, report)
         report.games += 1
         if limit is not None and report.games >= limit:

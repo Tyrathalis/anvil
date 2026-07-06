@@ -126,3 +126,43 @@ def test_stale_ret_dropped():
     header, decisions, end = decode_frame(zstandard.ZstdCompressor().compress(raw))
     assert len(decisions) == 1
     assert decisions[0]["ret"] is not None
+
+
+def test_undecodable_frame_quarantined(tmp_path):
+    """A truncated frame (hard-capped game killed mid-write) is quarantined by
+    validate and by games(skip_undecodable=True), never silently swallowed."""
+    import json
+    import pytest
+    import zstandard
+
+    from anvil.store.castplan import validate
+    from anvil.store.trajectories import TrajectoryStore
+
+    cctx = zstandard.ZstdCompressor(level=3)
+    good = b'\n'.join(json.dumps(r).encode() for r in [
+        {"k": "game", "sv": 1, "g": 0, "seed": 1, "fmt": "Commander",
+         "players": [{"name": "A", "deck": "d1"}, {"name": "B", "deck": "d2"}]},
+        {"k": "end", "status": "won", "winner": 0, "turns": 9, "ms": 1},
+    ])
+    frame_good = cctx.compress(good)
+    frame_bad = frame_good[:len(frame_good) // 2]  # truncated mid-frame
+
+    blob = frame_good + frame_bad
+    (tmp_path / "obs-0000.zst").write_bytes(blob)
+    (tmp_path / "manifest.json").write_text(json.dumps({"run_id": "t", "games": 2}))
+    with open(tmp_path / "index.jsonl", "w") as f:
+        f.write(json.dumps({"g": 0, "file": "obs-0000.zst", "off": 0,
+                            "clen": len(frame_good), "rlen": len(good), "recs": 2}) + "\n")
+        f.write(json.dumps({"g": 1, "file": "obs-0000.zst", "off": len(frame_good),
+                            "clen": len(frame_bad), "rlen": 999, "recs": 2}) + "\n")
+
+    store = TrajectoryStore(tmp_path)
+    with pytest.raises(Exception):
+        list(store.games())  # strict by default
+    assert [t.game_index for t in store.games(skip_undecodable=True)] == [0]
+
+    report = validate(store)
+    assert report.games == 1
+    assert len(report.undecodable) == 1 and "game 1" in report.undecodable[0]
+    assert report.ok  # quarantine is loud but not a label error
+    assert "QUARANTINED" in report.summary()
