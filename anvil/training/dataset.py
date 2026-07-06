@@ -42,6 +42,8 @@ from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
 from anvil.store.trajectories import TrajectoryStore
 
 PRIORITY = "chooseSpellAbilityToPlay"
+T_MAX = 4       # target slots (100% coverage measured on the pilot; +1 STOP slot)
+X_CLASSES = 18  # X = 0..16 + overflow bucket (3 casts past 16 in a 106K sample)
 
 
 class MethodVocab:
@@ -107,16 +109,37 @@ class PriorityWindows(IterableDataset):
                     cand_rows.append(r)
 
             ret = dec.get("ret")
+            # target labels: (kind, idx) per slot; kind 0=entity row, 1=player,
+            # 2=STOP; -1 = pad/not-a-cast. X: -1 = no X on this cast.
+            tgt_kind = np.full(T_MAX + 1, -1, dtype=np.int64)
+            tgt_idx = np.full(T_MAX + 1, -1, dtype=np.int64)
+            x_val = -1
             if ret is None:
                 label = 0
             else:
-                host = ret[0].get("e") if isinstance(ret, list) and ret else None
+                plan = ret[0] if isinstance(ret, list) and ret else {}
+                host = plan.get("e")
                 r = row_of.get(host)
                 if r is None or r not in seen:
                     raise ValueError(
                         f"game {g} s={dec['s']}: chosen host {host} not among candidate "
                         "rows — ADR-0005 superset violated; run `anvil.store validate`")
                 label = cand_rows.index(r)
+                refs = list(plan.get("tgt") or [])
+                for sb in plan.get("sub") or []:
+                    refs.extend(sb.get("tgt") or [])
+                slot = 0
+                for ref in refs[:T_MAX]:
+                    if "e" in ref and ref["e"] in row_of:
+                        tgt_kind[slot], tgt_idx[slot] = 0, row_of[ref["e"]]
+                        slot += 1
+                    elif "pi" in ref:
+                        tgt_kind[slot], tgt_idx[slot] = 1, ref["pi"]
+                        slot += 1
+                    # "str" refs (non-card/player/SA oddities) are unpointable; skipped
+                tgt_kind[slot], tgt_idx[slot] = 2, 0  # STOP
+                if plan.get("x") is not None:
+                    x_val = min(int(plan["x"]), X_CLASSES - 1)
 
             hist = np.full((self.history_k, 3), -1, dtype=np.int64)
             for i, h in enumerate(out["history"][-self.history_k:]):
@@ -131,6 +154,9 @@ class PriorityWindows(IterableDataset):
                 "history": torch.from_numpy(hist),
                 "cand_rows": torch.tensor(cand_rows, dtype=torch.int64),
                 "label": torch.tensor(label, dtype=torch.int64),
+                "tgt_kind": torch.from_numpy(tgt_kind),
+                "tgt_idx": torch.from_numpy(tgt_idx),
+                "x_val": torch.tensor(x_val, dtype=torch.int64),
                 "has_outcome": torch.tensor(has_outcome, dtype=torch.int64),
                 "won": torch.tensor(1 if winner == p else 0, dtype=torch.int64),
             }
@@ -169,9 +195,20 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         "players": torch.stack([x["players"] for x in batch]),
         "history": torch.stack([x["history"] for x in batch]),
         "label": torch.stack([x["label"] for x in batch]),
+        "x_val": torch.stack([x["x_val"] for x in batch]),
         "has_outcome": torch.stack([x["has_outcome"] for x in batch]),
         "won": torch.stack([x["won"] for x in batch]),
     }
+    # target labels -> class ids over the padded batch: [0,n) entity rows,
+    # [n, n+p) players, n+p = STOP; -1 stays "no slot" (loss ignore_index)
+    p = batch[0]["players"].shape[0]
+    kinds = torch.stack([x["tgt_kind"] for x in batch])
+    idxs = torch.stack([x["tgt_idx"] for x in batch])
+    tgt = torch.full_like(kinds, -1)
+    tgt = torch.where(kinds == 0, idxs, tgt)
+    tgt = torch.where(kinds == 1, n + idxs, tgt)
+    tgt = torch.where(kinds == 2, torch.full_like(tgt, n + p), tgt)
+    out["tgt_labels"] = tgt
     for i, x in enumerate(batch):
         ni, ci = x["entities"].shape[0], x["cand_rows"].shape[0]
         out["entities"][i, :ni] = x["entities"]
