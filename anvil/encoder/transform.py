@@ -30,7 +30,7 @@ from typing import Any
 
 import numpy as np
 
-TRANSFORM_VERSION = 0
+TRANSFORM_VERSION = 1  # v1 (D4): entity_row_of id->row map + action-history tokens
 
 _VOCAB_PATH = Path(__file__).parent / "vocab_mtg.json"
 
@@ -115,8 +115,33 @@ def _dedup_key(ent: dict[str, Any], name: str | None) -> str:
     return json.dumps(keyed, sort_keys=True)
 
 
+HISTORY_K = 8  # last K action records as history tokens (m1-bc-plan D4 default)
+
+
+def history_tokens(prior_decs: list[dict[str, Any]], perspective: int,
+                   k: int = HISTORY_K) -> list[dict[str, Any]]:
+    """Last k prior decisions -> compact history entries (method, actor-is-self,
+    chosen host entity id or -1). Information set: the perspective's own chosen
+    hosts are always safe; an opponent's host is kept only for priority casts
+    (a cast is a public event — the spell visibly hit the stack). Other
+    opponent answers (searches, scries, face-down picks) may be hidden, so
+    they contribute method + actor only."""
+    out = []
+    for d in prior_decs[-k:]:
+        actor = d.get("p", -1)
+        host = -1
+        if actor == perspective or d.get("m") == "chooseSpellAbilityToPlay":
+            ret = d.get("ret")
+            if isinstance(ret, list) and ret and isinstance(ret[0], dict):
+                host = ret[0].get("e", -1)
+        out.append({"m": d.get("m", "?"), "self": 1 if actor == perspective else 0,
+                    "e": host})
+    return out
+
+
 def assemble(dec: dict[str, Any], header: dict[str, Any],
-             perspective: int | None = None, vocab: Vocab | None = None) -> dict[str, Any]:
+             perspective: int | None = None, vocab: Vocab | None = None,
+             history: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """One decision record -> arrays. perspective defaults to the deciding player."""
     v = vocab or _vocab()
     obs = dec.get("obs")
@@ -135,10 +160,12 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
     # hidden information (e.g. opponent draw order), and the leak test enforces
     # invariance to it. Order is non-semantic by schema; sets are what §2 wants.
     groups: dict[str, list] = {}
+    ids_of_key: dict[str, list[int]] = {}
     for ent in obs.get("ents", []):
         vis = visible_to(ent, perspective)
         name = ent["n"] if vis else None
         key = _dedup_key(ent, name)
+        ids_of_key.setdefault(key, []).append(ent["e"])
         if key in groups:
             groups[key][2] += 1
             continue
@@ -167,12 +194,15 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
     names: list[str | None] = []
     rows: list[list[float]] = []
     counts: list[int] = []
-    for key in sorted(groups):
+    entity_row_of: dict[int, int] = {}  # entity id -> dedup-group row (pointer targets)
+    for row_idx, key in enumerate(sorted(groups)):
         name, feats, count = groups[key]
         feats[ENTITY_FEATURES.index("count")] = float(count)
         names.append(name)
         rows.append(feats)
         counts.append(count)
+        for eid in ids_of_key[key]:
+            entity_row_of[eid] = row_idx
 
     entities = (np.array(rows, dtype=np.float32) if rows
                 else np.zeros((0, len(ENTITY_FEATURES)), dtype=np.float32))
@@ -211,6 +241,8 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
         "entities": entities,          # (N, len(ENTITY_FEATURES)) float32
         "entity_names": names,         # len N; None = hidden from perspective
         "entity_counts": np.array(counts, dtype=np.int32),
+        "entity_row_of": entity_row_of,  # entity id -> row; pointer-head targets
         "globals": globals_vec,
         "players": players,            # (n_players, len(PLAYER_FEATURES)), self first
+        "history": history or [],      # history_tokens() output, oldest first
     }

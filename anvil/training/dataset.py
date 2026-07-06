@@ -1,0 +1,182 @@
+"""Priority-window dataset over a TrajectoryStore (M1 D4/D5).
+
+Streams games (IterableDataset — random access would decode a whole zstd
+frame per sample), yields one example per priority window:
+
+  entities   (N, F) float32   dedup-group rows from the transform
+  ent_emb    (N,)   int64     row into the embedding cache (-1 = hidden/token)
+  globals    (G,)   float32
+  players    (P, Q) float32
+  history    (K, 3) int64     (method-id, actor-is-self, host-row or -1)
+  cand_rows  (C,)   int64     candidate source rows; index 0 is always PASS (-1)
+  label      ()     int64     index into cand_rows the expert chose
+  has_outcome / won ()        value-head target (games without outcomes carry
+                              has_outcome=0 and are excluded from value loss)
+
+Design notes:
+- All windows kept, pass included as candidate 0 (m1-bc-plan: imbalance is a
+  training-time knob — weighting/downsampling lives in the sampler, not here).
+- Candidates are the logged timing-legal option HOST ROWS (ADR-0005 basis),
+  deduped: options whose hosts collapse into one dedup group become one
+  candidate (choosing "a Rat Colony" — §2 multiset semantics).
+- entity_row_of is loader plumbing (label/candidate resolution); it is never
+  a model input, so entity ids stay out of the information set.
+- Windows whose chosen host resolves to no candidate row are IMPOSSIBLE by
+  ADR-0005 construction; the loader raises rather than skipping (a silent
+  skip here would hide exactly the corpus-poisoning class the validator
+  exists to catch).
+"""
+
+from __future__ import annotations
+
+import json
+import random
+from pathlib import Path
+from typing import Any, Iterator
+
+import numpy as np
+import torch
+from torch.utils.data import IterableDataset, get_worker_info
+
+from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
+from anvil.store.trajectories import TrajectoryStore
+
+PRIORITY = "chooseSpellAbilityToPlay"
+
+
+class MethodVocab:
+    """Callback-method ids for history tokens; grown from data, stable order."""
+
+    def __init__(self, methods: list[str]):
+        self.by_name = {m: i for i, m in enumerate(methods)}
+
+    def id(self, m: str) -> int:
+        return self.by_name.get(m, len(self.by_name))  # unseen -> one OOV id
+
+
+class EmbeddingCache:
+    """fp16 card vectors + name->row lookup from anvil.encoder embed output."""
+
+    def __init__(self, stem: Path):
+        from safetensors.torch import load_file
+        meta = json.loads(Path(f"{stem}.json").read_text())
+        self.vectors = load_file(f"{stem}.safetensors")["embeddings"]
+        self.row_of = {n: i for i, n in enumerate(meta["names"])}
+        self.meta = meta
+
+    def row(self, name: str | None) -> int:
+        if name is None:
+            return -1
+        return self.row_of.get(name, -1)  # tokens/emblems etc. -> -1 (no text)
+
+
+class PriorityWindows(IterableDataset):
+    def __init__(self, store_dir: str | Path, embedding_stem: str | Path,
+                 methods: list[str], shuffle_games: bool = True, seed: int = 0,
+                 history_k: int = HISTORY_K):
+        super().__init__()
+        self.store_dir = Path(store_dir)
+        self.embed = EmbeddingCache(Path(embedding_stem))
+        self.methods = MethodVocab(methods)
+        self.shuffle_games = shuffle_games
+        self.seed = seed
+        self.history_k = history_k
+
+    def _examples(self, store: TrajectoryStore, g: int) -> Iterator[dict[str, Any]]:
+        traj = store.game(g)
+        end = traj.end or {}
+        has_outcome = 1 if (end.get("status") == "won") else 0
+        winner = end.get("winner", -1)
+        prior: list[dict] = []
+        for dec in traj.decisions:
+            if dec.get("m") != PRIORITY or dec.get("obs") is None:
+                prior.append(dec)
+                continue
+            p = dec["p"]
+            out = assemble(dec, traj.header, perspective=p,
+                           history=history_tokens(prior, p, self.history_k))
+            row_of = out["entity_row_of"]
+
+            # candidates: PASS first, then deduped option host rows
+            cand_rows = [-1]
+            seen = set()
+            for o in dec.get("opts") or []:
+                r = row_of.get(o.get("e"))
+                if r is not None and r not in seen:
+                    seen.add(r)
+                    cand_rows.append(r)
+
+            ret = dec.get("ret")
+            if ret is None:
+                label = 0
+            else:
+                host = ret[0].get("e") if isinstance(ret, list) and ret else None
+                r = row_of.get(host)
+                if r is None or r not in seen:
+                    raise ValueError(
+                        f"game {g} s={dec['s']}: chosen host {host} not among candidate "
+                        "rows — ADR-0005 superset violated; run `anvil.store validate`")
+                label = cand_rows.index(r)
+
+            hist = np.full((self.history_k, 3), -1, dtype=np.int64)
+            for i, h in enumerate(out["history"][-self.history_k:]):
+                hist[i] = (self.methods.id(h["m"]), h["self"], row_of.get(h["e"], -1))
+
+            yield {
+                "entities": torch.from_numpy(out["entities"]),
+                "ent_emb": torch.tensor([self.embed.row(n) for n in out["entity_names"]],
+                                        dtype=torch.int64),
+                "globals": torch.from_numpy(out["globals"]),
+                "players": torch.from_numpy(out["players"]),
+                "history": torch.from_numpy(hist),
+                "cand_rows": torch.tensor(cand_rows, dtype=torch.int64),
+                "label": torch.tensor(label, dtype=torch.int64),
+                "has_outcome": torch.tensor(has_outcome, dtype=torch.int64),
+                "won": torch.tensor(1 if winner == p else 0, dtype=torch.int64),
+            }
+            prior.append(dec)
+
+    def __iter__(self) -> Iterator[dict[str, Any]]:
+        store = TrajectoryStore(self.store_dir)  # per-worker handle
+        games = store.game_indices()
+        info = get_worker_info()
+        if info is not None:
+            games = games[info.id::info.num_workers]
+        if self.shuffle_games:
+            random.Random(self.seed + (info.id if info else 0)).shuffle(games)
+        for g in games:
+            try:
+                yield from self._examples(store, g)
+            except Exception as e:
+                if "did not decompress" in str(e):
+                    continue  # quarantined frame (store policy)
+                raise
+
+
+def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
+    """Pad entities/candidates to batch max; boolean masks carry validity."""
+    b = len(batch)
+    n = max(x["entities"].shape[0] for x in batch)
+    c = max(x["cand_rows"].shape[0] for x in batch)
+    f = batch[0]["entities"].shape[1]
+    out = {
+        "entities": torch.zeros(b, n, f),
+        "ent_emb": torch.full((b, n), -1, dtype=torch.int64),
+        "ent_mask": torch.zeros(b, n, dtype=torch.bool),
+        "cand_rows": torch.full((b, c), -1, dtype=torch.int64),
+        "cand_mask": torch.zeros(b, c, dtype=torch.bool),
+        "globals": torch.stack([x["globals"] for x in batch]),
+        "players": torch.stack([x["players"] for x in batch]),
+        "history": torch.stack([x["history"] for x in batch]),
+        "label": torch.stack([x["label"] for x in batch]),
+        "has_outcome": torch.stack([x["has_outcome"] for x in batch]),
+        "won": torch.stack([x["won"] for x in batch]),
+    }
+    for i, x in enumerate(batch):
+        ni, ci = x["entities"].shape[0], x["cand_rows"].shape[0]
+        out["entities"][i, :ni] = x["entities"]
+        out["ent_emb"][i, :ni] = x["ent_emb"]
+        out["ent_mask"][i, :ni] = True
+        out["cand_rows"][i, :ci] = x["cand_rows"]
+        out["cand_mask"][i, :ci] = True
+    return out

@@ -9,6 +9,9 @@ dependencies = [
     "grpcio-tools>=1.81.1",
     "numpy>=2.4.6",
     "protobuf>=6.33.6",
+    "safetensors>=0.8.0",
+    "sentence-transformers>=5.6.0",
+    "torch>=2.12.1",
     "zstandard>=0.25.0",
 ]
 
