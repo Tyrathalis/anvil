@@ -72,17 +72,39 @@ class EmbeddingCache:
         return self.row_of.get(name, -1)  # tokens/emblems etc. -> -1 (no text)
 
 
+def default_methods() -> list[str]:
+    return json.loads((Path(__file__).parent / "methods_v1.json").read_text())["methods"]
+
+
+def _split_of(g: int, games_per_pair: int = 5) -> str:
+    """Deterministic per-game split: ~2% val (random-by-game headline),
+    ~2% of PAIRS as valpair (held-out-matchup generalization probe; all
+    games of a held pair leave train together). Pure function of the game
+    index — no split manifest to lose."""
+    pair = g // games_per_pair
+    if (pair * 2654435761) % 50 == 1:
+        return "valpair"
+    if (g * 2654435761) % 50 == 0:
+        return "val"
+    return "train"
+
+
 class PriorityWindows(IterableDataset):
     def __init__(self, store_dir: str | Path, embedding_stem: str | Path,
-                 methods: list[str], shuffle_games: bool = True, seed: int = 0,
-                 history_k: int = HISTORY_K):
+                 methods: list[str] | None = None, shuffle_games: bool = True,
+                 seed: int = 0, history_k: int = HISTORY_K,
+                 split: str | None = None, games_per_pair: int = 5,
+                 max_games: int | None = None):
         super().__init__()
         self.store_dir = Path(store_dir)
         self.embed = EmbeddingCache(Path(embedding_stem))
-        self.methods = MethodVocab(methods)
+        self.methods = MethodVocab(methods or default_methods())
         self.shuffle_games = shuffle_games
         self.seed = seed
         self.history_k = history_k
+        self.split = split
+        self.games_per_pair = games_per_pair
+        self.max_games = max_games
 
     def _examples(self, store: TrajectoryStore, g: int) -> Iterator[dict[str, Any]]:
         traj = store.game(g)
@@ -165,6 +187,10 @@ class PriorityWindows(IterableDataset):
     def __iter__(self) -> Iterator[dict[str, Any]]:
         store = TrajectoryStore(self.store_dir)  # per-worker handle
         games = store.game_indices()
+        if self.split is not None:
+            games = [g for g in games if _split_of(g, self.games_per_pair) == self.split]
+        if self.max_games is not None:
+            games = games[:self.max_games]
         info = get_worker_info()
         if info is not None:
             games = games[info.id::info.num_workers]
