@@ -96,3 +96,58 @@ def pool_texts(manifest: dict) -> dict[str, str]:
         raise RuntimeError(f"{len(missing)} pool cards have no cardsfolder script "
                            f"(pool/fork mismatch?): {missing[:5]}")
     return out
+
+
+# ---- structured card features (§1: pips, types, P/T — static per card) ----
+
+FEATURE_TYPES = ["Land", "Creature", "Artifact", "Enchantment", "Instant",
+                 "Sorcery", "Planeswalker", "Battle", "Legendary", "Snow"]
+CARD_FEATURES = (["pip_w", "pip_u", "pip_b", "pip_r", "pip_g", "pip_c",
+                  "generic", "has_x", "cmc"]
+                 + [f"type_{t.lower()}" for t in FEATURE_TYPES]
+                 + ["power", "toughness", "has_pt", "loyalty", "has_loyalty", "n_faces"])
+
+
+def face_features(faces: list[dict]) -> list[float]:
+    """First-face cost/types/PT (the castable identity), n_faces for the rest;
+    the text embedding carries full multi-face semantics."""
+    f = faces[0]
+    pips = {c: 0.0 for c in "WUBRGC"}
+    generic = 0.0
+    has_x = 0.0
+    for tok in (f.get("cost") or "").split():
+        if tok == "no" or tok == "cost":
+            continue
+        if tok.isdigit():
+            generic += int(tok)
+        elif tok == "X":
+            has_x = 1.0
+        else:
+            for ch in tok:
+                if ch in pips:
+                    pips[ch] += 1.0
+    cmc = generic + sum(pips.values())
+    types = f.get("types", "")
+    pt = (f.get("pt") or "").split("/")
+    power, tough, has_pt = 0.0, 0.0, 0.0
+    if len(pt) == 2:
+        has_pt = 1.0
+        power = float(pt[0]) if pt[0].lstrip("+-").isdigit() else 0.0
+        tough = float(pt[1]) if pt[1].lstrip("+-").isdigit() else 0.0
+    loyalty = f.get("loyalty", "")
+    return ([pips[c] for c in "WUBRGC"] + [generic, has_x, cmc]
+            + [1.0 if t in types else 0.0 for t in FEATURE_TYPES]
+            + [power, tough, has_pt,
+               float(loyalty) if loyalty.isdigit() else 0.0,
+               1.0 if loyalty else 0.0, float(len(faces))])
+
+
+def pool_features(manifest: dict, names: list[str]):
+    """Feature matrix aligned to the embedding-cache name order."""
+    import numpy as np
+    files = _scan_files()
+    rows = []
+    for name in names:
+        with open(files[normalize(name)], encoding="utf-8", errors="replace") as f:
+            rows.append(face_features(parse_faces(f.read())))
+    return np.asarray(rows, dtype="float32")
