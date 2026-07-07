@@ -29,7 +29,7 @@ import numpy as np
 import torch
 
 from anvil.encoder.transform import GLOBAL_FEATURES, GLOBAL_SCALE
-from anvil.store.trajectories import TrajectoryStore
+from anvil.store.trajectories import open_store
 from anvil.training.dataset import (PriorityWindows, _split_of, collate,
                                     default_methods)
 from anvil.training.train import build_net
@@ -63,7 +63,7 @@ def auc(scores: np.ndarray, labels: np.ndarray) -> float:
 
 
 @torch.no_grad()
-def collect(net, ds: PriorityWindows, store: TrajectoryStore, games: list[int],
+def collect(net, ds: PriorityWindows, store, games: list[int],
             device: str, batch: int) -> dict[str, np.ndarray]:
     """Forward every window of every outcome-bearing game; keep per-window
     (prob, won, turn, turns_from_end)."""
@@ -162,7 +162,7 @@ def main() -> None:
 
     ds = PriorityWindows(cfg["store"], cfg["embed"], methods,
                          split=a.split, shuffle_games=False)
-    store = TrajectoryStore(cfg["store"])
+    store = open_store(cfg["store"])
     games = [g for g in store.game_indices() if _split_of(g) == a.split]
     if a.max_games:
         games = games[:a.max_games]

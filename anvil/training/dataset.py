@@ -39,7 +39,7 @@ import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
 from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
-from anvil.store.trajectories import TrajectoryStore
+from anvil.store.trajectories import open_store
 
 PRIORITY = "chooseSpellAbilityToPlay"
 T_MAX = 4       # target slots (100% coverage measured on the pilot; +1 STOP slot)
@@ -90,13 +90,13 @@ def _split_of(g: int, games_per_pair: int = 5) -> str:
 
 
 class PriorityWindows(IterableDataset):
-    def __init__(self, store_dir: str | Path, embedding_stem: str | Path,
+    def __init__(self, store_dir: str | Path | list, embedding_stem: str | Path,
                  methods: list[str] | None = None, shuffle_games: bool = True,
                  seed: int = 0, history_k: int = HISTORY_K,
                  split: str | None = None, games_per_pair: int = 5,
                  max_games: int | None = None):
         super().__init__()
-        self.store_dir = Path(store_dir)
+        self.store_dir = store_dir  # raw spec: dir, comma-list, or list (open_store parses)
         self.embed = EmbeddingCache(Path(embedding_stem))
         self.methods = MethodVocab(methods or default_methods())
         self.shuffle_games = shuffle_games
@@ -106,7 +106,7 @@ class PriorityWindows(IterableDataset):
         self.games_per_pair = games_per_pair
         self.max_games = max_games
 
-    def _examples(self, store: TrajectoryStore, g: int) -> Iterator[dict[str, Any]]:
+    def _examples(self, store, g: int) -> Iterator[dict[str, Any]]:
         traj = store.game(g)
         end = traj.end or {}
         has_outcome = 1 if (end.get("status") == "won") else 0
@@ -185,7 +185,7 @@ class PriorityWindows(IterableDataset):
             prior.append(dec)
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
-        store = TrajectoryStore(self.store_dir)  # per-worker handle
+        store = open_store(self.store_dir)  # per-worker handle
         games = store.game_indices()
         if self.split is not None:
             games = [g for g in games if _split_of(g, self.games_per_pair) == self.split]

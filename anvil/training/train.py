@@ -95,7 +95,9 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--store", default="data/trajectories/d3pilot-20260704-175219")
+    ap.add_argument("--store", default="data/trajectories/d3pilot-20260704-175219",
+                    help="store dir, or comma-separated dirs with disjoint game "
+                         "indices (pilot + extension read as one corpus)")
     ap.add_argument("--embed", default="data/embeddings/cf2ca6ba-qwen3")
     ap.add_argument("--pool-manifest", default="data/pool/pool-cf2ca6ba.json")
     ap.add_argument("--out", default=None)

@@ -166,3 +166,31 @@ def test_undecodable_frame_quarantined(tmp_path):
     assert len(report.undecodable) == 1 and "game 1" in report.undecodable[0]
     assert report.ok  # quarantine is loud but not a label error
     assert "QUARANTINED" in report.summary()
+
+
+def test_multistore_disjoint_union(tmp_path):
+    """Pilot + extension shape: disjoint index ranges read as one corpus."""
+    from anvil.store.trajectories import MultiStore, open_store
+    ra = _make_run(tmp_path / "a", [[_frame_records(0, 11), _frame_records(1, 22)]])
+    rb = _make_run(tmp_path / "b", [[_frame_records(2, 33), _frame_records(3, 44)]])
+    sa = ingest(ra, dest=tmp_path / "store-a")
+    sb = ingest(rb, dest=tmp_path / "store-b")
+    ms = MultiStore([sa, sb])
+    assert ms.game_indices() == [0, 1, 2, 3]
+    assert len(ms) == 4
+    assert ms.game(1).header["seed"] == 22   # routed to store a
+    assert ms.game(3).header["seed"] == 44   # routed to store b
+    assert [t.game_index for t in ms.games()] == [0, 1, 2, 3]
+    # open_store: comma string -> MultiStore; single -> TrajectoryStore
+    assert open_store(f"{sa},{sb}").game_indices() == [0, 1, 2, 3]
+    assert isinstance(open_store(str(sa)), TrajectoryStore)
+
+
+def test_multistore_rejects_index_collision(tmp_path):
+    from anvil.store.trajectories import MultiStore
+    ra = _make_run(tmp_path / "a", [[_frame_records(0, 11)]])
+    rb = _make_run(tmp_path / "b", [[_frame_records(0, 99)]])
+    sa = ingest(ra, dest=tmp_path / "store-a")
+    sb = ingest(rb, dest=tmp_path / "store-b")
+    with pytest.raises(ValueError, match="present in both"):
+        MultiStore([sa, sb])

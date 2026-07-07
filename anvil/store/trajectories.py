@@ -116,6 +116,51 @@ class TrajectoryStore:
                 yield traj.header, dec
 
 
+class MultiStore:
+    """Several stores read as one corpus. Game indices must be disjoint —
+    the intended shape is runs that extend one seed stream (harness
+    --start-index: the D3 pilot holds games [0, 50K), the D6 extension
+    [50K, ...)), so a global game index keeps meaning "one deterministic
+    game" and split functions of it stay consistent across stores."""
+
+    def __init__(self, roots):
+        self.stores = [TrajectoryStore(r) for r in roots]
+        self._store_of: dict[int, TrajectoryStore] = {}
+        for s in self.stores:
+            for g in s.game_indices():
+                if g in self._store_of:
+                    raise ValueError(
+                        f"game {g} present in both {self._store_of[g].root} and "
+                        f"{s.root} — extension runs must use disjoint index ranges")
+                self._store_of[g] = s
+
+    def __len__(self) -> int:
+        return len(self._store_of)
+
+    def game_indices(self) -> list[int]:
+        return sorted(self._store_of)
+
+    def game(self, g: int) -> GameTrajectory:
+        return self._store_of[g].game(g)
+
+    def games(self, skip_undecodable: bool = False) -> Iterator[GameTrajectory]:
+        for g in self.game_indices():
+            try:
+                yield self.game(g)
+            except Exception:
+                if not skip_undecodable:
+                    raise
+
+
+def open_store(spec) -> TrajectoryStore | MultiStore:
+    """One store dir, a comma-separated string of dirs, or a list of dirs."""
+    if isinstance(spec, str) and "," in spec:
+        spec = spec.split(",")
+    if isinstance(spec, (list, tuple)):
+        return MultiStore(spec) if len(spec) > 1 else TrajectoryStore(spec[0])
+    return TrajectoryStore(spec)
+
+
 def ingest(run_dir: Path | str, dest: Path | str | None = None,
            pool_version: str | None = None, verify: bool = False) -> Path:
     """Consolidate a harness run's worker observation files into the store."""
