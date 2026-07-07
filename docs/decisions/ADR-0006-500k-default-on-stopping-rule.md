@@ -32,12 +32,14 @@ framing:
   the ~1-in-50K corrupt-frame class measured in the pilot), nights/nice-19,
   standard chunk discipline, fork commit frozen across all chunks.
 - **Pre-registered stopping rule** (written before the curves, so the decision
-  isn't made on vibes at 300K): at each learning-curve checkpoint — matched
-  full-epoch-equivalent compute per arm, evaluated on the 600-batch final eval
-  (nonpass SE ~0.33%) — **if doubling the corpus improves val nonpass
-  agreement by less than 2× its standard error AND the rare-label heads
-  (X, optional-cost) have also stopped improving, generation stops** and the
-  corpus is whatever it is.
+  isn't made on vibes at 300K): at each learning-curve checkpoint — **matched
+  compute = fixed step count (113K steps, one 50K-corpus epoch) per arm
+  regardless of corpus size** (smaller arms repeat epochs; this folds the
+  epochs-vs-fresh-data question into the same runs), evaluated on the
+  600-batch final eval (nonpass SE ~0.33%) — **if doubling the corpus improves
+  val nonpass agreement by less than 2× its standard error AND the rare-label
+  heads (X, optional-cost) have also stopped improving, generation stops** and
+  the corpus is whatever it is.
 - **Value BCE is excluded from the stopping rule.** Measured: not data-limited.
   Value-head quality is pursued on the M2 path instead (rollout-labeled
   targets — first workload for the fixed fork API), not by corpus size.
@@ -53,3 +55,15 @@ framing:
   an empirical exit, not a target.
 - Fork hardening is the only gate in front of launch; it stays small and
   fork-side (no Anvil-side dependencies).
+- **Pair-space saturation tempers expectations:** the pool is 113 decks
+  (~12.6K ordered pairs) and the 50K pilot already touches most of them —
+  marginal games buy within-matchup draw/personality diversity, not new
+  matchups, and matchups are measurably lopsided (21.4% of pairs 5–0). The
+  first doubling (100K) is the informative checkpoint; an early stop is a
+  plausible outcome, not a failure. If the rule fires early, the corpus-growth
+  levers shift to **pool expansion or new decklists within the existing pool**
+  — noted, not near-term.
+- Generation (16 CPU workers, nice 19) and training runs will share CPU;
+  run4 needed only 8 loader workers, so coexistence should be fine — if
+  training throughput visibly drops, pause generation during GPU runs (the
+  chunk mechanism makes this free) rather than debugging contention.
