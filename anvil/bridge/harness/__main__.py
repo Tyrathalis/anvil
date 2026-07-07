@@ -17,6 +17,9 @@ def main() -> None:
     la.add_argument("--games-per-pair", type=int, default=5,
                     help="games per scheduled pair (pool mode; default 5)")
     la.add_argument("--games", type=int, required=True)
+    la.add_argument("--start-index", type=int, default=0,
+                    help="first game index (extend a prior run's seed stream: same "
+                         "--seed-base + disjoint range = one deterministic corpus)")
     la.add_argument("--format", default="Commander")
     la.add_argument("--workers", type=int, default=16)
     la.add_argument("--colocated", action="store_true")

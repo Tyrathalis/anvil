@@ -95,10 +95,11 @@ class Run:
         """Contiguous (start, count) spans still to play, chunk-aligned."""
         done = set(self.completed()) | self.skipped()
         chunk = self.manifest["chunk"]
-        total = self.manifest["games"]
+        start = self.manifest.get("start_index", 0)
+        end = start + self.manifest["games"]
         spans = []
-        for cstart in range(0, total, chunk):
-            cend = min(cstart + chunk, total)
+        for cstart in range(start, end, chunk):
+            cend = min(cstart + chunk, end)
             todo = [i for i in range(cstart, cend) if i not in done]
             i = 0
             while i < len(todo):  # split into contiguous spans
@@ -229,7 +230,10 @@ def launch(a) -> Path:
         from anvil.bridge.harness.pairs import (latest_pool_manifest, pair_schedule,
                                                 write_pairs_file)
         pool = latest_pool_manifest()
-        n_pairs = -(-a.games // a.games_per_pair)  # ceil
+        # schedule covers [0, start+games) so a start-index run's pair mapping
+        # (index // gpp) is identical to the run it extends — pair_schedule is
+        # prefix-stable in n_pairs, so the shared prefix matches by construction
+        n_pairs = -(-(a.start_index + a.games) // a.games_per_pair)  # ceil
         pairs = pair_schedule([d["file"] for d in pool["decks"]], n_pairs, a.seed_base)
         write_pairs_file(run_dir / "pairs.txt", pairs)
         pool_fields = {
@@ -252,6 +256,7 @@ def launch(a) -> Path:
         "protocol_version": PROTOCOL_VERSION,
         "decks": a.decks, "format": a.format, **pool_fields,
         "seed_base": a.seed_base, "games": a.games, "chunk": a.chunk,
+        "start_index": a.start_index,
         "workers": 12 if a.colocated else a.workers,
         "heap": "2g", "jvm_opts": ["-XX:ActiveProcessorCount=2"],
         "bridge": a.bridge, "tags": a.tags, "nice": not a.calibrated,
