@@ -90,10 +90,10 @@ def test_unknown_vocab_is_loud():
 def test_globals_and_players_perspective():
     out0 = assemble(_dec([]), _header())
     assert out0["globals"][2] == 1.0          # active player is self
-    assert out0["players"][0][0] == 38.0      # self first
+    assert out0["players"][0][0] == pytest.approx(38.0 / 40)  # self first, v2 scale
     out1 = assemble(_dec([], p=1), _header())
     assert out1["globals"][2] == 0.0
-    assert out1["players"][0][0] == 40.0
+    assert out1["players"][0][0] == pytest.approx(40.0 / 40)
 
 
 def test_library_top_visibility():

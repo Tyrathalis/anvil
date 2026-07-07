@@ -30,7 +30,7 @@ from typing import Any
 
 import numpy as np
 
-TRANSFORM_VERSION = 1  # v1 (D4): entity_row_of id->row map + action-history tokens
+TRANSFORM_VERSION = 2  # v2 (D5): global/player scalars scaled to O(1)
 
 _VOCAB_PATH = Path(__file__).parent / "vocab_mtg.json"
 
@@ -46,6 +46,14 @@ GLOBAL_FEATURES = [
 ]
 # per player, self first then opponents in seat order
 PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_total", "lost"]
+
+# v2: scalar features enter the state projection at O(1). Raw magnitudes
+# (library ~90, turn ~20+) dominate the linear mix and drown the small
+# decisive signals (life differences) — measured on pilot-run1 as the
+# at-chance value head (value_diag_val: AUC 0.53 flat by turns-from-end,
+# pred std ~0.015). Binary flags stay 1.
+GLOBAL_SCALE = np.array([1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3], dtype=np.float32)
+PLAYER_SCALE = np.array([1 / 40, 1 / 8, 1 / 100, 1 / 4, 1 / 10, 1], dtype=np.float32)
 
 
 class VocabError(KeyError):
@@ -217,7 +225,7 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
         1.0 if glob.get("day") == "day" else 0.0,
         1.0 if glob.get("day") == "night" else 0.0,
         float(len(obs.get("stack", []))),
-    ], dtype=np.float32)
+    ], dtype=np.float32) * GLOBAL_SCALE
 
     # --- players, self first then seat order ---
     seats = [perspective] + [i for i in range(n_players) if i != perspective]
@@ -232,7 +240,7 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
             float(sum((p.get("mana") or {}).values())),
             float(p.get("lost", 0)),
         ])
-    players = np.array(prows, dtype=np.float32)
+    players = np.array(prows, dtype=np.float32) * PLAYER_SCALE
 
     return {
         "transform_version": TRANSFORM_VERSION,

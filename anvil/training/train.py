@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 from anvil.encoder.cards import CardEncoder
 from anvil.encoder.cardtext import pool_features
 from anvil.encoder.transform import (ENTITY_FEATURES, GLOBAL_FEATURES, HISTORY_K,
-                                     PLAYER_FEATURES)
+                                     PLAYER_FEATURES, TRANSFORM_VERSION)
 from anvil.policy.model import AnvilNet
 from anvil.training.dataset import PriorityWindows, collate, default_methods
 
@@ -77,6 +77,9 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
                 out["value_logit"][vm], batch["won"][vm].float(), reduction="sum").item()
             vn += vm.sum().item()
     net.train()
+    # per-metric ns alongside every rate: the D5 matrix compares runs, and a
+    # rate without its sample size hides the noise floor (nonpass at n~1.4K
+    # has SE ~1.2% — arms closer than that are indistinguishable)
     return {
         "agree_honest": agree / max(n_honest, 1),   # THE number (forced excluded)
         "agree_raw": raw / max(n_raw, 1),
@@ -85,6 +88,8 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
         "acc_x": x_ok / max(x_n, 1),
         "value_bce": vsum / max(vn, 1),
         "eval_windows": n_raw,
+        "n_honest": n_honest, "n_nonpass": n_np, "n_target": tgt_n,
+        "n_x": x_n, "n_value": int(vn),
     }
 
 
@@ -105,6 +110,10 @@ def main() -> None:
     ap.add_argument("--max-games", type=int, default=None, help="train-subset cap (learning curves)")
     ap.add_argument("--eval-every", type=int, default=1000)
     ap.add_argument("--eval-batches", type=int, default=60)
+    # mid-run evals stay cheap (trajectory shape); the final eval is the number
+    # runs get compared on. 600 batches ~ 154K windows -> nonpass SE ~0.33%,
+    # X-head n in the hundreds; resolves ~1% arm differences in the D5 matrix
+    ap.add_argument("--final-eval-batches", type=int, default=600)
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
 
@@ -126,8 +135,8 @@ def main() -> None:
     train = DataLoader(train_ds, batch_size=a.batch, collate_fn=collate,
                        num_workers=a.workers, persistent_workers=True,
                        prefetch_factor=4)
-    val = DataLoader(val_ds, batch_size=a.batch, collate_fn=collate, num_workers=2)
-    vp = DataLoader(vp_ds, batch_size=a.batch, collate_fn=collate, num_workers=2)
+    val = DataLoader(val_ds, batch_size=a.batch, collate_fn=collate, num_workers=4)
+    vp = DataLoader(vp_ds, batch_size=a.batch, collate_fn=collate, num_workers=4)
 
     opt = torch.optim.AdamW(net.parameters(), lr=a.lr, weight_decay=0.01)
 
@@ -138,6 +147,7 @@ def main() -> None:
         return a.lr * 0.5 * (1 + math.cos(math.pi * min(t, 1.0)))
 
     config = {**vars(a), "params": n_params, "methods_version": 1,
+              "transform_version": TRANSFORM_VERSION,
               "embed_meta": json.loads(Path(f"{a.embed}.json").read_text())}
     del config["out"]
     (out_dir / "config.json").write_text(json.dumps(config, indent=1, default=str) + "\n")
@@ -175,8 +185,9 @@ def main() -> None:
                     print(f"[train] step {step}: loss {row['loss']:.3f} "
                           f"({win_seen / (time.time() - t0):.0f} win/s)")
             if step % a.eval_every == 0 or step == a.steps:
-                ev = {"step": step, "split": "val", **evaluate(net, val, device, a.eval_batches)}
-                ep = {"step": step, "split": "valpair", **evaluate(net, vp, device, a.eval_batches)}
+                nb = a.final_eval_batches if step == a.steps else a.eval_batches
+                ev = {"step": step, "split": "val", **evaluate(net, val, device, nb)}
+                ep = {"step": step, "split": "valpair", **evaluate(net, vp, device, nb)}
                 for row in (ev, ep):
                     metrics.write(json.dumps(row) + "\n")
                 metrics.flush()
