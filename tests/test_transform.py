@@ -57,7 +57,7 @@ def test_facedown_battlefield_hidden_from_opponent():
     assert mine["entity_names"] == [None]
     assert theirs["entity_names"] == ["Hypnotic Specter"]
     # public aspects of the face-down permanent still present for both
-    assert mine["entities"][0][8:10].tolist() == [2.0, 2.0]
+    assert mine["entities"][0][8:10].tolist() == pytest.approx([2.0 / 10, 2.0 / 10])  # v3 scale
 
 
 def test_revealed_hand_visible():

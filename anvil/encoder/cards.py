@@ -31,6 +31,10 @@ class CardEncoder(nn.Module):
         self.null_text = nn.Parameter(torch.zeros(d_text))
         self.null_feats = nn.Parameter(torch.zeros(features.shape[1]))
         self.id_emb = nn.Embedding(n + 1, d_id)         # +1 = the no-card id
+        # start the ID (memorization) channel at text-embedding volume
+        # (~1/sqrt(d_text)); default N(0,1) init hands it a ~60x head start
+        # over the generalization channel
+        nn.init.normal_(self.id_emb.weight, std=0.02)
         d_in = d_text + features.shape[1] + d_id
         self.fuse = nn.Sequential(
             nn.Linear(d_in, 2 * d_card), nn.GELU(), nn.Linear(2 * d_card, d_card))

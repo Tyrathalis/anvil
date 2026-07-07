@@ -142,12 +142,21 @@ def face_features(faces: list[dict]) -> list[float]:
                1.0 if loyalty else 0.0, float(len(faces))])
 
 
+# scaled to O(1) at the model boundary (face_features stays raw/readable):
+# these columns sit beside unit-L2 text embeddings (~0.016/dim) in the
+# CardEncoder fusion concat; raw cmc~15 arrives ~1000x louder per dim — the
+# same conditioning failure transform v2/v3 fixed for state/entity tokens
+FEATURE_SCALE = ([1 / 4] * 6 + [1 / 10, 1, 1 / 10] + [1] * len(FEATURE_TYPES)
+                 + [1 / 10, 1 / 10, 1, 1 / 7, 1, 1 / 2])
+
+
 def pool_features(manifest: dict, names: list[str]):
-    """Feature matrix aligned to the embedding-cache name order."""
+    """Feature matrix aligned to the embedding-cache name order; FEATURE_SCALE
+    applied (model-facing — face_features output is raw)."""
     import numpy as np
     files = _scan_files()
     rows = []
     for name in names:
         with open(files[normalize(name)], encoding="utf-8", errors="replace") as f:
             rows.append(face_features(parse_faces(f.read())))
-    return np.asarray(rows, dtype="float32")
+    return np.asarray(rows, dtype="float32") * np.asarray(FEATURE_SCALE, dtype="float32")
