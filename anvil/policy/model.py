@@ -38,7 +38,7 @@ class AnvilNet(nn.Module):
         self.value_head = nn.Sequential(nn.Linear(d_model, d_model), nn.GELU(),
                                         nn.Linear(d_model, 1))
         # target decoder (rung 1, autoregressive over T_MAX+1 slots incl. STOP)
-        from anvil.training.dataset import T_MAX, X_CLASSES
+        from anvil.training.dataset import T_MAX, TASKS, X_CLASSES
         self.t_max = T_MAX
         self.tgt_query = nn.Linear(3 * d_model, d_model)
         self.tgt_key = nn.Linear(d_model, d_model)
@@ -47,14 +47,22 @@ class AnvilNet(nn.Module):
         self.slot_emb = nn.Parameter(torch.zeros(T_MAX + 1, d_model))
         self.x_head = nn.Sequential(nn.Linear(2 * d_model, d_model), nn.GELU(),
                                     nn.Linear(d_model, X_CLASSES))
+        # one-field heads (rung-1 family: mull_keep/trigger/binary as bools,
+        # number as [lo,hi]-masked classes); input = [STATE] ⊕ ctx-entity ⊕ task
+        self.task_emb = nn.Embedding(len(TASKS), 64)
+        self.bool_head = nn.Sequential(nn.Linear(2 * d_model + 64, d_model),
+                                       nn.GELU(), nn.Linear(d_model, 1))
+        self.num_head = nn.Sequential(nn.Linear(2 * d_model + 64, d_model),
+                                      nn.GELU(), nn.Linear(d_model, X_CLASSES))
 
     def forward(self, batch: dict) -> dict:
         card_vecs = self.cards(batch["ent_emb"])
         tokens, pad = self.assemble(card_vecs, batch)
         out = self.trunk(tokens, src_key_padding_mask=pad)
         state = out[:, 0]                       # [STATE] read-out
+        plan = out[:, 1]                        # [PLAN] latent (unsupervised at M1)
         n_ent = batch["entities"].shape[1]
-        ent_out = out[:, 1:1 + n_ent]           # entity token outputs
+        ent_out = out[:, 2:2 + n_ent]           # entity token outputs
 
         # pointer logits over candidates: index 0 = PASS, rest gather rows
         q = self.ptr_query(state).unsqueeze(1)                    # (B,1,d)
@@ -97,17 +105,31 @@ class AnvilNet(nn.Module):
 
         x_logits = self.x_head(torch.cat([state, src_vec], dim=-1))
 
+        # one-field heads: ctx entity output (zeros when ctx_row = -1) + task emb
+        ctx = ent_out.gather(1, batch["ctx_row"].clamp(min=0).unsqueeze(-1).unsqueeze(-1)
+                             .expand(-1, -1, ent_out.shape[-1])).squeeze(1)
+        ctx = ctx * (batch["ctx_row"] >= 0).unsqueeze(-1)
+        of_in = torch.cat([state, ctx, self.task_emb(batch["task"])], dim=-1)
+        bool_logit = self.bool_head(of_in).squeeze(-1)
+        num_logits = self.num_head(of_in)
+        rng = torch.arange(num_logits.shape[-1], device=num_logits.device)
+        num_logits = num_logits.masked_fill(
+            (rng < batch["num_lo"].unsqueeze(-1)) | (rng > batch["num_hi"].unsqueeze(-1)), -1e9)
+
         return {"policy_logits": logits, "tgt_logits": tgt_logits, "x_logits": x_logits,
+                "bool_logit": bool_logit, "num_logits": num_logits, "plan": plan,
                 "value_logit": self.value_head(state).squeeze(-1)}
 
     def losses(self, batch: dict, pass_weight: float = 1.0, tgt_weight: float = 1.0,
-               x_weight: float = 0.5, value_weight: float = 0.5) -> dict:
+               x_weight: float = 0.5, value_weight: float = 0.5,
+               onefield_weight: float = 0.5) -> dict:
         out = self(batch)
+        prio = batch["task"] == 0
         ce = nn.functional.cross_entropy(out["policy_logits"], batch["label"],
                                          reduction="none")
         w = torch.where(batch["label"] == 0, torch.full_like(ce, pass_weight),
-                        torch.ones_like(ce))
-        policy = (ce * w).sum() / w.sum()
+                        torch.ones_like(ce)) * prio.float()
+        policy = (ce * w).sum() / w.sum().clamp(min=1e-6)
 
         tl = out["tgt_logits"]
         target = nn.functional.cross_entropy(
@@ -119,6 +141,20 @@ class AnvilNet(nn.Module):
         else:
             x = torch.zeros((), device=policy.device)
 
+        bmask = batch["bool_label"] >= 0
+        if bmask.any():
+            boolL = nn.functional.binary_cross_entropy_with_logits(
+                out["bool_logit"][bmask], batch["bool_label"][bmask].float())
+        else:
+            boolL = torch.zeros((), device=policy.device)
+
+        nmask = (batch["num_label"] >= 0) & (batch["forced"] == 0)
+        if nmask.any():
+            num = nn.functional.cross_entropy(out["num_logits"][nmask],
+                                              batch["num_label"][nmask])
+        else:
+            num = torch.zeros((), device=policy.device)
+
         vmask = batch["has_outcome"].bool()
         if vmask.any():
             value = nn.functional.binary_cross_entropy_with_logits(
@@ -128,11 +164,13 @@ class AnvilNet(nn.Module):
 
         with torch.no_grad():
             pred = out["policy_logits"].argmax(1)
-            acc = (pred == batch["label"]).float().mean()
-            nonpass = batch["label"] > 0
+            acc = ((pred == batch["label"]) & prio).sum() / prio.sum().clamp(min=1)
+            nonpass = (batch["label"] > 0) & prio
             acc_np = ((pred == batch["label"]) & nonpass).sum() / nonpass.sum().clamp(min=1)
             tmask = batch["tgt_labels"] >= 0
             tacc = ((tl.argmax(-1) == batch["tgt_labels"]) & tmask).sum() / tmask.sum().clamp(min=1)
         return {"policy": policy, "target": target, "x": x, "value": value,
-                "loss": policy + tgt_weight * target + x_weight * x + value_weight * value,
+                "bool": boolL, "num": num,
+                "loss": policy + tgt_weight * target + x_weight * x + value_weight * value
+                        + onefield_weight * (boolL + num),
                 "acc": acc, "acc_nonpass": acc_np, "acc_target": tacc}
