@@ -50,5 +50,15 @@ Two caveats bound what this measures:
   point where cross-card generalization first matters for real (held-out
   *cards*, not just held-out matchups — a Tutor-era eval), before assuming
   text embeddings are pulling weight anywhere.
+- **Confirmed by direct removal (run8-textnull, same day):** zeroing the
+  text buffer entirely costs −0.19pp honest (borderline ~2.8σ) and nothing
+  measurable elsewhere (nonpass/target/X/value all within noise). The
+  Qwen3-vs-BGE tie therefore reads "text barely used," NOT "both encoders
+  equally good" — encoder-scale questions (e.g. Qwen3-8B) are closed for
+  rung-1 in-pool. Corollary: shortcut learning is real here — with the ID
+  channel available, the model does not build the text pathway. **ID
+  dropout** (randomly blanking card identity in training) is the known
+  lever to force the text pathway alive before any subsystem (Tutor,
+  pool expansion) needs cold-start card evaluation.
 - Cache economics are a non-factor either way (frozen fp16 buffers, ~9 MB
   vs ~3.5 MB; 0.8M param delta in the fusion layer).
