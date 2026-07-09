@@ -124,6 +124,7 @@ class PriorityWindows(IterableDataset):
         self.max_games = max_games
         self.tasks = tasks if tasks is not None else set(TASKS)
         self._methods_wanted = {m for m, t in TASK_OF_METHOD.items() if t in self.tasks}
+        self._epoch = 0  # per-worker: persistent workers re-call __iter__ each epoch
 
     def _examples(self, store, g: int) -> Iterator[dict[str, Any]]:
         traj = store.game(g)
@@ -242,8 +243,12 @@ class PriorityWindows(IterableDataset):
             }
             prior.append(dec)
 
-    def __iter__(self) -> Iterator[dict[str, Any]]:
-        store = open_store(self.store_dir)  # per-worker handle
+    def _epoch_games(self, store) -> list[int]:
+        """Shard + shuffle this epoch's game order. Multi-epoch runs must not
+        replay one order (the 2-epoch arm is the repetition-vs-diversity
+        control); the epoch counter reseeds the shuffle each time a worker's
+        iterator restarts. Worker respawn after a crash resets its counter —
+        acceptable (matches pre-fix behavior, crash paths only)."""
         games = store.game_indices()
         if self.split is not None:
             games = [g for g in games if _split_of(g, self.games_per_pair) == self.split]
@@ -252,9 +257,14 @@ class PriorityWindows(IterableDataset):
         info = get_worker_info()
         if info is not None:
             games = games[info.id::info.num_workers]
+        epoch, self._epoch = self._epoch, self._epoch + 1
         if self.shuffle_games:
-            random.Random(self.seed + (info.id if info else 0)).shuffle(games)
-        for g in games:
+            random.Random(self.seed + 100003 * epoch + (info.id if info else 0)).shuffle(games)
+        return games
+
+    def __iter__(self) -> Iterator[dict[str, Any]]:
+        store = open_store(self.store_dir)  # per-worker handle
+        for g in self._epoch_games(store):
             try:
                 yield from self._examples(store, g)
             except Exception as e:
