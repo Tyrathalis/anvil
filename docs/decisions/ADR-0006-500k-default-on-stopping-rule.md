@@ -67,3 +67,30 @@ framing:
   run4 needed only 8 loader workers, so coexistence should be fine — if
   training throughput visibly drops, pause generation during GPU runs (the
   chunk mechanism makes this free) rather than debugging contention.
+
+## Resolution (2026-07-08)
+
+**The rule fired at the first (100K) checkpoint; generation stopped at 63,576
+extension games (~113.6K total corpus, ~23% of the 500K ceiling, ~42 h of
+background generation).** Both clauses, measured on fixed bases at
+pre-registered power:
+
+- **Nonpass clause:** 50K→100K doubling = **−0.61pp** nonpass on the pilot-val
+  600-batch basis (0.8746 → 0.8685; threshold was +0.7pp). Honest and value
+  flat to the fourth digit. Full curve (10K/25K/50K/100K, 113K steps each):
+  0.8548 / 0.8695 / 0.8746 / 0.8685 — saturated by ~50K games.
+- **Rare-label clause:** X accuracy on the fixed 672-window basis:
+  0.573 / 0.637 / 0.674 / **0.647** — the 10K→50K climb (+10pp) stopped;
+  doubling X *diversity* (~63K unique casts) at matched compute bought
+  nothing. X's remaining headroom is a drills/architecture question, not a
+  corpus-scale question (consistent with the §6 drill-economics premise).
+
+Residual ambiguity, honestly noted: at matched compute the 100K arm makes
+only ~0.58 passes over its data; a repetition-vs-diversity control (2 epochs
+of 50K, 226K steps) remains queued as a *training-recipe* question for D7 —
+it cannot reopen the corpus decision, which this rule closes.
+
+D6 is complete at ~113.6K games. The run is paused, not deleted: `resume`
+continues the same deterministic stream if a future milestone (M2 value
+labels, drill seeding) wants more uniform games — but the D7 gate trains on
+the corpus as it stands.
