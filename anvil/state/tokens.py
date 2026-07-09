@@ -1,11 +1,13 @@
 """State token assembly (design §2, M1 D4): batch -> trunk input sequence.
 
-Sequence layout: [STATE] global token, then N entity tokens, then K history
-tokens. The [STATE] position is the pooled read-out for the value head and
-the pointer query. Entity tokens fuse the card vector with the dynamic
-per-entity features (zone/tapped/counters/count/...); history tokens are
-method-id + actor-flag embeddings (host linkage arrives with the target
-pointer work).
+Sequence layout: [STATE] global token, [PLAN] latent token, then N entity
+tokens, then K history tokens. [STATE] is the pooled read-out for the value
+head and the pointer query; [PLAN] is the turn-plan latent (§3) — reserved
+in the base architecture now (near-zero cost, m1-bc-plan D4), unsupervised
+until M2 attaches plan-consistency losses. Entity tokens fuse the card
+vector with the dynamic per-entity features (zone/tapped/counters/count/...);
+history tokens are method-id + actor-flag embeddings (host linkage arrives
+with the target pointer work).
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ class StateAssembler(nn.Module):
         super().__init__()
         self.ent_proj = nn.Linear(d_card + n_entity_features, d_model)
         self.state_proj = nn.Linear(n_global + n_players * n_player_features, d_model)
+        self.plan_tok = nn.Parameter(torch.zeros(1, d_model))  # [PLAN] latent (§3)
         self.method_emb = nn.Embedding(n_methods + 2, d_model // 2)  # +OOV +pad(-1)
         self.self_emb = nn.Embedding(2, d_model // 2)
         self.hist_proj = nn.Linear(d_model, d_model)
@@ -39,9 +42,10 @@ class StateAssembler(nn.Module):
         selfsame = self.self_emb(hist[..., 1].clamp(min=0))
         htok = self.hist_proj(torch.cat([method, selfsame], dim=-1)) + self.hist_pos
 
-        tokens = torch.cat([state, ent, htok], dim=1)
+        plan = self.plan_tok.expand(b, 1, -1)
+        tokens = torch.cat([state, plan, ent, htok], dim=1)
         pad = torch.cat([
-            torch.zeros(b, 1, dtype=torch.bool, device=ent.device),   # [STATE]
+            torch.zeros(b, 2, dtype=torch.bool, device=ent.device),   # [STATE],[PLAN]
             ~batch["ent_mask"],
             hist[..., 0] < 0,                                          # unused history slots
         ], dim=1)

@@ -47,30 +47,47 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
     n_honest = n_raw = 0
     agree_np = n_np = 0
     tgt_ok = tgt_n = 0
+    tuck_ok = tuck_n = 0
     x_ok = x_n = 0
     vsum = vn = 0.0
+    of_ok = {t: 0 for t in ("mull", "trigger", "binary", "number")}
+    of_n = {t: 0 for t in ("mull", "trigger", "binary", "number")}
     for i, batch in enumerate(loader):
         if i >= max_batches:
             break
         batch = {k: v.to(device) for k, v in batch.items()}
         with torch.autocast(device, dtype=torch.bfloat16):
             out = net(batch)
+        prio = batch["task"] == 0
         pred = out["policy_logits"].argmax(1)
-        ok = pred == batch["label"]
-        multi = batch["cand_mask"].sum(1) > 1  # single-legal-option exclusion
+        ok = (pred == batch["label"]) & prio
+        multi = (batch["cand_mask"].sum(1) > 1) & prio  # single-legal-option exclusion
         raw += ok.sum().item()
-        n_raw += ok.numel()
+        n_raw += prio.sum().item()
         agree += (ok & multi).sum().item()
         n_honest += multi.sum().item()
-        nonpass = batch["label"] > 0
+        nonpass = (batch["label"] > 0) & prio
         agree_np += (ok & nonpass).sum().item()
         n_np += nonpass.sum().item()
         tm = batch["tgt_labels"] >= 0
-        tgt_ok += ((out["tgt_logits"].argmax(-1) == batch["tgt_labels"]) & tm).sum().item()
-        tgt_n += tm.sum().item()
+        tok = (out["tgt_logits"].argmax(-1) == batch["tgt_labels"]) & tm
+        tuck = (batch["task"] == 2).unsqueeze(-1)
+        tgt_ok += (tok & ~tuck).sum().item()
+        tgt_n += (tm & ~tuck).sum().item()
+        tuck_ok += (tok & tuck).sum().item()
+        tuck_n += (tm & tuck).sum().item()
         xm = batch["x_val"] >= 0
         x_ok += (out["x_logits"].argmax(-1)[xm] == batch["x_val"][xm]).sum().item()
         x_n += xm.sum().item()
+        bpred = out["bool_logit"] > 0
+        btrue = batch["bool_label"] == 1
+        for tid, name in ((1, "mull"), (3, "trigger"), (4, "binary")):
+            m = (batch["task"] == tid) & (batch["bool_label"] >= 0)
+            of_ok[name] += ((bpred == btrue) & m).sum().item()
+            of_n[name] += m.sum().item()
+        nm = (batch["task"] == 5) & (batch["num_label"] >= 0) & (batch["forced"] == 0)
+        of_ok["number"] += ((out["num_logits"].argmax(-1) == batch["num_label"]) & nm).sum().item()
+        of_n["number"] += nm.sum().item()
         vm = batch["has_outcome"].bool()
         if vm.any():
             vsum += torch.nn.functional.binary_cross_entropy_with_logits(
@@ -90,6 +107,9 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
         "eval_windows": n_raw,
         "n_honest": n_honest, "n_nonpass": n_np, "n_target": tgt_n,
         "n_x": x_n, "n_value": int(vn),
+        "acc_tuck": tuck_ok / max(tuck_n, 1), "n_tuck": tuck_n,
+        **{f"acc_{t}": of_ok[t] / max(of_n[t], 1) for t in of_ok},
+        **{f"n_{t}": of_n[t] for t in of_n},
     }
 
 
@@ -188,7 +208,7 @@ def main() -> None:
             if step % 100 == 0:
                 row = {"step": step,
                        **{k: float(L[k].detach()) for k in
-                          ("loss", "policy", "target", "x", "value")},
+                          ("loss", "policy", "target", "x", "value", "bool", "num")},
                        "lr": lr_at(step),
                        "windows": win_seen, "wall_s": round(time.time() - t0, 1)}
                 metrics.write(json.dumps(row) + "\n")
