@@ -186,13 +186,14 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
 </details>
 
 <details open>
-<summary>M2 — Reinforcement learning <span class="pill live">next</span></summary>
+<summary>M2 — Reinforcement learning <span class="pill live">next</span> (opening order: ADR-0010)</summary>
 <ul>
-  <li><b>Fork-API hardening</b> — stable single-step fork API (rollout prerequisite; the flagship upstream contribution, per ADR-0002). The <code>forkcheck</code> harness is the standing regression gate.</li>
-  <li><b>Rollout-labeled value targets</b> — the measured fix for the value head (BC label = hidden-info entropy floor ~0.57 BCE; board reading absent).</li>
-  <li><b>RL fine-tune from <code>d7-ep3</code></b> — V-trace, §6 phase 2; start action-rich (δ=0), let reward set the pass boundary. Winrate arms (~12 min) = standing strength eval per checkpoint.</li>
-  <li><b>Action schema by measured mass</b> — SA-level candidates (<code>oi</code> labels), mode heads, allocation heads.</li>
-  <li>Carried context: yield macros (§3b, deferred from M1); combat constructs (D9 stretch, labels already in corpus); repetition control folded into the recipe; ID dropout = the pre-Tutor lever against shortcut learning.</li>
+  <li><b>1. Fork-API hardening</b> — stable single-step fork API (rollout prerequisite; the flagship upstream contribution, per ADR-0002). The <code>forkcheck</code> harness is the standing regression gate.</li>
+  <li><b>2. SA-level action schema + BC retrain</b> — the D8 order rung guessed 31–36% of casts (2.5× the corpus estimate): the largest known winrate leak, and RL needs SA-level action identity anyway. Partial labels from the string join now, exact <code>oi</code> labels accumulating; loader history fix rides along. Entity representation untouched (cards stay single entities).</li>
+  <li><b>3. Winrate arms reprice</b> (~12 min each) — attribute the schema change before RL confounds it.</li>
+  <li><b>4. Rollout-labeled value targets under the BC policy</b> — the measured fix for the value head (BC label = hidden-info entropy floor ~0.57 BCE); rollouts by the near-parity agent, not the heuristic.</li>
+  <li><b>5. RL fine-tune</b> — V-trace, §6 phase 2, from the SA-level checkpoint; start action-rich (δ=0), let reward set the pass boundary.</li>
+  <li><b>Combat constructs (D9)</b> — explicit slot after the schema work (fully heuristic at play; labels already in corpus; no telemetry yet naming it the bottleneck). Then mode/allocation heads (1.2% / 0.03% mass). Carried context: yield macros (§3b), ID dropout = the pre-Tutor lever.</li>
 </ul>
 </details>
 
@@ -218,6 +219,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <tr><td><a href="decisions/ADR-0007-embedding-pin.md">0007</a></td><td class="num">07-07</td><td>Qwen3-vs-BGE statistical tie → pin stays Qwen3; text channel ≈0 at rung 1</td></tr>
   <tr><td><a href="decisions/ADR-0008-d7-gate-resolution.md">0008</a></td><td class="num">07-10</td><td>Gate TRUE (0.9758); 3-epoch recipe; X plateau was compute-starvation</td></tr>
   <tr><td><a href="decisions/ADR-0009-m1-closeout.md">0009</a></td><td class="num">07-10</td><td>M1 closeout: BC agent at 46.8% vs heuristic; M2 entry points</td></tr>
+  <tr><td><a href="decisions/ADR-0010-m2-opening-sequence.md">0010</a></td><td class="num">07-10</td><td>M2 opening order: SA-level action schema before RL (order rung = 31–36% of casts at play); value rollouts under the BC policy</td></tr>
 </table>
 
 <h2>Design invariants (standing law)</h2>
