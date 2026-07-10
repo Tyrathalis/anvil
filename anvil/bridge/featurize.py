@@ -1,0 +1,122 @@
+"""Wire observation -> model batch, and model output -> wire answer (M1 D8).
+
+The featurization half MIRRORS anvil.training.dataset.PriorityWindows._examples
+FIELD FOR FIELD — this is the train/serve skew boundary: any change to the
+loader's featurization must land here (and vice versa). Labels are pads at
+serve time; the shared pieces (assemble, EmbeddingCache, MethodVocab, collate)
+are imported, not copied.
+
+History arrives pre-extracted from the worker ("hist": last-K prior decisions
+as {"m","p","e"}, hosts back-filled at ret time to match the training loader's
+joined view); the information-set rule is applied here, mirroring
+transform.history_tokens.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+
+from anvil.encoder.transform import HISTORY_K, assemble
+from anvil.training.dataset import (PRIORITY, T_MAX, TASKS, X_CLASSES,
+                                    EmbeddingCache, MethodVocab)
+
+_HOST_ID = re.compile(r"\((\d+)\)$")  # mirrors dataset._HOST_ID
+
+TAG_TASK = {
+    "mtg.priority": "priority",
+    "mtg.mulligan_keep": "mull_keep",
+    "mtg.trigger": "trigger",
+    "mtg.binary": "binary",
+    "mtg.number": "number",
+}
+
+
+def wire_history(hist: list[dict] | None, perspective: int,
+                 k: int = HISTORY_K) -> list[dict[str, Any]]:
+    """Mirrors transform.history_tokens' information-set rule: an opponent's
+    chosen host is kept only for priority casts (public events)."""
+    out = []
+    for h in (hist or [])[-k:]:
+        actor = h.get("p", -1)
+        host = h.get("e", -1) if (actor == perspective or h.get("m") == PRIORITY) else -1
+        out.append({"m": h.get("m", "?"), "self": 1 if actor == perspective else 0,
+                    "e": host})
+    return out
+
+
+class Featurizer:
+    def __init__(self, embedding_stem: str | Path, methods: list[str]):
+        self.embed = EmbeddingCache(Path(embedding_stem))
+        self.methods = MethodVocab(methods)
+
+    def example(self, dec: dict, header: dict, task: str) -> tuple[dict, dict]:
+        """One wire dec record -> (model example with label pads, aux maps for
+        answer translation)."""
+        p = dec["p"]
+        out = assemble(dec, header, perspective=p,
+                       history=wire_history(dec.get("hist"), p))
+        row_of = out["entity_row_of"]
+
+        cand_rows = [-1]
+        row_first_opt: dict[int, int] = {}
+        ctx_row = -1
+        num_lo, num_hi = 0, X_CLASSES - 1
+        args = dec.get("args") or {}
+        if task == "priority":
+            seen = set()
+            for i, o in enumerate(dec.get("opts") or []):
+                r = row_of.get(o.get("e"))
+                if r is not None and r not in seen:
+                    seen.add(r)
+                    cand_rows.append(r)
+                    row_first_opt[r] = i
+        elif task == "trigger":
+            m = _HOST_ID.search(args.get("host") or "")
+            if m and int(m.group(1)) in row_of:
+                ctx_row = row_of[int(m.group(1))]
+        elif task == "number":
+            num_lo = max(0, min(int(args.get("min", 0)), X_CLASSES - 1))
+            num_hi = max(num_lo, min(int(args.get("max", X_CLASSES - 1)), X_CLASSES - 1))
+
+        hist = np.full((HISTORY_K, 3), -1, dtype=np.int64)
+        for i, h in enumerate(out["history"][-HISTORY_K:]):
+            hist[i] = (self.methods.id(h["m"]), h["self"], row_of.get(h["e"], -1))
+
+        ex = {
+            "entities": torch.from_numpy(out["entities"]),
+            "ent_emb": torch.tensor([self.embed.row(n) for n in out["entity_names"]],
+                                    dtype=torch.int64),
+            "globals": torch.from_numpy(out["globals"]),
+            "players": torch.from_numpy(out["players"]),
+            "history": torch.from_numpy(hist),
+            "cand_rows": torch.tensor(cand_rows, dtype=torch.int64),
+            "label": torch.tensor(0, dtype=torch.int64),
+            "tgt_kind": torch.from_numpy(np.full(T_MAX + 1, -1, dtype=np.int64)),
+            "tgt_idx": torch.from_numpy(np.full(T_MAX + 1, -1, dtype=np.int64)),
+            "x_val": torch.tensor(-1, dtype=torch.int64),
+            "task": torch.tensor(TASKS[task], dtype=torch.int64),
+            "bool_label": torch.tensor(-1, dtype=torch.int64),
+            "num_label": torch.tensor(-1, dtype=torch.int64),
+            "num_lo": torch.tensor(num_lo, dtype=torch.int64),
+            "num_hi": torch.tensor(num_hi, dtype=torch.int64),
+            "ctx_row": torch.tensor(ctx_row, dtype=torch.int64),
+            "forced": torch.tensor(0, dtype=torch.int64),
+            "has_outcome": torch.tensor(0, dtype=torch.int64),
+            "won": torch.tensor(0, dtype=torch.int64),
+        }
+
+        # ---- answer-translation maps ----
+        row_min_id: dict[int, int] = {}
+        for eid, r in row_of.items():
+            if r not in row_min_id or eid < row_min_id[r]:
+                row_min_id[r] = eid
+        stack_ids = {e["e"] for e in dec["obs"].get("ents", []) if e.get("z") == "stack"}
+        aux = {"cand_rows": cand_rows, "row_first_opt": row_first_opt,
+               "row_min_id": row_min_id, "stack_ids": stack_ids,
+               "n_players": len(header["players"])}
+        return ex, aux

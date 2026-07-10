@@ -120,6 +120,76 @@ class AnvilNet(nn.Module):
                 "bool_logit": bool_logit, "num_logits": num_logits, "plan": plan,
                 "value_logit": self.value_head(state).squeeze(-1)}
 
+    @torch.no_grad()
+    def act(self, batch: dict, pass_delta: float = 0.0) -> dict:
+        """Greedy inference (M1 D8 serve path). Mirrors forward()'s encode and
+        pointer plumbing but conditions the target decoder on the MODEL's
+        candidate choice and feeds its own picks back (forward teacher-forces
+        both). pass_delta is the post-hoc PASS-boundary calibration knob
+        (calibrate_pass.py). Any change to forward()'s tensor plumbing must
+        land here too."""
+        card_vecs = self.cards(batch["ent_emb"])
+        tokens, pad = self.assemble(card_vecs, batch)
+        out = self.trunk(tokens, src_key_padding_mask=pad)
+        state = out[:, 0]
+        n_ent = batch["entities"].shape[1]
+        ent_out = out[:, 2:2 + n_ent]
+
+        q = self.ptr_query(state).unsqueeze(1)
+        k = self.ptr_key(ent_out)
+        rows = batch["cand_rows"].clamp(min=0)
+        k_cand = k.gather(1, rows.unsqueeze(-1).expand(-1, -1, k.shape[-1]))
+        logits = (q * k_cand).sum(-1) / k.shape[-1] ** 0.5
+        pass_logit = self.pass_head(state) + pass_delta
+        logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)
+        logits = logits.masked_fill(~batch["cand_mask"], -1e9)
+        choice = logits.argmax(1)
+
+        rows_src = batch["cand_rows"].gather(1, choice.unsqueeze(1)).clamp(min=0)
+        src_vec = ent_out.gather(1, rows_src.unsqueeze(-1).expand(-1, -1, ent_out.shape[-1]))
+        src_vec = src_vec.squeeze(1) * (choice > 0).unsqueeze(-1)
+
+        p_keys = self.player_key(batch["players"])
+        keys = torch.cat([self.tgt_key(ent_out), p_keys,
+                          self.stop_key.expand(ent_out.shape[0], 1, -1)], dim=1)
+        vecs = torch.cat([ent_out, p_keys, torch.zeros_like(p_keys[:, :1])], dim=1)
+        kpad = torch.cat([~batch["ent_mask"],
+                          torch.zeros(ent_out.shape[0], p_keys.shape[1] + 1,
+                                      dtype=torch.bool, device=ent_out.device)], dim=1)
+        d = keys.shape[-1]
+        stop_idx = n_ent + p_keys.shape[1]
+        prev = torch.zeros_like(src_vec)
+        stopped = torch.zeros(ent_out.shape[0], dtype=torch.bool, device=ent_out.device)
+        picks = []
+        for t in range(self.t_max + 1):
+            qv = self.tgt_query(torch.cat([state, src_vec, prev], dim=-1)) + self.slot_emb[t]
+            lg = (keys @ qv.unsqueeze(-1)).squeeze(-1) / d ** 0.5
+            lg = lg.masked_fill(kpad, -1e9)
+            pick = torch.where(stopped, torch.full_like(lg.argmax(-1), stop_idx),
+                               lg.argmax(-1))
+            picks.append(pick)
+            stopped = stopped | (pick == stop_idx)
+            picked = vecs.gather(1, pick.unsqueeze(-1).unsqueeze(-1)
+                                 .expand(-1, -1, vecs.shape[-1])).squeeze(1)
+            prev = prev + picked  # STOP's vec is zeros; post-stop slots add nothing
+
+        x_cls = self.x_head(torch.cat([state, src_vec], dim=-1)).argmax(-1)
+
+        ctx = ent_out.gather(1, batch["ctx_row"].clamp(min=0).unsqueeze(-1).unsqueeze(-1)
+                             .expand(-1, -1, ent_out.shape[-1])).squeeze(1)
+        ctx = ctx * (batch["ctx_row"] >= 0).unsqueeze(-1)
+        of_in = torch.cat([state, ctx, self.task_emb(batch["task"])], dim=-1)
+        num_logits = self.num_head(of_in)
+        rng = torch.arange(num_logits.shape[-1], device=num_logits.device)
+        num_logits = num_logits.masked_fill(
+            (rng < batch["num_lo"].unsqueeze(-1)) | (rng > batch["num_hi"].unsqueeze(-1)), -1e9)
+
+        return {"choice": choice, "tgt_picks": torch.stack(picks, dim=1),
+                "x_cls": x_cls, "n_ent": n_ent, "stop_idx": stop_idx,
+                "bool": self.bool_head(of_in).squeeze(-1) > 0,
+                "num": num_logits.argmax(-1),
+                "win": torch.sigmoid(self.value_head(state).squeeze(-1))}
+
     def losses(self, batch: dict, pass_weight: float = 1.0, tgt_weight: float = 1.0,
                x_weight: float = 0.5, value_weight: float = 0.5,
                onefield_weight: float = 0.5) -> dict:
