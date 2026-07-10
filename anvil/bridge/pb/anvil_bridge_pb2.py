@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12\x61nvil_bridge.proto\x12\x0f\x61nvil.bridge.v0\"\xfd\x01\n\tWorkerMsg\x12-\n\x05hello\x18\x01 \x01(\x0b\x32\x1c.anvil.bridge.v0.WorkerHelloH\x00\x12\x30\n\ngame_start\x18\x02 \x01(\x0b\x32\x1a.anvil.bridge.v0.GameStartH\x00\x12\x33\n\x07request\x18\x03 \x01(\x0b\x32 .anvil.bridge.v0.DecisionRequestH\x00\x12,\n\x08game_end\x18\x04 \x01(\x0b\x32\x18.anvil.bridge.v0.GameEndH\x00\x12%\n\x04ping\x18\x05 \x01(\x0b\x32\x15.anvil.bridge.v0.PingH\x00\x42\x05\n\x03msg\"\xc8\x01\n\tServerMsg\x12-\n\x05hello\x18\x01 \x01(\x0b\x32\x1c.anvil.bridge.v0.ServerHelloH\x00\x12\x35\n\x08response\x18\x02 \x01(\x0b\x32!.anvil.bridge.v0.DecisionResponseH\x00\x12\'\n\x05\x64rain\x18\x03 \x01(\x0b\x32\x16.anvil.bridge.v0.DrainH\x00\x12%\n\x04ping\x18\x04 \x01(\x0b\x32\x15.anvil.bridge.v0.PingH\x00\x42\x05\n\x03msg\"|\n\x0bWorkerHello\x12\x18\n\x10protocol_version\x18\x01 \x01(\r\x12\x11\n\tworker_id\x18\x02 \x01(\t\x12\x15\n\rengine_commit\x18\x03 \x01(\t\x12\x13\n\x0b\x66ork_commit\x18\x04 \x01(\t\x12\x14\n\x0c\x63\x61pabilities\x18\x05 \x03(\t\"q\n\x0bServerHello\x12\x18\n\x10protocol_version\x18\x01 \x01(\r\x12\x14\n\x0c\x62ridged_tags\x18\x02 \x03(\t\x12\x15\n\rone_shot_cast\x18\x03 \x01(\x08\x12\x1b\n\x13\x64\x65\x66\x61ult_deadline_ms\x18\x04 \x01(\r\"{\n\tGameStart\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x0c\n\x04seed\x18\x02 \x01(\x04\x12\x12\n\nformat_tag\x18\x03 \x01(\t\x12\'\n\x05\x64\x65\x63ks\x18\x04 \x03(\x0b\x32\x18.anvil.bridge.v0.DeckRef\x12\x12\n\nprovenance\x18\x05 \x01(\t\"-\n\x07\x44\x65\x63kRef\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontent_hash\x18\x02 \x01(\t\"5\n\x06Option\x12\n\n\x02id\x18\x01 \x01(\r\x12\r\n\x05label\x18\x02 \x01(\t\x12\x10\n\x08\x66\x65\x61tures\x18\x03 \x01(\x0c\"2\n\x0b\x43onstraints\x12\x0b\n\x03min\x18\x01 \x01(\x03\x12\x0b\n\x03max\x18\x02 \x01(\x03\x12\t\n\x01k\x18\x03 \x01(\r\"\xdd\x02\n\x0f\x44\x65\x63isionRequest\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x14\n\x0c\x64\x65\x63ision_seq\x18\x02 \x01(\x04\x12\x14\n\x0c\x64\x65\x63ision_tag\x18\x03 \x01(\t\x12+\n\x05shape\x18\x04 \x01(\x0e\x32\x1c.anvil.bridge.v0.AnswerShape\x12(\n\x07options\x18\x05 \x03(\x0b\x32\x17.anvil.bridge.v0.Option\x12\x31\n\x0b\x63onstraints\x18\x06 \x01(\x0b\x32\x1c.anvil.bridge.v0.Constraints\x12\x0f\n\x07\x63ontext\x18\x07 \x01(\x0c\x12\x13\n\x0bobservation\x18\x08 \x01(\x0c\x12\x10\n\x08retry_of\x18\t \x01(\x04\x12\x13\n\x0b\x64\x65\x61\x64line_ms\x18\n \x01(\r\x12\x36\n\x0b\x65\x63ho_answer\x18\x0f \x01(\x0b\x32!.anvil.bridge.v0.DecisionResponse\"\x1c\n\tIndexList\x12\x0f\n\x07indices\x18\x01 \x03(\r\"\x9f\x02\n\x10\x44\x65\x63isionResponse\x12\x14\n\x0c\x64\x65\x63ision_seq\x18\x01 \x01(\x04\x12\x0f\n\x05index\x18\x02 \x01(\rH\x00\x12-\n\x07indices\x18\x03 \x01(\x0b\x32\x1a.anvil.bridge.v0.IndexListH\x00\x12\x0f\n\x05value\x18\x04 \x01(\x03H\x00\x12\x0e\n\x04\x66lag\x18\x05 \x01(\x08H\x00\x12.\n\x08ordering\x18\x06 \x01(\x0b\x32\x1a.anvil.bridge.v0.IndexListH\x00\x12/\n\tconstruct\x18\x07 \x01(\x0b\x32\x1a.anvil.bridge.v0.ConstructH\x00\x12\x10\n\x08\x66\x61llback\x18\x08 \x01(\x08\x12\x17\n\x0fyield_directive\x18\t \x01(\x0c\x42\x08\n\x06\x61nswer\"\xd9\x01\n\tConstruct\x12\x30\n\nattack_map\x18\x01 \x01(\x0b\x32\x1a.anvil.bridge.v0.AttackMapH\x00\x12.\n\tblock_map\x18\x02 \x01(\x0b\x32\x19.anvil.bridge.v0.BlockMapH\x00\x12\x32\n\x0btarget_plan\x18\x03 \x01(\x0b\x32\x1b.anvil.bridge.v0.TargetPlanH\x00\x12.\n\tcast_plan\x18\x04 \x01(\x0b\x32\x19.anvil.bridge.v0.CastPlanH\x00\x42\x06\n\x04kind\"\x87\x01\n\tAttackMap\x12:\n\x0b\x61ssignments\x18\x01 \x03(\x0b\x32%.anvil.bridge.v0.AttackMap.Assignment\x1a>\n\nAssignment\x12\x17\n\x0f\x61ttacker_option\x18\x01 \x01(\r\x12\x17\n\x0f\x64\x65\x66\x65nder_option\x18\x02 \x01(\r\"\x84\x01\n\x08\x42lockMap\x12\x39\n\x0b\x61ssignments\x18\x01 \x03(\x0b\x32$.anvil.bridge.v0.BlockMap.Assignment\x1a=\n\nAssignment\x12\x16\n\x0e\x62locker_option\x18\x01 \x01(\r\x12\x17\n\x0f\x61ttacker_option\x18\x02 \x01(\r\"u\n\nTargetPlan\x12=\n\x0crequirements\x18\x01 \x03(\x0b\x32\'.anvil.bridge.v0.TargetPlan.Requirement\x1a(\n\x0bRequirement\x12\x19\n\x11\x63\x61ndidate_options\x18\x01 \x03(\r\"\xb3\x01\n\x08\x43\x61stPlan\x12\x14\n\x0cspell_option\x18\x01 \x01(\r\x12\x14\n\x0cmode_options\x18\x02 \x03(\r\x12\x0f\n\x07x_value\x18\x03 \x01(\x03\x12,\n\x07targets\x18\x04 \x01(\x0b\x32\x1b.anvil.bridge.v0.TargetPlan\x12\x1d\n\x15optional_cost_options\x18\x05 \x03(\r\x12\x1d\n\x15payment_class_options\x18\x06 \x03(\r\"\x93\x02\n\x07GameEnd\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x0e\n\x06winner\x18\x02 \x01(\t\x12\r\n\x05turns\x18\x03 \x01(\r\x12\x0f\n\x07wall_ms\x18\x04 \x01(\x04\x12\x46\n\x10\x64\x65\x63isions_by_tag\x18\x05 \x03(\x0b\x32,.anvil.bridge.v0.GameEnd.DecisionsByTagEntry\x12\x16\n\x0e\x66\x61llback_count\x18\x06 \x01(\r\x12\x18\n\x10\x66\x61llback_reasons\x18\x07 \x03(\t\x12\x16\n\x0e\x64raw_clock_hit\x18\x08 \x01(\x08\x1a\x35\n\x13\x44\x65\x63isionsByTagEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\r:\x02\x38\x01\"\x15\n\x04Ping\x12\r\n\x05nonce\x18\x01 \x01(\x04\"\x17\n\x05\x44rain\x12\x0e\n\x06reason\x18\x01 \x01(\t*c\n\x0b\x41nswerShape\x12\x0e\n\nSELECT_ONE\x10\x00\x12\x0c\n\x08SELECT_K\x10\x01\x12\x10\n\x0cINT_IN_RANGE\x10\x02\x12\x08\n\x04\x42OOL\x10\x03\x12\x0b\n\x07ORDER_N\x10\x04\x12\r\n\tCONSTRUCT\x10\x05\x32W\n\x0e\x44\x65\x63isionBridge\x12\x45\n\x07Session\x12\x1a.anvil.bridge.v0.WorkerMsg\x1a\x1a.anvil.bridge.v0.ServerMsg(\x01\x30\x01\x42\x19\n\x15\x66orge.anvil.bridge.v0P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12\x61nvil_bridge.proto\x12\x0f\x61nvil.bridge.v0\"\xfd\x01\n\tWorkerMsg\x12-\n\x05hello\x18\x01 \x01(\x0b\x32\x1c.anvil.bridge.v0.WorkerHelloH\x00\x12\x30\n\ngame_start\x18\x02 \x01(\x0b\x32\x1a.anvil.bridge.v0.GameStartH\x00\x12\x33\n\x07request\x18\x03 \x01(\x0b\x32 .anvil.bridge.v0.DecisionRequestH\x00\x12,\n\x08game_end\x18\x04 \x01(\x0b\x32\x18.anvil.bridge.v0.GameEndH\x00\x12%\n\x04ping\x18\x05 \x01(\x0b\x32\x15.anvil.bridge.v0.PingH\x00\x42\x05\n\x03msg\"\xc8\x01\n\tServerMsg\x12-\n\x05hello\x18\x01 \x01(\x0b\x32\x1c.anvil.bridge.v0.ServerHelloH\x00\x12\x35\n\x08response\x18\x02 \x01(\x0b\x32!.anvil.bridge.v0.DecisionResponseH\x00\x12\'\n\x05\x64rain\x18\x03 \x01(\x0b\x32\x16.anvil.bridge.v0.DrainH\x00\x12%\n\x04ping\x18\x04 \x01(\x0b\x32\x15.anvil.bridge.v0.PingH\x00\x42\x05\n\x03msg\"|\n\x0bWorkerHello\x12\x18\n\x10protocol_version\x18\x01 \x01(\r\x12\x11\n\tworker_id\x18\x02 \x01(\t\x12\x15\n\rengine_commit\x18\x03 \x01(\t\x12\x13\n\x0b\x66ork_commit\x18\x04 \x01(\t\x12\x14\n\x0c\x63\x61pabilities\x18\x05 \x03(\t\"q\n\x0bServerHello\x12\x18\n\x10protocol_version\x18\x01 \x01(\r\x12\x14\n\x0c\x62ridged_tags\x18\x02 \x03(\t\x12\x15\n\rone_shot_cast\x18\x03 \x01(\x08\x12\x1b\n\x13\x64\x65\x66\x61ult_deadline_ms\x18\x04 \x01(\r\"\x8b\x01\n\tGameStart\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x0c\n\x04seed\x18\x02 \x01(\x04\x12\x12\n\nformat_tag\x18\x03 \x01(\t\x12\'\n\x05\x64\x65\x63ks\x18\x04 \x03(\x0b\x32\x18.anvil.bridge.v0.DeckRef\x12\x12\n\nprovenance\x18\x05 \x01(\t\x12\x0e\n\x06header\x18\x06 \x01(\x0c\"-\n\x07\x44\x65\x63kRef\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontent_hash\x18\x02 \x01(\t\"5\n\x06Option\x12\n\n\x02id\x18\x01 \x01(\r\x12\r\n\x05label\x18\x02 \x01(\t\x12\x10\n\x08\x66\x65\x61tures\x18\x03 \x01(\x0c\"2\n\x0b\x43onstraints\x12\x0b\n\x03min\x18\x01 \x01(\x03\x12\x0b\n\x03max\x18\x02 \x01(\x03\x12\t\n\x01k\x18\x03 \x01(\r\"\xdd\x02\n\x0f\x44\x65\x63isionRequest\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x14\n\x0c\x64\x65\x63ision_seq\x18\x02 \x01(\x04\x12\x14\n\x0c\x64\x65\x63ision_tag\x18\x03 \x01(\t\x12+\n\x05shape\x18\x04 \x01(\x0e\x32\x1c.anvil.bridge.v0.AnswerShape\x12(\n\x07options\x18\x05 \x03(\x0b\x32\x17.anvil.bridge.v0.Option\x12\x31\n\x0b\x63onstraints\x18\x06 \x01(\x0b\x32\x1c.anvil.bridge.v0.Constraints\x12\x0f\n\x07\x63ontext\x18\x07 \x01(\x0c\x12\x13\n\x0bobservation\x18\x08 \x01(\x0c\x12\x10\n\x08retry_of\x18\t \x01(\x04\x12\x13\n\x0b\x64\x65\x61\x64line_ms\x18\n \x01(\r\x12\x36\n\x0b\x65\x63ho_answer\x18\x0f \x01(\x0b\x32!.anvil.bridge.v0.DecisionResponse\"\x1c\n\tIndexList\x12\x0f\n\x07indices\x18\x01 \x03(\r\"\x9f\x02\n\x10\x44\x65\x63isionResponse\x12\x14\n\x0c\x64\x65\x63ision_seq\x18\x01 \x01(\x04\x12\x0f\n\x05index\x18\x02 \x01(\rH\x00\x12-\n\x07indices\x18\x03 \x01(\x0b\x32\x1a.anvil.bridge.v0.IndexListH\x00\x12\x0f\n\x05value\x18\x04 \x01(\x03H\x00\x12\x0e\n\x04\x66lag\x18\x05 \x01(\x08H\x00\x12.\n\x08ordering\x18\x06 \x01(\x0b\x32\x1a.anvil.bridge.v0.IndexListH\x00\x12/\n\tconstruct\x18\x07 \x01(\x0b\x32\x1a.anvil.bridge.v0.ConstructH\x00\x12\x10\n\x08\x66\x61llback\x18\x08 \x01(\x08\x12\x17\n\x0fyield_directive\x18\t \x01(\x0c\x42\x08\n\x06\x61nswer\"\xd9\x01\n\tConstruct\x12\x30\n\nattack_map\x18\x01 \x01(\x0b\x32\x1a.anvil.bridge.v0.AttackMapH\x00\x12.\n\tblock_map\x18\x02 \x01(\x0b\x32\x19.anvil.bridge.v0.BlockMapH\x00\x12\x32\n\x0btarget_plan\x18\x03 \x01(\x0b\x32\x1b.anvil.bridge.v0.TargetPlanH\x00\x12.\n\tcast_plan\x18\x04 \x01(\x0b\x32\x19.anvil.bridge.v0.CastPlanH\x00\x42\x06\n\x04kind\"\x87\x01\n\tAttackMap\x12:\n\x0b\x61ssignments\x18\x01 \x03(\x0b\x32%.anvil.bridge.v0.AttackMap.Assignment\x1a>\n\nAssignment\x12\x17\n\x0f\x61ttacker_option\x18\x01 \x01(\r\x12\x17\n\x0f\x64\x65\x66\x65nder_option\x18\x02 \x01(\r\"\x84\x01\n\x08\x42lockMap\x12\x39\n\x0b\x61ssignments\x18\x01 \x03(\x0b\x32$.anvil.bridge.v0.BlockMap.Assignment\x1a=\n\nAssignment\x12\x16\n\x0e\x62locker_option\x18\x01 \x01(\r\x12\x17\n\x0f\x61ttacker_option\x18\x02 \x01(\r\"u\n\nTargetPlan\x12=\n\x0crequirements\x18\x01 \x03(\x0b\x32\'.anvil.bridge.v0.TargetPlan.Requirement\x1a(\n\x0bRequirement\x12\x19\n\x11\x63\x61ndidate_options\x18\x01 \x03(\r\"\x87\x02\n\x08\x43\x61stPlan\x12\x14\n\x0cspell_option\x18\x01 \x01(\r\x12\x14\n\x0cmode_options\x18\x02 \x03(\r\x12\x0f\n\x07x_value\x18\x03 \x01(\x03\x12,\n\x07targets\x18\x04 \x01(\x0b\x32\x1b.anvil.bridge.v0.TargetPlan\x12\x1d\n\x15optional_cost_options\x18\x05 \x03(\r\x12\x1d\n\x15payment_class_options\x18\x06 \x03(\r\x12/\n\x0btarget_refs\x18\x07 \x03(\x0b\x32\x1a.anvil.bridge.v0.EntityRef\x12\r\n\x05has_x\x18\x08 \x01(\x08\x12\x12\n\nhost_level\x18\t \x01(\x08\"B\n\tEntityRef\x12\x10\n\x06\x65ntity\x18\x01 \x01(\x04H\x00\x12\x10\n\x06player\x18\x02 \x01(\rH\x00\x12\n\n\x02ns\x18\x03 \x01(\rB\x05\n\x03ref\"\x93\x02\n\x07GameEnd\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x0e\n\x06winner\x18\x02 \x01(\t\x12\r\n\x05turns\x18\x03 \x01(\r\x12\x0f\n\x07wall_ms\x18\x04 \x01(\x04\x12\x46\n\x10\x64\x65\x63isions_by_tag\x18\x05 \x03(\x0b\x32,.anvil.bridge.v0.GameEnd.DecisionsByTagEntry\x12\x16\n\x0e\x66\x61llback_count\x18\x06 \x01(\r\x12\x18\n\x10\x66\x61llback_reasons\x18\x07 \x03(\t\x12\x16\n\x0e\x64raw_clock_hit\x18\x08 \x01(\x08\x1a\x35\n\x13\x44\x65\x63isionsByTagEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\r:\x02\x38\x01\"\x15\n\x04Ping\x12\r\n\x05nonce\x18\x01 \x01(\x04\"\x17\n\x05\x44rain\x12\x0e\n\x06reason\x18\x01 \x01(\t*c\n\x0b\x41nswerShape\x12\x0e\n\nSELECT_ONE\x10\x00\x12\x0c\n\x08SELECT_K\x10\x01\x12\x10\n\x0cINT_IN_RANGE\x10\x02\x12\x08\n\x04\x42OOL\x10\x03\x12\x0b\n\x07ORDER_N\x10\x04\x12\r\n\tCONSTRUCT\x10\x05\x32W\n\x0e\x44\x65\x63isionBridge\x12\x45\n\x07Session\x12\x1a.anvil.bridge.v0.WorkerMsg\x1a\x1a.anvil.bridge.v0.ServerMsg(\x01\x30\x01\x42\x19\n\x15\x66orge.anvil.bridge.v0P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,8 +34,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'\n\025forge.anvil.bridge.v0P\001'
   _globals['_GAMEEND_DECISIONSBYTAGENTRY']._loaded_options = None
   _globals['_GAMEEND_DECISIONSBYTAGENTRY']._serialized_options = b'8\001'
-  _globals['_ANSWERSHAPE']._serialized_start=2810
-  _globals['_ANSWERSHAPE']._serialized_end=2909
+  _globals['_ANSWERSHAPE']._serialized_start=2979
+  _globals['_ANSWERSHAPE']._serialized_end=3078
   _globals['_WORKERMSG']._serialized_start=40
   _globals['_WORKERMSG']._serialized_end=293
   _globals['_SERVERMSG']._serialized_start=296
@@ -44,44 +44,46 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_WORKERHELLO']._serialized_end=622
   _globals['_SERVERHELLO']._serialized_start=624
   _globals['_SERVERHELLO']._serialized_end=737
-  _globals['_GAMESTART']._serialized_start=739
-  _globals['_GAMESTART']._serialized_end=862
-  _globals['_DECKREF']._serialized_start=864
-  _globals['_DECKREF']._serialized_end=909
-  _globals['_OPTION']._serialized_start=911
-  _globals['_OPTION']._serialized_end=964
-  _globals['_CONSTRAINTS']._serialized_start=966
-  _globals['_CONSTRAINTS']._serialized_end=1016
-  _globals['_DECISIONREQUEST']._serialized_start=1019
-  _globals['_DECISIONREQUEST']._serialized_end=1368
-  _globals['_INDEXLIST']._serialized_start=1370
-  _globals['_INDEXLIST']._serialized_end=1398
-  _globals['_DECISIONRESPONSE']._serialized_start=1401
-  _globals['_DECISIONRESPONSE']._serialized_end=1688
-  _globals['_CONSTRUCT']._serialized_start=1691
-  _globals['_CONSTRUCT']._serialized_end=1908
-  _globals['_ATTACKMAP']._serialized_start=1911
-  _globals['_ATTACKMAP']._serialized_end=2046
-  _globals['_ATTACKMAP_ASSIGNMENT']._serialized_start=1984
-  _globals['_ATTACKMAP_ASSIGNMENT']._serialized_end=2046
-  _globals['_BLOCKMAP']._serialized_start=2049
-  _globals['_BLOCKMAP']._serialized_end=2181
-  _globals['_BLOCKMAP_ASSIGNMENT']._serialized_start=2120
-  _globals['_BLOCKMAP_ASSIGNMENT']._serialized_end=2181
-  _globals['_TARGETPLAN']._serialized_start=2183
-  _globals['_TARGETPLAN']._serialized_end=2300
-  _globals['_TARGETPLAN_REQUIREMENT']._serialized_start=2260
-  _globals['_TARGETPLAN_REQUIREMENT']._serialized_end=2300
-  _globals['_CASTPLAN']._serialized_start=2303
-  _globals['_CASTPLAN']._serialized_end=2482
-  _globals['_GAMEEND']._serialized_start=2485
-  _globals['_GAMEEND']._serialized_end=2760
-  _globals['_GAMEEND_DECISIONSBYTAGENTRY']._serialized_start=2707
-  _globals['_GAMEEND_DECISIONSBYTAGENTRY']._serialized_end=2760
-  _globals['_PING']._serialized_start=2762
-  _globals['_PING']._serialized_end=2783
-  _globals['_DRAIN']._serialized_start=2785
-  _globals['_DRAIN']._serialized_end=2808
-  _globals['_DECISIONBRIDGE']._serialized_start=2911
-  _globals['_DECISIONBRIDGE']._serialized_end=2998
+  _globals['_GAMESTART']._serialized_start=740
+  _globals['_GAMESTART']._serialized_end=879
+  _globals['_DECKREF']._serialized_start=881
+  _globals['_DECKREF']._serialized_end=926
+  _globals['_OPTION']._serialized_start=928
+  _globals['_OPTION']._serialized_end=981
+  _globals['_CONSTRAINTS']._serialized_start=983
+  _globals['_CONSTRAINTS']._serialized_end=1033
+  _globals['_DECISIONREQUEST']._serialized_start=1036
+  _globals['_DECISIONREQUEST']._serialized_end=1385
+  _globals['_INDEXLIST']._serialized_start=1387
+  _globals['_INDEXLIST']._serialized_end=1415
+  _globals['_DECISIONRESPONSE']._serialized_start=1418
+  _globals['_DECISIONRESPONSE']._serialized_end=1705
+  _globals['_CONSTRUCT']._serialized_start=1708
+  _globals['_CONSTRUCT']._serialized_end=1925
+  _globals['_ATTACKMAP']._serialized_start=1928
+  _globals['_ATTACKMAP']._serialized_end=2063
+  _globals['_ATTACKMAP_ASSIGNMENT']._serialized_start=2001
+  _globals['_ATTACKMAP_ASSIGNMENT']._serialized_end=2063
+  _globals['_BLOCKMAP']._serialized_start=2066
+  _globals['_BLOCKMAP']._serialized_end=2198
+  _globals['_BLOCKMAP_ASSIGNMENT']._serialized_start=2137
+  _globals['_BLOCKMAP_ASSIGNMENT']._serialized_end=2198
+  _globals['_TARGETPLAN']._serialized_start=2200
+  _globals['_TARGETPLAN']._serialized_end=2317
+  _globals['_TARGETPLAN_REQUIREMENT']._serialized_start=2277
+  _globals['_TARGETPLAN_REQUIREMENT']._serialized_end=2317
+  _globals['_CASTPLAN']._serialized_start=2320
+  _globals['_CASTPLAN']._serialized_end=2583
+  _globals['_ENTITYREF']._serialized_start=2585
+  _globals['_ENTITYREF']._serialized_end=2651
+  _globals['_GAMEEND']._serialized_start=2654
+  _globals['_GAMEEND']._serialized_end=2929
+  _globals['_GAMEEND_DECISIONSBYTAGENTRY']._serialized_start=2876
+  _globals['_GAMEEND_DECISIONSBYTAGENTRY']._serialized_end=2929
+  _globals['_PING']._serialized_start=2931
+  _globals['_PING']._serialized_end=2952
+  _globals['_DRAIN']._serialized_start=2954
+  _globals['_DRAIN']._serialized_end=2977
+  _globals['_DECISIONBRIDGE']._serialized_start=3080
+  _globals['_DECISIONBRIDGE']._serialized_end=3167
 # @@protoc_insertion_point(module_scope)

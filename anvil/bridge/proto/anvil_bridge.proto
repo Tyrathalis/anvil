@@ -65,6 +65,9 @@ message GameStart {
   string format_tag = 3;         // e.g. "mtg.commander"
   repeated DeckRef decks = 4;
   string provenance = 5;         // opaque blob: run id, drill-template id, ...
+  // M1: the observation-schema game header record (same bytes the obs log
+  // writes), sent once so the server can featurize per-decision observations.
+  bytes header = 6;
 }
 
 message DeckRef {
@@ -159,6 +162,27 @@ message CastPlan {
   TargetPlan targets = 4;
   repeated uint32 optional_cost_options = 5;
   repeated uint32 payment_class_options = 6;  // only when engine flags payment consequential (§3c)
+  // M1 rung-1 form: the server answers with observation-namespace refs, not
+  // per-requirement candidate indices (TargetPlan stays for constructs whose
+  // candidates the engine enumerates, e.g. combat). The worker realizes refs
+  // against the SA chain and adjudicates legality (ADR-0005: candidates are
+  // timing-legal; payability and target fit are checked at realization).
+  repeated EntityRef target_refs = 7;
+  bool has_x = 8;                // proto3 zero-vs-absent disambiguator for x_value
+  // Rung-1 candidates are host-level (dedup rows): the server identifies the
+  // host via spell_option (any option of the chosen host); the worker
+  // disambiguates among that host's options (shape-fit -> payability ->
+  // heuristic, telemetered). Absent at SA-level candidates (M2).
+  bool host_level = 9;
+}
+
+// Game-agnostic reference into the observation's entity/player namespace.
+message EntityRef {
+  oneof ref {
+    uint64 entity = 1;           // observation entity id
+    uint32 player = 2;           // registered player index
+  }
+  uint32 ns = 3;                 // tag-defined sub-namespace (mtg: 0 = entity, 1 = stack entry keyed by host id)
 }
 
 message GameEnd {

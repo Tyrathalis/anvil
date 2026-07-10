@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import anvil_bridge_pb2 as anvil__bridge__pb2
+from anvil.bridge.pb import anvil_bridge_pb2 as anvil__bridge__pb2
 
 GRPC_GENERATED_VERSION = '1.81.1'
 GRPC_VERSION = grpc.__version__
