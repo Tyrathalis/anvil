@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anvil — Project Map</title>
+<style>
+  :root {
+    --bg: #faf8f4; --fg: #1c1a17; --muted: #6b665e; --line: #e2ddd3;
+    --card: #ffffff; --accent: #a4501e; --accent2: #2e5e4e; --code: #f0ece4;
+    --done: #2e7d4f; --live: #a4501e; --future: #8a8378;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16140f; --fg: #e8e4da; --muted: #9a9384; --line: #33302a;
+      --card: #1f1c16; --accent: #e08b4e; --accent2: #7fc0a4; --code: #26231d;
+      --done: #6fbf8f; --live: #e08b4e; --future: #7a7469;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1rem 4rem;
+    font: 16px/1.55 Georgia, "Times New Roman", serif;
+    background: var(--bg); color: var(--fg);
+  }
+  main { max-width: 60rem; margin: 0 auto; }
+  h1, h2, h3 { font-family: Futura, "Century Gothic", "Avenir Next", Avenir, sans-serif; line-height: 1.2; }
+  h1 { font-size: 2rem; margin: 0 0 .2rem; }
+  h2 { font-size: 1.25rem; margin: 2.5rem 0 .8rem; border-bottom: 2px solid var(--line); padding-bottom: .3rem; }
+  h3 { font-size: 1rem; margin: 1.2rem 0 .4rem; }
+  p { margin: .5rem 0; }
+  .sub { color: var(--muted); margin-bottom: 1.5rem; }
+  code, .mono { font: 0.85em/1.4 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; background: var(--code); padding: .08em .35em; border-radius: 4px; }
+  a { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; margin: .8rem 0; font-size: .93rem; }
+  th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: Futura, "Century Gothic", sans-serif; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .num { font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; font: .72rem/1 Futura, "Century Gothic", sans-serif; letter-spacing: .06em;
+          padding: .28em .6em; border-radius: 999px; vertical-align: middle; }
+  .pill.done { background: color-mix(in srgb, var(--done) 18%, transparent); color: var(--done); }
+  .pill.live { background: color-mix(in srgb, var(--live) 18%, transparent); color: var(--live); }
+  .pill.future { background: color-mix(in srgb, var(--future) 18%, transparent); color: var(--future); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .8rem; margin: 1rem 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1rem; }
+  .card h3 { margin: 0 0 .3rem; }
+  .card p { margin: 0; font-size: .9rem; color: var(--muted); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: .8rem; margin: 1rem 0; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .stat .v { font-family: Futura, "Century Gothic", sans-serif; font-size: 1.5rem; }
+  .stat .k { font-size: .8rem; color: var(--muted); }
+  details { border: 1px solid var(--line); border-radius: 10px; background: var(--card); margin: .6rem 0; padding: .2rem .9rem; }
+  summary { cursor: pointer; font-family: Futura, "Century Gothic", sans-serif; padding: .5rem 0; }
+  summary .pill { margin-left: .5rem; }
+  .flow { overflow-x: auto; margin: 1rem 0; }
+  .flow svg { min-width: 620px; width: 100%; height: auto; display: block; }
+  .flow text { font: 12.5px Futura, "Century Gothic", sans-serif; fill: var(--fg); }
+  .flow .lbl { font-size: 10.5px; fill: var(--muted); }
+  .flow rect { fill: var(--card); stroke: var(--line); rx: 8; }
+  .flow rect.hot { stroke: var(--accent); stroke-width: 1.5; }
+  .flow path { stroke: var(--muted); fill: none; stroke-width: 1.3; marker-end: url(#arr); }
+  ul { padding-left: 1.2rem; } li { margin: .25rem 0; }
+  .foot { margin-top: 3rem; font-size: .85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: .8rem; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Anvil</h1>
+<p class="sub">A neural agent for Magic: The Gathering, built on the Forge rules engine.
+Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nights-and-weekends project.
+&nbsp;·&nbsp; <span class="pill done">M0 closed</span> <span class="pill done">M1 closed</span> <span class="pill live">M2 next</span></p>
+
+<div class="stats">
+  <div class="stat"><div class="v num">0.9758</div><div class="k">held-out honest agreement (gate: high-80s)</div></div>
+  <div class="stat"><div class="v num">46.8%</div><div class="k">winrate vs the heuristic, held-out matchups</div></div>
+  <div class="stat"><div class="v num">113,592</div><div class="k">games in the training corpus (zero-error)</div></div>
+  <div class="stat"><div class="v num">37.3M</div><div class="k">model parameters (d=512 × 10 trunk)</div></div>
+  <div class="stat"><div class="v num">65% → 3%</div><div class="k">executor veto rate, M0 → D8</div></div>
+  <div class="stat"><div class="v num">~1,000 g/h</div><div class="k">eval games/hour with GPU inference in the loop</div></div>
+</div>
+
+<h2>The smithy (module map)</h2>
+<div class="cards">
+  <div class="card"><h3>Anvil <span class="pill live">M1 agent live</span></h3><p>The project and the pilot agent — plays the game. BC policy trained, plays over the bridge.</p></div>
+  <div class="card"><h3>Tutor <span class="pill future">future</span></h3><p>The deckbuilder — searches the pool for what the deck needs.</p></div>
+  <div class="card"><h3>Mentor <span class="pill future">future</span></h3><p>The coaching product — narrates, flags blunders, assigns drills.</p></div>
+  <div class="card"><h3>Grindstone <span class="pill future">M2+</span></h3><p>The drill economy — grinds scenarios, sharpens the model. Every drill provenance-traced to a real game.</p></div>
+  <div class="card"><h3>Ante <span class="pill future">future</span></h3><p>The luck ledger — accounts what chance took and gave.</p></div>
+</div>
+<p>Initial scope: 1v1 Duel Commander, curated pool <code>cf2ca6ba</code> — 1,701 cards from 113 competitive decklists.</p>
+
+<h2>How the pieces connect</h2>
+<div class="flow"><svg viewBox="0 0 640 300" role="img" aria-label="Data flow: Forge fork to bridge to Python model and store">
+  <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+    <path d="M0,0 L8,4 L0,8 z" fill="context-stroke" stroke="none"/></marker></defs>
+  <rect x="8"   y="20"  width="180" height="92"/>
+  <text x="98"  y="44" text-anchor="middle">Forge fork (Java)</text>
+  <text x="98"  y="62" text-anchor="middle" class="lbl">PlayerControllerAnvil · Obs log</text>
+  <text x="98"  y="77" text-anchor="middle" class="lbl">AnvilOptions scan · Census</text>
+  <text x="98"  y="92" text-anchor="middle" class="lbl">CastPlanRealizer (legality-only)</text>
+
+  <rect x="252" y="34"  width="130" height="64" class="hot"/>
+  <text x="317" y="58" text-anchor="middle">gRPC bridge</text>
+  <text x="317" y="76" text-anchor="middle" class="lbl">6 answer shapes + CastPlan</text>
+
+  <rect x="446" y="20"  width="186" height="92"/>
+  <text x="539" y="44" text-anchor="middle">Decision server (Python)</text>
+  <text x="539" y="62" text-anchor="middle" class="lbl">featurize = training code path</text>
+  <text x="539" y="77" text-anchor="middle" class="lbl">AnvilNet.act (greedy decode)</text>
+  <text x="539" y="92" text-anchor="middle" class="lbl">PASS-logit calibration δ</text>
+
+  <rect x="8"   y="180" width="180" height="74"/>
+  <text x="98"  y="205" text-anchor="middle">Trajectory store</text>
+  <text x="98"  y="222" text-anchor="middle" class="lbl">JSONL-in-zstd · info-set enforced</text>
+  <text x="98"  y="237" text-anchor="middle" class="lbl">validate = zero-error gate</text>
+
+  <rect x="252" y="180" width="130" height="74"/>
+  <text x="317" y="205" text-anchor="middle">Training</text>
+  <text x="317" y="222" text-anchor="middle" class="lbl">streaming loader · bf16</text>
+  <text x="317" y="237" text-anchor="middle" class="lbl">honest metrics (forced excl.)</text>
+
+  <rect x="446" y="180" width="186" height="74"/>
+  <text x="539" y="205" text-anchor="middle">Checkpoint of record</text>
+  <text x="539" y="222" text-anchor="middle" class="lbl">d7-ep3 · 3-epoch recipe</text>
+  <text x="539" y="237" text-anchor="middle" class="lbl">pass_calibration.json</text>
+
+  <path d="M188,52 L246,52"/><text x="217" y="45" text-anchor="middle" class="lbl">obs+options</text>
+  <path d="M382,52 L440,52"/>
+  <path d="M440,84 L382,84"/><text x="411" y="99" text-anchor="middle" class="lbl">CastPlan</text>
+  <path d="M246,84 L188,84"/>
+  <path d="M98,112 L98,174"/><text x="112" y="148" class="lbl">games</text>
+  <path d="M188,217 L246,217"/>
+  <path d="M382,217 L440,217"/>
+  <path d="M539,174 L539,118"/><text x="551" y="150" class="lbl">serve</text>
+</svg></div>
+<p>Two invariant boundaries: the <b>engine adjudicates every claim</b> a learned component makes
+(the realizer enforces legality, never heuristic judgment), and the <b>information set is enforced
+in exactly one leak-tested Python transform</b> — the same featurization code path serves training
+and play (<code>tests/test_serve_parity.py</code>).</p>
+
+<h2>Repo layout</h2>
+<table>
+  <tr><th>Path</th><th>What lives there</th></tr>
+  <tr><td><code>anvil/encoder</code> §1, <code>anvil/state</code> §2</td><td>Card/text embeddings, entity transform (info-set enforcement), state assembly</td></tr>
+  <tr><td><code>anvil/policy</code> §3, <code>anvil/heads</code> §4</td><td>AnvilNet: trunk, priority pointer, target decoder, X / one-field / value heads</td></tr>
+  <tr><td><code>anvil/training</code> §6</td><td>Streaming dataset, train loop, eval_x, calibrate_pass, diagnose_value</td></tr>
+  <tr><td><code>anvil/bridge</code> §9</td><td>Proto, decision server (echo/random/model), featurizer, batch harness (launch/pause/resume/replay)</td></tr>
+  <tr><td><code>anvil/store</code> §9</td><td>Trajectory store: ingest, reader, zero-error validator</td></tr>
+  <tr><td><code>anvil/pool</code> §8, <code>anvil/evals</code> §7</td><td>DC pool pipeline (fetch/banlist/build), D8 arm report</td></tr>
+  <tr><td><code>docs/design</code> · <code>docs/decisions</code> · <code>docs/devlog</code></td><td>Canonical design doc + plans · ADRs · one file per working session</td></tr>
+  <tr><td><code>../forge</code> (sibling repo)</td><td>The fork: controller override, Obs/Census, options scan, realizer, gRPC worker — archaeology lives there</td></tr>
+</table>
+
+<h2>Milestones</h2>
+
+<details>
+<summary>M0 — Measure the ground <span class="pill done">closed 2026-07-04</span> (ADR-0003)</summary>
+<ul>
+  <li>Soak: forward play is leak-free; LearnForge's killer confirmed dead. 64 games/min at 16 workers — §15 target beaten 6× pre-optimization.</li>
+  <li>Fork fidelity characterized: 50% trajectory divergence, two seed-reproducible static-corruption classes → <b>fork API promoted to flagship upstream contribution</b> (ADR-0002), sequenced before M2.</li>
+  <li>Bridge protocol v0: six game-agnostic answer shapes; echo instrument measured <b>bridge tax 2.6%</b> at w=16, zero transport failures; ~1,700 g/h with the bridge in the loop.</li>
+  <li>Callback census: 109-method decision surface; priority = 51–56% of traffic; cast path confirmed (targets/X injected, never callbacks).</li>
+  <li>M0 controller plays random-legal, heuristic-gated: <b>65% veto rate</b> — the number D8 existed to collapse.</li>
+</ul>
+</details>
+
+<details open>
+<summary>M1 — Behavioral cloning <span class="pill done">closed 2026-07-10</span> (ADR-0009)</summary>
+<table>
+  <tr><th>Step</th><th>Landed</th><th>Headline</th></tr>
+  <tr><td>D1 observation schema + store</td><td class="num">07-04</td><td>~70× compression, 28 KB/game; two corpus-poisoning bugs caught by leak test</td></tr>
+  <tr><td>D2 CastPlan label extractor</td><td class="num">07-04</td><td>Structured engine-legal options logged at generation time (replay drift forbids recomputing)</td></tr>
+  <tr><td>D3 pilot corpus + mask redesign</td><td class="num">07-04→06</td><td>50K games, zero label errors (ADR-0005: timing-legal candidate basis)</td></tr>
+  <tr><td>D4 encoder/trunk/heads</td><td class="num">07-06→08</td><td>37.3M params; all six task types train end-to-end; mulligan 0.981 at 18% of an epoch</td></tr>
+  <tr><td>D5 diagnosis + matrix</td><td class="num">07-06→07</td><td>Value head = matchup-entropy floor, not data (21.4% of pairs go 5–0); embedding tie → Qwen3 pin (ADR-0007); pass-weight knee → 0.1</td></tr>
+  <tr><td>D6 corpus scaling</td><td class="num">07-08</td><td>Stopping rule fired at first checkpoint (ADR-0006): 113.6K games final, 23% of ceiling — diversity wasn't binding</td></tr>
+  <tr><td>D7 train to the gate</td><td class="num">07-10</td><td><b>Honest 0.9758</b> (~9pp above target, ADR-0008); 3-epoch recipe; X un-plateaued 0.647→0.874 (was compute-starved, not corpus-limited); calibration δ=+2.169 → honest 0.9841</td></tr>
+  <tr><td>D8 eval path</td><td class="num">07-10</td><td><b>46.8% ± 2.5pp vs heuristic</b> on held-out pairs; veto 65%→3.1–7.8% decomposed; inference-in-loop free at w=8</td></tr>
+</table>
+<p>Executor design (D8): legality-only realizer + host-level disambiguation ladder
+(shape-fit → payability → kind prior → scan order). Measured rung-1 output-channel gaps:
+host-vs-SA ambiguity touches 23.6% of expert actions (order-rung guesses ~30% of ambiguous casts);
+modal spells cast mode-less (1.2%); divided damage even-split (0.03%). All queued for the M2 action schema,
+with exact SA-level labels accumulating via the <code>oi</code> field from every run since 07-10.</p>
+</details>
+
+<details open>
+<summary>M2 — Reinforcement learning <span class="pill live">next</span></summary>
+<ul>
+  <li><b>Fork-API hardening</b> — stable single-step fork API (rollout prerequisite; the flagship upstream contribution, per ADR-0002). The <code>forkcheck</code> harness is the standing regression gate.</li>
+  <li><b>Rollout-labeled value targets</b> — the measured fix for the value head (BC label = hidden-info entropy floor ~0.57 BCE; board reading absent).</li>
+  <li><b>RL fine-tune from <code>d7-ep3</code></b> — V-trace, §6 phase 2; start action-rich (δ=0), let reward set the pass boundary. Winrate arms (~12 min) = standing strength eval per checkpoint.</li>
+  <li><b>Action schema by measured mass</b> — SA-level candidates (<code>oi</code> labels), mode heads, allocation heads.</li>
+  <li>Carried context: yield macros (§3b, deferred from M1); combat constructs (D9 stretch, labels already in corpus); repetition control folded into the recipe; ID dropout = the pre-Tutor lever against shortcut learning.</li>
+</ul>
+</details>
+
+<details>
+<summary>Beyond M2 — the product line <span class="pill future">design-doc §5–§11</span></summary>
+<ul>
+  <li><b>Tutor</b>: pool search + deck assessment (performance curves: skill-dependence, forgiveness, ceiling).</li>
+  <li><b>Grindstone</b>: drill economy; player-facing drills as a first-class Forge feature (tier-1 drills need no model — fork machinery + UI; opt-in placement solves the recording-flywheel cold start).</li>
+  <li><b>Mentor</b>: coaching; progression/tuned-fight modes via skill token (difficulty moves through human-shaped play, never blunder injection).</li>
+  <li><b>Ante</b>: luck ledger; duplicate-Magic dailies (seeded determinism → luck-free leaderboards).</li>
+</ul>
+</details>
+
+<h2>Decision record (ADRs)</h2>
+<table>
+  <tr><th>#</th><th>Date</th><th>Decision</th></tr>
+  <tr><td><a href="decisions/ADR-0001-prior-work-responses.md">0001</a></td><td class="num">07-02</td><td>Prior-work responses: engine stays Forge; day-one invariants (legal-actions-only, one-shot-or-micro-step)</td></tr>
+  <tr><td><a href="decisions/ADR-0002-fork-api-gate-resolution.md">0002</a></td><td class="num">07-03</td><td>Fork fidelity broken-but-characterized; fork API = flagship upstream contribution</td></tr>
+  <tr><td><a href="decisions/ADR-0003-m0-closeout.md">0003</a></td><td class="num">07-04</td><td>M0 closeout; §14/§15 recalibrated</td></tr>
+  <tr><td><a href="decisions/ADR-0004-m1-scope.md">0004</a></td><td class="num">07-04</td><td>M1 scope: heads cut at rung 1; Python owns tensor assembly; staged corpus</td></tr>
+  <tr><td><a href="decisions/ADR-0005-d3-label-mask-semantics.md">0005</a></td><td class="num">07-04</td><td>Label mask = timing-legal candidates (payability is the model's to learn)</td></tr>
+  <tr><td><a href="decisions/ADR-0006-500k-default-on-stopping-rule.md">0006</a></td><td class="num">07-06→08</td><td>Pre-registered stopping rule; fired at first checkpoint — corpus final at 113.6K</td></tr>
+  <tr><td><a href="decisions/ADR-0007-embedding-pin.md">0007</a></td><td class="num">07-07</td><td>Qwen3-vs-BGE statistical tie → pin stays Qwen3; text channel ≈0 at rung 1</td></tr>
+  <tr><td><a href="decisions/ADR-0008-d7-gate-resolution.md">0008</a></td><td class="num">07-10</td><td>Gate TRUE (0.9758); 3-epoch recipe; X plateau was compute-starvation</td></tr>
+  <tr><td><a href="decisions/ADR-0009-m1-closeout.md">0009</a></td><td class="num">07-10</td><td>M1 closeout: BC agent at 46.8% vs heuristic; M2 entry points</td></tr>
+</table>
+
+<h2>Design invariants (standing law)</h2>
+<ul>
+  <li>The engine adjudicates every claim any learned component makes.</li>
+  <li>Every LLM judgment is downstream-verified; LLMs never generate training truth.</li>
+  <li>Every drill is provenance-traced to a real game.</li>
+  <li>The value function is continuously audited against rollouts.</li>
+  <li>Detection is the engine's job; response is the model's.</li>
+  <li>The error-accounting queue is the spine everything reports to.</li>
+  <li>The model never sees the engine version — formats are rules to play to; versions are bugs not to learn.</li>
+  <li>Seed everything; deterministic replay. Provenance on all trajectories. Pinned fork per run.</li>
+</ul>
+
+<p class="foot">Living document — update at milestone boundaries alongside the CLAUDE.md status section.
+Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-10 (M1 closeout).</p>
+
+</main>
+</body>
+</html>
