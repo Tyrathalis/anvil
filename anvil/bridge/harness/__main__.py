@@ -14,6 +14,8 @@ def main() -> None:
     group.add_argument("--decks", nargs=2, default=None)
     group.add_argument("--pool", action="store_true",
                        help="deck pairs scheduled over the latest pool manifest")
+    group.add_argument("--pairs-file", type=Path, default=None,
+                       help="explicit pair schedule (D8 arms: valpair-only held-out matchups)")
     la.add_argument("--games-per-pair", type=int, default=5,
                     help="games per scheduled pair (pool mode; default 5)")
     la.add_argument("--games", type=int, required=True)
@@ -31,6 +33,10 @@ def main() -> None:
     la.add_argument("--calibrated", action="store_true")
     la.add_argument("--obs", action="store_true",
                     help="write observation logs (obs.zst per worker; observation-schema-v1)")
+    la.add_argument("--census", action="store_true",
+                    help="write census logs (census.jsonl per worker; D8 veto/rung telemetry)")
+    la.add_argument("--bridge-seats", default=None,
+                    help="csv of bridged seat indices (mixed-seat D8 arms; default all seats)")
 
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)

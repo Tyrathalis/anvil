@@ -147,6 +147,11 @@ class Run:
             cmd += ["-tags", m["tags"]]
         if m.get("obs"):
             cmd += ["-obs", str(wdir / "obs.zst")]
+        if m.get("census"):
+            # D8: veto reasons + disambiguation rungs live in the census log
+            cmd += ["-census", str(wdir / "census.jsonl")]
+        if m.get("bridge_seats") is not None:
+            cmd += ["-bridgeseats", str(m["bridge_seats"])]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
         return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
@@ -226,7 +231,21 @@ def launch(a) -> Path:
     (run_dir / "workers").mkdir(parents=True)
 
     pool_fields = {}
-    if a.pool:
+    if getattr(a, "pairs_file", None):
+        # D8 arms: an explicit pair schedule (e.g. valpair-only held-out
+        # matchups) replaces the pool-derived one; same worker mechanism.
+        import shutil
+        shutil.copy(a.pairs_file, run_dir / "pairs.txt")
+        n_lines = sum(1 for _ in open(run_dir / "pairs.txt"))
+        pool_fields = {
+            "pairs_file": "pairs.txt",
+            "pairs_source": str(a.pairs_file),
+            "pairs_sha256": _sha256(run_dir / "pairs.txt"),
+            "n_pairs": n_lines,
+            "games_per_pair": a.games_per_pair,
+        }
+        print(f"[harness] explicit pairs file: {n_lines} pairs x {a.games_per_pair} games")
+    elif a.pool:
         from anvil.bridge.harness.pairs import (latest_pool_manifest, pair_schedule,
                                                 write_pairs_file)
         pool = latest_pool_manifest()
@@ -261,6 +280,8 @@ def launch(a) -> Path:
         "heap": "2g", "jvm_opts": ["-XX:ActiveProcessorCount=2"],
         "bridge": a.bridge, "tags": a.tags, "nice": not a.calibrated,
         "obs": a.obs, "obs_schema": 1 if a.obs else None,
+        "census": getattr(a, "census", False),
+        "bridge_seats": getattr(a, "bridge_seats", None),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "
