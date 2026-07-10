@@ -45,13 +45,20 @@ def main() -> None:
     ap.add_argument("--ckpts", nargs="+", required=True)
     ap.add_argument("--max-games", type=int, default=None)
     ap.add_argument("--batch", type=int, default=256)
+    ap.add_argument("--store", default=None,
+                    help="override the ckpt's store spec (e.g. pilot-only for the "
+                         "fixed 672-window basis the ADR-0006 curves used; the "
+                         "split is a pure function of game index, so a store "
+                         "subset reproduces its historical basis exactly)")
     a = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     wins = None
     for path in a.ckpts:
         ckpt = torch.load(path, map_location=device, weights_only=False)
-        cfg = ckpt["config"]
+        cfg = dict(ckpt["config"])
+        if a.store:
+            cfg["store"] = a.store
         if wins is None:  # same store/split across ckpts: collect once
             wins = x_windows(cfg, a.max_games)
             print(f"[eval_x] {len(wins)} X windows in the val split")
