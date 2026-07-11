@@ -77,4 +77,5 @@ Update this section as milestones land.
 
 - **End of every session:** write `docs/devlog/YYYY-MM-DD.md` (copy `docs/devlog/TEMPLATE.md`): what was done, what broke, what the next session picks up. Claude writes this as part of wrapping up.
 - **When a design question is resolved or a design-doc claim changes** (e.g., a probability from §15 gets measured, a bet flips): write an ADR in `docs/decisions/` (copy the template, next sequence number) and update the Status section above.
+- **Keep `docs/project-map.html` current alongside the devlog/Status:** whenever a milestone opens/closes, a deliverable lands, or a headline number changes (stats bar, roadmap items, ADR index), update the map in the same commit batch. It's the living overview — a stale map is worse than none.
 - Commit at natural checkpoints with plain descriptive messages; the devlog carries the narrative, not the commit log.

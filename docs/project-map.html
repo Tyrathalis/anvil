@@ -78,6 +78,7 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
   <div class="stat"><div class="v num">37.3M</div><div class="k">model parameters (d=512 × 10 trunk)</div></div>
   <div class="stat"><div class="v num">65% → 3%</div><div class="k">executor veto rate, M0 → D8</div></div>
   <div class="stat"><div class="v num">~1,000 g/h</div><div class="k">eval games/hour with GPU inference in the loop</div></div>
+  <div class="stat"><div class="v num">50% → 13%</div><div class="k">fork trajectory divergence, pre → post D1 fixes (statics 12% → 0)</div></div>
 </div>
 
 <h2>The smithy (module map)</h2>
@@ -188,7 +189,8 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
 <details open>
 <summary>M2 — Reinforcement learning <span class="pill live">open</span> (plan: <a href="design/m2-rl-plan.md">m2-rl-plan.md</a>, seeded from ADR-0010)</summary>
 <ul>
-  <li><b>1. Fork-API hardening</b> — stable single-step fork API (rollout prerequisite; the flagship upstream contribution, per ADR-0002). The <code>forkcheck</code> harness is the standing regression gate.</li>
+  <li><b>1. Fork-API hardening</b> <span class="pill live">in progress</span> — stable single-step fork API (rollout prerequisite; the flagship upstream contribution, per ADR-0002). The <code>forkcheck</code> harness is the standing regression gate.
+  <b>Day one (07-10): static corruption 12%→0</b> (face-down exile leak + effect-card field wiring); <b>trajectory divergence 50%→13.4%</b> — root cause was GameCopier renumbering card ids (~10-line fix; residual = this-turn copy gaps, 67 repro seeds); <b>twin determinism 99%</b> (new <code>-twin</code> gate: two copies + same RNG snapshot must replay identically; the 1% tail = hash-ordered iteration in decision paths, isolated with the <code>-bridge</code> stress amplifier — bounds bit-exact replay only, doesn't bias rollout labels). Baselines: <code>data/forkcheck/run-20260710{,-twin}/</code>. Remaining: fork-side Obs re-binding → model-policy rollout smoke + throughput (prices step 4) → upstream PR #1.</li>
   <li><b>2. SA-level action schema + BC retrain</b> — the D8 order rung guessed 31–36% of casts (2.5× the corpus estimate): the largest known winrate leak, and RL needs SA-level action identity anyway. Partial labels from the string join now, exact <code>oi</code> labels accumulating; loader history fix rides along. Entity representation untouched (cards stay single entities).</li>
   <li><b>3. Winrate arms reprice</b> (~12 min each) — attribute the schema change before RL confounds it.</li>
   <li><b>4. Rollout-labeled value targets under the BC policy</b> — the measured fix for the value head (BC label = hidden-info entropy floor ~0.57 BCE); rollouts by the near-parity agent, not the heuristic. Critic goes asymmetric (§4, full-visibility input); the <b>Ante mirror certification</b> (§7/§13) rides behind it.</li>
