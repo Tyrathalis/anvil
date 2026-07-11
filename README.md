@@ -24,4 +24,16 @@ Initial scope is 1v1 Duel Commander over a curated ~1–2K card pool.
 
 ## Status
 
-Pre-M0. The first milestone is a throughput harness (Forge ↔ Python bridge + random-legal agent) to measure games/sec, the number that calibrates the entire schedule.
+M0 (throughput harness) and M1 (behavior cloning) are complete: the batch
+harness sustains ~1,700+ games/h with the Python bridge in the loop, and a
+behavior-cloned agent trained on ~114K self-play games (held-out expert
+agreement 0.976) plays full games at 46.8% ± 2.5pp against the heuristic AI
+it imitates. Current milestone: M2 (RL) — the state-forking rollout contract
+is certified (the `GameCopier` fidelity fixes are headed upstream), with the
+SA-level action schema, rollout-labeled value targets, and first V-trace
+self-play ahead. See the [devlog](docs/devlog/) and
+[decision records](docs/decisions/) for the running narrative.
+
+## License
+
+[GPL-3.0-or-later](LICENSE), matching Forge.
