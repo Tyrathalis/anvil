@@ -64,6 +64,34 @@ Notes (replay triage, 2026-07-06):
   — Forge design conversations happen inside PRs (survey: never issues;
   stale bot ~35 days, so don't let it idle). On merge: the fixes return to
   us via the next fork rebase (anchor #11161, dataset-boundary event).
+  **2026-07-11: tool4ever reviewed (CHANGES_REQUESTED, but substance
+  accepted — `dangerouslySyncCardIdCounters` explicitly endorsed).** The ask:
+  with ids now preserved, `GameCopier` and `GameSnapshot` lose their
+  load-bearing difference — consolidate on the snapshot path
+  (`EXPERIMENTAL_RESTORE_SNAPSHOT`) and delete the duplicated copy code.
+  **Replied same day** ([comment](https://github.com/Card-Forge/forge/pull/11203#issuecomment-4946992438)):
+  agreed on direction; keep this PR as the scoped bug-fix layer; volunteered
+  the consolidation as a follow-up PR gated by forkcheck; offered to fold the
+  two snapshot-path sibling fixes in if preferred. Await their pick.
+
+## Queued follow-up PR — GameCopier → GameSnapshot consolidation (volunteered 2026-07-11)
+
+Make the snapshot path own simulation copies and delete GameCopier's
+duplicated copy logic (maintainer-requested direction on #11203). Known
+work items from the archaeology:
+
+- **Snapshot path carries sibling bugs of two PR-#1 classes:**
+  `setForetold`/`setForetoldCostByEffect` commented out in
+  `setCardInCopiedGame` (face-down/foretold state drop); only commanders
+  re-wired — the 7 field-managed effect cards re-create lazily + orphan the
+  copies (call the shared `Player.copyEffectCardsToSnapshot`).
+- **Delegation gaps:** `GameCopier.makeCopy(advanceToPhase, aiPlayer)`
+  ignores `advanceToPhase` on the snapshot path (upstream TODO);
+  `PRUNE_HIDDEN_INFO` (dormant, default false) has no snapshot equivalent.
+- **Validation = forkcheck**: 500-game copy-vs-original digest baseline +
+  twin determinism gate, run with simulation copies switched to the snapshot
+  path. Sequencing: after D2/D3 land (it is not on the M2 critical path);
+  coordinate timing with the maintainers on the PR thread.
 
 ## Upstream drift watch (2026-07-10 sweep: pin `0bfdaa572f30` → `1eec01434e`, 57 commits)
 
