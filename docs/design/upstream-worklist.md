@@ -53,6 +53,18 @@ Notes (replay triage, 2026-07-06):
   slow-tail seeds into log-diagnosable profiler samples. Cherry-pick applies
   cleanly to our fork: branch `test-11161` (verified building + playing).
 
+## Open upstream PRs — monitor for maintainer feedback
+
+- **[Card-Forge/forge#11203](https://github.com/Card-Forge/forge/pull/11203)
+  — GameCopier state-fidelity fixes (PR #1), submitted 2026-07-10** from
+  branch `gamecopier-fidelity-fixes` @ `2437820aee` on Tyrathalis/forge
+  (worktree `../forge-pr1`; fix + 3 differential regression tests, each
+  validated failing pre-fix; full forge-gui-desktop suite green, 285 tests).
+  **Check for review comments at the start of each session until resolved**
+  — Forge design conversations happen inside PRs (survey: never issues;
+  stale bot ~35 days, so don't let it idle). On merge: the fixes return to
+  us via the next fork rebase (anchor #11161, dataset-boundary event).
+
 ## Upstream drift watch (2026-07-10 sweep: pin `0bfdaa572f30` → `1eec01434e`, 57 commits)
 
 Full-log review ahead of PR #1 assembly. #11161 covered above. Also relevant:
