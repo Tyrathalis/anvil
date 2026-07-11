@@ -24,12 +24,17 @@ from anvil.encoder.cardtext import pool_features
 from anvil.encoder.transform import (ENTITY_FEATURES, GLOBAL_FEATURES, HISTORY_K,
                                      PLAYER_FEATURES, TRANSFORM_VERSION)
 from anvil.policy.model import AnvilNet
-from anvil.training.dataset import PriorityWindows, collate, default_methods
+from anvil.training.dataset import (PriorityWindows, collate, default_methods,
+                                    default_sa_vocab)
 
 REPO = Path(__file__).parents[1]
 
 
-def build_net(embedding_stem: str, pool_manifest: str, n_methods: int) -> AnvilNet:
+def build_net(embedding_stem: str, pool_manifest: str, n_methods: int,
+              n_sa: int = 0) -> AnvilNet:
+    """n_sa: SA-string vocab size (M2 D2 SA-level candidates); 0 rebuilds the
+    M1 host-level architecture so pre-D2 checkpoints keep loading (the server
+    reads it from ckpt config's sa_vocab_size, absent = 0)."""
     m = json.loads(Path(pool_manifest).read_text())
     meta = json.loads(Path(f"{embedding_stem}.json").read_text())
     feats = torch.from_numpy(pool_features(m, meta["names"]))
@@ -37,7 +42,7 @@ def build_net(embedding_stem: str, pool_manifest: str, n_methods: int) -> AnvilN
                     n_entity_features=len(ENTITY_FEATURES),
                     n_global=len(GLOBAL_FEATURES), n_players=2,
                     n_player_features=len(PLAYER_FEATURES),
-                    n_methods=n_methods, history_k=HISTORY_K)
+                    n_methods=n_methods, history_k=HISTORY_K, n_sa=n_sa)
 
 
 @torch.no_grad()
@@ -46,6 +51,7 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
     agree = raw = 0
     n_honest = n_raw = 0
     agree_np = n_np = 0
+    agree_host = n_host = n_masked = 0
     tgt_ok = tgt_n = 0
     tuck_ok = tuck_n = 0
     x_ok = x_n = 0
@@ -60,15 +66,25 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
             out = net(batch)
         prio = batch["task"] == 0
         pred = out["policy_logits"].argmax(1)
-        ok = (pred == batch["label"]) & prio
+        valid = batch["label"] >= 0                     # SA-level label resolved
+        lab = batch["label"].clamp(min=0)
+        ok = (pred == lab) & prio & valid
         multi = (batch["cand_mask"].sum(1) > 1) & prio  # single-legal-option exclusion
         raw += ok.sum().item()
-        n_raw += prio.sum().item()
+        n_raw += (prio & valid).sum().item()
         agree += (ok & multi).sum().item()
-        n_honest += multi.sum().item()
-        nonpass = (batch["label"] > 0) & prio
+        n_honest += (multi & valid).sum().item()
+        nonpass = (lab > 0) & prio & valid
         agree_np += (ok & nonpass).sum().item()
         n_np += nonpass.sum().item()
+        n_masked += (prio & ~valid).sum().item()
+        # host-level basis (M1 continuity): the chosen candidate's HOST row vs
+        # the expert's, defined on ALL multi windows incl. SA-masked ones
+        pred_row = batch["cand_rows"].gather(1, pred.unsqueeze(1)).squeeze(1)
+        host_ok = torch.where(pred == 0, batch["label_row"] == -1,
+                              pred_row == batch["label_row"])
+        agree_host += (host_ok & multi).sum().item()
+        n_host += multi.sum().item()
         tm = batch["tgt_labels"] >= 0
         tok = (out["tgt_logits"].argmax(-1) == batch["tgt_labels"]) & tm
         tuck = (batch["task"] == 2).unsqueeze(-1)
@@ -98,9 +114,12 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
     # rate without its sample size hides the noise floor (nonpass at n~1.4K
     # has SE ~1.2% — arms closer than that are indistinguishable)
     return {
-        "agree_honest": agree / max(n_honest, 1),   # THE number (forced excluded)
+        "agree_honest": agree / max(n_honest, 1),   # THE number (forced excluded;
+                                                    # SA basis since M2 D2)
+        "agree_honest_host": agree_host / max(n_host, 1),  # M1-continuity basis
         "agree_raw": raw / max(n_raw, 1),
         "agree_nonpass": agree_np / max(n_np, 1),
+        "n_host": n_host, "n_masked": n_masked,
         "acc_target": tgt_ok / max(tgt_n, 1),
         "acc_x": x_ok / max(x_n, 1),
         "value_bce": vsum / max(vn, 1),
@@ -152,7 +171,8 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     methods = default_methods()
-    net = build_net(a.embed, a.pool_manifest, len(methods)).to(device)
+    sa_vocab = default_sa_vocab()
+    net = build_net(a.embed, a.pool_manifest, len(methods), n_sa=len(sa_vocab)).to(device)
     if a.null_text:
         with torch.no_grad():
             net.cards.text.zero_()
@@ -179,6 +199,7 @@ def main() -> None:
         return a.lr * 0.5 * (1 + math.cos(math.pi * min(t, 1.0)))
 
     config = {**vars(a), "params": n_params, "methods_version": 1,
+              "sa_vocab_version": 1, "sa_vocab_size": len(sa_vocab),
               "transform_version": TRANSFORM_VERSION,
               "embed_meta": json.loads(Path(f"{a.embed}.json").read_text())}
     del config["out"]
@@ -224,6 +245,7 @@ def main() -> None:
                     metrics.write(json.dumps(row) + "\n")
                 metrics.flush()
                 print(f"[eval] step {step}: honest {ev['agree_honest']:.4f} "
+                      f"(host {ev['agree_honest_host']:.4f}) "
                       f"raw {ev['agree_raw']:.4f} nonpass {ev['agree_nonpass']:.4f} "
                       f"tgt {ev['acc_target']:.4f} | valpair honest {ep['agree_honest']:.4f}")
                 torch.save({"step": step, "model": net.state_dict(), "config": config},

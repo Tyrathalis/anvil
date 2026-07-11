@@ -62,7 +62,8 @@ def main() -> None:
         if wins is None:  # same store/split across ckpts: collect once
             wins = x_windows(cfg, a.max_games)
             print(f"[eval_x] {len(wins)} X windows in the val split")
-        net = build_net(cfg["embed"], cfg["pool_manifest"], len(default_methods())).to(device)
+        net = build_net(cfg["embed"], cfg["pool_manifest"], len(default_methods()),
+                    n_sa=cfg.get("sa_vocab_size", 0)).to(device)
         net.load_state_dict(ckpt["model"])
         net.eval()
         ok = n = 0

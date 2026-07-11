@@ -59,11 +59,19 @@ class ModelBackend:
         self.torch = torch
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
         cfg = ckpt["config"]
+        # sa_vocab_size absent = pre-D2 host-level checkpoint: the model has
+        # no SA descriptor and answers host_level=True (Java runs the full
+        # disambiguation ladder). D2+ checkpoints name the SA themselves.
+        self.n_sa = cfg.get("sa_vocab_size", 0)
         self.net = build_net(cfg["embed"], cfg["pool_manifest"],
-                             len(default_methods())).to(device)
+                             len(default_methods()), n_sa=self.n_sa).to(device)
         self.net.load_state_dict(ckpt["model"])
         self.net.eval()
         self.feat = Featurizer(cfg["embed"], default_methods())
+        if self.n_sa and self.n_sa != len(self.feat.sa_vocab):
+            raise ValueError(
+                f"checkpoint sa_vocab_size {self.n_sa} != pinned sa_vocab "
+                f"{len(self.feat.sa_vocab)} — serve/train vocab skew")
         self.pass_delta = pass_delta
         self.device = device
         self.lock = threading.Lock()
@@ -114,9 +122,11 @@ class ModelBackend:
         if choice == 0:
             self.counts["pass"] += 1
             return cp  # spell_option 0 = pass (label-space convention)
-        row = aux["cand_rows"][choice]
-        cp.spell_option = aux["row_first_opt"][row] + 1
-        cp.host_level = True
+        cp.spell_option = aux["cand_first_opt"][choice] + 1
+        # SA-level model (D2+): the option index IS the chosen SA — the Java
+        # ladder skips its kind/order rungs (shape->pay only). Host-level
+        # checkpoints keep the full ladder.
+        cp.host_level = self.n_sa == 0
         n_ent, stop = int(out["n_ent"]), int(out["stop_idx"])
         for t in range(out["tgt_picks"].shape[1]):
             pick = int(out["tgt_picks"][0, t])

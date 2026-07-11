@@ -55,14 +55,24 @@ def decode_frame(data: bytes) -> tuple[dict, list[dict], dict | None]:
     decisions: list[dict] = []
     by_seq: dict[int, dict] = {}
     end = None
-    for r in records[1:]:
+    for pos, r in enumerate(records[1:]):
         kind = r.get("k")
         if kind == "dec":
+            # _pos/_retpos: record-stream positions (in-memory only, never
+            # serialized). Decisions NEST — a parent's ret can land after its
+            # children's decs — and the serve-time history ring back-fills
+            # hosts only at ret time, so training history must know WHEN each
+            # answer arrived, not just that it eventually did (M2 D2 fix for
+            # the nested-window skew documented in Obs.java).
+            r["_pos"] = pos
             decisions.append(r)
             by_seq[r["s"]] = r
         elif kind == "ret":
             if r["s"] in by_seq:  # ret without dec = stale-thread record; drop
                 by_seq[r["s"]]["ret"] = r["v"]
+                by_seq[r["s"]]["_retpos"] = pos
+                if "oi" in r:  # exact SA-level option index (logged since 2026-07-10)
+                    by_seq[r["s"]]["oi"] = r["oi"]
         elif kind == "end":
             end = r
     return header, decisions, end

@@ -1,10 +1,12 @@
-"""AnvilNet v0 (M1 D4): encoder + trunk + rung-1 heads.
+"""AnvilNet v0 (M1 D4) + SA-level candidates (M2 D2): encoder + trunk + rung-1 heads.
 
 Trunk: pre-LN transformer encoder, d=512, 8 heads, 10 layers (plan band
-8-12). Heads at v0: priority pointer (PASS + candidate source rows — the
-first stage of the rung-1 autoregressive decomposition; targets/X/modes
-sub-heads land next) and the win-prob value head. The turn-plan latent
-(§3) enters as a second read-out token when the target pointer lands.
+8-12). Priority pointer scores PASS + candidate rows; since M2 D2 a
+candidate is a (host entity, SA descriptor) pair — the key adds a learned
+SA-string-vocab + kind embedding when n_sa > 0 (n_sa=0 reproduces the M1
+host-level architecture for old checkpoints). Target/X/one-field heads and
+the win-prob value head as at M1. The turn-plan latent (§3) enters as a
+second read-out token when the target pointer lands.
 """
 
 from __future__ import annotations
@@ -20,7 +22,8 @@ class AnvilNet(nn.Module):
     def __init__(self, card_encoder: CardEncoder, n_entity_features: int,
                  n_global: int, n_players: int, n_player_features: int,
                  n_methods: int, history_k: int,
-                 d_model: int = 512, n_heads: int = 8, n_layers: int = 10):
+                 d_model: int = 512, n_heads: int = 8, n_layers: int = 10,
+                 n_sa: int = 0):
         super().__init__()
         self.cards = card_encoder
         d_card = card_encoder.fuse[-1].out_features
@@ -35,6 +38,16 @@ class AnvilNet(nn.Module):
                                        nn.Linear(d_model, 1))
         self.ptr_query = nn.Linear(d_model, d_model)
         self.ptr_key = nn.Linear(d_model, d_model)
+        # SA-level candidates (M2 D2): the pointer key is the host entity's
+        # trunk output plus a learned SA-descriptor vector (string-vocab
+        # embedding + kind). n_sa=0 reproduces the M1 host-level architecture
+        # (old checkpoints load and serve unchanged).
+        if n_sa:
+            self.sa_emb = nn.Embedding(n_sa + 1, 64)   # +1 = OOV id
+            self.kind_emb = nn.Embedding(4, 8)  # dataset.KINDS
+            self.sa_proj = nn.Linear(64 + 8, d_model)
+        else:
+            self.sa_emb = None
         self.value_head = nn.Sequential(nn.Linear(d_model, d_model), nn.GELU(),
                                         nn.Linear(d_model, 1))
         # target decoder (rung 1, autoregressive over T_MAX+1 slots incl. STOP)
@@ -55,6 +68,26 @@ class AnvilNet(nn.Module):
         self.num_head = nn.Sequential(nn.Linear(2 * d_model + 64, d_model),
                                       nn.GELU(), nn.Linear(d_model, X_CLASSES))
 
+    def _pointer_logits(self, state: torch.Tensor, ent_out: torch.Tensor,
+                        batch: dict, pass_delta: float = 0.0) -> torch.Tensor:
+        """Pointer logits over candidates: index 0 = PASS, rest gather host
+        rows; with SA-level candidates (n_sa > 0) the key adds a learned
+        SA-descriptor vector. Shared by forward() and act() — the plumbing
+        must not fork."""
+        q = self.ptr_query(state).unsqueeze(1)                    # (B,1,d)
+        k = self.ptr_key(ent_out)                                 # (B,N,d)
+        rows = batch["cand_rows"].clamp(min=0)                    # (B,C); 0-safe gather
+        k_cand = k.gather(1, rows.unsqueeze(-1).expand(-1, -1, k.shape[-1]))
+        if self.sa_emb is not None:
+            sa = self.sa_proj(torch.cat([self.sa_emb(batch["cand_sa"].clamp(min=0)),
+                                         self.kind_emb(batch["cand_kind"].clamp(min=0))],
+                                        dim=-1))
+            k_cand = k_cand + sa * (batch["cand_sa"] >= 0).unsqueeze(-1)  # PASS/pad: none
+        logits = (q * k_cand).sum(-1) / k.shape[-1] ** 0.5        # (B,C)
+        pass_logit = self.pass_head(state) + pass_delta           # (B,1)
+        logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)    # slot 0 = PASS
+        return logits.masked_fill(~batch["cand_mask"], -1e9)
+
     def forward(self, batch: dict) -> dict:
         card_vecs = self.cards(batch["ent_emb"])
         tokens, pad = self.assemble(card_vecs, batch)
@@ -64,19 +97,13 @@ class AnvilNet(nn.Module):
         n_ent = batch["entities"].shape[1]
         ent_out = out[:, 2:2 + n_ent]           # entity token outputs
 
-        # pointer logits over candidates: index 0 = PASS, rest gather rows
-        q = self.ptr_query(state).unsqueeze(1)                    # (B,1,d)
-        k = self.ptr_key(ent_out)                                 # (B,N,d)
-        rows = batch["cand_rows"].clamp(min=0)                    # (B,C); 0-safe gather
-        k_cand = k.gather(1, rows.unsqueeze(-1).expand(-1, -1, k.shape[-1]))
-        logits = (q * k_cand).sum(-1) / k.shape[-1] ** 0.5        # (B,C)
-        pass_logit = self.pass_head(state)                        # (B,1)
-        logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)    # slot 0 = PASS
-        logits = logits.masked_fill(~batch["cand_mask"], -1e9)
+        logits = self._pointer_logits(state, ent_out, batch)
 
         # ---- teacher-forced target decoder + X head (cast windows only) ----
-        # source vector: entity output at the labeled source row (pass -> zeros)
-        rows_src = batch["cand_rows"].gather(1, batch["label"].unsqueeze(1)).clamp(min=0)
+        # source vector: entity output at the labeled source row (pass or
+        # masked SA label -> zeros; masked windows pad their tgt/x labels too)
+        lab = batch["label"].clamp(min=0)
+        rows_src = batch["cand_rows"].gather(1, lab.unsqueeze(1)).clamp(min=0)
         src_vec = ent_out.gather(1, rows_src.unsqueeze(-1).expand(-1, -1, ent_out.shape[-1]))
         src_vec = src_vec.squeeze(1) * (batch["label"] > 0).unsqueeze(-1)
 
@@ -135,14 +162,7 @@ class AnvilNet(nn.Module):
         n_ent = batch["entities"].shape[1]
         ent_out = out[:, 2:2 + n_ent]
 
-        q = self.ptr_query(state).unsqueeze(1)
-        k = self.ptr_key(ent_out)
-        rows = batch["cand_rows"].clamp(min=0)
-        k_cand = k.gather(1, rows.unsqueeze(-1).expand(-1, -1, k.shape[-1]))
-        logits = (q * k_cand).sum(-1) / k.shape[-1] ** 0.5
-        pass_logit = self.pass_head(state) + pass_delta
-        logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)
-        logits = logits.masked_fill(~batch["cand_mask"], -1e9)
+        logits = self._pointer_logits(state, ent_out, batch, pass_delta=pass_delta)
         choice = logits.argmax(1)
 
         rows_src = batch["cand_rows"].gather(1, choice.unsqueeze(1)).clamp(min=0)
@@ -195,10 +215,14 @@ class AnvilNet(nn.Module):
                onefield_weight: float = 0.5) -> dict:
         out = self(batch)
         prio = batch["task"] == 0
-        ce = nn.functional.cross_entropy(out["policy_logits"], batch["label"],
+        # label -1 = SA-level-ambiguous (masked from the policy loss; the
+        # window still trains value and contributes host-level metrics)
+        valid = batch["label"] >= 0
+        lab = batch["label"].clamp(min=0)
+        ce = nn.functional.cross_entropy(out["policy_logits"], lab,
                                          reduction="none")
-        w = torch.where(batch["label"] == 0, torch.full_like(ce, pass_weight),
-                        torch.ones_like(ce)) * prio.float()
+        w = torch.where(lab == 0, torch.full_like(ce, pass_weight),
+                        torch.ones_like(ce)) * (prio & valid).float()
         policy = (ce * w).sum() / w.sum().clamp(min=1e-6)
 
         tl = out["tgt_logits"]
@@ -234,9 +258,10 @@ class AnvilNet(nn.Module):
 
         with torch.no_grad():
             pred = out["policy_logits"].argmax(1)
-            acc = ((pred == batch["label"]) & prio).sum() / prio.sum().clamp(min=1)
-            nonpass = (batch["label"] > 0) & prio
-            acc_np = ((pred == batch["label"]) & nonpass).sum() / nonpass.sum().clamp(min=1)
+            pbasis = prio & valid
+            acc = ((pred == lab) & pbasis).sum() / pbasis.sum().clamp(min=1)
+            nonpass = (lab > 0) & pbasis
+            acc_np = ((pred == lab) & nonpass).sum() / nonpass.sum().clamp(min=1)
             tmask = batch["tgt_labels"] >= 0
             tacc = ((tl.argmax(-1) == batch["tgt_labels"]) & tmask).sum() / tmask.sum().clamp(min=1)
         return {"policy": policy, "target": target, "x": x, "value": value,

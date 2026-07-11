@@ -3,8 +3,12 @@
 The featurization half MIRRORS anvil.training.dataset.PriorityWindows._examples
 FIELD FOR FIELD — this is the train/serve skew boundary: any change to the
 loader's featurization must land here (and vice versa). Labels are pads at
-serve time; the shared pieces (assemble, EmbeddingCache, MethodVocab, collate)
-are imported, not copied.
+serve time; the shared pieces (assemble, EmbeddingCache, MethodVocab, SaVocab,
+norm_sa, collate) are imported, not copied. Since M2 D2 priority candidates
+are (host row, normalized SA) pairs with identical keys collapsed; aux's
+cand_first_opt maps the model's candidate choice back to the first matching
+wire-option index (first-fit among collapsed duplicates, matching the
+training label semantics).
 
 History arrives pre-extracted from the worker ("hist": last-K prior decisions
 as {"m","p","e"}, hosts back-filled at ret time to match the training loader's
@@ -22,8 +26,9 @@ import numpy as np
 import torch
 
 from anvil.encoder.transform import HISTORY_K, assemble
-from anvil.training.dataset import (PRIORITY, T_MAX, TASKS, X_CLASSES,
-                                    EmbeddingCache, MethodVocab)
+from anvil.training.dataset import (KINDS, PRIORITY, T_MAX, TASKS, X_CLASSES,
+                                    EmbeddingCache, MethodVocab, SaVocab,
+                                    default_sa_vocab, norm_sa)
 
 _HOST_ID = re.compile(r"\((\d+)\)$")  # mirrors dataset._HOST_ID
 
@@ -50,9 +55,11 @@ def wire_history(hist: list[dict] | None, perspective: int,
 
 
 class Featurizer:
-    def __init__(self, embedding_stem: str | Path, methods: list[str]):
+    def __init__(self, embedding_stem: str | Path, methods: list[str],
+                 sa_vocab: list[str] | None = None):
         self.embed = EmbeddingCache(Path(embedding_stem))
         self.methods = MethodVocab(methods)
+        self.sa_vocab = SaVocab(sa_vocab or default_sa_vocab())
 
     def example(self, dec: dict, header: dict, task: str) -> tuple[dict, dict]:
         """One wire dec record -> (model example with label pads, aux maps for
@@ -63,18 +70,29 @@ class Featurizer:
         row_of = out["entity_row_of"]
 
         cand_rows = [-1]
-        row_first_opt: dict[int, int] = {}
+        cand_sa = [-1]
+        cand_kind = [-1]
+        cand_first_opt = [-1]  # per candidate: FIRST matching wire-option index
         ctx_row = -1
         num_lo, num_hi = 0, X_CLASSES - 1
         args = dec.get("args") or {}
         if task == "priority":
-            seen = set()
+            # mirrors the loader: (host row, normalized sa) pairs in option
+            # order, identical keys collapsed; first-fit picks the executor's
+            # option among collapsed duplicates
+            key_of: dict[tuple[int, str], int] = {}
             for i, o in enumerate(dec.get("opts") or []):
                 r = row_of.get(o.get("e"))
-                if r is not None and r not in seen:
-                    seen.add(r)
-                    cand_rows.append(r)
-                    row_first_opt[r] = i
+                if r is None:
+                    continue
+                key = (r, norm_sa(o.get("sa", "")))
+                if key in key_of:
+                    continue
+                key_of[key] = len(cand_rows)
+                cand_rows.append(r)
+                cand_sa.append(self.sa_vocab.id(key[1]))
+                cand_kind.append(KINDS.get(o.get("kind"), KINDS["other"]))
+                cand_first_opt.append(i)
         elif task == "trigger":
             m = _HOST_ID.search(args.get("host") or "")
             if m and int(m.group(1)) in row_of:
@@ -95,7 +113,10 @@ class Featurizer:
             "players": torch.from_numpy(out["players"]),
             "history": torch.from_numpy(hist),
             "cand_rows": torch.tensor(cand_rows, dtype=torch.int64),
+            "cand_sa": torch.tensor(cand_sa, dtype=torch.int64),
+            "cand_kind": torch.tensor(cand_kind, dtype=torch.int64),
             "label": torch.tensor(0, dtype=torch.int64),
+            "label_row": torch.tensor(-1, dtype=torch.int64),
             "tgt_kind": torch.from_numpy(np.full(T_MAX + 1, -1, dtype=np.int64)),
             "tgt_idx": torch.from_numpy(np.full(T_MAX + 1, -1, dtype=np.int64)),
             "x_val": torch.tensor(-1, dtype=torch.int64),
@@ -116,7 +137,7 @@ class Featurizer:
             if r not in row_min_id or eid < row_min_id[r]:
                 row_min_id[r] = eid
         stack_ids = {e["e"] for e in dec["obs"].get("ents", []) if e.get("z") == "stack"}
-        aux = {"cand_rows": cand_rows, "row_first_opt": row_first_opt,
+        aux = {"cand_rows": cand_rows, "cand_first_opt": cand_first_opt,
                "row_min_id": row_min_id, "stack_ids": stack_ids,
                "n_players": len(header["players"])}
         return ex, aux

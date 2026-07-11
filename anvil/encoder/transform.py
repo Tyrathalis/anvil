@@ -131,19 +131,29 @@ HISTORY_K = 8  # last K action records as history tokens (m1-bc-plan D4 default)
 
 
 def history_tokens(prior_decs: list[dict[str, Any]], perspective: int,
-                   k: int = HISTORY_K) -> list[dict[str, Any]]:
+                   k: int = HISTORY_K, now_pos: int | None = None) -> list[dict[str, Any]]:
     """Last k prior decisions -> compact history entries (method, actor-is-self,
     chosen host entity id or -1). Information set: the perspective's own chosen
     hosts are always safe; an opponent's host is kept only for priority casts
     (a cast is a public event — the spell visibly hit the stack). Other
     opponent answers (searches, scries, face-down picks) may be hidden, so
-    they contribute method + actor only."""
+    they contribute method + actor only.
+
+    now_pos (M2 D2 nested-window fix): the current decision's record-stream
+    position (decode_frame's _pos). Decisions nest, so a prior dec's ret can
+    arrive AFTER the current window; the serve-time ring back-fills hosts at
+    ret time, so a still-open parent serves host=-1. With now_pos given, a
+    prior host counts only if its ret landed before this window (_retpos <
+    now_pos) — training now matches serving. None preserves the old joined
+    view (pre-D2 checkpoints)."""
     out = []
     for d in prior_decs[-k:]:
         actor = d.get("p", -1)
         host = -1
         if actor == perspective or d.get("m") == "chooseSpellAbilityToPlay":
-            ret = d.get("ret")
+            ret_arrived = (now_pos is None
+                           or (d.get("_retpos") is not None and d["_retpos"] < now_pos))
+            ret = d.get("ret") if ret_arrived else None
             if isinstance(ret, list) and ret and isinstance(ret[0], dict):
                 host = ret[0].get("e", -1)
         out.append({"m": d.get("m", "?"), "self": 1 if actor == perspective else 0,
