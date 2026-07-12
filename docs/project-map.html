@@ -73,7 +73,7 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
 
 <div class="stats">
   <div class="stat"><div class="v num">0.9748</div><div class="k">held-out honest agreement, SA-level basis (host-level 0.9751; gate was high-80s)</div></div>
-  <div class="stat"><div class="v num">46.8%</div><div class="k">winrate vs the heuristic, held-out matchups</div></div>
+  <div class="stat"><div class="v num">46.3%</div><div class="k">winrate vs the heuristic, held-out matchups (SA-level ckpt; tie with M1's 46.8%)</div></div>
   <div class="stat"><div class="v num">113,592</div><div class="k">games in the training corpus (zero-error)</div></div>
   <div class="stat"><div class="v num">39.5M</div><div class="k">model parameters (d=512 × 10 trunk + SA vocab)</div></div>
   <div class="stat"><div class="v num">65% → 3%</div><div class="k">executor veto rate, M0 → D8</div></div>
@@ -196,7 +196,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <li><b>2. SA-level action schema + BC retrain</b> <span class="pill done">retrain done 07-11</span> — the D8 order rung guessed 31–36% of casts (2.5× the corpus estimate): the largest known winrate leak, and RL needs SA-level action identity anyway.
   <b>The label story collapsed in our favor (full-corpus sweep, 6.11M casts): 99.92% resolve exactly, masked = 0.004% — not the ~31% priced.</b> The "ambiguity" was identical-string duplicates; collapsing identical (host, SA) candidate pairs makes the label exact (the executor keeps first-fit for the engine-side tie). Pointer key += learned SA descriptor over a pinned 33,691-string vocab (39.5M params); nested-window history fix rode along at measured-zero distribution shift; serve path needed <b>zero Java changes</b> (exact option index + <code>host_level=false</code> → the ladder degenerates to shape→pay).
   <b>Retrain finals (774K steps, 15.1h): honest 0.9748 SA-basis / 0.9751 host-basis vs the 0.9758 host-level record — parity within run noise, with the model now naming the exact SA</b> (nonpass 0.9247 on the harder basis; valpair ≥ val throughout; fresh δ=+2.180 → honest 0.9837). <code>d2-sa/last.pt</code> = the D3 candidate.</li>
-  <li><b>3. Winrate arms reprice</b> (~12 min each) — attribute the schema change before RL confounds it.</li>
+  <li><b>3. Winrate arms reprice</b> <span class="pill done">done 07-11</span> — same 200 valpair pairs + seeds as D8 (paired): <b>δ=0 0.4625 ± 0.0249 vs D8's 0.4675 — statistical tie; the order-rung mass did not cash out as winrate</b> (kind-prior first-fit was a good proxy, and the exact-SA answer forfeits the ladder rescue: veto 7.8%→10.0%). Order rung <b>retired in play</b> (rungs = single+modal only); 800/800 decisive, 0 crashes, 0 fallbacks. What D2/D3 bought is the RL prerequisite — model-owned action identity at zero agreement cost. Closed with D2 by <a href="decisions/ADR-0012-d2-d3-closeout.md">ADR-0012</a>; new leak candidate = the veto class (~10% of cast attempts).</li>
   <li><b>4. Rollout-labeled value targets under the BC policy</b> — the measured fix for the value head (BC label = hidden-info entropy floor ~0.57 BCE); rollouts by the near-parity agent, not the heuristic. Critic goes asymmetric (§4, full-visibility input); the <b>Ante mirror certification</b> (§7/§13) rides behind it.</li>
   <li><b>5. RL fine-tune</b> — V-trace, §6 phase 2, from the SA-level checkpoint; start action-rich (δ=0), let reward set the pass boundary.</li>
   <li><b>Combat constructs (D9)</b> — explicit slot after the schema work (fully heuristic at play; labels already in corpus; no telemetry yet naming it the bottleneck). Then mode/allocation heads (1.2% / 0.03% mass). Carried context: yield macros (§3b), ID dropout = the pre-Tutor lever.</li>
@@ -227,6 +227,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <tr><td><a href="decisions/ADR-0009-m1-closeout.md">0009</a></td><td class="num">07-10</td><td>M1 closeout: BC agent at 46.8% vs heuristic; M2 entry points</td></tr>
   <tr><td><a href="decisions/ADR-0010-m2-opening-sequence.md">0010</a></td><td class="num">07-10</td><td>M2 opening order: SA-level action schema before RL (order rung = 31–36% of casts at play); value rollouts under the BC policy</td></tr>
   <tr><td><a href="decisions/ADR-0011-d1-closeout.md">0011</a></td><td class="num">07-10</td><td>M2 D1 closeout: rollout contract certified (statics 0, twin 100% under BC policy); fidelity fixes upstream as PR #11203</td></tr>
+  <tr><td><a href="decisions/ADR-0012-d2-d3-closeout.md">0012</a></td><td class="num">07-11</td><td>M2 D2/D3 closeout: SA-level schema at agreement parity, arms tied, order rung retired; masked labels 0.004% not ~31%; the "winrate leak" resolves as an action-identity gain</td></tr>
 </table>
 
 <h2>Design invariants (standing law)</h2>
