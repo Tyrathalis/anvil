@@ -273,6 +273,22 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
         for i in sorted(outcomes):
             f.write(json.dumps(outcomes[i]) + "\n")
 
+    # merge rollout-label records (M2 D4 labeler runs); keyed (i, fp),
+    # first record wins on chunk re-issue like the frame rule above
+    label_rows: dict[tuple[int, int], dict] = {}
+    for f_ in sorted(run_dir.glob("workers/inv-*/labels.jsonl")):
+        for line in f_.read_text().splitlines():
+            try:
+                r = json.loads(line)
+                label_rows.setdefault((r["i"], r["fp"]), r)
+            except (json.JSONDecodeError, KeyError):
+                continue
+    if label_rows:
+        with open(dest / "labels.jsonl", "w") as f:
+            for key in sorted(label_rows):
+                f.write(json.dumps(label_rows[key]) + "\n")
+        print(f"[ingest] {len(label_rows)} rollout-label records -> labels.jsonl")
+
     if pool_version is None:
         pool_version = run_manifest.get("pool_version")
     if pool_version is None:
