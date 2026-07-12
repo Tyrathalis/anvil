@@ -37,6 +37,10 @@ def main() -> None:
                     help="write census logs (census.jsonl per worker; D8 veto/rung telemetry)")
     la.add_argument("--bridge-seats", default=None,
                     help="csv of bridged seat indices (mixed-seat D8 arms; default all seats)")
+    la.add_argument("--rollout-k", type=int, default=None,
+                    help="rollout-label mode (M2 D4): K fork completions per point")
+    la.add_argument("--rollout-points", type=int, default=4,
+                    help="sampled fork points per game (rollout-label mode)")
 
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)

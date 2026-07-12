@@ -147,7 +147,7 @@ def test_roundtrip_through_frame():
         {"k": "end", "status": "won", "winner": 0, "turns": 5, "ms": 100},
     ]
     raw = "".join(json.dumps(r) + "\n" for r in recs).encode()
-    header, decisions, end = decode_frame(zstandard.ZstdCompressor().compress(raw))
+    header, decisions, end, _marks = decode_frame(zstandard.ZstdCompressor().compress(raw))
     assert decisions[0]["opts"][1]["kind"] == "land"
     plans = parse_ret(decisions[0]["ret"])
     assert plans[0].host == 70 and plans[0].kind == "land"

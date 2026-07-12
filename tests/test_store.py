@@ -123,7 +123,7 @@ def test_stale_ret_dropped():
     recs = _frame_records(0, 11, n_decisions=1)
     recs.append({"k": "ret", "s": 999, "v": True})
     raw = "".join(json.dumps(r) + "\n" for r in recs).encode()
-    header, decisions, end = decode_frame(zstandard.ZstdCompressor().compress(raw))
+    header, decisions, end, _marks = decode_frame(zstandard.ZstdCompressor().compress(raw))
     assert len(decisions) == 1
     assert decisions[0]["ret"] is not None
 

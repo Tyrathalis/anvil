@@ -152,6 +152,11 @@ class Run:
             cmd += ["-census", str(wdir / "census.jsonl")]
         if m.get("bridge_seats") is not None:
             cmd += ["-bridgeseats", str(m["bridge_seats"])]
+        if m.get("rollout_k"):
+            # M2 D4 rollout-label mode: fork points + K completions per game
+            cmd += ["-rollout", str(m["rollout_k"]),
+                    "-points", str(m.get("rollout_points", 4)),
+                    "-labels", str(wdir / "labels.jsonl")]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
         return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
@@ -288,6 +293,8 @@ def launch(a) -> Path:
         "obs": a.obs, "obs_schema": 1 if a.obs else None,
         "census": getattr(a, "census", False),
         "bridge_seats": getattr(a, "bridge_seats", None),
+        "rollout_k": getattr(a, "rollout_k", None),
+        "rollout_points": getattr(a, "rollout_points", None),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "

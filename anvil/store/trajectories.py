@@ -34,20 +34,23 @@ TRAJECTORIES_DIR = Path(__file__).parents[2] / "data/trajectories"
 
 @dataclasses.dataclass
 class GameTrajectory:
-    """One game's decoded frame: header, decisions (answers joined), end."""
+    """One game's decoded frame: header, decisions (answers joined), end.
+    marks: fork-point marker records (M2 D4 rollout labels) with _pos set —
+    a label's training window is the first priority dec after its mark."""
 
     header: dict[str, Any]
     decisions: list[dict[str, Any]]  # "dec" records; ret joined as ["ret"]
     end: dict[str, Any] | None
     index: dict[str, Any]  # the index.jsonl entry (seed, lengths, ...)
+    marks: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
     @property
     def game_index(self) -> int:
         return self.header["g"]
 
 
-def decode_frame(data: bytes) -> tuple[dict, list[dict], dict | None]:
-    """Decode one game frame -> (header, decisions-with-ret-joined, end)."""
+def decode_frame(data: bytes) -> tuple[dict, list[dict], dict | None, list[dict]]:
+    """Decode one game frame -> (header, decisions-with-ret-joined, end, marks)."""
     records = [json.loads(line) for line in
                zstandard.ZstdDecompressor().decompress(data, max_output_size=1 << 30).splitlines()]
     if not records or records[0].get("k") != "game":
@@ -56,11 +59,15 @@ def decode_frame(data: bytes) -> tuple[dict, list[dict], dict | None]:
     if header["sv"] != OBS_SCHEMA_VERSION:
         raise ValueError(f"schema version {header['sv']} != reader version {OBS_SCHEMA_VERSION}")
     decisions: list[dict] = []
+    marks: list[dict] = []
     by_seq: dict[int, dict] = {}
     end = None
     for pos, r in enumerate(records[1:]):
         kind = r.get("k")
-        if kind == "dec":
+        if kind == "mark":
+            r["_pos"] = pos
+            marks.append(r)
+        elif kind == "dec":
             # _pos/_retpos: record-stream positions (in-memory only, never
             # serialized). Decisions NEST — a parent's ret can land after its
             # children's decs — and the serve-time history ring back-fills
@@ -78,7 +85,7 @@ def decode_frame(data: bytes) -> tuple[dict, list[dict], dict | None]:
                     by_seq[r["s"]]["oi"] = r["oi"]
         elif kind == "end":
             end = r
-    return header, decisions, end
+    return header, decisions, end, marks
 
 
 class TrajectoryStore:
@@ -125,10 +132,10 @@ class TrajectoryStore:
         with open(self.root / entry["file"], "rb") as f:
             f.seek(entry["off"])
             data = f.read(entry["clen"])
-        header, decisions, end = decode_frame(data)
+        header, decisions, end, marks = decode_frame(data)
         if header["g"] != g:
             raise ValueError(f"index says game {g}, frame header says {header['g']}")
-        return GameTrajectory(header, decisions, end, entry)
+        return GameTrajectory(header, decisions, end, entry, marks)
 
     def games(self, skip_undecodable: bool = False) -> Iterator[GameTrajectory]:
         """skip_undecodable: quarantine truncated/corrupt frames (a hard-capped
