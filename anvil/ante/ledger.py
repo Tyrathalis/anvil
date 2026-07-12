@@ -261,6 +261,11 @@ class ValueEvaluator:
                              n_sa=cfg.get("sa_vocab_size", 0)).to(self.device)
         self.net.load_state_dict(ck["model"])
         self.net.eval()
+        # full-vis critics (M2 D4) evaluate on full-vis windows — §7's
+        # omniscient-critic tier; detected from the ckpt's fine-tune stamp
+        self.full_vis = bool((cfg.get("value_finetune") or {}).get("full_vis"))
+        if self.full_vis:
+            print("[ante] full-visibility critic checkpoint — omniscient windows")
         self.embed = EmbeddingCache(Path(cfg["embed"]))
         self.methods = MethodVocab(methods)
         self.batch = batch
@@ -272,7 +277,8 @@ class ValueEvaluator:
                 prior: list[dict]) -> dict[str, Any]:
         out = assemble(dec, header, perspective=perspective,
                        history=history_tokens(prior, perspective, HISTORY_K,
-                                              now_pos=dec.get("_pos")))
+                                              now_pos=dec.get("_pos")),
+                       full_vis=self.full_vis)
         row_of = out["entity_row_of"]
         hist = np.full((HISTORY_K, 3), -1, dtype=np.int64)
         for j, h in enumerate(out["history"][-HISTORY_K:]):
