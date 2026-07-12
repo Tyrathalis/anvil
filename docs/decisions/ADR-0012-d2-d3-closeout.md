@@ -87,3 +87,28 @@ modal/combat surfaces.
 - `scripts/arms_report.py` formalizes the arms aggregation (validated by
   reproducing the D8 report exactly); the standing per-checkpoint eval is
   now: server on ckpt → 2 mirrored arms → arms_report vs the D8/D3 rows.
+
+## Addendum (same day): the pre-RL scope rule
+
+Discussion after the close-out generalized the result into three plan
+amendments (m2-rl-plan decisions #8/#11/#12 + reordered D4/D5 text):
+
+1. **The BC stage is finished as a strength program.** Imitation is at its
+   teacher-clone ceiling with clean execution; the mass-implies-leak
+   inference is retired. From here to D6, pre-RL work is justified only by
+   (a) expressiveness RL needs, (b) label/observation correctness, or
+   (c) eval sharpness — never by projected BC winrate. Arms demote from
+   goal to instrument (regression tripwire before RL, progress meter during).
+2. **D5 combat constructs become a hard prerequisite for D6** (RL cannot
+   learn combat it cannot express; its BC arms will predictably tie and
+   that is not a failure signal).
+3. **Ante certification moves to the front of D4** (eval resolution is now
+   the binding constraint on all subsequent decisions; the certified arm is
+   an afternoon and sharpens everything after it).
+
+Instrumental caveats recorded so "don't worry about BC competence" is not
+over-read: the BC checkpoint remains the RL init (what matters: agreement,
+coverage, action identity, calibrated pass boundary — not winrate) and the
+D4 label generator (what matters: sanity + determinism, both certified in
+D1). The arms keep running per checkpoint as the tripwire for pathological
+regressions at unchanged winrate.
