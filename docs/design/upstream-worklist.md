@@ -55,30 +55,29 @@ Notes (replay triage, 2026-07-06):
 
 ## Open upstream PRs — monitor for maintainer feedback
 
-- **[Card-Forge/forge#11203](https://github.com/Card-Forge/forge/pull/11203)
-  — GameCopier state-fidelity fixes (PR #1), submitted 2026-07-10** from
-  branch `gamecopier-fidelity-fixes` @ `2437820aee` on Tyrathalis/forge
-  (worktree `../forge-pr1`; fix + 3 differential regression tests, each
-  validated failing pre-fix; full forge-gui-desktop suite green, 285 tests).
-  **Check for review comments at the start of each session until resolved**
-  — Forge design conversations happen inside PRs (survey: never issues;
-  stale bot ~35 days, so don't let it idle). On merge: the fixes return to
-  us via the next fork rebase (anchor #11161, dataset-boundary event).
-  **2026-07-11: tool4ever reviewed (CHANGES_REQUESTED, but substance
-  accepted — `dangerouslySyncCardIdCounters` explicitly endorsed).** The ask:
-  with ids now preserved, `GameCopier` and `GameSnapshot` lose their
-  load-bearing difference — consolidate on the snapshot path
-  (`EXPERIMENTAL_RESTORE_SNAPSHOT`) and delete the duplicated copy code.
-  **Replied same day** ([comment](https://github.com/Card-Forge/forge/pull/11203#issuecomment-4946992438)):
-  agreed on direction; keep this PR as the scoped bug-fix layer; volunteered
-  the consolidation as a follow-up PR gated by forkcheck; offered to fold the
-  two snapshot-path sibling fixes in if preferred. Await their pick.
+*(none currently open)*
 
-## Queued follow-up PR — GameCopier → GameSnapshot consolidation (volunteered 2026-07-11)
+- **[Card-Forge/forge#11203](https://github.com/Card-Forge/forge/pull/11203)
+  — GameCopier state-fidelity fixes (PR #1): MERGED 2026-07-12** by
+  tool4ever (approved + merged, merge commit `1922ce411a`; approval note:
+  "acceptable — the Copier/Snapshot duplication is a longer technical debt
+  (and getting rid of that should also help with your project)").
+  **The flagship upstream contribution's first layer is upstream** —
+  submitted 2026-07-10, first review 07-11 (CHANGES_REQUESTED on
+  architecture, substance accepted), scoped-PR-plus-follow-up proposal
+  accepted, merged 07-12. Our proposal read exactly as intended: this PR =
+  the bug-fix layer for the default path; the consolidation follow-up
+  (below) is now maintainer-blessed. On the next fork rebase (anchor
+  #11161, dataset-boundary event) these fixes return to us from upstream —
+  drop our fork-local copies then. Worktree `../forge-pr1` can be removed.
+  History: submission 2026-07-10; review + [reply](https://github.com/Card-Forge/forge/pull/11203#issuecomment-4946992438) 2026-07-11.
+
+## Queued follow-up PR — GameCopier → GameSnapshot consolidation (volunteered 2026-07-11, maintainer-blessed at #11203 merge 2026-07-12)
 
 Make the snapshot path own simulation copies and delete GameCopier's
-duplicated copy logic (maintainer-requested direction on #11203). Known
-work items from the archaeology:
+duplicated copy logic (maintainer-requested direction on #11203; tool4ever's
+merge note explicitly frames the duplication as technical debt whose removal
+"should also help with your project"). Known work items from the archaeology:
 
 - **Snapshot path carries sibling bugs of two PR-#1 classes:**
   `setForetold`/`setForetoldCostByEffect` commented out in
