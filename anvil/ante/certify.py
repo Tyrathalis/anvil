@@ -70,13 +70,31 @@ def aggregate(ledgers: list[dict], bootstrap: int = 2000, seed: int = 0) -> dict
         c_i = (s - onp_win) / (m - 1)          # leave-one-out c per game
         die = np.where(have, np.where(onp == 0, c_i - 0.5, 0.5 - c_i), 0.0)
 
-    corrected = raw - luck - die
+    lsum = luck + die
+    corrected = raw - lsum
+    # Fitted control-variate coefficient (split-half, so each game's beta is
+    # out-of-sample): with a noisy critic the raw AIVAT corrections (beta=1)
+    # can ADD variance; beta* = cov(raw, L)/var(L) is the optimal shrinkage
+    # and converges to 1 as the critic sharpens. Zero-mean is preserved for
+    # any beta independent of the game's own chance outcomes.
+    half = np.arange(n) % 2
+    beta_of = {}
+    for h in (0, 1):
+        m = half == h
+        v = lsum[m].var(ddof=1)
+        beta_of[1 - h] = float(np.cov(raw[m], lsum[m])[0, 1] / v) if v > 1e-12 else 0.0
+    beta_arr = np.where(half == 0, beta_of[0], beta_of[1])
+    corrected_cv = raw - beta_arr * lsum
+
     rng = np.random.default_rng(seed)
     idx = rng.integers(0, n, size=(bootstrap, n))
     rv = raw[idx].var(axis=1, ddof=1)
-    cv = corrected[idx].var(axis=1, ddof=1)
     ok = rv > 1e-6  # drop degenerate resamples (near-constant raw outcomes)
-    vr = cv[ok] / rv[ok] if ok.any() else np.array([float("nan")])
+
+    def _vr(z: np.ndarray) -> tuple[float, list[float]]:
+        b = z[idx].var(axis=1, ddof=1)[ok] / rv[ok] if ok.any() else np.array([float("nan")])
+        return (round(float(z.var(ddof=1) / raw.var(ddof=1)), 4),
+                [round(float(np.quantile(b, q)), 4) for q in (0.05, 0.95)])
 
     classes = {}
     for c in CLASSES:
@@ -95,40 +113,69 @@ def aggregate(ledgers: list[dict], bootstrap: int = 2000, seed: int = 0) -> dict
 
     rm, rse = _mean_se(raw)
     cm, cse = _mean_se(corrected)
+    vm, vse = _mean_se(corrected_cv)
     lm, lse = _mean_se(luck)
+    vr1, vr1_ci = _vr(corrected)
+    vrb, vrb_ci = _vr(corrected_cv)
     mirror = all(L["decks"][0] == L["decks"][1] for L in ledgers)
     out = {
         "games": n,
         "mirror": mirror,
         "raw_winrate": round(rm, 4), "raw_se": round(rse, 4),
         "corrected_winrate": round(cm, 4), "corrected_se": round(cse, 4),
+        "corrected_cv_winrate": round(vm, 4), "corrected_cv_se": round(vse, 4),
+        "beta_hat": [round(beta_of[0], 4), round(beta_of[1], 4)],
+        "corr_raw_lsum": round(float(np.corrcoef(raw, lsum)[0, 1]), 4) if lsum.var() > 0 else None,
         "ledger_mean": round(lm, 6), "ledger_se": round(lse, 6),
         "ledger_t": round(lm / lse, 2) if lse > 0 else None,
         "die_onplay_winrate": round(float(onp_win[have].mean()), 4) if have.any() else None,
         "die_n": int(have.sum()),
-        "var_ratio": round(float(corrected.var(ddof=1) / raw.var(ddof=1)), 4),
-        "var_ratio_ci90": [round(float(np.quantile(vr, q)), 4) for q in (0.05, 0.95)],
+        "var_ratio": vr1, "var_ratio_ci90": vr1_ci,
+        "var_ratio_cv": vrb, "var_ratio_cv_ci90": vrb_ci,
         "effective_sample_multiplier": round(float(raw.var(ddof=1) /
-                                                   max(corrected.var(ddof=1), 1e-12)), 3),
+                                                   max(corrected_cv.var(ddof=1), 1e-12)), 3),
         "classes": classes,
     }
     if mirror:
-        # running |mean - 0.5| in game order (one ordering; bootstrap RMSE grid)
+        # bootstrap RMSE-to-truth (0.5) grid: the convergence-rate comparison
         grid = [g for g in (50, 100, 200, 400, 800, 1600, 3200, 6400, 12800) if g <= n]
-        curves = {"n": grid, "raw_rmse": [], "corrected_rmse": []}
+        curves = {"n": grid, "raw_rmse": [], "corrected_rmse": [], "corrected_cv_rmse": []}
         for g in grid:
             sub = rng.integers(0, n, size=(500, g))
-            curves["raw_rmse"].append(
-                round(float(np.sqrt(((raw[sub].mean(axis=1) - 0.5) ** 2).mean())), 4))
-            curves["corrected_rmse"].append(
-                round(float(np.sqrt(((corrected[sub].mean(axis=1) - 0.5) ** 2).mean())), 4))
+            for key, z in (("raw_rmse", raw), ("corrected_rmse", corrected),
+                           ("corrected_cv_rmse", corrected_cv)):
+                curves[key].append(
+                    round(float(np.sqrt(((z[sub].mean(axis=1) - 0.5) ** 2).mean())), 4))
         out["convergence"] = curves
     return out
 
 
+def load_ledgers(path: Path) -> tuple[list[dict], int]:
+    """Re-aggregation input: per-game ledger JSONL from a prior run, with
+    v1.1 semantics applied (re-deal opener nodes dropped by per-player deal
+    index — pre-v1.1 ledgers contain them; see ledger.py)."""
+    ledgers = []
+    dropped = 0
+    for line in path.read_text().splitlines():
+        L = json.loads(line)
+        deal_idx: Counter = Counter()
+        kept = []
+        for r in L["nodes"]:
+            if r["cls"] == "opener":
+                if deal_idx[r["p"]] > 0:
+                    dropped += 1
+                    deal_idx[r["p"]] += 1
+                    continue
+                deal_idx[r["p"]] += 1
+            kept.append(r)
+        L["nodes"] = kept
+        ledgers.append(L)
+    return ledgers, dropped
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--store", required=True, help="store dir (comma-list ok)")
+    ap.add_argument("--store", default=None, help="store dir (comma-list ok)")
     ap.add_argument("--ckpt", default="data/training/d2-sa/last.pt")
     ap.add_argument("--split", default=None, choices=[None, "val", "valpair", "train"])
     ap.add_argument("--max-games", type=int, default=None)
@@ -137,7 +184,22 @@ def main() -> None:
     ap.add_argument("--out", required=True, help="JSON report path")
     ap.add_argument("--ledger-out", default=None,
                     help="per-game ledger JSONL (default: <out>.ledger.jsonl)")
+    ap.add_argument("--from-ledger", default=None,
+                    help="re-aggregate a prior run's per-game ledger JSONL "
+                         "(no GPU; applies current estimator + node semantics)")
     a = ap.parse_args()
+
+    if a.from_ledger:
+        ledgers, dropped = load_ledgers(Path(a.from_ledger))
+        report = {"from_ledger": a.from_ledger,
+                  "skips": {"opener_redeal_filtered": dropped},
+                  **aggregate(ledgers)}
+        Path(a.out).write_text(json.dumps(report, indent=1) + "\n")
+        _print_report(report)
+        print(f"[ante] report -> {a.out}")
+        return
+    if not a.store:
+        ap.error("--store is required unless --from-ledger is given")
 
     ev = ValueEvaluator(a.ckpt, batch=a.batch)
     store = open_store(a.store)
@@ -185,20 +247,27 @@ def main() -> None:
         **aggregate(ledgers),
     }
     Path(a.out).write_text(json.dumps(report, indent=1) + "\n")
+    _print_report(report)
+    print(f"[ante] report -> {a.out}\n[ante] per-game ledger -> {ledger_path}")
 
+
+def _print_report(report: dict) -> None:
     print(f"\n[ante] {report['games']} decisive games, mirror={report['mirror']}")
-    print(f"[ante] raw      {report['raw_winrate']:.4f} ± {report['raw_se']:.4f}")
-    print(f"[ante] corrected {report['corrected_winrate']:.4f} ± {report['corrected_se']:.4f}")
+    print(f"[ante] raw          {report['raw_winrate']:.4f} ± {report['raw_se']:.4f}")
+    print(f"[ante] corrected    {report['corrected_winrate']:.4f} ± {report['corrected_se']:.4f} "
+          f"(beta=1, var ratio {report['var_ratio']}, CI90 {report['var_ratio_ci90']})")
+    print(f"[ante] corrected_cv {report['corrected_cv_winrate']:.4f} ± {report['corrected_cv_se']:.4f} "
+          f"(beta_hat {report['beta_hat']}, var ratio {report['var_ratio_cv']}, "
+          f"CI90 {report['var_ratio_cv_ci90']})")
+    print(f"[ante] corr(raw, ledger) {report['corr_raw_lsum']}, "
+          f"effective-sample x{report['effective_sample_multiplier']}")
     print(f"[ante] ledger mean {report['ledger_mean']:.6f} ± {report['ledger_se']:.6f} "
           f"(t={report['ledger_t']})")
-    print(f"[ante] var ratio {report['var_ratio']} (90% CI {report['var_ratio_ci90']}), "
-          f"effective-sample x{report['effective_sample_multiplier']}")
     for c, r in report["classes"].items():
         print(f"[ante]   {c}: n={r['n_nodes']}, node mean {r['corr_mean_node']} "
               f"± {r['corr_se_node']} (t={r['t_node']}), game-sum t={r['t_game']}, "
               f"|corr| mean {r['corr_abs_mean']}")
-    print(f"[ante] skips: {dict(skips)}")
-    print(f"[ante] report -> {a.out}\n[ante] per-game ledger -> {ledger_path}")
+    print(f"[ante] skips: {report.get('skips')}")
 
 
 if __name__ == "__main__":

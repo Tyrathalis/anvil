@@ -11,11 +11,13 @@ the D4 rollout-labeled critic lands.
 
 v0 chance-node classes (per the 2026-07-11 D4 scope decision):
 
-- **opener**: each `mulliganKeepHand` dec = a fresh hand dealt to player p —
-  a uniform k-subset of (hand ∪ derived library), k = the dealt hand size
-  (re-deals arrive smaller in this corpus). E[v] by Monte Carlo over sampled
-  hands (an MC estimate of the expectation keeps the correction zero-mean;
-  it only adds a little variance).
+- **opener**: the FIRST `mulliganKeepHand` dec per player = the opening 7,
+  a uniform 7-subset of (hand ∪ derived library). E[v] by Monte Carlo over
+  sampled hands (an MC estimate of the expectation keeps the correction
+  zero-mean; it only adds a little variance). Re-deal keeps are EXCLUDED
+  (v1.1): Forge's London mulligan tucks before the keep decision, so those
+  windows show a choice-filtered hand, not a chance outcome — measured
+  +0.0076/node bias (t=+5.5) on the 12.8K-game mirror before exclusion.
 - **draw**: k never-before-seen entity ids entering p's hand between
   consecutive decision records, with p's library count dropping by exactly k
   — a uniform k-subset of the library-before multiset. Exact enumeration for
@@ -141,6 +143,7 @@ def extract(traj: GameTrajectory,
     tucked: list[list[str]] = [[] for _ in range(n_players)]
     hand_prev: list[set[int]] = [set() for _ in range(n_players)]
     lib_prev: list[int | None] = [None] * n_players
+    mull_count = [0] * n_players  # keep decs seen; 0 = the pure-chance opening 7
     nodes: list[Node] = []
     skips: Counter = Counter()
     on_play: int | None = None
@@ -164,16 +167,24 @@ def extract(traj: GameTrajectory,
         if m == "mulliganKeepHand" and p_dec >= 0:
             hand = hands[p_dec]
             lib = derive_library(decks[p_dec], obs, p_dec)
-            if lib is None:
+            if mull_count[p_dec] > 0:
+                # RE-DEAL keeps are NOT pure chance: Forge's London mulligan
+                # tucks BEFORE the keep decision (mulliganDraw() draws 7 then
+                # immediately asks tuckCardsViaMulligan), so this window's
+                # hand is a choice-filtered best-k-of-7 — treating it as a
+                # uniform k-subset biased the class (+0.0076/node, t=+5.5 on
+                # the 12.8K-game mirror; deal #0 read clean at t=+0.5).
+                # Correct anchor for re-deals = the tuck dec's pre-choice 7;
+                # queued behind the critic upgrade. v1.1 skips them.
+                skips["opener_redeal"] += 1
+            elif lib is None:
                 skips["opener_lib_mismatch"] += 1
             elif not 1 <= len(hand) <= 7:
                 skips["opener_hand_size"] += 1
             else:
-                # mulligan re-deals arrive smaller (hand=6 at mull #1 in this
-                # corpus) — any fresh deal is a uniform k-subset of
-                # (hand ∪ library); k rides the Node
                 nodes.append(Node("opener", p_dec, dec, i, dict(hand),
                                   lib + Counter(hand.values()), len(hand)))
+            mull_count[p_dec] += 1
         elif turn >= 1:
             for p in range(n_players):
                 if lib_prev[p] is None:
