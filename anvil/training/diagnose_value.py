@@ -161,8 +161,13 @@ def main() -> None:
     net.load_state_dict(ckpt["model"])
     net.eval()
 
+    # full-vis critics (M2 D4) must be diagnosed on full-vis windows —
+    # detected from the checkpoint's own fine-tune stamp
+    full_vis = bool((cfg.get("value_finetune") or {}).get("full_vis"))
+    if full_vis:
+        print("[diag] full-visibility critic checkpoint — windows assembled full-vis")
     ds = PriorityWindows(cfg["store"], cfg["embed"], methods,
-                         split=a.split, shuffle_games=False)
+                         split=a.split, shuffle_games=False, full_vis=full_vis)
     store = open_store(cfg["store"])
     games = [g for g in store.game_indices() if _split_of(g) == a.split]
     if a.max_games:

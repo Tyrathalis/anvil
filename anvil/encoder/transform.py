@@ -163,8 +163,15 @@ def history_tokens(prior_decs: list[dict[str, Any]], perspective: int,
 
 def assemble(dec: dict[str, Any], header: dict[str, Any],
              perspective: int | None = None, vocab: Vocab | None = None,
-             history: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """One decision record -> arrays. perspective defaults to the deciding player."""
+             history: list[dict[str, Any]] | None = None,
+             full_vis: bool = False) -> dict[str, Any]:
+    """One decision record -> arrays. perspective defaults to the deciding player.
+
+    full_vis (M2 D4, design §4): the asymmetric-critic input — every entity's
+    identity is visible regardless of perspective (the obs record carries full
+    state; the info-set gate is what this flag bypasses). NEVER a policy
+    input: the policy tower keeps the leak-tested masked path; the critic is
+    an eval/training-target instrument whose outputs the engine never obeys."""
     v = vocab or _vocab()
     obs = dec.get("obs")
     if obs is None:
@@ -184,7 +191,7 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
     groups: dict[str, list] = {}
     ids_of_key: dict[str, list[int]] = {}
     for ent in obs.get("ents", []):
-        vis = visible_to(ent, perspective)
+        vis = full_vis or visible_to(ent, perspective)
         name = ent["n"] if vis else None
         key = _dedup_key(ent, name)
         ids_of_key.setdefault(key, []).append(ent["e"])

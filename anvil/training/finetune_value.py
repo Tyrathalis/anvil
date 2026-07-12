@@ -15,6 +15,17 @@ proper) is the next rung; this number is its lower baseline.
 
   uv run python -m anvil.training.finetune_value \\
       --ckpt data/training/d2-sa/last.pt --out data/training/d4-valuefix
+
+M2 D4 second rung — the full-visibility asymmetric critic (design §4):
+`--full-vis --trainable all` trains the whole net as a critic tower on
+full-visibility windows (opponent hands visible; the info-set gate bypassed
+— critic instrument only, never a policy input). Init from the BC
+checkpoint (warm board-reading trunk); the resulting checkpoint is a CRITIC,
+its policy heads are off-distribution garbage — never serve from it.
+
+  uv run python -m anvil.training.finetune_value \\
+      --ckpt data/training/d2-sa/last.pt --full-vis --trainable all \\
+      --lr 1e-4 --steps 100000 --out data/training/d4-critic-fullvis
 """
 
 from __future__ import annotations
@@ -81,6 +92,12 @@ def main() -> None:
     ap.add_argument("--eval-batches", type=int, default=100)
     ap.add_argument("--final-eval-batches", type=int, default=600)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--full-vis", action="store_true",
+                    help="asymmetric-critic windows (design §4): all entity "
+                         "identities visible; critic instrument, never policy input")
+    ap.add_argument("--trainable", default="value_head", choices=["value_head", "all"],
+                    help="value_head = frozen-trunk probe; all = critic tower "
+                         "(policy heads in the output ckpt become garbage — never serve)")
     a = ap.parse_args()
 
     torch.manual_seed(a.seed)
@@ -96,11 +113,13 @@ def main() -> None:
                     n_sa=cfg.get("sa_vocab_size", 0)).to(device)
     net.load_state_dict(ck["model"])
     for name, p in net.named_parameters():
-        p.requires_grad = name.startswith("value_head")
+        p.requires_grad = a.trainable == "all" or name.startswith("value_head")
     n_train = sum(p.numel() for p in net.parameters() if p.requires_grad)
 
-    train_ds = PriorityWindows(store, cfg["embed"], methods, split="train", seed=a.seed)
-    val_ds = PriorityWindows(store, cfg["embed"], methods, split="val", shuffle_games=False)
+    train_ds = PriorityWindows(store, cfg["embed"], methods, split="train",
+                               seed=a.seed, full_vis=a.full_vis)
+    val_ds = PriorityWindows(store, cfg["embed"], methods, split="val",
+                             shuffle_games=False, full_vis=a.full_vis)
     train = DataLoader(train_ds, batch_size=a.batch, collate_fn=collate,
                        num_workers=a.workers, persistent_workers=True, prefetch_factor=4)
     val = DataLoader(val_ds, batch_size=a.batch, collate_fn=collate, num_workers=4)

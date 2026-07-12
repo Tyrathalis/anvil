@@ -166,8 +166,11 @@ class PriorityWindows(IterableDataset):
                  seed: int = 0, history_k: int = HISTORY_K,
                  split: str | None = None, games_per_pair: int = 5,
                  max_games: int | None = None, tasks: set[str] | None = None,
-                 sa_vocab: list[str] | None = None):
+                 sa_vocab: list[str] | None = None, full_vis: bool = False):
         super().__init__()
+        # full_vis: asymmetric-critic windows (design §4) — identities of all
+        # entities visible. Critic training/eval only; never the policy input.
+        self.full_vis = full_vis
         self.store_dir = store_dir  # raw spec: dir, comma-list, or list (open_store parses)
         self.embed = EmbeddingCache(Path(embedding_stem))
         self.methods = MethodVocab(methods or default_methods())
@@ -207,7 +210,8 @@ class PriorityWindows(IterableDataset):
             p = dec["p"]
             out = assemble(dec, traj.header, perspective=p,
                            history=history_tokens(prior, p, self.history_k,
-                                                  now_pos=dec.get("_pos")))
+                                                  now_pos=dec.get("_pos")),
+                           full_vis=self.full_vis)
             row_of = out["entity_row_of"]
 
             # ---- shared pad values; each task fills its own labels ----
