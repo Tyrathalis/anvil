@@ -277,7 +277,13 @@ def launch(a) -> Path:
         "seed_base": a.seed_base, "games": a.games, "chunk": a.chunk,
         "start_index": a.start_index,
         "workers": 12 if a.colocated else a.workers,
-        "heap": "2g", "jvm_opts": ["-XX:ActiveProcessorCount=2"],
+        # ExitOnOutOfMemoryError: a batch worker must die (chunk re-issue
+        # covers it), not limp — an OOM that escaped the game-loop catch
+        # reached Forge's GUI bug-report dialog and wedged two headless
+        # workers forever (model-mirror run, 2026-07-12). The fork also
+        # installs a headless uncaught handler; this is the JVM-level belt.
+        "heap": "2g", "jvm_opts": ["-XX:ActiveProcessorCount=2",
+                                   "-XX:+ExitOnOutOfMemoryError"],
         "bridge": a.bridge, "tags": a.tags, "nice": not a.calibrated,
         "obs": a.obs, "obs_schema": 1 if a.obs else None,
         "census": getattr(a, "census", False),
