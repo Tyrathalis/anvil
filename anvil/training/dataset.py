@@ -184,9 +184,13 @@ class PriorityWindows(IterableDataset):
 
     def _examples(self, store, g: int) -> Iterator[dict[str, Any]]:
         traj = store.game(g)
-        end = traj.end or {}
-        has_outcome = 1 if (end.get("status") == "won") else 0
-        winner = end.get("winner", -1)
+        # TRUE winner via the store's outcome records (games.jsonl): the frame
+        # end-record's "winner" was derived from the post-elimination live
+        # player list in the fork (~always 0, wrong ~50% of games — found
+        # 2026-07-11). Value labels before this fix were seat noise.
+        winner = store.winner_seat(g)
+        has_outcome = 1 if winner is not None else 0
+        winner = -1 if winner is None else winner
         prior: list[dict] = []
         for dec in traj.decisions:
             task = TASK_OF_METHOD.get(dec.get("m"))

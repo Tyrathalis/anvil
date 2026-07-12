@@ -18,12 +18,15 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
 from typing import Any, Iterator
 
 import zstandard
+
+_SEAT = re.compile(r"\((\d+)\)")  # "Anvil(2)-dc-864160" / "Heur(1)-..." -> seat
 
 OBS_SCHEMA_VERSION = 1
 TRAJECTORIES_DIR = Path(__file__).parents[2] / "data/trajectories"
@@ -86,6 +89,30 @@ class TrajectoryStore:
             json.loads(line) for line in (self.root / "index.jsonl").read_text().splitlines()
         ]
         self._by_game = {e["g"]: e for e in self.index}
+        # Per-game outcome records (harness progress logs, merged at ingest).
+        # These carry the TRUE winner: the frame end-record's "winner" field
+        # is broken pre-fork-fix (derived from the post-elimination live
+        # player list -> ~always 0; found 2026-07-11, D4). Never read
+        # end["winner"] for outcomes — use winner_seat().
+        self.outcomes: dict[int, dict] = {}
+        games_path = self.root / "games.jsonl"
+        if games_path.exists():
+            for line in games_path.read_text().splitlines():
+                try:
+                    r = json.loads(line)
+                    self.outcomes[r["i"]] = r
+                except (json.JSONDecodeError, KeyError):
+                    continue
+
+    def winner_seat(self, g: int) -> int | None:
+        """True winning seat from the outcome record; None for non-decisive
+        games, missing records, or unparseable winner names. Verified against
+        final life totals/lost flags 492/492 on the D3 pilot (2026-07-11)."""
+        r = self.outcomes.get(g)
+        if not r or r.get("status") != "won" or not r.get("winner"):
+            return None
+        m = _SEAT.search(r["winner"])
+        return int(m.group(1)) - 1 if m else None
 
     def __len__(self) -> int:
         return len(self.index)
@@ -152,6 +179,9 @@ class MultiStore:
 
     def game(self, g: int) -> GameTrajectory:
         return self._store_of[g].game(g)
+
+    def winner_seat(self, g: int) -> int | None:
+        return self._store_of[g].winner_seat(g)
 
     def games(self, skip_undecodable: bool = False) -> Iterator[GameTrajectory]:
         for g in self.game_indices():
