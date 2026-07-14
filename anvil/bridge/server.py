@@ -48,6 +48,72 @@ MODEL_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number"
 COMBAT_TAGS = "mtg.attack,mtg.block"
 
 
+class _Batcher:
+    """GPU micro-batching (D6 groundwork): worker streams featurize in
+    parallel and submit examples here; one thread drains up to max_batch
+    items inside window_ms, collates, runs a single act(), and hands each
+    caller a per-item view (batch dim kept, so answer translation indexes
+    [0] unchanged). Measured motivation: batch-1 tops out at 59 rps — below
+    the ~81 rps both-seats-bridged self-play needs at w=8. pass_delta rides
+    per item as a (B,1) tensor (mixed priority/other batches). The batcher
+    thread is the sole GPU user; the old per-request lock is gone."""
+
+    def __init__(self, net, torch_mod, device: str, counts: Counter,
+                 max_batch: int = 16, window_ms: float = 3.0):
+        import queue
+        self.net = net
+        self.torch = torch_mod
+        self.device = device
+        self.counts = counts
+        self.max_batch = max_batch
+        self.window_ms = window_ms
+        self.q: "queue.Queue[dict]" = queue.Queue()
+        self._queue_mod = queue
+        threading.Thread(target=self._loop, daemon=True, name="gpu-batcher").start()
+
+    def submit(self, ex: dict, pass_delta: float) -> dict:
+        slot = {"ex": ex, "pd": pass_delta, "ev": threading.Event()}
+        self.q.put(slot)
+        slot["ev"].wait()
+        if "err" in slot:
+            raise slot["err"]
+        return slot["out"]
+
+    def _loop(self) -> None:
+        from anvil.training.dataset import collate
+        queue = self._queue_mod
+        while True:
+            slots = [self.q.get()]
+            deadline = time.monotonic() + self.window_ms / 1000
+            while len(slots) < self.max_batch:
+                t = deadline - time.monotonic()
+                if t <= 0:
+                    break
+                try:
+                    slots.append(self.q.get(timeout=t))
+                except queue.Empty:
+                    break
+            self.counts[f"gpu_batch_{min(len(slots), 16)}"] += 1
+            try:
+                batch = {k: v.to(self.device) for k, v in
+                         collate([s["ex"] for s in slots]).items()}
+                pd = self.torch.tensor([[s["pd"]] for s in slots],
+                                       device=self.device, dtype=self.torch.float32)
+                with self.torch.autocast(self.device, dtype=self.torch.bfloat16):
+                    out = self.net.act(batch, pass_delta=pd)
+                for i, s in enumerate(slots):
+                    # per-item views keep the batch dim; scalars are shared
+                    # (n_ent/stop_idx are batch-padded dims by construction)
+                    s["out"] = {k: (v[i:i + 1] if self.torch.is_tensor(v) else v)
+                                for k, v in out.items()}
+            except Exception as e:
+                for s in slots:
+                    s["err"] = e
+            finally:
+                for s in slots:
+                    s["ev"].set()
+
+
 class ModelBackend:
     """Loads a D7 checkpoint and answers decisions. Import of torch/model
     machinery is deferred to here so echo/random sessions stay lightweight."""
@@ -81,26 +147,24 @@ class ModelBackend:
                 f"{len(self.feat.sa_vocab)} — serve/train vocab skew")
         self.pass_delta = pass_delta
         self.device = device
-        self.lock = threading.Lock()
         self.counts: Counter[str] = Counter()
+        self.batcher = _Batcher(self.net, torch, device, self.counts)
         print(f"[server] model {ckpt_path} step={ckpt.get('step')} "
-              f"pass_delta={pass_delta} device={device}")
+              f"pass_delta={pass_delta} device={device} "
+              f"micro-batch<= {self.batcher.max_batch} window {self.batcher.window_ms}ms")
 
     def answer(self, req: pb.DecisionRequest, header: dict | None) -> pb.DecisionResponse | None:
         """None = decline (worker falls back, tagged). Any exception is the
         caller's to turn into a loud decline — silence would poison an arm."""
         from anvil.bridge.featurize import TAG_TASK
-        from anvil.training.dataset import collate
 
         task = TAG_TASK.get(req.decision_tag)
         if task is None or not req.observation or header is None:
             return None
         dec = json.loads(req.observation)
         ex, aux = self.feat.example(dec, header, task)
-        batch = {k: v.to(self.device) for k, v in collate([ex]).items()}
         delta = self.pass_delta if task == "priority" else 0.0
-        with self.lock, self.torch.autocast(self.device, dtype=self.torch.bfloat16):
-            out = self.net.act(batch, pass_delta=delta)
+        out = self.batcher.submit(ex, delta)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
         if task == "priority":
             resp.construct.cast_plan.CopyFrom(self._castplan(out, aux))

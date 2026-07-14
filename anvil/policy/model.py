@@ -112,7 +112,11 @@ class AnvilNet(nn.Module):
                                f"unexpected {list(unexpected)}")
 
     def _pointer_logits(self, state: torch.Tensor, ent_out: torch.Tensor,
-                        batch: dict, pass_delta: float = 0.0) -> torch.Tensor:
+                        batch: dict,
+                        pass_delta: "float | torch.Tensor" = 0.0) -> torch.Tensor:
+        # pass_delta: scalar, or (B,1) tensor for mixed micro-batches (D6
+        # server batching: priority items carry the calibration delta,
+        # other tasks 0) — broadcasts onto the PASS logit either way.
         """Pointer logits over candidates: index 0 = PASS, rest gather host
         rows; with SA-level candidates (n_sa > 0) the key adds a learned
         SA-descriptor vector. Shared by forward() and act() — the plumbing
@@ -233,7 +237,7 @@ class AnvilNet(nn.Module):
                 **self._combat_outputs(state, ent_out, batch)}
 
     @torch.no_grad()
-    def act(self, batch: dict, pass_delta: float = 0.0) -> dict:
+    def act(self, batch: dict, pass_delta: "float | torch.Tensor" = 0.0) -> dict:
         """Greedy inference (M1 D8 serve path). Mirrors forward()'s encode and
         pointer plumbing but conditions the target decoder on the MODEL's
         candidate choice and feeds its own picks back (forward teacher-forces
