@@ -72,11 +72,11 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
 &nbsp;·&nbsp; <span class="pill done">M0 closed</span> <span class="pill done">M1 closed</span> <span class="pill live">M2 open</span></p>
 
 <div class="stats">
-  <div class="stat"><div class="v num">0.9748</div><div class="k">held-out honest agreement, SA-level basis (host-level 0.9751; gate was high-80s)</div></div>
-  <div class="stat"><div class="v num">46.3%</div><div class="k">winrate vs the heuristic, held-out matchups (SA-level ckpt; tie with M1's 46.8%)</div></div>
+  <div class="stat"><div class="v num">0.9671</div><div class="k">held-out honest agreement (D5 ckpt; combat: attack row 0.954, block 0.86; gate was high-80s)</div></div>
+  <div class="stat"><div class="v num">45.5%</div><div class="k">winrate vs the heuristic, held-out matchups (D5 ckpt; statistical tie with D3/D8)</div></div>
   <div class="stat"><div class="v num">113,592</div><div class="k">games in the training corpus (zero-error)</div></div>
-  <div class="stat"><div class="v num">39.5M</div><div class="k">model parameters (d=512 × 10 trunk + SA vocab)</div></div>
-  <div class="stat"><div class="v num">65% → 3%</div><div class="k">executor veto rate, M0 → D8</div></div>
+  <div class="stat"><div class="v num">42.1M</div><div class="k">model parameters (d=512 × 10 trunk + SA vocab + combat heads)</div></div>
+  <div class="stat"><div class="v num">65% → 0.2%</div><div class="k">model-intent filtering: M0 cast-veto → D5 attack-drop rate</div></div>
   <div class="stat"><div class="v num">~1,000 g/h</div><div class="k">eval games/hour with GPU inference in the loop</div></div>
   <div class="stat"><div class="v num">100%</div><div class="k">rollout determinism under the BC policy (twin gate 40/40; divergence 50% → 2.5%, statics 12% → 0)</div></div>
 </div>
@@ -200,8 +200,8 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <li><b>4. Ante certification + critic</b> <span class="pill done">closed 07-13</span> — Ante v1.1 ledger (AIVAT via observation surgery, zero Java changes) <b>certified on both distributions (<a href="decisions/ADR-0014-ante-certification.md">ADR-0014</a>)</b>: 12,800-game mirror raw 0.4953 ± 0.0044, all classes zero-mean after the ledger's own test caught the re-deal choice-contamination; fitted-β convergence strictly faster than raw.
   <b>The shakedown found corpus-wide label poisoning (<a href="decisions/ADR-0013-winner-label-poisoning.md">ADR-0013</a>): <code>end.winner</code> wrong ~50% of games — every value head to date learned seat noise.</b> Fixed fork-side + reader-side (no regeneration); corrected labels lifted the frozen trunk to final-turn AUC 0.989 (<code>d4-valuefix</code>).
   <b>Closed by <a href="decisions/ADR-0015-d4-closeout.md">ADR-0015</a>: <code>d4-critic-fullvis</code> = critic of record (§4 asymmetric input): BCE 0.4541 / AUC 0.8658, +12pp over masked in the 9–16 band — clears the re-based gate by 12 points. Rollout-label machinery certified + priced (pilot: labels out-rank the critic in every band, +5.5pp at 5–8; ~17 pos/h/worker at K=8) — scale-up deferred behind server micro-batching. Ante re-certified at the omniscient tier: var cut 0.6%→4.8%, β̂→0.70, β=1 AIVAT now variance-reducing.</b></li>
-  <li><b>5. RL fine-tune</b> — V-trace, §6 phase 2, from the SA-level checkpoint; start action-rich (δ=0), let reward set the pass boundary.</li>
-  <li><b>Combat constructs (D9)</b> — explicit slot after the schema work (fully heuristic at play; labels already in corpus; no telemetry yet naming it the bottleneck). Then mode/allocation heads (1.2% / 0.03% mass). Carried context: yield macros (§3b), ID dropout = the pre-Tutor lever.</li>
+  <li><b>5. Combat constructs (D5)</b> <span class="pill done">closed 07-14</span> — factorized per-creature heads (attack logit + count + target pointer; block pointer over attackers∪none), labels via the <b>combat-bounded obs join</b> (the 145 corpus block violations = one overshoot class, driven to 0/113,591 games; a violation-free variant caught by loader-vs-measure exact reconciliation). <code>d5-combat/last.pt</code> = checkpoint of record: attack row 0.954 / target 0.993, block row 0.86; honest −0.77pp vs d2-sa (multi-task cost, priced at zero by the arms); value BCE 0.4531 on corrected labels. Executor: entity-ref AttackMap/BlockMap, engine-legality realizers with engine-authoritative repair (attacks self-validate in tiers; blocks forced-add — <b>the engine never validates AI blocks</b>). <b>Arms tie as predicted: 0.4550 ± 0.0249 vs D3's 0.4625</b>; drop rates 0.18%/3.7%, 0 forced/fallback. D6 data loop verified on model games. Closed by <a href="decisions/ADR-0016-d5-closeout.md">ADR-0016</a>.</li>
+  <li><b>6. RL fine-tune (D6)</b> — first V-trace self-play from <code>d5-combat/last.pt</code> (δ=0 init, cap-aware reward, concession disabled, anomaly monitor day one). Pre-D6: both-seats-bridged memory profiling; server micro-batching (59 rps batch-1). Then mode/allocation heads (1.2% / 0.03% mass). Carried context: yield macros (§3b), ID dropout = the pre-Tutor lever, veto class ~13.9% + block drops 3.7% behind the serve-time re-ask lever.</li>
 </ul>
 </details>
 
@@ -233,6 +233,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <tr><td><a href="decisions/ADR-0013-winner-label-poisoning.md">0013</a></td><td class="num">07-11</td><td>end.winner wrong ~50% of games — value heads learned seat noise; games.jsonl join fixes the corpus, corrected labels lift the frozen trunk to final-turn AUC 0.99; D4 critic gate re-based</td></tr>
   <tr><td><a href="decisions/ADR-0014-ante-certification.md">0014</a></td><td class="num">07-12</td><td>Ante mirror certification passes: ledger unbiased (its own zero-mean test caught the re-deal choice-contamination), fitted-β corrected winrate converges strictly faster than raw; variance reduction critic-bound (~0.6% today)</td></tr>
   <tr><td><a href="decisions/ADR-0015-d4-closeout.md">0015</a></td><td class="num">07-13</td><td>D4 closeout: full-vis critic of record (+12pp mid-game AUC), Ante omniscient-tier re-certified (4.8% variance cut), rollout labels proven-and-priced with scale-up deferred behind efficiency</td></tr>
+  <tr><td><a href="decisions/ADR-0016-d5-closeout.md">0016</a></td><td class="num">07-14</td><td>D5 closeout: combat constructs end-to-end (bounded obs-join labels 0-violation corpus-wide, entity-ref wire, legality-only realizers with engine-authoritative repair); arms tie as predicted — D6 unblocked</td></tr>
 </table>
 
 <h2>Design invariants (standing law)</h2>
