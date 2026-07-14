@@ -26,8 +26,9 @@ import numpy as np
 import torch
 
 from anvil.encoder.transform import HISTORY_K, assemble
-from anvil.training.dataset import (KINDS, PRIORITY, T_MAX, TASKS, X_CLASSES,
-                                    EmbeddingCache, MethodVocab, SaVocab,
+from anvil.training.dataset import (COMBAT_COUNT_MAX, KINDS, PRIORITY, T_MAX,
+                                    TASKS, X_CLASSES, EmbeddingCache,
+                                    MethodVocab, SaVocab, _eligible_rows,
                                     default_sa_vocab, norm_sa)
 
 _HOST_ID = re.compile(r"\((\d+)\)$")  # mirrors dataset._HOST_ID
@@ -38,6 +39,8 @@ TAG_TASK = {
     "mtg.trigger": "trigger",
     "mtg.binary": "binary",
     "mtg.number": "number",
+    "mtg.attack": "attack",   # M2 D5 combat declarations
+    "mtg.block": "block",
 }
 
 
@@ -75,6 +78,10 @@ class Featurizer:
         cand_first_opt = [-1]  # per candidate: FIRST matching wire-option index
         ctx_row = -1
         num_lo, num_hi = 0, X_CLASSES - 1
+        cmb_rows: list[int] = []
+        cmb_count: list[int] = []
+        blk_atk_rows: list[int] = []
+        cmb_members: dict[int, list[int]] = {}
         args = dec.get("args") or {}
         if task == "priority":
             # mirrors the loader: (host row, normalized sa) pairs in option
@@ -100,6 +107,15 @@ class Featurizer:
         elif task == "number":
             num_lo = max(0, min(int(args.get("min", 0)), X_CLASSES - 1))
             num_hi = max(num_lo, min(int(args.get("max", X_CLASSES - 1)), X_CLASSES - 1))
+        elif task in ("attack", "block"):
+            # candidate basis mirrors the loader EXACTLY (same helper): the
+            # derived superset; engine legality gates at the worker's realizer
+            cmb_rows, cmb_members = _eligible_rows(
+                dec["obs"], p, row_of, need_unsick=(task == "attack"))
+            cmb_count = [min(len(cmb_members[r]), COMBAT_COUNT_MAX) for r in cmb_rows]
+            if task == "block":
+                blk_atk_rows = sorted({row_of[e["e"]] for e in dec["obs"].get("ents", [])
+                                       if "atk" in e})
 
         hist = np.full((HISTORY_K, 3), -1, dtype=np.int64)
         for i, h in enumerate(out["history"][-HISTORY_K:]):
@@ -129,11 +145,15 @@ class Featurizer:
             "forced": torch.tensor(0, dtype=torch.int64),
             "has_outcome": torch.tensor(0, dtype=torch.int64),
             "won": torch.tensor(0, dtype=torch.int64),
-            # combat fields (D5): empty on non-combat tasks; the attack/block
-            # serve path (executor chunk) fills them like the loader does
+            # combat fields (D5): candidates for attack/block windows, empty
+            # elsewhere; labels stay empty at serve except cmb_count_label,
+            # which collate slices at candidate width (pads -1)
+            "cmb_rows": torch.tensor(cmb_rows, dtype=torch.int64),
+            "cmb_count": torch.tensor(cmb_count, dtype=torch.int64),
+            "cmb_count_label": torch.full((len(cmb_rows),), -1, dtype=torch.int64),
+            "blk_atk_rows": torch.tensor(blk_atk_rows, dtype=torch.int64),
             **{k: torch.zeros(0, dtype=torch.int64) for k in
-               ("cmb_rows", "cmb_count", "atk_label", "cmb_count_label",
-                "atk_tgt_kind", "atk_tgt_idx", "blk_label", "blk_atk_rows")},
+               ("atk_label", "atk_tgt_kind", "atk_tgt_idx", "blk_label")},
         }
 
         # ---- answer-translation maps ----
@@ -142,7 +162,18 @@ class Featurizer:
             if r not in row_min_id or eid < row_min_id[r]:
                 row_min_id[r] = eid
         stack_ids = {e["e"] for e in dec["obs"].get("ents", []) if e.get("z") == "stack"}
+        n_players = len(header["players"])
         aux = {"cand_rows": cand_rows, "cand_first_opt": cand_first_opt,
                "row_min_id": row_min_id, "stack_ids": stack_ids,
-               "n_players": len(header["players"])}
+               "n_players": n_players,
+               # combat answer translation (D5): candidate rows in example
+               # order; members per row (sorted — first-fit expansion is the
+               # multiset-tie convention); attacker slots; seats maps the
+               # model's self-first player positions back to registered
+               # indices (combat heads use positions, unlike the target
+               # decoder's absolute-pi convention)
+               "cmb_rows": cmb_rows,
+               "cmb_members": {r: sorted(ids) for r, ids in cmb_members.items()},
+               "blk_atk_rows": blk_atk_rows,
+               "seats": [p] + [q for q in range(n_players) if q != p]}
         return ex, aux

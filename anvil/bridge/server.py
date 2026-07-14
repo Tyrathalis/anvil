@@ -43,6 +43,9 @@ DEFAULT_TAGS = (
     "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
 )
 MODEL_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number"
+# advertised only when the checkpoint carries TRAINED combat heads —
+# load_compat fresh-inits them for pre-D5 checkpoints, which must never serve
+COMBAT_TAGS = "mtg.attack,mtg.block"
 
 
 class ModelBackend:
@@ -63,6 +66,10 @@ class ModelBackend:
         # no SA descriptor and answers host_level=True (Java runs the full
         # disambiguation ladder). D2+ checkpoints name the SA themselves.
         self.n_sa = cfg.get("sa_vocab_size", 0)
+        # trained combat heads present? (D5 checkpoints; pre-D5 ones get
+        # fresh-init heads from load_compat and must not serve combat tags)
+        self.has_combat = any(k.startswith(("atk_", "blk_", "cmb_"))
+                              for k in ckpt["model"])
         self.net = build_net(cfg["embed"], cfg["pool_manifest"],
                              len(default_methods()), n_sa=self.n_sa).to(device)
         self.net.load_compat(ckpt["model"])
@@ -97,6 +104,10 @@ class ModelBackend:
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
         if task == "priority":
             resp.construct.cast_plan.CopyFrom(self._castplan(out, aux))
+        elif task == "attack":
+            resp.construct.attack_map.CopyFrom(self._attackmap(out, aux))
+        elif task == "block":
+            resp.construct.block_map.CopyFrom(self._blockmap(out, aux))
         elif task in ("mull_keep", "trigger", "binary"):
             resp.flag = bool(out["bool"][0])
         elif task == "number":
@@ -149,6 +160,53 @@ class ModelBackend:
             self.counts["x_overflow_clamped"] += 1
         self.counts["cast"] += 1
         return cp
+
+
+    def _attackmap(self, out: dict, aux: dict) -> "pb.AttackMap":
+        """Per-row picks -> entity-ref assignments. Dedup rows expand to the
+        count head's k first-fit members; player positions (self-first, the
+        combat-head convention) map back to registered indices via seats."""
+        am = pb.AttackMap()
+        n_ent = int(out["n_ent"])
+        for i, row in enumerate(aux["cmb_rows"]):
+            if not bool(out["atk_yes"][0, i]):
+                continue
+            ids = aux["cmb_members"][row]
+            k = 1 if len(ids) == 1 else min(int(out["cmb_count"][0, i]), len(ids))
+            tgt = int(out["atk_tgt"][0, i])
+            for eid in ids[:k]:
+                a = am.assignments.add()
+                a.attacker.entity = eid
+                if tgt < n_ent:
+                    a.defender.entity = aux["row_min_id"].get(tgt, -1)
+                else:
+                    a.defender.player = aux["seats"][tgt - n_ent]
+            self.counts["attack_rows"] += 1
+        if not am.assignments:
+            self.counts["attack_empty"] += 1
+        return am
+
+    def _blockmap(self, out: dict, aux: dict) -> "pb.BlockMap":
+        """blk_pick slot M (the batch none column) = no block; otherwise the
+        slot names an attacker row — first-fit member is the engine-side tie
+        (multiset semantics, same as the labels). Group blocks expand to the
+        count head's j members."""
+        bm = pb.BlockMap()
+        slots = aux["blk_atk_rows"]
+        for i, row in enumerate(aux["cmb_rows"]):
+            s = int(out["blk_pick"][0, i])
+            if s >= len(slots):  # the none slot (index M) or a padded column
+                continue
+            ids = aux["cmb_members"][row]
+            j = 1 if len(ids) == 1 else min(int(out["cmb_count"][0, i]), len(ids))
+            # attacker rows are the opponent's — resolve via the all-rows map
+            atk_id = aux["row_min_id"].get(slots[s], -1)
+            for eid in ids[:j]:
+                a = bm.assignments.add()
+                a.blocker.entity = eid
+                a.attacker.entity = atk_id
+            self.counts["block_rows"] += 1
+        return bm
 
 
 class DecisionServicer(pb_grpc.DecisionBridgeServicer):
@@ -263,7 +321,8 @@ def main() -> None:
     if args.mode == "model":
         backend = ModelBackend(args.ckpt, args.pass_delta, args.device)
     tags = args.tags if args.tags is not None else (
-        MODEL_TAGS if args.mode == "model" else DEFAULT_TAGS)
+        (MODEL_TAGS + ("," + COMBAT_TAGS if backend.has_combat else ""))
+        if args.mode == "model" else DEFAULT_TAGS)
     servicer = DecisionServicer(args.mode, tags.split(","), backend=backend)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=32))
     pb_grpc.add_DecisionBridgeServicer_to_server(servicer, server)

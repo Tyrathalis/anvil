@@ -118,3 +118,94 @@ def test_featurizer_matches_loader_and_act_matches_forward():
             assert int(fwd[0]) == int(act["choice"][0])
         checked += 1
     assert checked >= 20
+
+
+def _combat_windows(n=40):
+    from anvil.store.trajectories import open_store
+    store = open_store(str(STORE))
+    got = []
+    for g in store.game_indices()[:60]:
+        traj = store.game(g)
+        prior = []
+        for i, dec in enumerate(traj.decisions):
+            if dec.get("m") in ("declareAttackers", "declareBlockers") \
+                    and dec.get("obs") is not None:
+                got.append((dict(dec), traj.header, list(prior),
+                            list(traj.decisions), i))
+                if len(got) >= n:
+                    return got
+            prior.append(dec)
+    return got
+
+
+def test_combat_featurizer_matches_loader():
+    """D5: combat windows through the featurizer produce the loader's state
+    tensors and candidate fields; act() emits well-formed combat picks."""
+    import torch
+
+    from anvil.bridge.featurize import Featurizer
+    from anvil.encoder.transform import assemble, history_tokens
+    from anvil.training.dataset import (attack_fields, block_fields, collate,
+                                        default_methods)
+    import numpy as np
+
+    methods = default_methods()
+    stem = str(EMBED).removesuffix(".safetensors")
+    feat = Featurizer(stem, methods)
+
+    net = None
+    if CKPT.exists():
+        from anvil.training.train import build_net
+        ckpt = torch.load(CKPT, map_location="cpu", weights_only=False)
+        net = build_net(stem, ckpt["config"]["pool_manifest"], len(methods),
+                        n_sa=ckpt["config"].get("sa_vocab_size", 0))
+        net.load_compat(ckpt["model"])
+        net.eval()
+
+    checked_a = checked_b = 0
+    for dec, header, prior, decs, i in _combat_windows():
+        task = "attack" if dec["m"] == "declareAttackers" else "block"
+        wire = dict(dec)
+        wire["hist"] = _wire_hist(prior, dec["_pos"])
+        ex, aux = feat.example(wire, header, task)
+
+        out_train = assemble(dec, header, perspective=dec["p"],
+                             history=history_tokens(prior, dec["p"],
+                                                    now_pos=dec["_pos"]))
+        assert np.array_equal(out_train["entities"], ex["entities"].numpy())
+        assert np.array_equal(out_train["globals"], ex["globals"].numpy())
+        assert np.array_equal(out_train["players"], ex["players"].numpy())
+
+        # candidate fields vs the LOADER's label extractor on the same dec
+        row_of = out_train["entity_row_of"]
+        f = (attack_fields(decs, i, dec, row_of, len(header["players"]), -1)
+             if task == "attack" else block_fields(decs, i, dec, row_of, -1))
+        if f is None:
+            # forced-empty window: featurizer must agree there's nothing to ask
+            assert ex["cmb_rows"].shape[0] == 0 or task == "block"
+            continue
+        assert f["cmb_rows"] == ex["cmb_rows"].tolist()
+        assert f["cmb_count"] == ex["cmb_count"].tolist()
+        if task == "block":
+            assert f["blk_atk_rows"] == ex["blk_atk_rows"].tolist()
+            assert f["blk_atk_rows"] == aux["blk_atk_rows"]
+        # aux member expansion covers every candidate row
+        for r in f["cmb_rows"]:
+            assert aux["cmb_members"][r]
+
+        if net is not None and ex["cmb_rows"].shape[0]:
+            batch = collate([ex])
+            act = net.act(batch)
+            A = batch["cmb_rows"].shape[1]
+            n_ent = batch["entities"].shape[1]
+            n_p = batch["players"].shape[1]
+            assert act["atk_yes"].shape == (1, A)
+            assert (act["cmb_count"] >= 1).all()
+            assert (act["atk_tgt"] < n_ent + n_p).all()
+            M = batch["blk_atk_rows"].shape[1]
+            assert (act["blk_pick"] <= M).all()
+        if task == "attack":
+            checked_a += 1
+        else:
+            checked_b += 1
+    assert checked_a >= 10 and checked_b >= 5
