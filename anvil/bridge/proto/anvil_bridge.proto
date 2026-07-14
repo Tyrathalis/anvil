@@ -132,18 +132,26 @@ message Construct {
   }
 }
 
+// Combat maps (M2 D5): answers are observation-namespace entity refs, the
+// CastPlan rung-1 idiom — the worker realizes refs against the engine and
+// adjudicates legality per assignment (ADR-0005: drop + telemeter illegal
+// ones; requirements satisfied worker-side with forced-add logging). The v0
+// sketch used indices into engine-enumerated option lists; it was never
+// implemented on either side (fields reserved).
 message AttackMap {
   message Assignment {
-    uint32 attacker_option = 1;  // index into engine-enumerated legal attackers
-    uint32 defender_option = 2;
+    reserved 1, 2;               // v0 attacker_option/defender_option (unused)
+    EntityRef attacker = 3;      // one of the declarer's creatures
+    EntityRef defender = 4;      // opponent player or their permanent
   }
   repeated Assignment assignments = 1;
 }
 
 message BlockMap {
   message Assignment {
-    uint32 blocker_option = 1;
-    uint32 attacker_option = 2;
+    reserved 1, 2;               // v0 blocker_option/attacker_option (unused)
+    EntityRef blocker = 3;
+    EntityRef attacker = 4;      // an attacking creature (entity ref)
   }
   repeated Assignment assignments = 1;
 }
