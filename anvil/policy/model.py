@@ -7,6 +7,13 @@ SA-string-vocab + kind embedding when n_sa > 0 (n_sa=0 reproduces the M1
 host-level architecture for old checkpoints). Target/X/one-field heads and
 the win-prob value head as at M1. The turn-plan latent (§3) enters as a
 second read-out token when the target pointer lands.
+
+Combat heads (M2 D5): factorized per-candidate-row declare-attackers/
+blockers — attack yes/no logit + dedup count classes + target pointer per
+row; block pointer over attacker rows ∪ a learned none key. Factorized (not
+autoregressive) per the D5 design; the AR decoder is the documented D6
+exploration-coherence upgrade path. Pre-D5 checkpoints load via load_compat
+(task_emb row growth + fresh-init combat params).
 """
 
 from __future__ import annotations
@@ -67,6 +74,21 @@ class AnvilNet(nn.Module):
                                        nn.GELU(), nn.Linear(d_model, 1))
         self.num_head = nn.Sequential(nn.Linear(2 * d_model + 64, d_model),
                                       nn.GELU(), nn.Linear(d_model, X_CLASSES))
+        # combat heads (M2 D5): factorized per-candidate-row declarations.
+        # Row input = candidate entity output ⊕ [STATE]. Param names keep the
+        # atk_/blk_/cmb_ prefixes — load_compat lets pre-D5 checkpoints load
+        # with these at fresh init.
+        from anvil.training.dataset import COMBAT_COUNT_MAX
+        self.atk_head = nn.Sequential(nn.Linear(2 * d_model, d_model), nn.GELU(),
+                                      nn.Linear(d_model, 1))
+        self.cmb_count_head = nn.Sequential(nn.Linear(2 * d_model, d_model), nn.GELU(),
+                                            nn.Linear(d_model, COMBAT_COUNT_MAX))
+        self.atk_tgt_query = nn.Linear(2 * d_model, d_model)
+        self.atk_tgt_key = nn.Linear(d_model, d_model)
+        self.atk_player_key = nn.Linear(n_player_features, d_model)
+        self.blk_query = nn.Linear(2 * d_model, d_model)
+        self.blk_key = nn.Linear(d_model, d_model)
+        self.blk_none = nn.Parameter(torch.randn(d_model) / d_model ** 0.5)
 
     # params new at M2 D5 (combat heads); absent from older checkpoints and
     # allowed missing on load — they keep their fresh init
@@ -108,6 +130,47 @@ class AnvilNet(nn.Module):
         pass_logit = self.pass_head(state) + pass_delta           # (B,1)
         logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)    # slot 0 = PASS
         return logits.masked_fill(~batch["cand_mask"], -1e9)
+
+    def _combat_outputs(self, state: torch.Tensor, ent_out: torch.Tensor,
+                        batch: dict) -> dict:
+        """Combat-head logits (D5), shared by forward() and act(). Per
+        candidate row (cmb_rows): attack yes/no logit; count-class logits
+        masked to [1, group size]; attack-target pointer over entities+players
+        (a training-time superset of the engine's legal defenders — labels
+        only land on legal ones, serve masks exactly via the executor);
+        block pointer over attacker slots + the learned none key at index M."""
+        d = ent_out.shape[-1]
+        rows = batch["cmb_rows"].clamp(min=0)
+        row_vec = ent_out.gather(1, rows.unsqueeze(-1).expand(-1, -1, d))
+        cin = torch.cat([row_vec, state.unsqueeze(1).expand_as(row_vec)], dim=-1)
+
+        atk_logits = self.atk_head(cin).squeeze(-1)               # (B,A)
+
+        cnt_logits = self.cmb_count_head(cin)                     # (B,A,Kmax)
+        rng = torch.arange(cnt_logits.shape[-1], device=cnt_logits.device)
+        cnt_logits = cnt_logits.masked_fill(
+            rng >= batch["cmb_count"].unsqueeze(-1).clamp(min=1), -1e9)
+
+        q = self.atk_tgt_query(cin)                               # (B,A,d)
+        tkeys = torch.cat([self.atk_tgt_key(ent_out),
+                           self.atk_player_key(batch["players"])], dim=1)
+        tgt_logits = q @ tkeys.transpose(1, 2) / d ** 0.5         # (B,A,N+P)
+        pmask = torch.cat([~batch["ent_mask"],
+                           torch.zeros(ent_out.shape[0], batch["players"].shape[1],
+                                       dtype=torch.bool, device=ent_out.device)], dim=1)
+        tgt_logits = tgt_logits.masked_fill(pmask.unsqueeze(1), -1e9)
+
+        arows = batch["blk_atk_rows"].clamp(min=0)
+        akeys = self.blk_key(ent_out.gather(1, arows.unsqueeze(-1).expand(-1, -1, d)))
+        keys = torch.cat([akeys, self.blk_none.expand(ent_out.shape[0], 1, -1)], dim=1)
+        blk_logits = self.blk_query(cin) @ keys.transpose(1, 2) / d ** 0.5  # (B,A,M+1)
+        bmask = torch.cat([~batch["blk_atk_mask"],
+                           torch.zeros(ent_out.shape[0], 1, dtype=torch.bool,
+                                       device=ent_out.device)], dim=1)
+        blk_logits = blk_logits.masked_fill(bmask.unsqueeze(1), -1e9)
+
+        return {"atk_logits": atk_logits, "cmb_count_logits": cnt_logits,
+                "atk_tgt_logits": tgt_logits, "blk_logits": blk_logits}
 
     def forward(self, batch: dict) -> dict:
         card_vecs = self.cards(batch["ent_emb"])
@@ -166,7 +229,8 @@ class AnvilNet(nn.Module):
 
         return {"policy_logits": logits, "tgt_logits": tgt_logits, "x_logits": x_logits,
                 "bool_logit": bool_logit, "num_logits": num_logits, "plan": plan,
-                "value_logit": self.value_head(state).squeeze(-1)}
+                "value_logit": self.value_head(state).squeeze(-1),
+                **self._combat_outputs(state, ent_out, batch)}
 
     @torch.no_grad()
     def act(self, batch: dict, pass_delta: float = 0.0) -> dict:
@@ -225,15 +289,23 @@ class AnvilNet(nn.Module):
         num_logits = num_logits.masked_fill(
             (rng < batch["num_lo"].unsqueeze(-1)) | (rng > batch["num_hi"].unsqueeze(-1)), -1e9)
 
+        cmb = self._combat_outputs(state, ent_out, batch)
         return {"choice": choice, "tgt_picks": torch.stack(picks, dim=1),
                 "x_cls": x_cls, "n_ent": n_ent, "stop_idx": stop_idx,
                 "bool": self.bool_head(of_in).squeeze(-1) > 0,
                 "num": num_logits.argmax(-1),
-                "win": torch.sigmoid(self.value_head(state).squeeze(-1))}
+                "win": torch.sigmoid(self.value_head(state).squeeze(-1)),
+                # combat picks (D5): per-row attack yes/no, group count k
+                # (count-class argmax + 1), target class over [0,N)∪[N,N+P),
+                # block slot over [0,M]∪{M=none}
+                "atk_yes": cmb["atk_logits"] > 0,
+                "cmb_count": cmb["cmb_count_logits"].argmax(-1) + 1,
+                "atk_tgt": cmb["atk_tgt_logits"].argmax(-1),
+                "blk_pick": cmb["blk_logits"].argmax(-1)}
 
     def losses(self, batch: dict, pass_weight: float = 1.0, tgt_weight: float = 1.0,
                x_weight: float = 0.5, value_weight: float = 0.5,
-               onefield_weight: float = 0.5) -> dict:
+               onefield_weight: float = 0.5, combat_weight: float = 1.0) -> dict:
         out = self(batch)
         prio = batch["task"] == 0
         # label -1 = SA-level-ambiguous (masked from the policy loss; the
@@ -277,6 +349,26 @@ class AnvilNet(nn.Module):
         else:
             value = torch.zeros((), device=policy.device)
 
+        # ---- combat losses (D5): every mask is label-carried, so each term
+        # fires only on its own task's rows ----
+        zero = torch.zeros((), device=policy.device)
+        am = batch["atk_label"] >= 0
+        atkL = (nn.functional.binary_cross_entropy_with_logits(
+            out["atk_logits"][am], batch["atk_label"][am].float())
+            if am.any() else zero)
+        cm = batch["cmb_count_label"] >= 0
+        cntL = (nn.functional.cross_entropy(
+            out["cmb_count_logits"][cm], batch["cmb_count_label"][cm])
+            if cm.any() else zero)
+        atm = batch["atk_tgt_labels"] >= 0
+        atgtL = (nn.functional.cross_entropy(
+            out["atk_tgt_logits"][atm], batch["atk_tgt_labels"][atm])
+            if atm.any() else zero)
+        bm = batch["blk_label"] >= 0
+        blkL = (nn.functional.cross_entropy(
+            out["blk_logits"][bm], batch["blk_label"][bm])
+            if bm.any() else zero)
+
         with torch.no_grad():
             pred = out["policy_logits"].argmax(1)
             pbasis = prio & valid
@@ -285,8 +377,15 @@ class AnvilNet(nn.Module):
             acc_np = ((pred == lab) & nonpass).sum() / nonpass.sum().clamp(min=1)
             tmask = batch["tgt_labels"] >= 0
             tacc = ((tl.argmax(-1) == batch["tgt_labels"]) & tmask).sum() / tmask.sum().clamp(min=1)
+            acc_atk = (((out["atk_logits"] > 0) == (batch["atk_label"] == 1)) & am
+                       ).sum() / am.sum().clamp(min=1)
+            acc_blk = ((out["blk_logits"].argmax(-1) == batch["blk_label"]) & bm
+                       ).sum() / bm.sum().clamp(min=1)
         return {"policy": policy, "target": target, "x": x, "value": value,
                 "bool": boolL, "num": num,
+                "atk": atkL, "cmb_count": cntL, "atk_tgt": atgtL, "blk": blkL,
                 "loss": policy + tgt_weight * target + x_weight * x + value_weight * value
-                        + onefield_weight * (boolL + num),
-                "acc": acc, "acc_nonpass": acc_np, "acc_target": tacc}
+                        + onefield_weight * (boolL + num)
+                        + combat_weight * (atkL + cntL + atgtL + blkL),
+                "acc": acc, "acc_nonpass": acc_np, "acc_target": tacc,
+                "acc_atk": acc_atk, "acc_blk": acc_blk}

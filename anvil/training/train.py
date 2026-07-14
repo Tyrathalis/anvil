@@ -58,6 +58,9 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
     vsum = vn = 0.0
     of_ok = {t: 0 for t in ("mull", "trigger", "binary", "number")}
     of_n = {t: 0 for t in ("mull", "trigger", "binary", "number")}
+    cmb_ok = {k: 0 for k in ("atk_row", "atk_win", "atk_tgt", "cmb_count",
+                             "blk_row", "blk_win")}
+    cmb_n = dict(cmb_ok)
     for i, batch in enumerate(loader):
         if i >= max_batches:
             break
@@ -104,6 +107,31 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
         nm = (batch["task"] == 5) & (batch["num_label"] >= 0) & (batch["forced"] == 0)
         of_ok["number"] += ((out["num_logits"].argmax(-1) == batch["num_label"]) & nm).sum().item()
         of_n["number"] += nm.sum().item()
+        # combat per-tag (D5): row agreement + window exact-set agreement.
+        # No forced exclusion — every candidate row is a real yes/no (the
+        # forced-empty windows never left the loader).
+        am = batch["atk_label"] >= 0
+        rok = ((out["atk_logits"] > 0) == (batch["atk_label"] == 1)) & am
+        cmb_ok["atk_row"] += rok.sum().item()
+        cmb_n["atk_row"] += am.sum().item()
+        awm = am.any(1)
+        cmb_ok["atk_win"] += (rok.sum(1) == am.sum(1))[awm].sum().item()
+        cmb_n["atk_win"] += awm.sum().item()
+        atm = batch["atk_tgt_labels"] >= 0
+        cmb_ok["atk_tgt"] += ((out["atk_tgt_logits"].argmax(-1)
+                               == batch["atk_tgt_labels"]) & atm).sum().item()
+        cmb_n["atk_tgt"] += atm.sum().item()
+        cm = batch["cmb_count_label"] >= 0
+        cmb_ok["cmb_count"] += ((out["cmb_count_logits"].argmax(-1)
+                                 == batch["cmb_count_label"]) & cm).sum().item()
+        cmb_n["cmb_count"] += cm.sum().item()
+        bm = batch["blk_label"] >= 0
+        brok = (out["blk_logits"].argmax(-1) == batch["blk_label"]) & bm
+        cmb_ok["blk_row"] += brok.sum().item()
+        cmb_n["blk_row"] += bm.sum().item()
+        bwm = bm.any(1)
+        cmb_ok["blk_win"] += (brok.sum(1) == bm.sum(1))[bwm].sum().item()
+        cmb_n["blk_win"] += bwm.sum().item()
         vm = batch["has_outcome"].bool()
         if vm.any():
             vsum += torch.nn.functional.binary_cross_entropy_with_logits(
@@ -129,6 +157,8 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
         "acc_tuck": tuck_ok / max(tuck_n, 1), "n_tuck": tuck_n,
         **{f"acc_{t}": of_ok[t] / max(of_n[t], 1) for t in of_ok},
         **{f"n_{t}": of_n[t] for t in of_n},
+        **{f"acc_{k}": cmb_ok[k] / max(cmb_n[k], 1) for k in cmb_ok},
+        **{f"n_{k}": cmb_n[k] for k in cmb_n},
     }
 
 
@@ -229,7 +259,8 @@ def main() -> None:
             if step % 100 == 0:
                 row = {"step": step,
                        **{k: float(L[k].detach()) for k in
-                          ("loss", "policy", "target", "x", "value", "bool", "num")},
+                          ("loss", "policy", "target", "x", "value", "bool", "num",
+                           "atk", "cmb_count", "atk_tgt", "blk")},
                        "lr": lr_at(step),
                        "windows": win_seen, "wall_s": round(time.time() - t0, 1)}
                 metrics.write(json.dumps(row) + "\n")
@@ -247,7 +278,9 @@ def main() -> None:
                 print(f"[eval] step {step}: honest {ev['agree_honest']:.4f} "
                       f"(host {ev['agree_honest_host']:.4f}) "
                       f"raw {ev['agree_raw']:.4f} nonpass {ev['agree_nonpass']:.4f} "
-                      f"tgt {ev['acc_target']:.4f} | valpair honest {ep['agree_honest']:.4f}")
+                      f"tgt {ev['acc_target']:.4f} "
+                      f"atk {ev['acc_atk_row']:.4f}/{ev['acc_atk_win']:.4f} "
+                      f"blk {ev['acc_blk_row']:.4f} | valpair honest {ep['agree_honest']:.4f}")
                 torch.save({"step": step, "model": net.state_dict(), "config": config},
                            out_dir / "last.pt")
     print(f"[train] done: {step} steps, {win_seen} windows, "
