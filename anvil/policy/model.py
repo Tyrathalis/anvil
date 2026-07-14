@@ -68,6 +68,27 @@ class AnvilNet(nn.Module):
         self.num_head = nn.Sequential(nn.Linear(2 * d_model + 64, d_model),
                                       nn.GELU(), nn.Linear(d_model, X_CLASSES))
 
+    # params new at M2 D5 (combat heads); absent from older checkpoints and
+    # allowed missing on load — they keep their fresh init
+    _D5_PREFIXES = ("atk_", "blk_", "cmb_")
+
+    def load_compat(self, state: dict) -> None:
+        """Load a checkpoint state_dict across the D5 boundary: task_emb grew
+        6->8 rows (attack/block) — saved rows load exactly, new rows keep
+        their fresh init; combat-head params may be missing entirely. Any
+        OTHER mismatch still raises (this is not a blanket strict=False)."""
+        cur = self.task_emb.weight
+        saved = state.get("task_emb.weight")
+        if saved is not None and saved.shape[0] < cur.shape[0]:
+            merged = cur.detach().clone()
+            merged[:saved.shape[0]] = saved
+            state = {**state, "task_emb.weight": merged}
+        missing, unexpected = self.load_state_dict(state, strict=False)
+        bad = [k for k in missing if not k.startswith(self._D5_PREFIXES)]
+        if bad or unexpected:
+            raise RuntimeError(f"checkpoint mismatch: missing {bad}, "
+                               f"unexpected {list(unexpected)}")
+
     def _pointer_logits(self, state: torch.Tensor, ent_out: torch.Tensor,
                         batch: dict, pass_delta: float = 0.0) -> torch.Tensor:
         """Pointer logits over candidates: index 0 = PASS, rest gather host

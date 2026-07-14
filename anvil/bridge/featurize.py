@@ -129,6 +129,11 @@ class Featurizer:
             "forced": torch.tensor(0, dtype=torch.int64),
             "has_outcome": torch.tensor(0, dtype=torch.int64),
             "won": torch.tensor(0, dtype=torch.int64),
+            # combat fields (D5): empty on non-combat tasks; the attack/block
+            # serve path (executor chunk) fills them like the loader does
+            **{k: torch.zeros(0, dtype=torch.int64) for k in
+               ("cmb_rows", "cmb_count", "atk_label", "cmb_count_label",
+                "atk_tgt_kind", "atk_tgt_idx", "blk_label", "blk_atk_rows")},
         }
 
         # ---- answer-translation maps ----

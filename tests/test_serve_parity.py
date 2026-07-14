@@ -69,7 +69,7 @@ def test_featurizer_matches_loader_and_act_matches_forward():
         ckpt = torch.load(CKPT, map_location="cpu", weights_only=False)
         net = build_net(stem, ckpt["config"]["pool_manifest"], len(methods),
                         n_sa=ckpt["config"].get("sa_vocab_size", 0))
-        net.load_state_dict(ckpt["model"])
+        net.load_compat(ckpt["model"])  # task_emb grew at D5 (attack/block)
         net.eval()
 
     checked = 0

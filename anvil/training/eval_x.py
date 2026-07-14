@@ -64,7 +64,7 @@ def main() -> None:
             print(f"[eval_x] {len(wins)} X windows in the val split")
         net = build_net(cfg["embed"], cfg["pool_manifest"], len(default_methods()),
                     n_sa=cfg.get("sa_vocab_size", 0)).to(device)
-        net.load_state_dict(ckpt["model"])
+        net.load_compat(ckpt["model"])
         net.eval()
         ok = n = 0
         with torch.no_grad():

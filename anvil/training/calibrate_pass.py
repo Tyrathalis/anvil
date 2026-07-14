@@ -86,7 +86,7 @@ def main() -> None:
     cfg = ckpt["config"]
     net = build_net(cfg["embed"], cfg["pool_manifest"], len(default_methods()),
                     n_sa=cfg.get("sa_vocab_size", 0)).to(device)
-    net.load_state_dict(ckpt["model"])
+    net.load_compat(ckpt["model"])
     net.eval()
 
     ds = PriorityWindows(cfg["store"], cfg["embed"], default_methods(), split="val",

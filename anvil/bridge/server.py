@@ -65,7 +65,7 @@ class ModelBackend:
         self.n_sa = cfg.get("sa_vocab_size", 0)
         self.net = build_net(cfg["embed"], cfg["pool_manifest"],
                              len(default_methods()), n_sa=self.n_sa).to(device)
-        self.net.load_state_dict(ckpt["model"])
+        self.net.load_compat(ckpt["model"])
         self.net.eval()
         self.feat = Featurizer(cfg["embed"], default_methods())
         if self.n_sa and self.n_sa != len(self.feat.sa_vocab):

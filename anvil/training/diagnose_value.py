@@ -158,7 +158,7 @@ def main() -> None:
     methods = default_methods()
     net = build_net(cfg["embed"], cfg["pool_manifest"], len(methods),
                     n_sa=cfg.get("sa_vocab_size", 0)).to(device)
-    net.load_state_dict(ckpt["model"])
+    net.load_compat(ckpt["model"])
     net.eval()
 
     # full-vis critics (M2 D4) must be diagnosed on full-vis windows —

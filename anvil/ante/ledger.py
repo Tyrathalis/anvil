@@ -259,7 +259,7 @@ class ValueEvaluator:
         methods = default_methods()
         self.net = build_net(cfg["embed"], cfg["pool_manifest"], len(methods),
                              n_sa=cfg.get("sa_vocab_size", 0)).to(self.device)
-        self.net.load_state_dict(ck["model"])
+        self.net.load_compat(ck["model"])
         self.net.eval()
         # full-vis critics (M2 D4) evaluate on full-vis windows — §7's
         # omniscient-critic tier; detected from the ckpt's fine-tune stamp

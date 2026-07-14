@@ -47,6 +47,31 @@ Design notes:
   ADR-0005 construction; the loader raises rather than skipping (a silent
   skip here would hide exactly the corpus-poisoning class the validator
   exists to catch).
+
+Combat examples (M2 D5, tasks attack/block) add per-candidate-row fields
+(pad -1 / empty on other tasks; batch-padded in collate):
+
+  cmb_rows        (A,) int64  candidate creature dedup rows (derived basis:
+                              decider's battlefield creatures, untapped
+                              [+unsick for attacks] — certified label superset)
+  cmb_count       (A,) int64  dedup-group size (clamped COMBAT_COUNT_MAX)
+  atk_label       (A,) int64  attack task: 1/0 per row
+  cmb_count_label (A,) int64  k-1 class for multi-groups that acted (both tasks)
+  atk_tgt_kind/idx(A,) int64  attack target per attacking row (0=entity row,
+                              1=player position; -1 = none or mixed-in-group,
+                              masked) -> collate builds atk_tgt_labels class ids
+  blk_label       (A,) int64  block task: index into blk_atk_rows, or the none
+                              class (per-example len(blk_atk_rows), remapped to
+                              the batch none slot M in collate); -1 = masked
+                              (multi-block or group split across attackers)
+  blk_atk_rows    (M,) int64  attacker rows in the dec obs (pointer key set)
+
+Labels come from the obs-side join (_combat_label_window): the declare
+callbacks never serialized rets, but post-declaration windows carry atk/blk
+flags. The join is bounded at the next declareAttackers dec — turn-only
+bounding poisoned 145 corpus block labels via extra-combat overshoot
+(classified 2026-07-13). Forced-empty windows (no candidates / no attackers)
+are skipped: nothing to learn, and serve answers them without the model.
 """
 
 from __future__ import annotations
@@ -73,11 +98,21 @@ X_CLASSES = 18  # X = 0..16 + overflow bucket (3 casts past 16 in a 106K sample)
 # (99.7% isMandatory -> forced, excluded from honest basis) / binary 54 /
 # number 49 — mulligan is the real deliverable, the rest are per-tag coverage
 # with honest tiny-n reporting.
+# attack/block (M2 D5): factorized per-creature combat declarations. The
+# declare callbacks never serialized rets; labels come from an obs-side JOIN
+# (first later same-COMBAT window carrying the declared flags — see
+# _combat_label_window). Corpus measure (d5-combat-label-measure-full):
+# 1.41M attack windows / 382K block windows; derived candidate basis is a
+# certified label superset (0 violations / 2.23M attackers).
 TASKS = {"priority": 0, "mull_keep": 1, "mull_tuck": 2, "trigger": 3,
-         "binary": 4, "number": 5}
+         "binary": 4, "number": 5, "attack": 6, "block": 7}
 TASK_OF_METHOD = {PRIORITY: "priority", "mulliganKeepHand": "mull_keep",
                   "tuckCardsViaMulligan": "mull_tuck", "playTrigger": "trigger",
-                  "chooseBinary": "binary", "chooseNumber": "number"}
+                  "chooseBinary": "binary", "chooseNumber": "number",
+                  "declareAttackers": "attack", "declareBlockers": "block"}
+COMBAT_COUNT_MAX = 12  # count-head classes k=1..12; per-group k beyond 12 is
+                       # a handful corpus-wide (label clamps, serve un-clamps
+                       # to "all" only via the executor's group size)
 _HOST_ID = re.compile(r"\((\d+)\)$")  # "Spider-Man 2099 (100)" -> entity id 100
 
 # SA candidate descriptors (M2 D2): option "kind" vocabulary + string
@@ -160,6 +195,141 @@ def _split_of(g: int, games_per_pair: int = 5) -> str:
     return "train"
 
 
+def _combat_label_window(decs: list[dict], i: int, turn: int, flag: str) -> dict | None:
+    """First later dec in the SAME combat whose obs carries any `flag` entity;
+    None = the combat (or turn) ended unflagged — the empty label. Bounded at
+    the next declareAttackers dec, not just the turn: extra-combat turns
+    re-enter declare, and a turn-only bound let a no-block combat inherit a
+    later combat's map (all 145 corpus block violations were this overshoot;
+    classified 2026-07-13, scripts/d5/classify_block_violations.py)."""
+    for d in decs[i + 1:]:
+        if d.get("m") == "declareAttackers":
+            return None
+        obs = d.get("obs")
+        if obs is None:
+            continue
+        if obs["glob"].get("turn") != turn:
+            return None
+        if any(flag in e for e in obs.get("ents", [])):
+            return obs
+    return None
+
+
+def _eligible_rows(obs: dict, p: int, row_of: dict[int, int],
+                   need_unsick: bool) -> tuple[list[int], dict[int, list[int]]]:
+    """Decider's battlefield creature dedup rows, untapped (+unsick for
+    attacks; sickness does not bar blocking) — the derived candidate basis.
+    A timing superset by design (walls/Pacifism'd creatures stay candidates
+    with 0-labels; ADR-0005 semantics), certified as a label superset by the
+    corpus measure. Every eligibility field participates in the dedup key,
+    so groups are uniformly eligible. Returns (sorted rows, row -> ids)."""
+    members: dict[int, list[int]] = {}
+    for e in obs.get("ents", []):
+        if e.get("z") != "battlefield" or e.get("c") != p or "pt" not in e:
+            continue
+        if e.get("tap") or (need_unsick and e.get("sick")):
+            continue
+        members.setdefault(row_of[e["e"]], []).append(e["e"])
+    return sorted(members), members
+
+
+def attack_fields(decs: list[dict], i: int, dec: dict, row_of: dict[int, int],
+                  n_players: int, g: int) -> dict | None:
+    """Per-candidate-row attack labels for a declareAttackers window: 1/0
+    attack, dedup count class (k-1, multi-groups with k>=1 only), and target
+    ref (player position or entity row; a group whose members attack MIXED
+    targets masks its target: multiset semantics can't order it). None =
+    no eligible creatures (forced-empty window; nothing to learn or serve)."""
+    obs = dec["obs"]
+    p = dec["p"]
+    rows, members = _eligible_rows(obs, p, row_of, need_unsick=True)
+    if not rows:
+        return None
+    lw = _combat_label_window(decs, i, obs["glob"].get("turn"), "atk")
+    attackers = {} if lw is None else {
+        e["e"]: e["atk"] for e in lw["ents"] if "atk" in e and e.get("c") == p}
+    member_row = {eid: r for r, ids in members.items() for eid in ids}
+    for eid in attackers:
+        if eid not in member_row:
+            raise ValueError(
+                f"game {g} s={dec.get('s')}: label attacker {eid} outside the "
+                "derived candidate basis — superset violated (measured 0/2.23M; "
+                "run scripts/d5/measure_combat_labels.py)")
+    seats = [p] + [q for q in range(n_players) if q != p]
+    out = {"cmb_rows": rows, "cmb_count": [], "atk_label": [],
+           "cmb_count_label": [], "atk_tgt_kind": [], "atk_tgt_idx": []}
+    for r in rows:
+        ids = members[r]
+        out["cmb_count"].append(min(len(ids), COMBAT_COUNT_MAX))
+        ks = [eid for eid in ids if eid in attackers]
+        out["atk_label"].append(1 if ks else 0)
+        out["cmb_count_label"].append(
+            min(len(ks), COMBAT_COUNT_MAX) - 1 if ks and len(ids) > 1 else -1)
+        tk = ti = -1
+        if ks:
+            refs = {json.dumps(attackers[eid], sort_keys=True) for eid in ks}
+            if len(refs) == 1:
+                ref = attackers[ks[0]]
+                if "pi" in ref:
+                    tk, ti = 1, seats.index(ref["pi"])
+                elif "e" in ref and ref["e"] in row_of:
+                    tk, ti = 0, row_of[ref["e"]]
+        out["atk_tgt_kind"].append(tk)
+        out["atk_tgt_idx"].append(ti)
+    return out
+
+
+def block_fields(decs: list[dict], i: int, dec: dict, row_of: dict[int, int],
+                 g: int) -> dict | None:
+    """Per-candidate-row block labels: index into the window's attacker-row
+    list, or the none class (= len(blk_atk_rows), remapped to the batch none
+    slot in collate). Multi-blocks (measured 0 corpus-wide) and groups whose
+    blocking members split across attackers mask the row (-1). None = no
+    eligible blockers or no attackers in the obs (forced-empty window)."""
+    obs = dec["obs"]
+    p = dec["p"]
+    rows, members = _eligible_rows(obs, p, row_of, need_unsick=False)
+    atk_rows = sorted({row_of[e["e"]] for e in obs.get("ents", []) if "atk" in e})
+    if not rows or not atk_rows:
+        return None
+    slot = {r: j for j, r in enumerate(atk_rows)}
+    lw = _combat_label_window(decs, i, obs["glob"].get("turn"), "blk")
+    blockers = {} if lw is None else {
+        e["e"]: e["blk"] for e in lw["ents"] if "blk" in e and e.get("c") == p}
+    member_row = {eid: r for r, ids in members.items() for eid in ids}
+    for eid, blocked in blockers.items():
+        if eid not in member_row:
+            raise ValueError(
+                f"game {g} s={dec.get('s')}: label blocker {eid} outside the "
+                "derived candidate basis — superset violated")
+        for aid in blocked:
+            if row_of.get(aid) not in slot:
+                raise ValueError(
+                    f"game {g} s={dec.get('s')}: blocked target {aid} is not an "
+                    "attacker in the dec obs — the combat-bounded join should "
+                    "make this impossible (classified 2026-07-13)")
+    none = len(atk_rows)
+    out = {"cmb_rows": rows, "cmb_count": [], "blk_label": [],
+           "cmb_count_label": [], "blk_atk_rows": atk_rows}
+    for r in rows:
+        ids = members[r]
+        out["cmb_count"].append(min(len(ids), COMBAT_COUNT_MAX))
+        bs = [eid for eid in ids if eid in blockers]
+        if not bs:
+            out["blk_label"].append(none)
+            out["cmb_count_label"].append(-1)
+            continue
+        arows = {slot[row_of[blockers[eid][0]]] for eid in bs
+                 if len(blockers[eid]) == 1}
+        if len(arows) == 1 and all(len(blockers[eid]) == 1 for eid in bs):
+            out["blk_label"].append(arows.pop())
+        else:
+            out["blk_label"].append(-1)
+        out["cmb_count_label"].append(
+            min(len(bs), COMBAT_COUNT_MAX) - 1 if len(ids) > 1 else -1)
+    return out
+
+
 class PriorityWindows(IterableDataset):
     def __init__(self, store_dir: str | Path | list, embedding_stem: str | Path,
                  methods: list[str] | None = None, shuffle_games: bool = True,
@@ -195,10 +365,13 @@ class PriorityWindows(IterableDataset):
         has_outcome = 1 if winner is not None else 0
         winner = -1 if winner is None else winner
         prior: list[dict] = []
-        for dec in traj.decisions:
+        decs = traj.decisions
+        for i, dec in enumerate(decs):
             task = TASK_OF_METHOD.get(dec.get("m"))
+            # combat rets are null by construction (labels come from the
+            # obs-side join), so the ret-None skip exempts attack/block
             if task is None or task not in self.tasks or dec.get("obs") is None \
-                    or dec.get("ret") is None and task != "priority":
+                    or dec.get("ret") is None and task not in ("priority", "attack", "block"):
                 prior.append(dec)
                 continue
             if task == "trigger" and (dec.get("args") or {}).get("isMandatory"):
@@ -227,6 +400,9 @@ class PriorityWindows(IterableDataset):
             num_label, num_lo, num_hi = -1, 0, X_CLASSES - 1
             ctx_row = -1
             forced = 0
+            cmb = {"cmb_rows": [], "cmb_count": [], "atk_label": [],
+                   "cmb_count_label": [], "atk_tgt_kind": [], "atk_tgt_idx": [],
+                   "blk_label": [], "blk_atk_rows": []}
             ret = dec.get("ret")
             args = dec.get("args") or {}
 
@@ -308,6 +484,15 @@ class PriorityWindows(IterableDataset):
                 num_hi = max(num_lo, min(int(args.get("max", X_CLASSES - 1)), X_CLASSES - 1))
                 num_label = max(num_lo, min(int(ret), num_hi))
                 forced = 1 if num_lo == num_hi else 0
+            elif task in ("attack", "block"):
+                f = (attack_fields(decs, i, dec, row_of,
+                                   len(traj.header["players"]), g)
+                     if task == "attack" else
+                     block_fields(decs, i, dec, row_of, g))
+                if f is None:  # forced-empty window (no candidates/attackers)
+                    prior.append(dec)
+                    continue
+                cmb.update(f)
 
             hist = np.full((self.history_k, 3), -1, dtype=np.int64)
             for i, h in enumerate(out["history"][-self.history_k:]):
@@ -337,6 +522,7 @@ class PriorityWindows(IterableDataset):
                 "forced": torch.tensor(forced, dtype=torch.int64),
                 "has_outcome": torch.tensor(has_outcome, dtype=torch.int64),
                 "won": torch.tensor(1 if winner == p else 0, dtype=torch.int64),
+                **{k: torch.tensor(v, dtype=torch.int64) for k, v in cmb.items()},
             }
             prior.append(dec)
 
@@ -405,6 +591,21 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
     tgt = torch.where(kinds == 1, n + idxs, tgt)
     tgt = torch.where(kinds == 2, torch.full_like(tgt, n + p), tgt)
     out["tgt_labels"] = tgt
+    # combat (D5): per-candidate-row fields padded to batch max; attack
+    # targets become class ids like tgt_labels (no STOP class); block labels
+    # remap each example's none class (= its attacker count) to the batch
+    # none slot M (the model's learned none key sits at index M)
+    A = max(1, max(x["cmb_rows"].shape[0] for x in batch))
+    M = max(1, max(x["blk_atk_rows"].shape[0] for x in batch))
+    out["cmb_rows"] = torch.full((b, A), -1, dtype=torch.int64)
+    out["cmb_mask"] = torch.zeros(b, A, dtype=torch.bool)
+    out["cmb_count"] = torch.zeros(b, A, dtype=torch.int64)
+    out["atk_label"] = torch.full((b, A), -1, dtype=torch.int64)
+    out["cmb_count_label"] = torch.full((b, A), -1, dtype=torch.int64)
+    out["atk_tgt_labels"] = torch.full((b, A), -1, dtype=torch.int64)
+    out["blk_label"] = torch.full((b, A), -1, dtype=torch.int64)
+    out["blk_atk_rows"] = torch.full((b, M), -1, dtype=torch.int64)
+    out["blk_atk_mask"] = torch.zeros(b, M, dtype=torch.bool)
     for i, x in enumerate(batch):
         ni, ci = x["entities"].shape[0], x["cand_rows"].shape[0]
         out["entities"][i, :ni] = x["entities"]
@@ -414,4 +615,23 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         out["cand_sa"][i, :ci] = x["cand_sa"]
         out["cand_kind"][i, :ci] = x["cand_kind"]
         out["cand_mask"][i, :ci] = True
+        ai, mi = x["cmb_rows"].shape[0], x["blk_atk_rows"].shape[0]
+        if ai:
+            out["cmb_rows"][i, :ai] = x["cmb_rows"]
+            out["cmb_mask"][i, :ai] = True
+            out["cmb_count"][i, :ai] = x["cmb_count"]
+            out["cmb_count_label"][i, :ai] = x["cmb_count_label"]
+        if x["atk_label"].shape[0]:  # attack windows only
+            out["atk_label"][i, :ai] = x["atk_label"]
+            tk, ti = x["atk_tgt_kind"], x["atk_tgt_idx"]
+            cls = torch.where(tk == 0, ti, torch.full_like(ti, -1))
+            cls = torch.where(tk == 1, n + ti, cls)
+            out["atk_tgt_labels"][i, :ai] = cls
+        if x["blk_label"].shape[0]:  # block windows only
+            lab = x["blk_label"]
+            out["blk_label"][i, :ai] = torch.where(lab == mi,
+                                                   torch.full_like(lab, M), lab)
+        if mi:
+            out["blk_atk_rows"][i, :mi] = x["blk_atk_rows"]
+            out["blk_atk_mask"][i, :mi] = True
     return out
