@@ -17,19 +17,10 @@ pytestmark = pytest.mark.skipif(
 
 
 def _wire_hist(prior, now_pos, k=8):
-    """What the Java ring ships: raw (m, p, ret-host) for the last K prior
-    decs — the info-set rule is applied server-side in wire_history. Hosts
-    back-fill at ret time, so a prior dec whose ret lands AFTER the current
-    window (nested parent) ships host=-1 (M2 D2 nested-window semantics)."""
-    out = []
-    for d in prior[-k:]:
-        ret = d.get("ret")
-        host = -1
-        if (isinstance(ret, list) and ret and isinstance(ret[0], dict)
-                and d.get("_retpos") is not None and d["_retpos"] < now_pos):
-            host = ret[0].get("e", -1)
-        out.append({"m": d.get("m", "?"), "p": d.get("p", -1), "e": host})
-    return out
+    """Promoted to featurize.store_wire_hist (the D6 RL loader shares it);
+    kept as an alias for the tests that import it."""
+    from anvil.bridge.featurize import store_wire_hist
+    return store_wire_hist(prior, now_pos, k)
 
 
 def _priority_windows(n=40):

@@ -237,13 +237,20 @@ class AnvilNet(nn.Module):
                 **self._combat_outputs(state, ent_out, batch)}
 
     @torch.no_grad()
-    def act(self, batch: dict, pass_delta: "float | torch.Tensor" = 0.0) -> dict:
+    def act(self, batch: dict, pass_delta: "float | torch.Tensor" = 0.0,
+            noise: "dict | None" = None, temperature: float = 1.0) -> dict:
         """Greedy inference (M1 D8 serve path). Mirrors forward()'s encode and
         pointer plumbing but conditions the target decoder on the MODEL's
         candidate choice and feeds its own picks back (forward teacher-forces
         both). pass_delta is the post-hoc PASS-boundary calibration knob
         (calibrate_pass.py). Any change to forward()'s tensor plumbing must
-        land here too."""
+        land here too.
+
+        noise (M2 D6, sampling.pad_noise output) switches every head from
+        argmax to Gumbel-max sampling and adds fp32 per-head logp_*/ent_* of
+        the sampled picks under the temperature-scaled distribution — the
+        behavior policy mu the V-trace learner corrects against. noise=None
+        is byte-identical to the pre-D6 greedy path."""
         card_vecs = self.cards(batch["ent_emb"])
         tokens, pad = self.assemble(card_vecs, batch)
         out = self.trunk(tokens, src_key_padding_mask=pad)
@@ -251,8 +258,34 @@ class AnvilNet(nn.Module):
         n_ent = batch["entities"].shape[1]
         ent_out = out[:, 2:2 + n_ent]
 
+        mu: dict[str, torch.Tensor] = {}
+
+        def cat_pick(lg: torch.Tensor, nz: "torch.Tensor | None", name: str):
+            """Sampled (or greedy) pick over the last dim + logp/ent bookkeeping."""
+            if noise is None:
+                return lg.argmax(-1)
+            lgf = lg.float()
+            pick = (lgf + nz).argmax(-1)
+            lp = torch.log_softmax(lgf / temperature, dim=-1)
+            mu[f"logp_{name}"] = lp.gather(-1, pick.unsqueeze(-1)).squeeze(-1)
+            mu[f"ent_{name}"] = -(lp.exp() * lp).sum(-1)
+            return pick
+
+        def bern_pick(lg: torch.Tensor, nz: "torch.Tensor | None", name: str):
+            if noise is None:
+                return lg > 0
+            lgf = lg.float()
+            pick = (lgf + nz) > 0
+            z = lgf / temperature
+            mu[f"logp_{name}"] = torch.nn.functional.logsigmoid(
+                torch.where(pick, z, -z))
+            p = torch.sigmoid(z)
+            mu[f"ent_{name}"] = -(p * torch.nn.functional.logsigmoid(z)
+                                  + (1 - p) * torch.nn.functional.logsigmoid(-z))
+            return pick
+
         logits = self._pointer_logits(state, ent_out, batch, pass_delta=pass_delta)
-        choice = logits.argmax(1)
+        choice = cat_pick(logits, noise and noise["choice"], "choice")
 
         rows_src = batch["cand_rows"].gather(1, choice.unsqueeze(1)).clamp(min=0)
         src_vec = ent_out.gather(1, rows_src.unsqueeze(-1).expand(-1, -1, ent_out.shape[-1]))
@@ -270,19 +303,34 @@ class AnvilNet(nn.Module):
         prev = torch.zeros_like(src_vec)
         stopped = torch.zeros(ent_out.shape[0], dtype=torch.bool, device=ent_out.device)
         picks = []
+        if noise is not None:
+            # slot factors accumulate while un-stopped (the STOP pick itself
+            # is a factor; post-stop slots are forced and contribute nothing)
+            mu["logp_tgt"] = torch.zeros(ent_out.shape[0], device=ent_out.device)
+            mu["ent_tgt"] = torch.zeros(ent_out.shape[0], device=ent_out.device)
         for t in range(self.t_max + 1):
             qv = self.tgt_query(torch.cat([state, src_vec, prev], dim=-1)) + self.slot_emb[t]
             lg = (keys @ qv.unsqueeze(-1)).squeeze(-1) / d ** 0.5
             lg = lg.masked_fill(kpad, -1e9)
-            pick = torch.where(stopped, torch.full_like(lg.argmax(-1), stop_idx),
-                               lg.argmax(-1))
+            if noise is None:
+                raw = lg.argmax(-1)
+            else:
+                lgf = lg.float()
+                raw = (lgf + noise["tgt"][:, t]).argmax(-1)
+                lp = torch.log_softmax(lgf / temperature, dim=-1)
+                active = (~stopped).float()
+                pick_ = torch.where(stopped, torch.full_like(raw, stop_idx), raw)
+                mu["logp_tgt"] += lp.gather(1, pick_.unsqueeze(1)).squeeze(1) * active
+                mu["ent_tgt"] += -(lp.exp() * lp).sum(-1) * active
+            pick = torch.where(stopped, torch.full_like(raw, stop_idx), raw)
             picks.append(pick)
             stopped = stopped | (pick == stop_idx)
             picked = vecs.gather(1, pick.unsqueeze(-1).unsqueeze(-1)
                                  .expand(-1, -1, vecs.shape[-1])).squeeze(1)
             prev = prev + picked  # STOP's vec is zeros; post-stop slots add nothing
 
-        x_cls = self.x_head(torch.cat([state, src_vec], dim=-1)).argmax(-1)
+        x_cls = cat_pick(self.x_head(torch.cat([state, src_vec], dim=-1)),
+                         noise and noise["x"], "x")
 
         ctx = ent_out.gather(1, batch["ctx_row"].clamp(min=0).unsqueeze(-1).unsqueeze(-1)
                              .expand(-1, -1, ent_out.shape[-1])).squeeze(1)
@@ -296,16 +344,22 @@ class AnvilNet(nn.Module):
         cmb = self._combat_outputs(state, ent_out, batch)
         return {"choice": choice, "tgt_picks": torch.stack(picks, dim=1),
                 "x_cls": x_cls, "n_ent": n_ent, "stop_idx": stop_idx,
-                "bool": self.bool_head(of_in).squeeze(-1) > 0,
-                "num": num_logits.argmax(-1),
+                "bool": bern_pick(self.bool_head(of_in).squeeze(-1),
+                                  noise and noise["bool"], "bool"),
+                "num": cat_pick(num_logits, noise and noise["num"], "num"),
                 "win": torch.sigmoid(self.value_head(state).squeeze(-1)),
                 # combat picks (D5): per-row attack yes/no, group count k
                 # (count-class argmax + 1), target class over [0,N)∪[N,N+P),
                 # block slot over [0,M]∪{M=none}
-                "atk_yes": cmb["atk_logits"] > 0,
-                "cmb_count": cmb["cmb_count_logits"].argmax(-1) + 1,
-                "atk_tgt": cmb["atk_tgt_logits"].argmax(-1),
-                "blk_pick": cmb["blk_logits"].argmax(-1)}
+                # sampled per-row logp_/ent_ stay (B,A) — the server slices
+                # real rows and applies the composite inclusion rules
+                "atk_yes": bern_pick(cmb["atk_logits"], noise and noise["atk"], "atk"),
+                "cmb_count": cat_pick(cmb["cmb_count_logits"],
+                                      noise and noise["cnt"], "cnt") + 1,
+                "atk_tgt": cat_pick(cmb["atk_tgt_logits"],
+                                    noise and noise["atk_tgt"], "atk_tgt"),
+                "blk_pick": cat_pick(cmb["blk_logits"], noise and noise["blk"], "blk"),
+                **mu}
 
     def losses(self, batch: dict, pass_weight: float = 1.0, tgt_weight: float = 1.0,
                x_weight: float = 0.5, value_weight: float = 0.5,

@@ -57,6 +57,25 @@ def wire_history(hist: list[dict] | None, perspective: int,
     return out
 
 
+def store_wire_hist(prior: list[dict], now_pos: int, k: int = HISTORY_K
+                    ) -> list[dict[str, Any]]:
+    """Reconstruct what the Java ring ships from STORE dec records: raw
+    (m, p, ret-host) for the last K prior decs — the info-set rule is applied
+    later in wire_history. Hosts back-fill at ret time, so a prior dec whose
+    ret lands AFTER the current window (nested parent) ships host=-1 (M2 D2
+    nested-window semantics). Used by the serve-parity tests and the D6 RL
+    loader, which rebuilds serve-identical windows from stored games."""
+    out = []
+    for d in prior[-k:]:
+        ret = d.get("ret")
+        host = -1
+        if (isinstance(ret, list) and ret and isinstance(ret[0], dict)
+                and d.get("_retpos") is not None and d["_retpos"] < now_pos):
+            host = ret[0].get("e", -1)
+        out.append({"m": d.get("m", "?"), "p": d.get("p", -1), "e": host})
+    return out
+
+
 class Featurizer:
     def __init__(self, embedding_stem: str | Path, methods: list[str],
                  sa_vocab: list[str] | None = None):

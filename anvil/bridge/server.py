@@ -59,7 +59,8 @@ class _Batcher:
     thread is the sole GPU user; the old per-request lock is gone."""
 
     def __init__(self, net, torch_mod, device: str, counts: Counter,
-                 max_batch: int = 16, window_ms: float = 3.0):
+                 max_batch: int = 16, window_ms: float = 3.0,
+                 temperature: float = 1.0):
         import queue
         self.net = net
         self.torch = torch_mod
@@ -67,12 +68,14 @@ class _Batcher:
         self.counts = counts
         self.max_batch = max_batch
         self.window_ms = window_ms
+        self.temperature = temperature
         self.q: "queue.Queue[dict]" = queue.Queue()
         self._queue_mod = queue
         threading.Thread(target=self._loop, daemon=True, name="gpu-batcher").start()
 
-    def submit(self, ex: dict, pass_delta: float) -> dict:
-        slot = {"ex": ex, "pd": pass_delta, "ev": threading.Event()}
+    def submit(self, ex: dict, pass_delta: float,
+               noise: "dict | None" = None) -> dict:
+        slot = {"ex": ex, "pd": pass_delta, "nz": noise, "ev": threading.Event()}
         self.q.put(slot)
         slot["ev"].wait()
         if "err" in slot:
@@ -80,6 +83,7 @@ class _Batcher:
         return slot["out"]
 
     def _loop(self) -> None:
+        from anvil.policy.sampling import pad_noise
         from anvil.training.dataset import collate
         queue = self._queue_mod
         while True:
@@ -99,8 +103,12 @@ class _Batcher:
                          collate([s["ex"] for s in slots]).items()}
                 pd = self.torch.tensor([[s["pd"]] for s in slots],
                                        device=self.device, dtype=self.torch.float32)
+                # sampling is server-wide: slots carry noise all-or-none
+                nz = (pad_noise([s["nz"] for s in slots], batch, self.device)
+                      if slots[0]["nz"] is not None else None)
                 with self.torch.autocast(self.device, dtype=self.torch.bfloat16):
-                    out = self.net.act(batch, pass_delta=pd)
+                    out = self.net.act(batch, pass_delta=pd, noise=nz,
+                                       temperature=self.temperature)
                 for i, s in enumerate(slots):
                     # per-item views keep the batch dim; scalars are shared
                     # (n_ent/stop_idx are batch-padded dims by construction)
@@ -118,7 +126,9 @@ class ModelBackend:
     """Loads a D7 checkpoint and answers decisions. Import of torch/model
     machinery is deferred to here so echo/random sessions stay lightweight."""
 
-    def __init__(self, ckpt_path: str, pass_delta: float, device: str = "cuda"):
+    def __init__(self, ckpt_path: str, pass_delta: float, device: str = "cuda",
+                 sample: bool = False, temperature: float = 1.0,
+                 mu_path: "str | None" = None):
         import torch
 
         from anvil.bridge.featurize import Featurizer
@@ -148,12 +158,28 @@ class ModelBackend:
         self.pass_delta = pass_delta
         self.device = device
         self.counts: Counter[str] = Counter()
-        self.batcher = _Batcher(self.net, torch, device, self.counts)
+        self.batcher = _Batcher(self.net, torch, device, self.counts,
+                                temperature=temperature)
+        # sampling mode (M2 D6): Gumbel-max instead of argmax, behavior-policy
+        # record per answered decision -> mu.jsonl, joined at ingest on (g, s)
+        self.sample = sample
+        self.temperature = temperature
+        self.mu_file = None
+        self.mu_lock = threading.Lock()
+        if sample:
+            if not mu_path:
+                raise ValueError("--sample requires --mu-out")
+            self.mu_file = open(mu_path, "a", buffering=1)
+            self.mu_file.write(json.dumps(
+                {"k": "meta", "ckpt": str(ckpt_path), "step": ckpt.get("step"),
+                 "pass_delta": pass_delta, "temperature": temperature}) + "\n")
         print(f"[server] model {ckpt_path} step={ckpt.get('step')} "
               f"pass_delta={pass_delta} device={device} "
+              f"sample={sample} temperature={temperature} "
               f"micro-batch<= {self.batcher.max_batch} window {self.batcher.window_ms}ms")
 
-    def answer(self, req: pb.DecisionRequest, header: dict | None) -> pb.DecisionResponse | None:
+    def answer(self, req: pb.DecisionRequest, header: dict | None,
+               game_seed: int | None = None) -> pb.DecisionResponse | None:
         """None = decline (worker falls back, tagged). Any exception is the
         caller's to turn into a loud decline — silence would poison an arm."""
         from anvil.bridge.featurize import TAG_TASK
@@ -164,7 +190,14 @@ class ModelBackend:
         dec = json.loads(req.observation)
         ex, aux = self.feat.example(dec, header, task)
         delta = self.pass_delta if task == "priority" else 0.0
-        out = self.batcher.submit(ex, delta)
+        noise = None
+        if self.sample:
+            from anvil.policy.sampling import make_noise, noise_seed
+            noise = make_noise(ex, task, self.temperature,
+                               seed=noise_seed(game_seed or 0, dec["s"]))
+        out = self.batcher.submit(ex, delta, noise)
+        if self.sample:
+            self._write_mu(header["g"], dec, task, ex, aux, out)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
         if task == "priority":
             resp.construct.cast_plan.CopyFrom(self._castplan(out, aux))
@@ -190,6 +223,15 @@ class ModelBackend:
                     self.counts["num_clamped"] += 1
                 resp.value = v
         return resp
+
+    def _write_mu(self, g: int, dec: dict, task: str, ex: dict, aux: dict,
+                  out: dict) -> None:
+        """One behavior-policy record (M2 D6) -> mu.jsonl, joined at ingest
+        on (g, s). Record construction lives in sampling.mu_record."""
+        from anvil.policy.sampling import mu_record
+        rec = mu_record(g, dec["s"], task, ex, aux, out)
+        with self.mu_lock:
+            self.mu_file.write(json.dumps(rec) + "\n")
 
     def _castplan(self, out: dict, aux: dict) -> pb.CastPlan:
         cp = pb.CastPlan()
@@ -315,6 +357,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         rng = random.Random(0)
         worker = "?"
         header: dict | None = None
+        game_seed = 0
         for msg in request_iterator:
             kind = msg.WhichOneof("msg")
             if kind == "hello":
@@ -327,7 +370,8 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 ))
             elif kind == "game_start":
                 self.games += 1
-                rng = random.Random(msg.game_start.seed)
+                game_seed = msg.game_start.seed
+                rng = random.Random(game_seed)
                 header = None
                 if msg.game_start.header:
                     try:
@@ -337,7 +381,8 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             elif kind == "request":
                 self.requests_by_tag[msg.request.decision_tag] += 1
                 if self.mode == "model":
-                    yield pb.ServerMsg(response=self._model_answer(msg.request, header))
+                    yield pb.ServerMsg(response=self._model_answer(
+                        msg.request, header, game_seed))
                 else:
                     yield pb.ServerMsg(response=self._answer(msg.request, rng))
             elif kind == "game_end":
@@ -346,9 +391,10 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 yield pb.ServerMsg(ping=msg.ping)
         print(f"[server] stream closed: worker={worker}")
 
-    def _model_answer(self, req: pb.DecisionRequest, header: dict | None) -> pb.DecisionResponse:
+    def _model_answer(self, req: pb.DecisionRequest, header: dict | None,
+                      game_seed: int = 0) -> pb.DecisionResponse:
         try:
-            resp = self.backend.answer(req, header)
+            resp = self.backend.answer(req, header, game_seed)
         except Exception as e:  # loud decline; a silent wrong answer poisons the arm
             print(f"[server] MODEL ERROR on {req.decision_tag} seq={req.decision_seq}: {e!r}")
             resp = None
@@ -379,11 +425,20 @@ def main() -> None:
     ap.add_argument("--pass-delta", type=float, default=0.0,
                     help="PASS-logit offset (pass_calibration.json delta; arm knob)")
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--sample", action="store_true",
+                    help="Gumbel-max sampling instead of argmax (D6 actors); "
+                         "writes behavior-policy records to --mu-out")
+    ap.add_argument("--temperature", type=float, default=1.0,
+                    help="sampling temperature (with --sample)")
+    ap.add_argument("--mu-out", default=None,
+                    help="behavior-policy mu.jsonl path (required with --sample)")
     args = ap.parse_args()
 
     backend = None
     if args.mode == "model":
-        backend = ModelBackend(args.ckpt, args.pass_delta, args.device)
+        backend = ModelBackend(args.ckpt, args.pass_delta, args.device,
+                               sample=args.sample, temperature=args.temperature,
+                               mu_path=args.mu_out)
     tags = args.tags if args.tags is not None else (
         (MODEL_TAGS + ("," + COMBAT_TAGS if backend.has_combat else ""))
         if args.mode == "model" else DEFAULT_TAGS)

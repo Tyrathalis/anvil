@@ -121,6 +121,24 @@ class TrajectoryStore:
         m = _SEAT.search(r["winner"])
         return int(m.group(1)) - 1 if m else None
 
+    def mu_for_game(self, g: int) -> dict[int, dict] | None:
+        """Behavior-policy records for game g, keyed by dec seq (M2 D6
+        sampled-actor stores); None when the store carries no mu.jsonl.
+        Lazy whole-file load — RL iteration stores are small (~10^5 recs)."""
+        if not hasattr(self, "_mu"):
+            self._mu: dict[int, dict[int, dict]] | None = None
+            self.mu_meta: dict | None = None
+            path = self.root / "mu.jsonl"
+            if path.exists():
+                self._mu = {}
+                for line in path.read_text().splitlines():
+                    r = json.loads(line)
+                    if r.get("k") == "meta":
+                        self.mu_meta = r
+                        continue
+                    self._mu.setdefault(r["g"], {})[r["s"]] = r
+        return None if self._mu is None else self._mu.get(g, {})
+
     def __len__(self) -> int:
         return len(self.index)
 
@@ -189,6 +207,9 @@ class MultiStore:
 
     def winner_seat(self, g: int) -> int | None:
         return self._store_of[g].winner_seat(g)
+
+    def mu_for_game(self, g: int) -> dict[int, dict] | None:
+        return self._store_of[g].mu_for_game(g)
 
     def games(self, skip_undecodable: bool = False) -> Iterator[GameTrajectory]:
         for g in self.game_indices():
@@ -288,6 +309,32 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
             for key in sorted(label_rows):
                 f.write(json.dumps(label_rows[key]) + "\n")
         print(f"[ingest] {len(label_rows)} rollout-label records -> labels.jsonl")
+
+    # merge behavior-policy records (M2 D6 sampled actors; server-side file,
+    # run-level). Keyed (g, s), LAST wins — a re-issued game (first attempt
+    # crashed mid-game) answers again and the completing attempt is the later
+    # one; the rare kept-frame/mu mismatch is caught by the learner's logp
+    # recompute tripwire, not here.
+    mu_src = run_dir / "mu.jsonl"
+    if mu_src.exists():
+        meta = None
+        mu_rows: dict[tuple[int, int], dict] = {}
+        for line in mu_src.read_text().splitlines():
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if r.get("k") == "meta":
+                meta = r
+                continue
+            if "g" in r and "s" in r:
+                mu_rows[(r["g"], r["s"])] = r
+        with open(dest / "mu.jsonl", "w") as f:
+            if meta is not None:
+                f.write(json.dumps(meta) + "\n")
+            for key in sorted(mu_rows):
+                f.write(json.dumps(mu_rows[key]) + "\n")
+        print(f"[ingest] {len(mu_rows)} behavior-policy records -> mu.jsonl")
 
     if pool_version is None:
         pool_version = run_manifest.get("pool_version")
