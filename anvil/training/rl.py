@@ -411,15 +411,17 @@ def main() -> None:
         collate_fn=_identity, persistent_workers=False)
 
     def forward_segments(model, exs, grad: bool):
-        segs = [collate(exs[i:i + args.seg]) for i in range(0, len(exs), args.seg)]
-        outs = []
-        for seg in segs:
-            seg = {k: v.to(dev) for k, v in seg.items()}
+        # GENERATOR, deliberately: with grad on, each yielded fwd holds a
+        # ~GB-scale autograd graph — the caller must backward/drop it before
+        # the next segment runs. Materializing the list OOM'd on the first
+        # real store (grindy games reach 2K+ decisions/seat = 8+ segments).
+        for i in range(0, len(exs), args.seg):
+            seg = {k: v.to(dev) for k, v in
+                   collate(exs[i:i + args.seg]).items()}
             ctx = torch.enable_grad() if grad else torch.no_grad()
             with ctx, torch.autocast(dev, dtype=torch.bfloat16):
                 fwd = model(seg)
-            outs.append((seg, fwd))
-        return outs
+            yield seg, fwd
 
     # step continues from the init checkpoint: monotonic across the whole
     # BC->RL chain, so mu meta "step" uniquely names the generating ckpt

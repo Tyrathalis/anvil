@@ -198,22 +198,35 @@ def main() -> None:
         print(f"\n[selfplay] ===== iteration {k}: ckpt={state['ckpt']} =====")
         t_iter = time.monotonic()
 
-        # ---- generate (sampled serve) ----
-        mu_path = it_dir / "mu.jsonl"
-        server = _start_server(state["ckpt"], args.port, it_dir / "server.log",
-                               sample=True, mu_out=mu_path,
-                               temperature=args.temperature)
-        try:
-            run_dir = _launch_games(purpose, args.games, state["start_index"], args)
-        finally:
-            _stop_server(server)
-        t_gen = time.monotonic() - t_iter
+        # ---- generate (sampled serve); idempotent — a crash later in the
+        # iteration must not cost a ~25-min regeneration on resume ----
+        run_dir = store = None
+        for cand in sorted(glob.glob(str(RUNS_DIR / f"{purpose}-*"))):
+            st = TRAJ_DIR / Path(cand).name
+            if (st / "manifest.json").exists():
+                run_dir, store = Path(cand), st
+                print(f"[selfplay] iteration {k}: reusing {cand} (store present)")
+                break
+        if run_dir is None:
+            mu_path = it_dir / "mu.jsonl"
+            if mu_path.exists():
+                mu_path.unlink()  # a fresh server APPENDS; stale records from
+                # an interrupted attempt would conflict at the mu merge
+            server = _start_server(state["ckpt"], args.port, it_dir / "server.log",
+                                   sample=True, mu_out=mu_path,
+                                   temperature=args.temperature)
+            try:
+                run_dir = _launch_games(purpose, args.games, state["start_index"], args)
+            finally:
+                _stop_server(server)
 
-        # ---- ingest (mu joined on (g, s)) ----
-        (run_dir / "mu.jsonl").write_bytes(mu_path.read_bytes())
-        _run([sys.executable, "-m", "anvil.store", "ingest", str(run_dir)])
-        store = TRAJ_DIR / run_dir.name
-        state["stores"].append(str(store))
+            # ---- ingest (mu joined on (g, s)) ----
+            (run_dir / "mu.jsonl").write_bytes(mu_path.read_bytes())
+            _run([sys.executable, "-m", "anvil.store", "ingest", str(run_dir)])
+            store = TRAJ_DIR / run_dir.name
+        t_gen = time.monotonic() - t_iter
+        if str(store) not in state["stores"]:
+            state["stores"].append(str(store))
 
         # ---- train (V-trace on the replay mixture) ----
         mix = state["stores"][-args.replay:]
