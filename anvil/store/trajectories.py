@@ -311,14 +311,18 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
         print(f"[ingest] {len(label_rows)} rollout-label records -> labels.jsonl")
 
     # merge behavior-policy records (M2 D6 sampled actors; server-side file,
-    # run-level). Keyed (g, s), LAST wins — a re-issued game (first attempt
-    # crashed mid-game) answers again and the completing attempt is the later
-    # one; the rare kept-frame/mu mismatch is caught by the learner's logp
-    # recompute tripwire, not here.
+    # run-level), keyed (g, s). A re-issued game (first attempt crashed
+    # mid-game, e.g. worker OOM) answers AGAIN from s=0 — identical records
+    # are fine (same seeded noise), but any CONFLICTING duplicate means the
+    # attempts diverged and a (g, s) join against the kept frame would build
+    # a chimeric action stream (found live: d6-run1 game 237, out-of-bounds
+    # candidate label). Conflicted games lose ALL their mu records — the RL
+    # loader then skips them as no_mu.
     mu_src = run_dir / "mu.jsonl"
     if mu_src.exists():
         meta = None
         mu_rows: dict[tuple[int, int], dict] = {}
+        conflicted: set[int] = set()
         for line in mu_src.read_text().splitlines():
             try:
                 r = json.loads(line)
@@ -328,7 +332,17 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
                 meta = r
                 continue
             if "g" in r and "s" in r:
+                prev = mu_rows.get((r["g"], r["s"]))
+                if prev is not None and prev != r:
+                    conflicted.add(r["g"])
                 mu_rows[(r["g"], r["s"])] = r
+        if conflicted:
+            n_drop = sum(1 for (g, _) in mu_rows if g in conflicted)
+            print(f"[ingest] WARNING: {len(conflicted)} game(s) with "
+                  f"conflicting mu attempts (diverged re-issue) — dropping "
+                  f"their {n_drop} records: {sorted(conflicted)}",
+                  file=sys.stderr)
+            mu_rows = {k: v for k, v in mu_rows.items() if k[0] not in conflicted}
         with open(dest / "mu.jsonl", "w") as f:
             if meta is not None:
                 f.write(json.dumps(meta) + "\n")

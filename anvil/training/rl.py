@@ -186,6 +186,47 @@ def vtrace_targets(values: torch.Tensor, logp_pi: torch.Tensor,
     return vs, pg_adv, rho
 
 
+def mu_matches(ex: dict, rec: dict) -> bool:
+    """Structural bounds check of a mu record against its rebuilt window —
+    the backstop for chimeric (g, s) joins (diverged re-issued games; the
+    ingest-side conflict drop is the primary guard). An out-of-bounds label
+    would crash the gather kernels mid-training; a mismatch means the record
+    does not belong to this window, so the caller drops the whole game."""
+    from anvil.training.dataset import COMBAT_COUNT_MAX, T_MAX, X_CLASSES
+    n_i = ex["entities"].shape[0]
+    p = ex["players"].shape[0]
+    task = rec["task"]
+    if task == "priority":
+        if not (0 <= rec["c"] < ex["cand_rows"].shape[0]):
+            return False
+        if rec["c"] > 0:
+            tgt = rec.get("tgt", [])
+            if len(tgt) > T_MAX + 1 or not all(0 <= t < n_i + p for t in tgt):
+                return False
+            if not (0 <= rec["x"] < X_CLASSES):
+                return False
+    elif task == "number":
+        if not (0 <= rec["n"] < X_CLASSES):
+            return False
+    elif task in ("attack", "block"):
+        a_i = ex["cmb_rows"].shape[0]
+        if len(rec["cnt"]) != a_i or not all(
+                1 <= k <= COMBAT_COUNT_MAX for k in rec["cnt"]):
+            return False
+        if task == "attack":
+            if len(rec["atk"]) != a_i or len(rec["atgt"]) != a_i:
+                return False
+            if not all(0 <= t < n_i + p
+                       for y, t in zip(rec["atk"], rec["atgt"]) if y):
+                return False
+        else:
+            m_i = ex["blk_atk_rows"].shape[0]
+            if len(rec["blk"]) != a_i or not all(
+                    0 <= b <= m_i for b in rec["blk"]):
+                return False
+    return True
+
+
 def game_trajectories(store, feat, g: int):
     """Per-seat mu-covered trajectories of one stored game, serve-identical
     windows via the featurizer path (store_wire_hist -> Featurizer.example ->
@@ -216,6 +257,8 @@ def game_trajectories(store, feat, g: int):
             wire = dict(dec)
             wire["hist"] = store_wire_hist(prior, dec["_pos"])
             ex, _aux = feat.example(wire, traj.header, rec["task"])
+            if not mu_matches(ex, rec):
+                return [], "mu_mismatch"
             apply_mu_labels(ex, rec)
             by_seat.setdefault(dec["p"], []).append((ex, rec))
         prior.append(dec)
