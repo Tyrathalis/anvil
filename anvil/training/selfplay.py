@@ -95,7 +95,10 @@ def _census_tallies(run_dir: Path) -> dict:
     c: Counter[str] = Counter()
     for f in run_dir.glob("workers/inv-*/census.jsonl"):
         for line in open(f):
-            r = json.loads(line)
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # torn tail line from a killed worker (e.g. OOM)
             if r.get("by") != "bridge":
                 continue
             c["bridged"] += 1
@@ -119,7 +122,11 @@ def _game_stats(run_dir: Path) -> dict:
     import statistics
     rows = []
     for f in run_dir.glob("workers/inv-*/games.jsonl"):
-        rows += [json.loads(line) for line in open(f)]
+        for line in open(f):
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
     statuses: dict[str, int] = {}
     for r in rows:
         statuses[r["status"]] = statuses.get(r["status"], 0) + 1
@@ -233,14 +240,18 @@ def main() -> None:
         weights = [args.replay_weight] * (len(mix) - 1) + [args.fresh_weight]
         train_dir = it_dir / "train"
         t0 = time.monotonic()
-        _run([sys.executable, "-m", "anvil.training.rl",
-              "--store", ",".join(mix), "--weights", ",".join(map(str, weights)),
-              "--ckpt", state["ckpt"], "--out", str(train_dir),
-              "--lr", str(args.lr), "--ent-weight", str(args.ent_weight),
-              "--value-weight", str(args.value_weight),
-              "--traj-per-step", str(args.traj_per_step),
-              "--workers", str(args.rl_workers),
-              "--epochs", str(args.epochs), "--seed", str(k)])
+        if (train_dir / "DONE").exists():
+            print(f"[selfplay] iteration {k}: reusing completed training in {train_dir}")
+        else:
+            _run([sys.executable, "-m", "anvil.training.rl",
+                  "--store", ",".join(mix),
+                  "--weights", ",".join(map(str, weights)),
+                  "--ckpt", state["ckpt"], "--out", str(train_dir),
+                  "--lr", str(args.lr), "--ent-weight", str(args.ent_weight),
+                  "--value-weight", str(args.value_weight),
+                  "--traj-per-step", str(args.traj_per_step),
+                  "--workers", str(args.rl_workers),
+                  "--epochs", str(args.epochs), "--seed", str(k)])
         t_train = time.monotonic() - t0
         new_ckpt = train_dir / "last.pt"
         if not new_ckpt.exists():

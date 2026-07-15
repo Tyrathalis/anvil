@@ -520,6 +520,9 @@ def main() -> None:
                 save()
 
     save()
+    (out_dir / "DONE").touch()  # completion marker: the loop driver skips
+    # the train phase on resume iff this exists (last.pt alone is ambiguous
+    # — periodic saves leave one behind mid-run)
     print(f"[rl] done: {step} steps, {n_traj} trajectories, skips={skips}, "
           f"tripwire_viol={tripwire_viol}")
 
