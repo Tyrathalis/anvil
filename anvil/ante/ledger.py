@@ -304,6 +304,12 @@ class ValueEvaluator:
             "x_val": z(-1), "task": z(task), "bool_label": z(-1),
             "num_label": z(-1), "num_lo": z(0), "num_hi": z(X_CLASSES - 1),
             "ctx_row": z(-1), "forced": z(0), "has_outcome": z(0), "won": z(0),
+            # combat (D5): collate reads per-example combat fields on every
+            # example; value-only windows carry the loader's empty (0-row)
+            # form (first tripped by the post-D5 re-ask arm certification)
+            "cmb_rows": z([]), "cmb_count": z([]), "cmb_count_label": z([]),
+            "atk_label": z([]), "atk_tgt_kind": z([]), "atk_tgt_idx": z([]),
+            "blk_label": z([]), "blk_atk_rows": z([]),
         }
 
     @torch.no_grad()
