@@ -152,6 +152,10 @@ class Run:
             cmd += ["-census", str(wdir / "census.jsonl")]
         if m.get("bridge_seats") is not None:
             cmd += ["-bridgeseats", str(m["bridge_seats"])]
+        if m.get("reask"):
+            # D6 run-2: re-ask-on-veto (d6-vtrace-loop §6b) — environment
+            # change; arms under -reask are not comparable to arms without
+            cmd += ["-reask"]
         if m.get("rollout_k"):
             # M2 D4 rollout-label mode: fork points + K completions per game
             cmd += ["-rollout", str(m["rollout_k"]),
@@ -293,6 +297,7 @@ def launch(a) -> Path:
         "obs": a.obs, "obs_schema": 1 if a.obs else None,
         "census": getattr(a, "census", False),
         "bridge_seats": getattr(a, "bridge_seats", None),
+        "reask": getattr(a, "reask", False),
         "rollout_k": getattr(a, "rollout_k", None),
         "rollout_points": getattr(a, "rollout_points", None),
     }

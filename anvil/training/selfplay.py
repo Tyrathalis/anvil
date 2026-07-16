@@ -76,12 +76,15 @@ def _run(cmd: list[str]) -> None:
 
 def _launch_games(purpose: str, games: int, start_index: int, a) -> Path:
     before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-    _run([sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
-          "--games", str(games), "--games-per-pair", str(a.games_per_pair),
-          "--start-index", str(start_index), "--workers", str(a.workers),
-          "--chunk", str(a.chunk), "--bridge", f"grpc:localhost:{a.port}",
-          "--obs", "--census", "--purpose", purpose,
-          "--seed-base", str(a.seed_base)])
+    cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
+           "--games", str(games), "--games-per-pair", str(a.games_per_pair),
+           "--start-index", str(start_index), "--workers", str(a.workers),
+           "--chunk", str(a.chunk), "--bridge", f"grpc:localhost:{a.port}",
+           "--obs", "--census", "--purpose", purpose,
+           "--seed-base", str(a.seed_base)]
+    if getattr(a, "reask", False):
+        cmd.append("--reask")
+    _run(cmd)
     new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
     if len(new) != 1:
         raise RuntimeError(f"expected one new run dir for {purpose}, got {new}")
@@ -111,10 +114,17 @@ def _census_tallies(run_dir: Path) -> dict:
                     c["pass"] += 1
                 else:
                     c["cast"] += 1
+                    if r.get("reask"):
+                        # re-ask rescue: a cast realized on attempt >0 —
+                        # pre-reask this window would have been a forced pass
+                        c["reask_rescued"] += 1
             for k in ("dropped", "forced"):
                 if r.get(k):
                     c[f"combat_{k}"] += r[k]
     c["veto_rate"] = round(c["veto"] / max(1, c["veto"] + c["cast"]), 4)
+    if c.get("reask_rescued") or c.get("veto"):
+        # rescue rate = vetoed intents eventually realized in the same window
+        c["reask_rescue_rate"] = round(c["reask_rescued"] / max(1, c["veto"]), 4)
     return dict(c)
 
 
@@ -183,6 +193,10 @@ def main() -> None:
                     help="pairs file for arms runs (D8 valpair schedule)")
     ap.add_argument("--arms-games", type=int, default=200)
     ap.add_argument("--arms-seed-base", type=int, default=20260710)
+    ap.add_argument("--reask", action="store_true",
+                    help="re-ask-on-veto (d6-vtrace-loop §6b) for generation AND "
+                         "arms — an environment change; arms are only comparable "
+                         "to other -reask arms")
     args = ap.parse_args()
 
     out = Path("data/training") / args.name
@@ -295,14 +309,17 @@ def main() -> None:
                 for seat in (0, 1):
                     ap_purpose = f"{args.name}-arm-i{k:03d}-s{seat}"
                     before = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*")))
-                    _run([sys.executable, "-m", "anvil.bridge.harness", "launch",
-                          "--pairs-file", args.arms_pairs,
-                          "--games", str(args.arms_games), "--workers",
-                          str(args.workers), "--chunk", "50",
-                          "--bridge", f"grpc:localhost:{args.port}",
-                          "--census", "--obs", "--purpose", ap_purpose,
-                          "--seed-base", str(args.arms_seed_base),
-                          "--bridge-seats", str(seat)])
+                    arm_cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch",
+                               "--pairs-file", args.arms_pairs,
+                               "--games", str(args.arms_games), "--workers",
+                               str(args.workers), "--chunk", "50",
+                               "--bridge", f"grpc:localhost:{args.port}",
+                               "--census", "--obs", "--purpose", ap_purpose,
+                               "--seed-base", str(args.arms_seed_base),
+                               "--bridge-seats", str(seat)]
+                    if args.reask:
+                        arm_cmd.append("--reask")
+                    _run(arm_cmd)
                     new = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*"))) - before
                     arm_dirs.append(new.pop())
             finally:

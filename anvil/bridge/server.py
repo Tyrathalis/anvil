@@ -188,6 +188,11 @@ class ModelBackend:
         if task is None or not req.observation or header is None:
             return None
         dec = json.loads(req.observation)
+        if req.retry_of:
+            # Re-ask after a realizer veto (d6-vtrace-loop §6b). Telemetry
+            # only: the re-asked dec carries a fresh s and reduced opts, so
+            # the mu record and answer path need nothing special.
+            self.counts["reask"] += 1
         ex, aux = self.feat.example(dec, header, task)
         delta = self.pass_delta if task == "priority" else 0.0
         noise = None

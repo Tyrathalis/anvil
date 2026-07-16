@@ -428,6 +428,7 @@ def main() -> None:
     # (per-iteration counters would collide in the tripwire's mu_step gate)
     step = ckpt.get("step") or 0
     n_traj = 0
+    last_flush_traj = 0
     skips: dict[str, int] = {}
     tripwire_viol = 0
     acc: dict[str, float] = {}
@@ -508,7 +509,13 @@ def main() -> None:
             opt.zero_grad(set_to_none=True)
             step += 1
             if step % args.log_every == 0:
-                n = args.traj_per_step * args.log_every
+                # actual trajectories since the last flush — the modulo is on
+                # the ABSOLUTE step (monotonic across the BC->RL chain), so
+                # the first window after a non-aligned init step is short;
+                # dividing by the nominal window diluted first-row metrics
+                # (run-1 iter rows; rediscovered on the re-ask smoke)
+                n = max(n_traj - last_flush_traj, 1)
+                last_flush_traj = n_traj
                 row = {"step": step, "traj": n_traj,
                        **{k: round(v / n, 5) for k, v in acc.items()},
                        "skips": dict(skips), "tripwire_viol": tripwire_viol,

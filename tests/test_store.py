@@ -111,6 +111,46 @@ def test_orphan_bytes_and_duplicate_games(tmp_path):
     assert store.game(1).end is not None
 
 
+def test_reask_consecutive_priority_decs(tmp_path):
+    """Re-ask-on-veto (d6-vtrace-loop §6b): a vetoed priority dec and its
+    re-ask are two records in ONE priority window — distinct s, the re-ask's
+    opts reduced by the vetoed candidate. Both must survive ingest with their
+    own ret join, and their mu records must both land (the (g,s) conflict
+    rule is about whole-game re-issue, not re-asks — distinct s never trips
+    it)."""
+    opts = [{"e": 1, "sa": "Sol Ring - cast", "kind": "spell"},
+            {"e": 2, "sa": "Arcane Signet - cast", "kind": "spell"},
+            {"e": 3, "sa": "Plains - land", "kind": "land"}]
+    recs = [{"k": "game", "sv": OBS_SCHEMA_VERSION, "g": 0, "seed": 11, "fmt": "Commander",
+             "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}]},
+            # vetoed attempt: full options, closed as a pass (ret null)
+            {"k": "dec", "s": 0, "t": 3, "ph": "MAIN1", "p": 0,
+             "m": "chooseSpellAbilityToPlay", "d": 10, "obs": _obs(turn=3), "opts": opts},
+            {"k": "ret", "s": 0, "v": None},
+            # re-ask: fresh seq, vetoed candidate (e=2) removed, cast realized
+            {"k": "dec", "s": 1, "t": 3, "ph": "MAIN1", "p": 0,
+             "m": "chooseSpellAbilityToPlay", "d": 10, "obs": _obs(turn=3),
+             "opts": [opts[0], opts[2]]},
+            {"k": "ret", "s": 1, "v": {"e": 1, "sa": "Sol Ring - cast"}},
+            {"k": "end", "status": "won", "winner": 0, "turns": 9, "ms": 99}]
+    run_dir = _make_run(tmp_path, [[recs]])
+    (run_dir / "mu.jsonl").write_text(
+        json.dumps({"g": 0, "s": 0, "task": "priority", "logp": -1.5}) + "\n"
+        + json.dumps({"g": 0, "s": 1, "task": "priority", "logp": -0.7}) + "\n")
+
+    dest = ingest(run_dir, dest=tmp_path / "store")
+    store = TrajectoryStore(dest)
+    traj = store.game(0)
+    assert len(traj.decisions) == 2
+    d0, d1 = traj.decisions
+    assert d0["s"] == 0 and d0.get("ret") is None and len(d0["opts"]) == 3
+    assert d1["s"] == 1 and d1["ret"] == {"e": 1, "sa": "Sol Ring - cast"}
+    assert len(d1["opts"]) == 2
+    mu = store.mu_for_game(0)
+    assert set(mu) == {0, 1}
+    assert mu[0]["logp"] == -1.5 and mu[1]["logp"] == -0.7
+
+
 def test_schema_version_gate():
     raw = json.dumps({"k": "game", "sv": 999, "g": 0, "seed": 1, "players": []}).encode() + b"\n"
     frame = zstandard.ZstdCompressor().compress(raw)

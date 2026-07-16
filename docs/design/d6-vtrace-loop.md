@@ -109,6 +109,60 @@ Per-iteration `monitor.jsonl` row, written before the checkpoint is accepted:
   the standing `arms_report.py` path — progress meter, not gate. Ante ledger
   available for sharper reads when deltas are small.
 
+## 6b. Run-2 amendment: serve-time re-ask-on-veto (2026-07-15)
+
+Run-1 measured veto drift 14.1%→19.2% sampled across 12 iterations (argmax
+16.6% vs D5's 13.9%): RL drifts toward cast attempts the executor silently
+converts to passes — a reward leak the policy cannot observe. ADR-0012
+pre-blessed the lever ("serve-time re-ask on veto is protocol-legal"); it
+promotes to a run-2 prerequisite, ahead of lr/iteration scaling.
+
+**Semantics — §2's action pin is unchanged; re-ask is an environment change.**
+On an M1 CastPlan veto (`CastPlanRealizer.Result.sa == null`), instead of
+converting the window to a pass, the environment re-issues the priority
+decision with the vetoed candidate row removed. Each re-ask is a first-class
+decision: fresh Obs seq (own dec/ret pair), own μ record, own sampling noise
+(keyed `(game_seed, s)` as always), and an independent V-trace timestep. The
+history ring carries the vetoed attempt into the re-ask window — serve-faithful
+by construction, so loader parity holds.
+
+**Mechanics (Java, per attempt):** realize → veto census line (gains
+`reask=<attempt idx>`) → `Obs.ret(seq, null)` closes the vetoed dec →
+remove the vetoed candidate from the options list → `Obs.decPriority`
+(fresh seq, reduced options; also resets the single-slot `prioSeq`/
+`prioOptions` `oi` bookkeeping — the ret-before-next-dec ordering is
+load-bearing) → bridge round-trip with `retry_of` = the vetoed request's
+wire `decision_seq` (proto field 9, reserved for exactly this, previously
+unread). Loop exits: realized cast / model picks PASS / options exhausted /
+cap `REASK_CAP=8` → pass. Removal granularity = the whole candidate row;
+coarse for X-dependent unpayability (a different X might have been payable),
+accepted v0.
+
+**Flag:** harness `--reask` → run.json manifest → worker `-reask` →
+`PlayerControllerAnvil`; off = pre-amendment behavior, M0 selectOne path
+never re-asks. The server needs no flag (stateless per request); it counts
+`retry_of > 0` into its stats.
+
+**The two μ-parity invariants** (violations fire the §3 recompute tripwire):
+1. every re-ask gets a **fresh `s`** — `decode_frame`'s `by_seq` and the
+   `(g,s)` μ join both collide silently on reuse;
+2. the re-asked dec's logged `opts` are the **reduced** list — the loader
+   rebuilds candidate rows from stored opts, and μ was recorded against the
+   served (reduced) set.
+
+**Costs, accepted:** ~1 extra GPU round-trip per veto (~5/game at current
+rates, ≈ +1% requests); re-asks add near-duplicate timesteps to the seat
+trajectory (`1/t_len` PG normalization absorbs them).
+
+**Eval comparability:** re-ask changes the environment for *every*
+checkpoint. The standing arms recipe becomes `-reask` + `--obs` (obs enables
+Ante-ledger corrected reads, adopted same day); the D5 arm is re-baselined
+once under the new environment; cross-environment paired comparisons
+(run-1 arms vs run-2 arms) are not valid.
+
+**Follow-ups, not v0:** block-drop re-ask (same lever, combat surface);
+X-class-specific removal instead of whole-row.
+
 ## 7. What v0 deliberately is not
 
 Async IMPALA / weight push; server hot-swap; concession; AWR; mode heads;

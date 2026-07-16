@@ -166,6 +166,27 @@ def test_mu_roundtrip_priority(net_and_feat):
     assert passes >= 5 and casts >= 5, (passes, casts)
 
 
+def test_mu_roundtrip_reduced_options(net_and_feat):
+    """Re-ask-on-veto (d6-vtrace-loop §6b) mu-parity invariant #2: a re-asked
+    dec carries a REDUCED candidate list; mu recorded against it must
+    reproduce through the recompute path when the loader rebuilds the same
+    reduced list from the stored opts."""
+    net, feat = net_and_feat
+    checked = 0
+    for dec, header, prior in _windows({"chooseSpellAbilityToPlay"}, n=60):
+        if len(dec.get("opts") or []) < 2:
+            continue
+        reduced = dict(dec)
+        reduced["opts"] = list(dec["opts"][:-1])  # the "vetoed" candidate removed
+        rec, lp = _roundtrip(net, feat, reduced, header, prior, "priority", 991)
+        assert abs(lp["logp"] - rec["logp"]) < 5e-3, (rec, lp)
+        assert abs(lp["choice"] - rec["lp"]["choice"]) < 5e-3
+        checked += 1
+        if checked >= 8:
+            return
+    assert checked >= 8, checked
+
+
 def test_mu_roundtrip_combat(net_and_feat):
     net, feat = net_and_feat
     checked_a = checked_b = 0
