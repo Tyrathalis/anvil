@@ -209,6 +209,10 @@ def main() -> None:
     ap.add_argument("--ent-weight", type=float, default=3e-3)
     ap.add_argument("--ent-floor", type=float, default=0.08,
                     help="hinge entropy floor passed to the learner (ADR-0017)")
+    ap.add_argument("--rl-seg", type=int, default=256,
+                    help="learner windows per GPU pass (rl.py --seg); halve when "
+                         "cohabiting the GPU with another resident process — "
+                         "activation peak scales with it, semantics don't")
     ap.add_argument("--guard-kl", type=float, default=0.05,
                     help="halt if an iteration's mean KL(pi||mu) exceeds this")
     ap.add_argument("--guard-ent-mult", type=float, default=2.0,
@@ -228,6 +232,10 @@ def main() -> None:
                          "arms — an environment change; arms are only comparable "
                          "to other -reask arms")
     args = ap.parse_args()
+
+    # GPU cotenancy insurance (2026-07-16 OOMs beside a resident ComfyUI):
+    # reclaims allocator fragmentation for this process and all subprocesses
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
     out = Path("data/training") / args.name
     out.mkdir(parents=True, exist_ok=True)
@@ -295,6 +303,7 @@ def main() -> None:
                   "--ent-floor", str(args.ent_floor),
                   "--value-weight", str(args.value_weight),
                   "--traj-per-step", str(args.traj_per_step),
+                  "--seg", str(args.rl_seg),
                   "--workers", str(args.rl_workers),
                   "--epochs", str(args.epochs), "--seed", str(k)])
         t_train = time.monotonic() - t0
