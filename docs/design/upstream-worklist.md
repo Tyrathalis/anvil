@@ -92,6 +92,46 @@ merge note explicitly frames the duplication as technical debt whose removal
   path. Sequencing: after D2/D3 land (it is not on the M2 critical path);
   coordinate timing with the maintainers on the PR thread.
 
+## Harvested from community archaeology (2026-07-16, Discord + repo dives — see [discord-ai-plotting-survey.md](discord-ai-plotting-survey.md))
+
+- **Determinism-hooks PR (joint with manabrew, `witchesofthehill/forge` @ `d658cbc757`):**
+  their entire fork patch is ~40 lines and nearly disjoint from our determinism
+  surfaces — (a) `MyRandom` static → ThreadLocal (upstream `setRandom()` already
+  exists; this fixes cross-thread contamination), (b) **`Match.preparePlayerZone`
+  sorts the library by name before the shuffle** — the pre-shuffle order is
+  `CardPool`/`ItemPool` ConcurrentHashMap iteration order, (c) an official
+  static-ID-counter reset (they reflect into 7 private `maxId` fields today).
+  **Verified 2026-07-16: our fork's `preparePlayerZone` (Match.java:200) has the
+  unsorted CHM iteration** — our bit-identical-replay evidence was all gathered
+  on one pinned JVM; a JVM bump or rebase could silently reorder pre-shuffle
+  libraries. The sort is behavior-invariant (uniform shuffle of sorted input)
+  but trajectory-changing for a given seed → **dataset-boundary item: fold into
+  the #11161 rebase, not mid-run.** Bundles naturally with `b4efa5a7d7`'s
+  shuffle→MyRandom drift item below; we're the natural author (post-#11203
+  credibility), manabrew is the co-consumer. Contact: khaliostr/Anacleto/fedepoi
+  on the Forge Discord #ai-plotting.
+- **GameSnapshot restore has a live downstream consumer**: manabrew's
+  interactive host uses `new GameSnapshot(game)` + restore for mana-payment
+  cancel/rollback (ManaBrewInteractiveController.java:1234/1938/2033). Second
+  voice + test consumer for the consolidation follow-up — and it exercises
+  *restore-in-place*, the half forkcheck doesn't gate. Mention on the PR thread
+  when the consolidation lands.
+- **Card-script verify-then-PR candidate**: `fireball.txt` /
+  `officious_interrogation.txt` per-extra-target cost raise suspected silently
+  inert (manabrew renamed the `Amount$ IncreaseCost`→`RaiseCost` SVar in their
+  fork as a parity fix; suspect mechanism = `CostAdjustment.java:~155` Relative
+  SVar scope, which has a collision-warning comment). Present verbatim in live
+  upstream (checked 2026-07-16). Needs a 10-minute `GameSimulationTest` repro
+  (cast Fireball at 2 targets, assert cost) before filing — do NOT upstream
+  unverified.
+- **forkcheck false-positive checklist** (from manabrew's parity whitelists):
+  summoning-sickness on non-creatures (Java keeps it on lands from graveyard —
+  no gameplay effect per CR 302.6), transient token lifetimes in
+  graveyard/exile/stack, cleanup-discard zone for Leyline-of-the-Void-class
+  replacements (their sole per-matchup ignore — a real Forge bug: cleanup
+  discards go to graveyard instead of exile under Leyline). Useful when the
+  consolidation forkcheck run produces digest diffs.
+
 ## Upstream drift watch (2026-07-10 sweep: pin `0bfdaa572f30` → `1eec01434e`, 57 commits)
 
 Full-log review ahead of PR #1 assembly. #11161 covered above. Also relevant:
