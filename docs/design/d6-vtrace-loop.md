@@ -77,14 +77,24 @@ keep argmax (`--sample` off).
   decision (same masks the BC losses already use).
 - Policy loss: −ρ_s · (r_s + γ·vs_{s+1} − V(x_s)) · log π(a_s|x_s), applied
   to every sampled head factor. Value loss: BCE with soft target `vs`
-  (keeps the head's p(win) calibration semantics). Small entropy bonus per
-  head from day one (collapse guard, monitored).
+  (keeps the head's p(win) calibration semantics). ~~Small entropy bonus per
+  head from day one (collapse guard, monitored).~~ **Amended by ADR-0017
+  (run-2 collapse): the always-on bonus has no equilibrium — with mirror
+  self-play advantages ≈0 it is the only persistent policy gradient and
+  compounds with lr into runaway (run-2 @ lr 3e-5: entropy 0.18→4.4 by iter
+  5, arms 8.5%). Replaced by a hinge floor: the bonus applies only below an
+  entropy target (~iter-0 mean), zero gradient above. Exploration is τ=1
+  sampling's job.**
 - Critic = the policy net's own (info-set-masked) value head. The full-vis
   asymmetric critic as V-trace baseline is a documented upgrade, not v0 —
   it doubles target-pass cost and mixes conventions; d4-critic-fullvis
   remains the Ante/eval critic.
-- No KL-to-BC anchor v0; KL(π‖μ) and entropy are monitored, and the anchor
-  is the named contingency if entropy collapses or KL runs away.
+- ~~No KL-to-BC anchor v0; KL(π‖μ) and entropy are monitored, and the anchor
+  is the named contingency if entropy collapses or KL runs away.~~ **The
+  contingency fired (run-2, ADR-0017). Guards are v0 now: the driver rejects
+  a checkpoint and halts when the iteration crossed a tripline — per-iter
+  mean KL(π‖μ) > 0.05, entropy > 2× iter-0 mean, or veto rate > 1.5×
+  iter-0. Every needed signal was already in monitor.jsonl.**
 
 ## 5. Replay mixing
 
@@ -99,7 +109,10 @@ Per-iteration `monitor.jsonl` row, written before the checkpoint is accepted:
 
 - **Anomaly rule (§6): realized winrate exceeding the critic's predicted
   winrate is a bug report until proven otherwise.** Compare mean first-window
-  V vs realized outcome per iteration (both seats).
+  V vs realized outcome per iteration (both seats). **Two-sided per ADR-0017:
+  critic ≫ reward flags too (run-2 iter 5 read v0 0.65 vs reward 0.50
+  unflagged — the value head chasing vs-targets that had reverted to V under
+  clipped ρ).**
 - Entropy per head; KL(π_{k+1}‖μ); mean/max ρ pre-clip; fraction clipped.
 - Census-derived: veto rate, block/attack drop, fallback count (must stay 0),
   X ">16" clamp rate (watch item, was 0.4%→0.7%), transport failures.
