@@ -52,6 +52,10 @@
   details { border: 1px solid var(--line); border-radius: 10px; background: var(--card); margin: .6rem 0; padding: .2rem .9rem; }
   summary { cursor: pointer; font-family: Futura, "Century Gothic", sans-serif; padding: .5rem 0; }
   summary .pill { margin-left: .5rem; }
+  details details { background: var(--bg); margin: .5rem 0; }
+  details details summary { font-size: .93rem; font-family: Georgia, "Times New Roman", serif; }
+  details details summary b { font-family: Futura, "Century Gothic", "Avenir Next", Avenir, sans-serif; }
+  details details p { font-size: .93rem; }
   .flow { overflow-x: auto; margin: 1rem 0; }
   .flow svg { min-width: 620px; width: 100%; height: auto; display: block; }
   .flow text { font: 12.5px Futura, "Century Gothic", sans-serif; fill: var(--fg); }
@@ -70,6 +74,9 @@
 <p class="sub">A neural agent for Magic: The Gathering, built on the Forge rules engine.
 Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nights-and-weekends project.
 &nbsp;·&nbsp; <span class="pill done">M0 closed</span> <span class="pill done">M1 closed</span> <span class="pill live">M2 open</span></p>
+<p class="sub"><b>Start here:</b> <a href="design/anvil-design-v2.md">the design doc</a> (why and what)
+→ <a href="forge-ai-field-guide.md">the field guide</a> (what we learned the hard way)
+→ <a href="design/m2-rl-plan.md">the current milestone plan</a> (what's happening now).</p>
 
 <div class="stats">
   <div class="stat"><div class="v num">0.9671</div><div class="k">held-out honest agreement (D5 ckpt; combat: attack row 0.954, block 0.86; gate was high-80s)</div></div>
@@ -92,48 +99,75 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
 <p>Initial scope: 1v1 Duel Commander, curated pool <code>cf2ca6ba</code> — 1,701 cards from 113 competitive decklists.</p>
 
 <h2>How the pieces connect</h2>
-<div class="flow"><svg viewBox="0 0 640 300" role="img" aria-label="Data flow: Forge fork to bridge to Python model and store">
+<div class="flow"><svg viewBox="0 0 640 440" role="img" aria-label="Data flow: Forge fork to bridge to Python model and store, with the M2 self-play loop beneath">
   <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
     <path d="M0,0 L8,4 L0,8 z" fill="context-stroke" stroke="none"/></marker></defs>
   <rect x="8"   y="20"  width="180" height="92"/>
   <text x="98"  y="44" text-anchor="middle">Forge fork (Java)</text>
   <text x="98"  y="62" text-anchor="middle" class="lbl">PlayerControllerAnvil · Obs log</text>
   <text x="98"  y="77" text-anchor="middle" class="lbl">AnvilOptions scan · Census</text>
-  <text x="98"  y="92" text-anchor="middle" class="lbl">CastPlanRealizer (legality-only)</text>
+  <text x="98"  y="92" text-anchor="middle" class="lbl">legality-only realizers · re-ask</text>
 
-  <rect x="252" y="34"  width="130" height="64" class="hot"/>
+  <rect x="244" y="34"  width="146" height="64" class="hot"/>
   <text x="317" y="58" text-anchor="middle">gRPC bridge</text>
   <text x="317" y="76" text-anchor="middle" class="lbl">6 answer shapes + CastPlan</text>
 
   <rect x="446" y="20"  width="186" height="92"/>
   <text x="539" y="44" text-anchor="middle">Decision server (Python)</text>
   <text x="539" y="62" text-anchor="middle" class="lbl">featurize = training code path</text>
-  <text x="539" y="77" text-anchor="middle" class="lbl">AnvilNet.act (greedy decode)</text>
-  <text x="539" y="92" text-anchor="middle" class="lbl">PASS-logit calibration δ</text>
+  <text x="539" y="77" text-anchor="middle" class="lbl">AnvilNet.act · GPU micro-batch</text>
+  <text x="539" y="92" text-anchor="middle" class="lbl">seeded sampling · μ records</text>
 
   <rect x="8"   y="180" width="180" height="74"/>
   <text x="98"  y="205" text-anchor="middle">Trajectory store</text>
   <text x="98"  y="222" text-anchor="middle" class="lbl">JSONL-in-zstd · info-set enforced</text>
   <text x="98"  y="237" text-anchor="middle" class="lbl">validate = zero-error gate</text>
 
-  <rect x="252" y="180" width="130" height="74"/>
+  <rect x="244" y="180" width="146" height="74"/>
   <text x="317" y="205" text-anchor="middle">Training</text>
   <text x="317" y="222" text-anchor="middle" class="lbl">streaming loader · bf16</text>
   <text x="317" y="237" text-anchor="middle" class="lbl">honest metrics (forced excl.)</text>
 
   <rect x="446" y="180" width="186" height="74"/>
-  <text x="539" y="205" text-anchor="middle">Checkpoint of record</text>
-  <text x="539" y="222" text-anchor="middle" class="lbl">d7-ep3 · 3-epoch recipe</text>
-  <text x="539" y="237" text-anchor="middle" class="lbl">pass_calibration.json</text>
+  <text x="539" y="205" text-anchor="middle">Checkpoints of record</text>
+  <text x="539" y="222" text-anchor="middle" class="lbl">BC d5-combat · RL d6-run1</text>
+  <text x="539" y="237" text-anchor="middle" class="lbl">3-epoch recipe · pass-δ calib</text>
 
-  <path d="M188,52 L246,52"/><text x="217" y="45" text-anchor="middle" class="lbl">obs+options</text>
-  <path d="M382,52 L440,52"/>
-  <path d="M440,84 L382,84"/><text x="411" y="99" text-anchor="middle" class="lbl">CastPlan</text>
-  <path d="M246,84 L188,84"/>
+  <path d="M188,52 L238,52"/><text x="213" y="45" text-anchor="middle" class="lbl">obs+options</text>
+  <path d="M390,52 L440,52"/>
+  <path d="M440,84 L390,84"/><text x="415" y="99" text-anchor="middle" class="lbl">CastPlan</text>
+  <path d="M238,84 L188,84"/>
   <path d="M98,112 L98,174"/><text x="112" y="148" class="lbl">games</text>
-  <path d="M188,217 L246,217"/>
-  <path d="M382,217 L440,217"/>
-  <path d="M539,174 L539,118"/><text x="551" y="150" class="lbl">serve</text>
+  <path d="M188,217 L238,217"/>
+  <path d="M390,217 L440,217"/>
+  <path d="M539,180 L539,118"/><text x="551" y="150" class="lbl">serve</text>
+
+  <text x="8" y="296">M2 self-play loop (D6) — one iteration through the machinery above:</text>
+  <rect x="8"   y="316" width="130" height="68"/>
+  <text x="73"  y="338" text-anchor="middle">generate</text>
+  <text x="73"  y="354" text-anchor="middle" class="lbl">fleet w=8 · 1,146 g/h</text>
+  <text x="73"  y="368" text-anchor="middle" class="lbl">μ recorded per decision</text>
+
+  <rect x="172" y="316" width="130" height="68"/>
+  <text x="237" y="338" text-anchor="middle">ingest</text>
+  <text x="237" y="354" text-anchor="middle" class="lbl">zero-error validate</text>
+  <text x="237" y="368" text-anchor="middle" class="lbl">μ-join tripwire</text>
+
+  <rect x="336" y="316" width="130" height="68"/>
+  <text x="401" y="338" text-anchor="middle">train</text>
+  <text x="401" y="354" text-anchor="middle" class="lbl">V-trace · replay mix</text>
+  <text x="401" y="368" text-anchor="middle" class="lbl">hinge entropy floor</text>
+
+  <rect x="500" y="316" width="130" height="68"/>
+  <text x="565" y="338" text-anchor="middle">gate + swap</text>
+  <text x="565" y="354" text-anchor="middle" class="lbl">KL/entropy/veto triplines</text>
+  <text x="565" y="368" text-anchor="middle" class="lbl">arms + Ante each N iters</text>
+
+  <path d="M138,350 L166,350"/>
+  <path d="M302,350 L330,350"/>
+  <path d="M466,350 L494,350"/>
+  <path d="M565,384 L565,410 L73,410 L73,390"/>
+  <text x="319" y="404" text-anchor="middle" class="lbl">next iteration (~35 min)</text>
 </svg></div>
 <p>Two invariant boundaries: the <b>engine adjudicates every claim</b> a learned component makes
 (the realizer enforces legality, never heuristic judgment), and the <b>information set is enforced
@@ -188,21 +222,47 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
 
 <details open>
 <summary>M2 — Reinforcement learning <span class="pill live">open</span> (plan: <a href="design/m2-rl-plan.md">m2-rl-plan.md</a>, seeded from ADR-0010)</summary>
-<ul>
-  <li><b>1. Fork-API hardening</b> <span class="pill done">closed 2026-07-10</span> (ADR-0011) — stable single-step fork API (rollout prerequisite; the flagship upstream contribution, per ADR-0002). The <code>forkcheck</code> harness is the standing regression gate.
+
+<details>
+<summary><b>D1 — Fork-API hardening</b> <span class="pill done">closed 07-10</span> — statics 12%→0 · divergence 50%→2.5% · twin 100% · fixes merged upstream (#11203)</summary>
+<p>Stable single-step fork API (rollout prerequisite; the flagship upstream contribution, per ADR-0002). The <code>forkcheck</code> harness is the standing regression gate.
   <b>Day one (07-10): static corruption 12%→0</b> (face-down exile leak + effect-card field wiring); <b>trajectory divergence 50%→13.4%</b> — root cause was GameCopier renumbering card ids (~10-line fix; residual = this-turn copy gaps, 67 repro seeds); <b>twin determinism 99%</b> (new <code>-twin</code> gate: two copies + same RNG snapshot must replay identically; the 1% tail = hash-ordered iteration in decision paths, isolated with the <code>-bridge</code> stress amplifier — bounds bit-exact replay only, doesn't bias rollout labels).
   <b>Night session: rollout contract CERTIFIED under the BC policy</b> — Obs per-game wire sessions let forks feed the model server with the store off; forkcheck <code>-grpc</code> runs the full gate: smoke 10/10 clean, <b>twin 40/40 = 100% determinism under the model</b>, divergence 2.5% (the residual copy-gap class only). <b>Rollout pricing: copy 7 ms, fork→completion median 4.4 s</b> (~70 positions/h/worker at K=8; server micro-batching = first D4 lever). Records: <code>data/forkcheck/run-20260710{,-twin,-grpc}/</code>.
-  <b>Late session: upstream PR #1 SUBMITTED — <a href="https://github.com/Card-Forge/forge/pull/11203">Card-Forge/forge#11203</a></b> (fixes re-authored on clean upstream, 3 differential regression tests each validated failing pre-fix, full suite 285 green; monitor for maintainer feedback each session). Anvil repo made <b>public</b> the same evening (LICENSE + README refresh). Closed by <a href="decisions/ADR-0011-d1-closeout.md">ADR-0011</a>.</li>
-  <li><b>2. SA-level action schema + BC retrain</b> <span class="pill done">retrain done 07-11</span> — the D8 order rung guessed 31–36% of casts (2.5× the corpus estimate): the largest known winrate leak, and RL needs SA-level action identity anyway.
+  <b>Late session: upstream PR #1 — <a href="https://github.com/Card-Forge/forge/pull/11203">Card-Forge/forge#11203</a>, MERGED 2026-07-12</b> (fixes re-authored on clean upstream, 3 differential regression tests each validated failing pre-fix, full suite 285 green; the Copier→Snapshot consolidation follow-up is maintainer-blessed and queued in the <a href="design/upstream-worklist.md">upstream worklist</a>). Anvil repo made <b>public</b> the same evening (LICENSE + README refresh). Closed by <a href="decisions/ADR-0011-d1-closeout.md">ADR-0011</a>.</p>
+</details>
+
+<details>
+<summary><b>D2 — SA-level action schema + BC retrain</b> <span class="pill done">done 07-11</span> — masked labels 0.004%, not the ~31% priced · agreement parity while naming the exact SA</summary>
+<p>The D8 order rung guessed 31–36% of casts (2.5× the corpus estimate): the largest known winrate leak, and RL needs SA-level action identity anyway.
   <b>The label story collapsed in our favor (full-corpus sweep, 6.11M casts): 99.92% resolve exactly, masked = 0.004% — not the ~31% priced.</b> The "ambiguity" was identical-string duplicates; collapsing identical (host, SA) candidate pairs makes the label exact (the executor keeps first-fit for the engine-side tie). Pointer key += learned SA descriptor over a pinned 33,691-string vocab (39.5M params); nested-window history fix rode along at measured-zero distribution shift; serve path needed <b>zero Java changes</b> (exact option index + <code>host_level=false</code> → the ladder degenerates to shape→pay).
-  <b>Retrain finals (774K steps, 15.1h): honest 0.9748 SA-basis / 0.9751 host-basis vs the 0.9758 host-level record — parity within run noise, with the model now naming the exact SA</b> (nonpass 0.9247 on the harder basis; valpair ≥ val throughout; fresh δ=+2.180 → honest 0.9837). <code>d2-sa/last.pt</code> = the D3 candidate.</li>
-  <li><b>3. Winrate arms reprice</b> <span class="pill done">done 07-11</span> — same 200 valpair pairs + seeds as D8 (paired): <b>δ=0 0.4625 ± 0.0249 vs D8's 0.4675 — statistical tie; the order-rung mass did not cash out as winrate</b> (kind-prior first-fit was a good proxy, and the exact-SA answer forfeits the ladder rescue: veto 7.8%→10.0%). Order rung <b>retired in play</b> (rungs = single+modal only); 800/800 decisive, 0 crashes, 0 fallbacks. What D2/D3 bought is the RL prerequisite — model-owned action identity at zero agreement cost. Closed with D2 by <a href="decisions/ADR-0012-d2-d3-closeout.md">ADR-0012</a>; new leak candidate = the veto class (~10% of cast attempts).</li>
-  <li><b>4. Ante certification + critic</b> <span class="pill done">closed 07-13</span> — Ante v1.1 ledger (AIVAT via observation surgery, zero Java changes) <b>certified on both distributions (<a href="decisions/ADR-0014-ante-certification.md">ADR-0014</a>)</b>: 12,800-game mirror raw 0.4953 ± 0.0044, all classes zero-mean after the ledger's own test caught the re-deal choice-contamination; fitted-β convergence strictly faster than raw.
+  <b>Retrain finals (774K steps, 15.1h): honest 0.9748 SA-basis / 0.9751 host-basis vs the 0.9758 host-level record — parity within run noise, with the model now naming the exact SA</b> (nonpass 0.9247 on the harder basis; valpair ≥ val throughout; fresh δ=+2.180 → honest 0.9837). <code>d2-sa/last.pt</code> = the D3 candidate.</p>
+</details>
+
+<details>
+<summary><b>D3 — Winrate arms reprice</b> <span class="pill done">done 07-11</span> — statistical tie: the order-rung mass was action identity, not winrate · order rung retired</summary>
+<p>Same 200 valpair pairs + seeds as D8 (paired): <b>δ=0 0.4625 ± 0.0249 vs D8's 0.4675 — statistical tie; the order-rung mass did not cash out as winrate</b> (kind-prior first-fit was a good proxy, and the exact-SA answer forfeits the ladder rescue: veto 7.8%→10.0%). Order rung <b>retired in play</b> (rungs = single+modal only); 800/800 decisive, 0 crashes, 0 fallbacks. What D2/D3 bought is the RL prerequisite — model-owned action identity at zero agreement cost. Closed with D2 by <a href="decisions/ADR-0012-d2-d3-closeout.md">ADR-0012</a>; new leak candidate = the veto class (~10% of cast attempts).</p>
+</details>
+
+<details>
+<summary><b>D4 — Ante certification + critic</b> <span class="pill done">closed 07-13</span> — ledger certified zero-mean · winner-label poisoning found+fixed (ADR-0013) · critic +12pp mid-game AUC</summary>
+<p>Ante v1.1 ledger (AIVAT via observation surgery, zero Java changes) <b>certified on both distributions (<a href="decisions/ADR-0014-ante-certification.md">ADR-0014</a>)</b>: 12,800-game mirror raw 0.4953 ± 0.0044, all classes zero-mean after the ledger's own test caught the re-deal choice-contamination; fitted-β convergence strictly faster than raw.
   <b>The shakedown found corpus-wide label poisoning (<a href="decisions/ADR-0013-winner-label-poisoning.md">ADR-0013</a>): <code>end.winner</code> wrong ~50% of games — every value head to date learned seat noise.</b> Fixed fork-side + reader-side (no regeneration); corrected labels lifted the frozen trunk to final-turn AUC 0.989 (<code>d4-valuefix</code>).
-  <b>Closed by <a href="decisions/ADR-0015-d4-closeout.md">ADR-0015</a>: <code>d4-critic-fullvis</code> = critic of record (§4 asymmetric input): BCE 0.4541 / AUC 0.8658, +12pp over masked in the 9–16 band — clears the re-based gate by 12 points. Rollout-label machinery certified + priced (pilot: labels out-rank the critic in every band, +5.5pp at 5–8; ~17 pos/h/worker at K=8) — scale-up deferred behind server micro-batching. Ante re-certified at the omniscient tier: var cut 0.6%→4.8%, β̂→0.70, β=1 AIVAT now variance-reducing.</b></li>
-  <li><b>5. Combat constructs (D5)</b> <span class="pill done">closed 07-14</span> — factorized per-creature heads (attack logit + count + target pointer; block pointer over attackers∪none), labels via the <b>combat-bounded obs join</b> (the 145 corpus block violations = one overshoot class, driven to 0/113,591 games; a violation-free variant caught by loader-vs-measure exact reconciliation). <code>d5-combat/last.pt</code> = checkpoint of record: attack row 0.954 / target 0.993, block row 0.86; honest −0.77pp vs d2-sa (multi-task cost, priced at zero by the arms); value BCE 0.4531 on corrected labels. Executor: entity-ref AttackMap/BlockMap, engine-legality realizers with engine-authoritative repair (attacks self-validate in tiers; blocks forced-add — <b>the engine never validates AI blocks</b>). <b>Arms tie as predicted: 0.4550 ± 0.0249 vs D3's 0.4625</b>; drop rates 0.18%/3.7%, 0 forced/fallback. D6 data loop verified on model games. Closed by <a href="decisions/ADR-0016-d5-closeout.md">ADR-0016</a>.</li>
-  <li><b>6. RL fine-tune (D6)</b> <span class="pill live">loop built 07-14</span> — V-trace self-play machinery end-to-end per <a href="design/d6-vtrace-loop.md">d6-vtrace-loop.md</a>: fleet measured <b>1,146 g/h</b> w=8 both-seats under micro-batching (target 1,000); seeded Gumbel-max sampling (batch-composition-independent by scatter-padded per-decision noise) + behavior-policy <code>mu.jsonl</code> keyed (g, s), zero Java changes; <code>composite_logp</code> = one body for the μ recompute tripwire / π ratios / PG term; V-trace targets unit-tested (caught a terminal double-count pre-training); synchronous loop driver (generate → ingest → train → swap) with the §6 anomaly monitor + arms cadence. <b>2-iteration smoke closed the loop</b>: iteration 1 served the RL-trained ckpt, 0 tripwire violations, critic tracks realized reward. <b>d6-run1 (07-15 overnight): 12 iterations × 480 games ran to completion, zero unhandled failures</b> — entropy/KL/critic monitors quiet throughout; first contact fixed 3 real bugs (mu-join chimera on diverged re-issues, segment-graph OOM, torn log lines; iterations now phase-idempotent). <b>Arms: final ckpt 0.478 ± 0.011 on 2,000 games, paired +3.76pp ± 2.22 vs the D5 arm (t=1.69) — improves, not yet outside noise; done-when #4 open.</b> Run-2 levers: the veto drift (14→19% under RL pressure — serve-time re-ask promotes to the front) and lr/iteration scaling (cumulative KL from init only ~0.05). <b>Run-2 prep (07-15 session 2): re-ask-on-veto BUILT and certified</b> (design §6b; fork <code>64c6322f35</code>: vetoed priority decisions re-issue with the vetoed candidate removed, fresh seq + μ record per attempt, <code>retry_of</code> wire mark; smoke 644 re-asks/40 games, tripwire 0) <b>+ Ante-ledger corrected reads folded into the standing arms eval</b> (<code>arms_report --ante</code>, seat-flipped fitted-β merge). <b>Arms re-baselined under the new environment: d5 0.4789 ± 0.0244 / rl1 0.5083 ± 0.0246 corrected — the RL ckpt's first read at parity with its teacher; paired rl1−d5 +3.00pp ± 1.93 (t=1.55), consistent with run-1</b>. Re-ask alone worth ~+2pp to the BC arm; ~10% of vetoes rescue into casts, the rest become model-chosen passes the reward can see. <b>d6-run2 (lr 3e-5 × 16) collapsed overnight — caught at iter 6, diagnosed to the ground (<a href="decisions/ADR-0017-run2-entropy-collapse.md">ADR-0017</a>): entropy-bonus runaway under near-zero mirror-self-play advantages (pg ±0.002 all run; the bonus was the only persistent gradient, lr its throttle — run-1's drift was the same force at ⅓ speed). Bonus retired → hinge floor; driver halt-guards (KL/entropy/veto triplines) promote to v0; anomaly rule two-sided. Run-3 = first guarded run, init from the run-1 ckpt.</b> Then mode/allocation heads (1.2% / 0.03% mass). Carried context: yield macros (§3b), ID dropout = the pre-Tutor lever.</li>
-</ul>
+  <b>Closed by <a href="decisions/ADR-0015-d4-closeout.md">ADR-0015</a>: <code>d4-critic-fullvis</code> = critic of record (§4 asymmetric input): BCE 0.4541 / AUC 0.8658, +12pp over masked in the 9–16 band — clears the re-based gate by 12 points. Rollout-label machinery certified + priced (pilot: labels out-rank the critic in every band, +5.5pp at 5–8; ~17 pos/h/worker at K=8) — scale-up deferred behind server micro-batching. Ante re-certified at the omniscient tier: var cut 0.6%→4.8%, β̂→0.70, β=1 AIVAT now variance-reducing.</b></p>
+</details>
+
+<details>
+<summary><b>D5 — Combat constructs</b> <span class="pill done">closed 07-14</span> — combat labels driven to 0 violations corpus-wide · arms tie as predicted · D6 unblocked</summary>
+<p>Factorized per-creature heads (attack logit + count + target pointer; block pointer over attackers∪none), labels via the <b>combat-bounded obs join</b> (the 145 corpus block violations = one overshoot class, driven to 0/113,591 games; a violation-free variant caught by loader-vs-measure exact reconciliation). <code>d5-combat/last.pt</code> = checkpoint of record: attack row 0.954 / target 0.993, block row 0.86; honest −0.77pp vs d2-sa (multi-task cost, priced at zero by the arms); value BCE 0.4531 on corrected labels. Executor: entity-ref AttackMap/BlockMap, engine-legality realizers with engine-authoritative repair (attacks self-validate in tiers; blocks forced-add — <b>the engine never validates AI blocks</b>). <b>Arms tie as predicted: 0.4550 ± 0.0249 vs D3's 0.4625</b>; drop rates 0.18%/3.7%, 0 forced/fallback. D6 data loop verified on model games. Closed by <a href="decisions/ADR-0016-d5-closeout.md">ADR-0016</a>.</p>
+</details>
+
+<details open>
+<summary><b>D6 — RL fine-tune</b> <span class="pill live">run-3 live</span> — loop built · run-1 +3.0–3.8pp (≤1.7σ) · run-2 entropy collapse → guards (ADR-0017) · first guarded run in flight</summary>
+<p>V-trace self-play machinery end-to-end per <a href="design/d6-vtrace-loop.md">d6-vtrace-loop.md</a>: fleet measured <b>1,146 g/h</b> w=8 both-seats under micro-batching (target 1,000); seeded Gumbel-max sampling (batch-composition-independent by scatter-padded per-decision noise) + behavior-policy <code>mu.jsonl</code> keyed (g, s), zero Java changes; <code>composite_logp</code> = one body for the μ recompute tripwire / π ratios / PG term; V-trace targets unit-tested (caught a terminal double-count pre-training); synchronous loop driver (generate → ingest → train → swap) with the §6 anomaly monitor + arms cadence. <b>2-iteration smoke closed the loop</b>: iteration 1 served the RL-trained ckpt, 0 tripwire violations, critic tracks realized reward.</p>
+<p><b>d6-run1 (07-15 overnight): 12 iterations × 480 games ran to completion, zero unhandled failures</b> — entropy/KL/critic monitors quiet throughout; first contact fixed 3 real bugs (mu-join chimera on diverged re-issues, segment-graph OOM, torn log lines; iterations now phase-idempotent). <b>Arms: final ckpt 0.478 ± 0.011 on 2,000 games, paired +3.76pp ± 2.22 vs the D5 arm (t=1.69) — improves, not yet outside noise; done-when #4 open.</b> Run-2 levers: the veto drift (14→19% under RL pressure — serve-time re-ask promotes to the front) and lr/iteration scaling (cumulative KL from init only ~0.05).</p>
+<p><b>Run-2 prep (07-15 session 2): re-ask-on-veto BUILT and certified</b> (design §6b; fork <code>64c6322f35</code>: vetoed priority decisions re-issue with the vetoed candidate removed, fresh seq + μ record per attempt, <code>retry_of</code> wire mark; smoke 644 re-asks/40 games, tripwire 0) <b>+ Ante-ledger corrected reads folded into the standing arms eval</b> (<code>arms_report --ante</code>, seat-flipped fitted-β merge). <b>Arms re-baselined under the new environment: d5 0.4789 ± 0.0244 / rl1 0.5083 ± 0.0246 corrected — the RL ckpt's first read at parity with its teacher; paired rl1−d5 +3.00pp ± 1.93 (t=1.55), consistent with run-1</b>. Re-ask alone worth ~+2pp to the BC arm; ~10% of vetoes rescue into casts, the rest become model-chosen passes the reward can see.</p>
+<p><b>d6-run2 (lr 3e-5 × 16) collapsed overnight — caught at iter 6, diagnosed to the ground (<a href="decisions/ADR-0017-run2-entropy-collapse.md">ADR-0017</a>): entropy-bonus runaway under near-zero mirror-self-play advantages (pg ±0.002 all run; the bonus was the only persistent gradient, lr its throttle — run-1's drift was the same force at ⅓ speed). Bonus retired → hinge floor; driver halt-guards (KL/entropy/veto triplines) promote to v0; anomaly rule two-sided. Run-3 = first guarded run, init from the run-1 ckpt.</b> <b>Run-3 launched 2026-07-16</b> (guards + hinge floor live: lr 2e-5, ent-floor 0.08, <code>-reask</code>, fresh seeds, init d6-run1 final) — in flight. Then mode/allocation heads (1.2% / 0.03% mass). Carried context: yield macros (§3b), ID dropout = the pre-Tutor lever.</p>
+</details>
+
 </details>
 
 <details>
@@ -237,6 +297,17 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <tr><td><a href="decisions/ADR-0017-run2-entropy-collapse.md">0017</a></td><td class="num">07-16</td><td>d6-run2 collapse: always-on entropy bonus has no equilibrium under mirror-self-play near-zero advantages (lr sets the runaway rate) — bonus retired for a hinge floor, driver guards promote to v0, anomaly rule two-sided; lr ceiling bracketed</td></tr>
 </table>
 
+<h2>For other Forge-AI builders</h2>
+<p>The repo is public and several of its artifacts are designed to be reusable outside Anvil.
+Start with the <b><a href="forge-ai-field-guide.md">field guide</a></b> — every trap we measured
+(state-copy fidelity, determinism surfaces, silent-fallback poisoning, winner-label poisoning,
+eval statistics, info-set enforcement, RL entropy collapse), each with detection and fix.</p>
+<div class="cards">
+  <div class="card"><h3>Reusable pieces</h3><p><a href="design/bridge-protocol-v0.md">Bridge protocol</a> (6 game-agnostic answer shapes, 2.6% overhead) · <a href="design/observation-schema-v1.md">observation schema</a> (~47KB/game) · <code>forkcheck</code> fidelity gate · <a href="design/callback-census-results.md">109-method decision-surface census</a></p></div>
+  <div class="card"><h3>Upstream</h3><p><a href="https://github.com/Card-Forge/forge/pull/11203">#11203</a> GameCopier fidelity fixes (merged 07-12) · <a href="design/upstream-worklist.md">worklist</a>: Copier→Snapshot consolidation (maintainer-blessed), joint determinism-hooks PR w/ manabrew, crash seeds</p></div>
+  <div class="card"><h3>The ecosystem</h3><p><a href="design/discord-ai-plotting-survey.md">Survey: every AI-on-Forge project we know of</a> · dives: <a href="design/survey-dive-austinio-rl-branch.md">a core dev's RL branch</a> · <a href="design/survey-dive-manabrew-harness.md">manabrew's parity harness</a> · <a href="design/survey-dive-pricepredictor-magezero.md">price-predictor &amp; MageZero</a></p></div>
+</div>
+
 <h2>Design invariants (standing law)</h2>
 <ul>
   <li>The engine adjudicates every claim any learned component makes.</li>
@@ -250,7 +321,8 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
 </ul>
 
 <p class="foot">Living document — update at milestone boundaries alongside the CLAUDE.md status section.
-Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-16 (ADR-0017: run-2 collapse diagnosed, guards to v0).</p>
+Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-16
+(community survey + archaeology dives landed; <a href="forge-ai-field-guide.md">field guide</a> published; #11203 marked merged).</p>
 
 </main>
 </body>
