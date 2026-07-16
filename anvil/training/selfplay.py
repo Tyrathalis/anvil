@@ -128,6 +128,28 @@ def _census_tallies(run_dir: Path) -> dict:
     return dict(c)
 
 
+def guard_flags(census: dict, rl: dict, baseline: dict | None,
+                kl_max: float = 0.05, ent_mult: float = 2.0,
+                veto_mult: float = 1.5) -> list[str]:
+    """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
+    checkpoint and halts the loop — run-2 collapsed with every signal in
+    monitor.jsonl and nothing acting on it. kl is absolute (drift per
+    iteration); entropy/veto compare against the run's iter-0 baselines."""
+    flags = []
+    m = rl.get("mean") or {}
+    kl = m.get("kl_mu")
+    if kl is not None and kl > kl_max:
+        flags.append(f"guard: kl_mu {kl} > {kl_max}")
+    if baseline:
+        ent, ent0 = m.get("ent"), baseline.get("ent")
+        if ent is not None and ent0 and ent > ent_mult * ent0:
+            flags.append(f"guard: ent {ent} > {ent_mult}x iter-0 ({ent0})")
+        veto, veto0 = census.get("veto_rate"), baseline.get("veto_rate")
+        if veto is not None and veto0 and veto > veto_mult * veto0:
+            flags.append(f"guard: veto_rate {veto} > {veto_mult}x iter-0 ({veto0})")
+    return flags
+
+
 def _game_stats(run_dir: Path) -> dict:
     import statistics
     rows = []
@@ -185,6 +207,14 @@ def main() -> None:
     ap.add_argument("--epochs", type=int, default=1)
     ap.add_argument("--lr", type=float, default=1e-5)
     ap.add_argument("--ent-weight", type=float, default=3e-3)
+    ap.add_argument("--ent-floor", type=float, default=0.08,
+                    help="hinge entropy floor passed to the learner (ADR-0017)")
+    ap.add_argument("--guard-kl", type=float, default=0.05,
+                    help="halt if an iteration's mean KL(pi||mu) exceeds this")
+    ap.add_argument("--guard-ent-mult", type=float, default=2.0,
+                    help="halt if mean entropy exceeds this multiple of iter-0")
+    ap.add_argument("--guard-veto-mult", type=float, default=1.5,
+                    help="halt if veto rate exceeds this multiple of iter-0")
     ap.add_argument("--value-weight", type=float, default=0.5)
     ap.add_argument("--traj-per-step", type=int, default=4)
     ap.add_argument("--arms-every", type=int, default=5,
@@ -262,6 +292,7 @@ def main() -> None:
                   "--weights", ",".join(map(str, weights)),
                   "--ckpt", state["ckpt"], "--out", str(train_dir),
                   "--lr", str(args.lr), "--ent-weight", str(args.ent_weight),
+                  "--ent-floor", str(args.ent_floor),
                   "--value-weight", str(args.value_weight),
                   "--traj-per-step", str(args.traj_per_step),
                   "--workers", str(args.rl_workers),
@@ -280,22 +311,40 @@ def main() -> None:
             flags.append(f"fallbacks={census['fallback']}")
         mean = rl.get("mean", {})
         if mean.get("reward") is not None and mean.get("v0") is not None \
-                and mean["reward"] - mean["v0"] > 0.1:
-            # §6 anomaly rule: winrate exceeding the critic's prediction is a
-            # bug report until proven otherwise
-            flags.append(f"reward {mean['reward']} >> critic {mean['v0']}")
+                and abs(mean["reward"] - mean["v0"]) > 0.1:
+            # §6 anomaly rule, two-sided per ADR-0017: reward >> critic is the
+            # original bug-report direction; critic >> reward = value head
+            # chasing clipped-rho targets (run-2 iter 5 went unflagged)
+            flags.append(f"reward {mean['reward']} vs critic {mean['v0']}")
         if rl.get("tripwire_viol"):
             flags.append(f"tripwire={rl['tripwire_viol']}")
         non_won = {s: n for s, n in gstats["statuses"].items() if s != "won"}
         if sum(non_won.values()) > 0.02 * gstats["games"]:
             flags.append(f"non-decisive {non_won}")
+
+        # ---- ADR-0017 halt guards: reject the ckpt, don't just narrate ----
+        guards = guard_flags(census, rl, state.get("baseline"),
+                             kl_max=args.guard_kl, ent_mult=args.guard_ent_mult,
+                             veto_mult=args.guard_veto_mult)
         row = {"iteration": k, "ckpt": state["ckpt"], "run": str(run_dir),
                "store": str(store), "gen_s": round(t_gen), "train_s": round(t_train),
-               "census": census, "games": gstats, "rl": rl, "flags": flags}
+               "census": census, "games": gstats, "rl": rl, "flags": flags,
+               "guard": guards}
         monitor.write(json.dumps(row) + "\n")
         if flags:
             print(f"[selfplay] !!! ANOMALY FLAGS iteration {k}: {flags}")
+        if guards:
+            (it_dir / "REJECTED").write_text("\n".join(guards) + "\n")
+            print(f"[selfplay] !!! GUARD HALT iteration {k}: {guards}\n"
+                  f"[selfplay] ckpt NOT accepted; loop_state unchanged; "
+                  f"re-running re-evaluates the same iteration (deterministic "
+                  f"halt — needs a human)")
+            sys.exit(3)
 
+        if state.get("baseline") is None:
+            # the run's iter-0 operating point: the ent/veto guard baselines
+            state["baseline"] = {"ent": mean.get("ent"),
+                                 "veto_rate": census.get("veto_rate")}
         state.update(iteration=k + 1, ckpt=str(new_ckpt),
                      start_index=state["start_index"] + args.games)
         state_path.write_text(json.dumps(state, indent=2))

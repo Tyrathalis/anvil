@@ -266,6 +266,18 @@ def game_trajectories(store, feat, g: int):
             for p, exs in sorted(by_seat.items())], None
 
 
+def entropy_hinge(ent: "torch.Tensor", floor: float, b: int, t_len: int):
+    """ADR-0017 hinge floor: a penalty (ADDED to the loss) only when the
+    segment's mean composite entropy sinks below `floor`; identically zero —
+    zero gradient — above it. Replaces the always-on bonus, which was the
+    sole persistent gradient under mirror-self-play ~zero advantages and ran
+    away with lr (run-2). Weighted by the segment's share of the trajectory
+    so multi-segment trajectories aggregate to a trajectory-level hinge."""
+    return torch.relu(
+        torch.as_tensor(floor, device=ent.device, dtype=ent.dtype)
+        - ent.mean()) * (b / t_len)
+
+
 def _identity(x):
     """DataLoader collate for trajectory items (module-level: py3.14
     forkserver workers must pickle it; a lambda can't)."""
@@ -357,7 +369,15 @@ def main() -> None:
     ap.add_argument("--rho-bar", type=float, default=1.0)
     ap.add_argument("--c-bar", type=float, default=1.0)
     ap.add_argument("--value-weight", type=float, default=0.5)
-    ap.add_argument("--ent-weight", type=float, default=3e-3)
+    ap.add_argument("--ent-weight", type=float, default=3e-3,
+                    help="weight on the hinge entropy-floor penalty (ADR-0017: "
+                         "the always-on bonus had no equilibrium and ran away)")
+    ap.add_argument("--ent-floor", type=float, default=0.08,
+                    help="hinge target: penalize segments whose MEAN composite "
+                         "entropy falls below this; zero gradient above. Default "
+                         "~half the BC-init mean (~0.15) — a collapse guard, not "
+                         "a pin (pinning at init would forbid legitimate "
+                         "sharpening)")
     ap.add_argument("--epochs", type=int, default=1)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--workers", type=int, default=4)
@@ -398,7 +418,7 @@ def main() -> None:
     rl_cfg = {**cfg, "rl": {k: getattr(args, k.replace("-", "_")) for k in
                             ("store", "weights", "ckpt", "lr", "traj_per_step",
                              "gamma", "rho_bar", "c_bar", "value_weight",
-                             "ent_weight", "epochs", "seed",
+                             "ent_weight", "ent_floor", "epochs", "seed",
                              "tripwire_tol")},
               "init_step": ckpt.get("step")}
     (out_dir / "config.json").write_text(json.dumps(rl_cfg, indent=2, default=str))
@@ -489,13 +509,15 @@ def main() -> None:
             pg_loss = -(adv * lp).sum() / t_len
             v_loss = F.binary_cross_entropy_with_logits(
                 fwd["value_logit"].float(), tgt, reduction="sum") / t_len
-            ent_bonus = ent.sum() / t_len
+            ent_mean = ent.sum() / t_len  # also the monitor's ent metric
+            ent_pen = entropy_hinge(ent, args.ent_floor, b, t_len)
             loss = (pg_loss + args.value_weight * v_loss
-                    - args.ent_weight * ent_bonus) / args.traj_per_step
+                    + args.ent_weight * ent_pen) / args.traj_per_step
             loss.backward()
             acc["pg"] = acc.get("pg", 0.0) + float(pg_loss)
             acc["v"] = acc.get("v", 0.0) + float(v_loss)
-            acc["ent"] = acc.get("ent", 0.0) + float(ent_bonus)
+            acc["ent"] = acc.get("ent", 0.0) + float(ent_mean)
+            acc["ent_pen"] = acc.get("ent_pen", 0.0) + float(ent_pen)
             off += b
         acc["rho_mean"] = acc.get("rho_mean", 0.0) + float(rho.mean())
         acc["rho_clip"] = acc.get("rho_clip", 0.0) + float((rho >= args.rho_bar).float().mean())
