@@ -200,3 +200,26 @@ def test_combat_featurizer_matches_loader():
         else:
             checked_b += 1
     assert checked_a >= 10 and checked_b >= 5
+
+
+def test_load_compat_zero_pads_cmd_tax_column():
+    """M3 D1 ckpt boundary: pre-D1 checkpoints (17 entity features) load with
+    a ZERO last ent_proj column — zero weight = the new cmd_tax input cannot
+    influence outputs, so old checkpoints serve byte-identically."""
+    if not CKPT.exists():
+        pytest.skip("no local checkpoint")
+    import torch
+
+    from anvil.encoder.transform import ENTITY_FEATURES
+    from anvil.training.dataset import default_methods
+    from anvil.training.train import build_net
+
+    stem = str(EMBED).removesuffix(".safetensors")
+    ckpt = torch.load(CKPT, map_location="cpu", weights_only=False)
+    net = build_net(stem, ckpt["config"]["pool_manifest"], len(default_methods()),
+                    n_sa=ckpt["config"].get("sa_vocab_size", 0))
+    net.load_compat(ckpt["model"])
+    w = net.assemble.ent_proj.weight
+    saved_cols = ckpt["model"]["assemble.ent_proj.weight"].shape[1]
+    assert w.shape[1] - saved_cols == len(ENTITY_FEATURES) - 17 == 1
+    assert (w[:, saved_cols:] == 0).all()

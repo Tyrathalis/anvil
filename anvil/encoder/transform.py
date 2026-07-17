@@ -30,7 +30,9 @@ from typing import Any
 
 import numpy as np
 
-TRANSFORM_VERSION = 3  # v3 (D5): entity scalars join v2's O(1) scaling
+TRANSFORM_VERSION = 4  # v4 (M3 D1): cmd_tax entity scalar — commander recast
+# surcharge (2 x cmdcast) on command-zone commander rows; the obs stream has
+# carried cmdcast since D1-of-M1, the featurizer just never read it
 
 _VOCAB_PATH = Path(__file__).parent / "vocab_mtg.json"
 
@@ -38,7 +40,7 @@ _VOCAB_PATH = Path(__file__).parent / "vocab_mtg.json"
 ENTITY_FEATURES = [
     "zone", "controller_is_self", "owner_is_self", "tapped", "sick", "phased",
     "facedown", "damage", "power", "toughness", "has_pt", "token", "attached",
-    "attacking", "blocking", "count", "hidden",
+    "attacking", "blocking", "count", "hidden", "cmd_tax",
 ]
 GLOBAL_FEATURES = [
     "turn", "phase", "active_is_self", "monarch_is_self", "initiative_is_self",
@@ -56,8 +58,9 @@ GLOBAL_SCALE = np.array([1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3], dtype=np.float32
 PLAYER_SCALE = np.array([1 / 40, 1 / 8, 1 / 100, 1 / 4, 1 / 10, 1], dtype=np.float32)
 # v3: zone stays an index (a vocab question, not a scale one) but /8 for
 # conditioning; damage/P/T ~0-13; count is the dedup multiset size
+# v4: cmd_tax is generic mana (2 per prior cast, typically 0-8)
 ENTITY_SCALE = np.array([1 / 8, 1, 1, 1, 1, 1, 1, 1 / 10, 1 / 10, 1 / 10,
-                         1, 1, 1, 1, 1, 1 / 5, 1], dtype=np.float32)
+                         1, 1, 1, 1, 1, 1 / 5, 1, 1 / 10], dtype=np.float32)
 
 
 class VocabError(KeyError):
@@ -184,6 +187,15 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
     n_players = len(header["players"])
     glob = obs["glob"]
 
+    # v4: commander recast surcharge, per seat, joined name -> 2*cast_count.
+    # Header cmd order == player cmdcast order (both walk the registered
+    # commander list — verified in Player.initVariantsZones). Public info.
+    cmd_tax_of: list[dict[str, float]] = []
+    for i in range(n_players):
+        hdr_cmd = header["players"][i].get("cmd") or []
+        casts = obs["players"][i].get("cmdcast") or []
+        cmd_tax_of.append({n: 2.0 * c for n, c in zip(hdr_cmd, casts)})
+
     # --- entities: dedup into (key -> [name, features, count]) ---
     # Rows leave in sorted-key order, NOT record order: record order can encode
     # hidden information (e.g. opponent draw order), and the leak test enforces
@@ -217,6 +229,8 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
             1.0 if "blk" in ent else 0.0,
             1.0,  # count, filled below
             0.0 if vis else 1.0,
+            (cmd_tax_of[ent["c"]].get(name, 0.0)
+             if ent["z"] == "command" and not ent.get("tok") else 0.0),
         ]
         groups[key] = [name, feats, 1]
 

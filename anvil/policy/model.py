@@ -98,13 +98,24 @@ class AnvilNet(nn.Module):
         """Load a checkpoint state_dict across the D5 boundary: task_emb grew
         6->8 rows (attack/block) — saved rows load exactly, new rows keep
         their fresh init; combat-head params may be missing entirely. Any
-        OTHER mismatch still raises (this is not a blanket strict=False)."""
+        OTHER mismatch still raises (this is not a blanket strict=False).
+
+        M3 D1 boundary: entity features grew 17->18 (cmd_tax, appended =
+        last ent_proj input column). Saved weights get a ZERO-padded new
+        column — zero, not fresh init, so pre-D1 checkpoints produce
+        byte-identical outputs until the feature is trained."""
         cur = self.task_emb.weight
         saved = state.get("task_emb.weight")
         if saved is not None and saved.shape[0] < cur.shape[0]:
             merged = cur.detach().clone()
             merged[:saved.shape[0]] = saved
             state = {**state, "task_emb.weight": merged}
+        cur_ep = self.assemble.ent_proj.weight
+        saved_ep = state.get("assemble.ent_proj.weight")
+        if saved_ep is not None and saved_ep.shape[1] < cur_ep.shape[1]:
+            padded = cur_ep.new_zeros(cur_ep.shape)
+            padded[:, :saved_ep.shape[1]] = saved_ep
+            state = {**state, "assemble.ent_proj.weight": padded}
         missing, unexpected = self.load_state_dict(state, strict=False)
         bad = [k for k in missing if not k.startswith(self._D5_PREFIXES)]
         if bad or unexpected:

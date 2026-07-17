@@ -10,7 +10,8 @@ reordering of hidden entities.
 import numpy as np
 import pytest
 
-from anvil.encoder.transform import VocabError, assemble, visible_to
+from anvil.encoder.transform import (ENTITY_FEATURES, ENTITY_SCALE, VocabError,
+                                     assemble, visible_to)
 
 
 def _header():
@@ -44,8 +45,9 @@ def test_leak_invariance():
     assert out_a["entity_names"] == out_b["entity_names"]
     np.testing.assert_array_equal(out_a["entity_counts"], out_b["entity_counts"])
     # and the hidden cards never leak a name
+    hid = ENTITY_FEATURES.index("hidden")
     hidden_rows = [n for n, row in zip(out_a["entity_names"], out_a["entities"])
-                   if row[-1] == 1.0]
+                   if row[hid] == 1.0]
     assert hidden_rows == [None]
 
 
@@ -118,3 +120,51 @@ def test_library_top_leak_invariance():
     out_b = assemble(_dec(b, p=0), _header())
     np.testing.assert_array_equal(out_a["entities"], out_b["entities"])
     assert out_a["entity_names"] == out_b["entity_names"] == [None]
+
+
+def _cmd_header():
+    h = _header()
+    h["players"][0]["cmd"] = ["Ertai, the Corrupted"]
+    h["players"][1]["cmd"] = ["Winota, Joiner of Forces"]
+    return h
+
+
+def test_cmd_tax_on_command_zone_commander():
+    """v4: command-zone commander rows carry the recast surcharge (2*cmdcast),
+    scaled; everything else reads 0 — including the commander once cast."""
+    col = ENTITY_FEATURES.index("cmd_tax")
+    ents = [{"e": 1, "n": "Ertai, the Corrupted", "z": "command", "c": 0},
+            {"e": 2, "n": "Winota, Joiner of Forces", "z": "battlefield", "c": 1},
+            {"e": 3, "n": "Sol Ring", "z": "battlefield", "c": 0}]
+    dec = _dec(ents)
+    dec["obs"]["players"][0]["cmdcast"] = [2]
+    dec["obs"]["players"][1]["cmdcast"] = [1]
+    out = assemble(dec, _cmd_header())
+    by_name = dict(zip(out["entity_names"],
+                       out["entities"][:, col] / ENTITY_SCALE[col]))
+    assert by_name["Ertai, the Corrupted"] == pytest.approx(4.0)  # 2 casts -> +4
+    assert by_name["Winota, Joiner of Forces"] == 0.0  # on battlefield, no row tax
+    assert by_name["Sol Ring"] == 0.0
+
+
+def test_cmd_tax_mirror_and_missing_fields():
+    """Mirror decks disambiguate by controller; absent cmd/cmdcast -> 0
+    (pre-Commander-header games and non-commander entities alike)."""
+    col = ENTITY_FEATURES.index("cmd_tax")
+    h = _header()
+    h["players"][0]["cmd"] = ["Atraxa, Praetors' Voice"]
+    h["players"][1]["cmd"] = ["Atraxa, Praetors' Voice"]
+    ents = [{"e": 1, "n": "Atraxa, Praetors' Voice", "z": "command", "c": 0},
+            {"e": 2, "n": "Atraxa, Praetors' Voice", "z": "command", "c": 1}]
+    dec = _dec(ents)
+    dec["obs"]["players"][0]["cmdcast"] = [3]
+    dec["obs"]["players"][1]["cmdcast"] = [0]
+    out = assemble(dec, h)
+    ctl = ENTITY_FEATURES.index("controller_is_self")
+    taxes = {row[ctl]: row[col] / ENTITY_SCALE[col] for row in out["entities"]}
+    assert taxes[1.0] == pytest.approx(6.0)  # self (p0): 3 casts
+    assert taxes[0.0] == 0.0                 # opponent: uncast
+
+    # no cmd/cmdcast anywhere: column is all zeros, assemble doesn't raise
+    out2 = assemble(_dec(ents), _header())
+    assert (out2["entities"][:, col] == 0.0).all()
