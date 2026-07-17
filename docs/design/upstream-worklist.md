@@ -126,14 +126,16 @@ merge note explicitly frames the duplication as technical debt whose removal
   voice + test consumer for the consolidation follow-up — and it exercises
   *restore-in-place*, the half forkcheck doesn't gate. Mention on the PR thread
   when the consolidation lands.
-- **Card-script verify-then-PR candidate**: `fireball.txt` /
-  `officious_interrogation.txt` per-extra-target cost raise suspected silently
-  inert (manabrew renamed the `Amount$ IncreaseCost`→`RaiseCost` SVar in their
-  fork as a parity fix; suspect mechanism = `CostAdjustment.java:~155` Relative
-  SVar scope, which has a collision-warning comment). Present verbatim in live
-  upstream (checked 2026-07-16). Needs a 10-minute `GameSimulationTest` repro
-  (cast Fireball at 2 targets, assert cost) before filing — do NOT upstream
-  unverified.
+- **Card-script claim RESOLVED — does not reproduce (2026-07-17)**: manabrew's
+  `fireball.txt` / `officious_interrogation.txt` "IncreaseCost→RaiseCost SVar
+  misname" fix (their `d658cbc757`) probes clean on the stock script:
+  `FireballRaiseCostTest` (fork commit `023e8c5da9`, sim-test) shows the
+  per-extra-target raise applies correctly on the AI cost-calculation path
+  (X=2: 1 target CMC 3, 2 targets CMC 4). `CostAdjustment.java:~155`'s
+  collision guard pre-resolves the SVar from the static as designed; script
+  unchanged upstream for years. Likely a misdiagnosis or a symptom in their
+  harness's own payment path. **Keep the rename OUT of any joint determinism
+  PR**; the test is available to contribute upstream as a regression test.
 - **forkcheck false-positive checklist** (from manabrew's parity whitelists):
   summoning-sickness on non-creatures (Java keeps it on lands from graveyard —
   no gameplay effect per CR 302.6), transient token lifetimes in
