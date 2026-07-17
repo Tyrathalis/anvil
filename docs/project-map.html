@@ -80,7 +80,7 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
 
 <div class="stats">
   <div class="stat"><div class="v num">0.9671</div><div class="k">held-out honest agreement (D5 ckpt; combat: attack row 0.954, block 0.86; gate was high-80s)</div></div>
-  <div class="stat"><div class="v num">50.8%</div><div class="k">winrate vs the heuristic, held-out matchups (d6-run1 ckpt under re-ask, Ante-corrected ± 2.5pp; D5 BC ckpt reads 47.9%)</div></div>
+  <div class="stat"><div class="v num">52.2%</div><div class="k">winrate vs the heuristic teacher, held-out matchups (run-3 RL ckpt, 2,000 games Ante-corrected ± 1.1pp; +6.75pp over the BC ckpt at t=2.9 — done-when #4 resolved, ADR-0019)</div></div>
   <div class="stat"><div class="v num">113,592</div><div class="k">games in the training corpus (zero-error)</div></div>
   <div class="stat"><div class="v num">42.1M</div><div class="k">model parameters (d=512 × 10 trunk + SA vocab + combat heads)</div></div>
   <div class="stat"><div class="v num">65% → 0.2%</div><div class="k">model-intent filtering: M0 cast-veto → D5 attack-drop rate</div></div>
@@ -297,6 +297,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <tr><td><a href="decisions/ADR-0016-d5-closeout.md">0016</a></td><td class="num">07-14</td><td>D5 closeout: combat constructs end-to-end (bounded obs-join labels 0-violation corpus-wide, entity-ref wire, legality-only realizers with engine-authoritative repair); arms tie as predicted — D6 unblocked</td></tr>
   <tr><td><a href="decisions/ADR-0017-run2-entropy-collapse.md">0017</a></td><td class="num">07-16</td><td>d6-run2 collapse: always-on entropy bonus has no equilibrium under mirror-self-play near-zero advantages (lr sets the runaway rate) — bonus retired for a hinge floor, driver guards promote to v0, anomaly rule two-sided; lr ceiling bracketed</td></tr>
   <tr><td><a href="decisions/ADR-0018-ruleset-scope-clarification.md">0018</a></td><td class="num">07-16</td><td>Ruleset scope: games are 1v1 Commander at 40 life — Duel Commander is pool provenance, not the format; features before breadth, content in set-sized boundary chunks, 4-player = a feature; no dataset invalidation</td></tr>
+  <tr><td><a href="decisions/ADR-0019-d6-donewhen4-resolution.md">0019</a></td><td class="num">07-17</td><td>done-when #4 resolves TRUE: run-3 (guarded, first live guard halt at iter 13 on veto drift) reads 52.2% ± 1.1 corrected, +6.75pp paired over the BC arm (t=2.92) — the agent surpasses its teacher; veto drift = the named open front</td></tr>
 </table>
 
 <h2>For other Forge-AI builders</h2>
@@ -323,8 +324,8 @@ eval statistics, info-set enforcement, RL entropy collapse), each with detection
 </ul>
 
 <p class="foot">Living document — update at milestone boundaries alongside the CLAUDE.md status section.
-Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-16
-(community survey + archaeology dives; <a href="forge-ai-field-guide.md">field guide</a> published; ADR-0018 ruleset-scope clarification).</p>
+Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-17
+(ADR-0019: done-when #4 resolved — run-3's guarded chain surpasses the teacher at 52.2% ± 1.1; M2 closeout is next).</p>
 
 </main>
 </body>
