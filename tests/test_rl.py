@@ -104,3 +104,40 @@ def test_draw_scores_zero_for_both_seats():
     vs, adv, _ = vtrace_targets(v, lp, lp, reward=0.0)
     assert torch.allclose(vs, torch.zeros(2))
     assert (adv < 0).all()
+
+
+def test_census_first_attempt_veto_basis(tmp_path):
+    """M3 D1: first_veto_rate counts one attempt per window (no reask field),
+    so re-ask chains inflate veto_rate but not the first-attempt basis."""
+    import json as _json
+
+    from anvil.training.selfplay import _census_tallies
+
+    wd = tmp_path / "workers" / "inv-000"
+    wd.mkdir(parents=True)
+    m = "chooseSpellAbilityToPlay"
+    lines = [
+        # window A: clean first-attempt cast
+        {"by": "bridge", "m": m, "pick": "Bolt"},
+        # window B: first attempt vetoed, rescued on attempt 2 (chain of 3)
+        {"by": "bridge", "m": m, "pick": "Ertai", "veto": "unpayable"},
+        {"by": "bridge", "m": m, "pick": "Ertai", "veto": "unpayable", "reask": 1},
+        {"by": "bridge", "m": m, "pick": "Ring", "reask": 2},
+        # window C: model-chosen pass on first attempt
+        {"by": "bridge", "m": m, "pick": "pass"},
+    ]
+    (wd / "census.jsonl").write_text("\n".join(_json.dumps(r) for r in lines) + "\n")
+
+    c = _census_tallies(tmp_path)
+    assert c["veto"] == 2 and c["cast"] == 2 and c["reask_rescued"] == 1
+    assert c["veto_rate"] == 0.5           # chain-inflated: 2/(2+2)
+    assert c["first_veto"] == 1 and c["first_cast"] == 1
+    assert c["first_veto_rate"] == 0.5     # here equal by construction...
+
+    # ...but a longer re-veto chain moves ONLY the chain-inflated rate
+    lines += [{"by": "bridge", "m": m, "pick": "X", "veto": "no-fit", "reask": k}
+              for k in range(1, 5)]
+    (wd / "census.jsonl").write_text("\n".join(_json.dumps(r) for r in lines) + "\n")
+    c2 = _census_tallies(tmp_path)
+    assert c2["veto_rate"] == 0.75         # 6/(6+2)
+    assert c2["first_veto_rate"] == 0.5    # unchanged

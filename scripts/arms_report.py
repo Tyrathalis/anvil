@@ -75,6 +75,8 @@ def aggregate(run_dirs: list[Path]) -> dict:
                     if r.get("veto"):
                         vetoes[r.get("veto") if isinstance(r["veto"], str)
                                else r.get("reason", "veto")] += 1
+                        if not r.get("reask"):
+                            prio["first_veto"] += 1
                     elif r.get("pick") == "pass":
                         prio["pass"] += 1
                     else:
@@ -83,6 +85,8 @@ def aggregate(run_dirs: list[Path]) -> dict:
                             rungs[r["rung"]] += 1
                         if r.get("reask"):
                             reask_rescued += 1
+                        else:
+                            prio["first_cast"] += 1
                 elif m == "mulliganKeepHand" and r.get("by") == "bridge":
                     mull[str(r.get("keep")).lower()] += 1
 
@@ -100,6 +104,10 @@ def aggregate(run_dirs: list[Path]) -> dict:
     }
     n_veto = sum(vetoes.values())
     out["veto_rate"] = n_veto / max(prio["cast"] + n_veto, 1)
+    # M3 D1: chain-independent basis (one first attempt per window; census
+    # "reask" marks attempts > 0 only) — comparable across reask on/off envs
+    out["first_veto_rate"] = prio["first_veto"] / max(
+        prio["first_veto"] + prio["first_cast"], 1)
     out["reask"] = reask_env
     if reask_env:
         # rescue rate = vetoed cast intents eventually realized in-window
@@ -188,8 +196,8 @@ def main() -> None:
             wr_s += (f", ante-corrected {a['ante']['corrected_winrate']:.4f} "
                      f"± {a['ante']['corrected_se']:.4f}")
         print(f"{name}: {a['games']} games, {a['decisive']} decisive, "
-              f"{a['crashes']} crashes, {wr_s}, veto_rate {a['veto_rate']:.4f}, "
-              f"rungs {a['rungs']}")
+              f"{a['crashes']} crashes, {wr_s}, veto_rate {a['veto_rate']:.4f} "
+              f"(first-attempt {a['first_veto_rate']:.4f}), rungs {a['rungs']}")
 
 
 if __name__ == "__main__":

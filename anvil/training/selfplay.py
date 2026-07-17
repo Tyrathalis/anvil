@@ -110,6 +110,8 @@ def _census_tallies(run_dir: Path) -> dict:
             if r.get("m") == "chooseSpellAbilityToPlay":
                 if r.get("veto"):
                     c["veto"] += 1
+                    if not r.get("reask"):
+                        c["first_veto"] += 1
                 elif r.get("pick") == "pass":
                     c["pass"] += 1
                 else:
@@ -118,10 +120,17 @@ def _census_tallies(run_dir: Path) -> dict:
                         # re-ask rescue: a cast realized on attempt >0 —
                         # pre-reask this window would have been a forced pass
                         c["reask_rescued"] += 1
+                    else:
+                        c["first_cast"] += 1
             for k in ("dropped", "forced"):
                 if r.get(k):
                     c[f"combat_{k}"] += r[k]
     c["veto_rate"] = round(c["veto"] / max(1, c["veto"] + c["cast"]), 4)
+    # M3 D1: chain-independent basis — each window contributes exactly one
+    # first attempt (census "reask" marks attempts > 0 only), so re-ask chains
+    # can't inflate this the way they inflate veto_rate. Done-when #1 reads it.
+    c["first_veto_rate"] = round(
+        c["first_veto"] / max(1, c["first_veto"] + c["first_cast"]), 4)
     if c.get("reask_rescued") or c.get("veto"):
         # rescue rate = vetoed intents eventually realized in the same window
         c["reask_rescue_rate"] = round(c["reask_rescued"] / max(1, c["veto"]), 4)
@@ -353,7 +362,8 @@ def main() -> None:
         if state.get("baseline") is None:
             # the run's iter-0 operating point: the ent/veto guard baselines
             state["baseline"] = {"ent": mean.get("ent"),
-                                 "veto_rate": census.get("veto_rate")}
+                                 "veto_rate": census.get("veto_rate"),
+                                 "first_veto_rate": census.get("first_veto_rate")}
         state.update(iteration=k + 1, ckpt=str(new_ckpt),
                      start_index=state["start_index"] + args.games)
         state_path.write_text(json.dumps(state, indent=2))
