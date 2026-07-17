@@ -14,7 +14,12 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge.
 | **Grindstone** | the drill economy |
 | **Ante** | the luck ledger (luck-adjusted evaluation) |
 
-Initial scope is 1v1 Duel Commander over a curated ~1–2K card pool.
+Initial scope is 1v1 Commander over a curated ~1–2K card pool drawn from
+competitive Duel Commander decklists
+([ADR-0018](docs/decisions/ADR-0018-ruleset-scope-clarification.md):
+games run the 40-life Commander ruleset; the DC meta supplies the pool,
+not the rules). The long-run plan is every card and mode Forge supports,
+added in set-sized chunks once the core features are in place.
 
 ## Documentation
 

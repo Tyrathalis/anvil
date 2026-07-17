@@ -9,7 +9,7 @@ A neural agent for Magic: The Gathering built on the Forge rules engine: unified
 - **Grindstone** — the drill economy (grinds scenarios, sharpens the model)
 - **Ante** — the luck ledger (accounts what chance took and gave)
 
-**Initial scope:** 1v1 Duel Commander. The card pool is defined as the **union of current DC meta decklists plus common flex slots** (~1–2K cards) — a living object updated as the meta moves, via the same onboarding path as new sets — resolving the earlier tension between "curated pool" and "real meta priors." Expansion toward the full ~20–30K pool rides on text-embedding generalization. Multiplayer politics explicitly deferred; the pilot is 1v1, while Tutor and Mentor may serve multiplayer Commander.
+**Initial scope:** 1v1 Duel Commander. *[Amended by ADR-0018 (2026-07-16): the ruleset is 1v1 Commander at 40 life — Forge ships no DC game type and all data to date is 40-life; Duel Commander is the pool's provenance. Content breadth (precons, then set-sized chunks; modes via bridge-tag coverage; 4-player classified as a feature) sequences after core features.]* The card pool is defined as the **union of current DC meta decklists plus common flex slots** (~1–2K cards) — a living object updated as the meta moves, via the same onboarding path as new sets — resolving the earlier tension between "curated pool" and "real meta priors." Expansion toward the full ~20–30K pool rides on text-embedding generalization. Multiplayer politics explicitly deferred; the pilot is 1v1, while Tutor and Mentor may serve multiplayer Commander.
 
 ---
 
