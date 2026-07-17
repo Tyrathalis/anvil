@@ -73,10 +73,10 @@
 <h1>Anvil</h1>
 <p class="sub">A neural agent for Magic: The Gathering, built on the Forge rules engine.
 Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nights-and-weekends project.
-&nbsp;·&nbsp; <span class="pill done">M0 closed</span> <span class="pill done">M1 closed</span> <span class="pill done">M2 closed</span> <span class="pill live">M3 planning</span></p>
+&nbsp;·&nbsp; <span class="pill done">M0 closed</span> <span class="pill done">M1 closed</span> <span class="pill done">M2 closed</span> <span class="pill live">M3 open</span></p>
 <p class="sub"><b>Start here:</b> <a href="design/anvil-design-v2.md">the design doc</a> (why and what)
 → <a href="forge-ai-field-guide.md">the field guide</a> (what we learned the hard way)
-→ <a href="design/m2-rl-plan.md">the current milestone plan</a> (what's happening now).</p>
+→ <a href="design/m3-plan.md">the current milestone plan</a> (what's happening now).</p>
 
 <div class="stats">
   <div class="stat"><div class="v num">0.9671</div><div class="k">held-out honest agreement (D5 ckpt; combat: attack row 0.954, block 0.86; gate was high-80s)</div></div>
@@ -93,14 +93,14 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
   <div class="card"><h3>Anvil <span class="pill live">RL agent live</span></h3><p>The project and the pilot agent — plays the game. RL-tuned policy surpasses its heuristic teacher (52.2% corrected), plays over the bridge.</p></div>
   <div class="card"><h3>Tutor <span class="pill future">future</span></h3><p>The deckbuilder — searches the pool for what the deck needs.</p></div>
   <div class="card"><h3>Mentor <span class="pill future">future</span></h3><p>The coaching product — narrates, flags blunders, assigns drills.</p></div>
-  <div class="card"><h3>Grindstone <span class="pill future">M2+</span></h3><p>The drill economy — grinds scenarios, sharpens the model. Every drill provenance-traced to a real game.</p></div>
-  <div class="card"><h3>Ante <span class="pill">v0 live</span></h3><p>The luck ledger — accounts what chance took and gave. v0 AIVAT ledger landed with M2 D4 (openers/draws/die); mirror certification in flight.</p></div>
+  <div class="card"><h3>Grindstone <span class="pill future">M3 flex</span></h3><p>The drill economy — grinds scenarios, sharpens the model. Every drill provenance-traced to a real game. M3 flex slot: seed drills from the 34 never-cast blind-spot cards.</p></div>
+  <div class="card"><h3>Ante <span class="pill">certified</span></h3><p>The luck ledger — accounts what chance took and gave. AIVAT ledger certified (ADR-0014, re-certified at the omniscient tier); corrected reads standard in the arms eval (~5% variance cut).</p></div>
 </div>
 <p>Initial scope: 1v1 Commander (40-life ruleset), curated pool <code>cf2ca6ba</code> — 1,701 cards from 113 competitive Duel Commander decklists
 (<a href="decisions/ADR-0018-ruleset-scope-clarification.md">ADR-0018</a>: DC supplies the pool, not the rules; breadth scales set-by-set after core features).</p>
 
 <h2>How the pieces connect</h2>
-<div class="flow"><svg viewBox="0 0 640 440" role="img" aria-label="Data flow: Forge fork to bridge to Python model and store, with the M2 self-play loop beneath">
+<div class="flow"><svg viewBox="0 0 640 440" role="img" aria-label="Data flow: Forge fork to bridge to Python model and store, with the self-play loop beneath">
   <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
     <path d="M0,0 L8,4 L0,8 z" fill="context-stroke" stroke="none"/></marker></defs>
   <rect x="8"   y="20"  width="180" height="92"/>
@@ -143,7 +143,7 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
   <path d="M390,217 L440,217"/>
   <path d="M539,180 L539,118"/><text x="551" y="150" class="lbl">serve</text>
 
-  <text x="8" y="296">M2 self-play loop (D6) — one iteration through the machinery above:</text>
+  <text x="8" y="296">Self-play loop (built M2 D6, standing) — one iteration through the machinery above:</text>
   <rect x="8"   y="316" width="130" height="68"/>
   <text x="73"  y="338" text-anchor="middle">generate</text>
   <text x="73"  y="354" text-anchor="middle" class="lbl">fleet w=8 · 1,146 g/h</text>
@@ -257,17 +257,22 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
 </details>
 
 <details open>
-<summary><b>D6 — RL fine-tune</b> <span class="pill live">run-3 live</span> — loop built · run-1 +3.0–3.8pp (≤1.7σ) · run-2 entropy collapse → guards (ADR-0017) · first guarded run in flight</summary>
+<summary><b>D6 — RL fine-tune</b> <span class="pill done">done 07-17</span> — loop built · run-1 +3.0–3.8pp (≤1.7σ) · run-2 entropy collapse → guards (ADR-0017) · run-3 guarded chain surpasses the teacher (ADR-0019)</summary>
 <p>V-trace self-play machinery end-to-end per <a href="design/d6-vtrace-loop.md">d6-vtrace-loop.md</a>: fleet measured <b>1,146 g/h</b> w=8 both-seats under micro-batching (target 1,000); seeded Gumbel-max sampling (batch-composition-independent by scatter-padded per-decision noise) + behavior-policy <code>mu.jsonl</code> keyed (g, s), zero Java changes; <code>composite_logp</code> = one body for the μ recompute tripwire / π ratios / PG term; V-trace targets unit-tested (caught a terminal double-count pre-training); synchronous loop driver (generate → ingest → train → swap) with the §6 anomaly monitor + arms cadence. <b>2-iteration smoke closed the loop</b>: iteration 1 served the RL-trained ckpt, 0 tripwire violations, critic tracks realized reward.</p>
 <p><b>d6-run1 (07-15 overnight): 12 iterations × 480 games ran to completion, zero unhandled failures</b> — entropy/KL/critic monitors quiet throughout; first contact fixed 3 real bugs (mu-join chimera on diverged re-issues, segment-graph OOM, torn log lines; iterations now phase-idempotent). <b>Arms: final ckpt 0.478 ± 0.011 on 2,000 games, paired +3.76pp ± 2.22 vs the D5 arm (t=1.69) — improves, not yet outside noise; done-when #4 open.</b> Run-2 levers: the veto drift (14→19% under RL pressure — serve-time re-ask promotes to the front) and lr/iteration scaling (cumulative KL from init only ~0.05).</p>
 <p><b>Run-2 prep (07-15 session 2): re-ask-on-veto BUILT and certified</b> (design §6b; fork <code>64c6322f35</code>: vetoed priority decisions re-issue with the vetoed candidate removed, fresh seq + μ record per attempt, <code>retry_of</code> wire mark; smoke 644 re-asks/40 games, tripwire 0) <b>+ Ante-ledger corrected reads folded into the standing arms eval</b> (<code>arms_report --ante</code>, seat-flipped fitted-β merge). <b>Arms re-baselined under the new environment: d5 0.4789 ± 0.0244 / rl1 0.5083 ± 0.0246 corrected — the RL ckpt's first read at parity with its teacher; paired rl1−d5 +3.00pp ± 1.93 (t=1.55), consistent with run-1</b>. Re-ask alone worth ~+2pp to the BC arm; ~10% of vetoes rescue into casts, the rest become model-chosen passes the reward can see.</p>
-<p><b>d6-run2 (lr 3e-5 × 16) collapsed overnight — caught at iter 6, diagnosed to the ground (<a href="decisions/ADR-0017-run2-entropy-collapse.md">ADR-0017</a>): entropy-bonus runaway under near-zero mirror-self-play advantages (pg ±0.002 all run; the bonus was the only persistent gradient, lr its throttle — run-1's drift was the same force at ⅓ speed). Bonus retired → hinge floor; driver halt-guards (KL/entropy/veto triplines) promote to v0; anomaly rule two-sided. Run-3 = first guarded run, init from the run-1 ckpt.</b> <b>Run-3 launched 2026-07-16</b> (guards + hinge floor live: lr 2e-5, ent-floor 0.08, <code>-reask</code>, fresh seeds, init d6-run1 final) — in flight. Then mode/allocation heads (1.2% / 0.03% mass). Carried context: yield macros (§3b), ID dropout = the pre-Tutor lever.</p>
+<p><b>d6-run2 (lr 3e-5 × 16) collapsed overnight — caught at iter 6, diagnosed to the ground (<a href="decisions/ADR-0017-run2-entropy-collapse.md">ADR-0017</a>): entropy-bonus runaway under near-zero mirror-self-play advantages (pg ±0.002 all run; the bonus was the only persistent gradient, lr its throttle — run-1's drift was the same force at ⅓ speed). Bonus retired → hinge floor; driver halt-guards (KL/entropy/veto triplines) promote to v0; anomaly rule two-sided. Run-3 = first guarded run, init from the run-1 ckpt.</b> <b>Run-3 (07-16→17, guarded: lr 2e-5, hinge floor, <code>-reask</code>): 13 healthy iterations, then the first live guard halt</b> — veto tripline at 41.3%, ckpt rejected, ~10 min lost vs run-2's ~5h; entropy pinned all run (the hinge held). Strength grew throughout: <b>iter-012 reads 52.2% ± 1.1 corrected at 2,000 games, +6.75pp paired over the D5 BC arm (t=2.92) — done-when #4 resolved (<a href="decisions/ADR-0019-d6-donewhen4-resolution.md">ADR-0019</a>); the agent surpasses its teacher.</b> Veto drift = the named open front, carried to M3 (commander-tax observation gap = the forensics-supported cause). Carried context: yield macros (§3b), ID dropout = the pre-Tutor lever, mode/allocation heads (1.2% / 0.03% mass).</p>
 </details>
 
+</details>
+
+<details open>
+<summary>M3 — Strength on a community-integrated platform <span class="pill live">open 07-17</span> (plan: <a href="design/m3-plan.md">m3-plan.md</a>, seeded by <a href="decisions/ADR-0021-m3-opening-sequence.md">ADR-0021</a>)</summary>
+<p><b>Split milestone, RL spine dominant.</b> Spine: <b>D1</b> commander-tax observation fix (the iter-013 veto-forensics cause candidate: 73% of commander vetoes post-first-cast — recasts priced at printed cost) + first-attempt-veto metric → <b>D2</b> guarded scaling runs (find the recipe's ceiling; reserve levers: counterspell-hold examination → §3d veto penalty → per-head entropy floors). Parallel: <b>D3</b> upstream track at community pace — maintainer-led <a href="https://github.com/Card-Forge/forge/issues/11260">forge#11260</a> (per-Game ID counters; our design-input comment posted), joint determinism PR with manabrew (ThreadLocal MyRandom + pre-shuffle sort + tests; their Fireball SVar claim probed and does not reproduce — <code>FireballRaiseCostTest</code>), manabrew protocol #445 review vs the 109-callback census, endstep concurrency evaluation. Close: <b>D4</b> = the #11161 fork rebase as the dataset-boundary event (forkcheck BC-ckpt gate; fork pinned through all M3 RL runs). Flex: Grindstone seeding from the 34 never-cast blind spots. Done-when: veto cause resolved on fresh-RL forensics · a guarded run beats iter-012 outside noise (2,000-game corrected) · upstream surface submitted with tests + #445 gap list · rebase complete, gate green.</p>
 </details>
 
 <details>
-<summary>Beyond M2 — the product line <span class="pill future">design-doc §5–§11</span></summary>
+<summary>Beyond M3 — the product line <span class="pill future">design-doc §5–§11</span></summary>
 <ul>
   <li><b>Tutor</b>: pool search + deck assessment (performance curves: skill-dependence, forgiveness, ceiling).</li>
   <li><b>Grindstone</b>: drill economy; player-facing drills as a first-class Forge feature (tier-1 drills need no model — fork machinery + UI; opt-in placement solves the recording-flywheel cold start).</li>
@@ -299,6 +304,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <tr><td><a href="decisions/ADR-0018-ruleset-scope-clarification.md">0018</a></td><td class="num">07-16</td><td>Ruleset scope: games are 1v1 Commander at 40 life — Duel Commander is pool provenance, not the format; features before breadth, content in set-sized boundary chunks, 4-player = a feature; no dataset invalidation</td></tr>
   <tr><td><a href="decisions/ADR-0019-d6-donewhen4-resolution.md">0019</a></td><td class="num">07-17</td><td>done-when #4 resolves TRUE: run-3 (guarded, first live guard halt at iter 13 on veto drift) reads 52.2% ± 1.1 corrected, +6.75pp paired over the BC arm (t=2.92) — the agent surpasses its teacher; veto drift = the named open front</td></tr>
   <tr><td><a href="decisions/ADR-0020-m2-closeout.md">0020</a></td><td class="num">07-17</td><td>M2 closeout: all four done-whens resolved; forkcheck micro-batch matrix exonerates the batcher and re-scopes twin determinism as a policy property (engine bumps certify with the BC ckpt); commander-tax feature gap named as the veto-drift cause candidate; M3 planning next</td></tr>
+  <tr><td><a href="decisions/ADR-0021-m3-opening-sequence.md">0021</a></td><td class="num">07-17</td><td>M3 opening sequence: split milestone with RL spine (commander-tax fix → guarded scaling), upstream track parallel at community pace (#11260 support, joint determinism PR, #445 review), #11161 rebase closes as the dataset-boundary event; Grindstone = flex slot</td></tr>
 </table>
 
 <h2>For other Forge-AI builders</h2>
@@ -325,8 +331,8 @@ eval statistics, info-set enforcement, RL entropy collapse), each with detection
 </ul>
 
 <p class="foot">Living document — update at milestone boundaries alongside the CLAUDE.md status section.
-Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-17 (ADR-0020: M2 closed)
-(ADR-0019: done-when #4 resolved — run-3's guarded chain surpasses the teacher at 52.2% ± 1.1; M2 closeout is next).</p>
+Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-17 (ADR-0021: M3 open —
+split milestone, RL spine + upstream track; the community moment: maintainer-led forge#11260, joint determinism PR with manabrew).</p>
 
 </main>
 </body>

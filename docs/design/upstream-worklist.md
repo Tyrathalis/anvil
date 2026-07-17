@@ -120,6 +120,17 @@ merge note explicitly frames the duplication as technical debt whose removal
   shuffle→MyRandom drift item below; we're the natural author (post-#11203
   credibility), manabrew is the co-consumer. Contact: khaliostr/Anacleto/fedepoi
   on the Forge Discord #ai-plotting.
+  **2026-07-17 update — the centerpiece went maintainer-led:** after our
+  #ai-plotting reply, Hanmac filed
+  [forge#11260](https://github.com/Card-Forge/forge/issues/11260) ("Move
+  nextId statics into Game methods", self-assigned + tool4ever +
+  MostCromulent). Our design-input comment is posted (sibling-statics
+  enumeration: SpellAbility, SpellAbilityStackInstance, StaticAbility,
+  ReplacementEffect, Trigger, CombatView; the counter-must-travel-on-
+  copy/snapshot constraint from #11203; single-shared-counter alternative;
+  forkcheck verification offer). Our authored surface narrows to ThreadLocal
+  MyRandom + pre-shuffle sort + tests. M3 plan D3 tracks this
+  ([m3-plan.md](m3-plan.md)).
 - **GameSnapshot restore has a live downstream consumer**: manabrew's
   interactive host uses `new GameSnapshot(game)` + restore for mana-payment
   cancel/rollback (ManaBrewInteractiveController.java:1234/1938/2033). Second
