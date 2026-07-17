@@ -92,6 +92,16 @@ merge note explicitly frames the duplication as technical debt whose removal
   path. Sequencing: after D2/D3 land (it is not on the M2 critical path);
   coordinate timing with the maintainers on the PR thread.
 
+## Fork-local maintenance
+
+- **`ForkFidelityCheck` lacks the headless uncaught-exception handler**
+  (fork `67e55ba1c1` gave it to the AnvilRun worker path only): a startup
+  failure (e.g. decision-server handshake) raises Forge's MODAL bug-report
+  dialog and the process sits alive holding it — found 2026-07-17 when a
+  mis-launched control run parked a dialog on the desktop overnight-capable.
+  Apply the same handler at the forkcheck entry; fold into the next fork
+  touch (no jar rebuild urgency — it only bites operators).
+
 ## Harvested from community archaeology (2026-07-16, Discord + repo dives — see [discord-ai-plotting-survey.md](discord-ai-plotting-survey.md))
 
 - **Determinism-hooks PR (joint with manabrew, `witchesofthehill/forge` @ `d658cbc757`):**

@@ -73,7 +73,7 @@
 <h1>Anvil</h1>
 <p class="sub">A neural agent for Magic: The Gathering, built on the Forge rules engine.
 Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nights-and-weekends project.
-&nbsp;·&nbsp; <span class="pill done">M0 closed</span> <span class="pill done">M1 closed</span> <span class="pill live">M2 open</span></p>
+&nbsp;·&nbsp; <span class="pill done">M0 closed</span> <span class="pill done">M1 closed</span> <span class="pill done">M2 closed</span> <span class="pill live">M3 planning</span></p>
 <p class="sub"><b>Start here:</b> <a href="design/anvil-design-v2.md">the design doc</a> (why and what)
 → <a href="forge-ai-field-guide.md">the field guide</a> (what we learned the hard way)
 → <a href="design/m2-rl-plan.md">the current milestone plan</a> (what's happening now).</p>
@@ -90,7 +90,7 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
 
 <h2>The smithy (module map)</h2>
 <div class="cards">
-  <div class="card"><h3>Anvil <span class="pill live">M1 agent live</span></h3><p>The project and the pilot agent — plays the game. BC policy trained, plays over the bridge.</p></div>
+  <div class="card"><h3>Anvil <span class="pill live">RL agent live</span></h3><p>The project and the pilot agent — plays the game. RL-tuned policy surpasses its heuristic teacher (52.2% corrected), plays over the bridge.</p></div>
   <div class="card"><h3>Tutor <span class="pill future">future</span></h3><p>The deckbuilder — searches the pool for what the deck needs.</p></div>
   <div class="card"><h3>Mentor <span class="pill future">future</span></h3><p>The coaching product — narrates, flags blunders, assigns drills.</p></div>
   <div class="card"><h3>Grindstone <span class="pill future">M2+</span></h3><p>The drill economy — grinds scenarios, sharpens the model. Every drill provenance-traced to a real game.</p></div>
@@ -131,7 +131,7 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
 
   <rect x="446" y="180" width="186" height="74"/>
   <text x="539" y="205" text-anchor="middle">Checkpoints of record</text>
-  <text x="539" y="222" text-anchor="middle" class="lbl">BC d5-combat · RL d6-run1</text>
+  <text x="539" y="222" text-anchor="middle" class="lbl">BC d5-combat · RL d6-run3/i012</text>
   <text x="539" y="237" text-anchor="middle" class="lbl">3-epoch recipe · pass-δ calib</text>
 
   <path d="M188,52 L238,52"/><text x="213" y="45" text-anchor="middle" class="lbl">obs+options</text>
@@ -222,7 +222,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
 </details>
 
 <details open>
-<summary>M2 — Reinforcement learning <span class="pill live">open</span> (plan: <a href="design/m2-rl-plan.md">m2-rl-plan.md</a>, seeded from ADR-0010)</summary>
+<summary>M2 — Reinforcement learning <span class="pill done">closed 07-17</span> (plan: <a href="design/m2-rl-plan.md">m2-rl-plan.md</a>; closed by <a href="decisions/ADR-0020-m2-closeout.md">ADR-0020</a> — all four done-whens resolved, agent surpasses its teacher)</summary>
 
 <details>
 <summary><b>D1 — Fork-API hardening</b> <span class="pill done">closed 07-10</span> — statics 12%→0 · divergence 50%→2.5% · twin 100% · fixes merged upstream (#11203)</summary>
@@ -298,6 +298,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <tr><td><a href="decisions/ADR-0017-run2-entropy-collapse.md">0017</a></td><td class="num">07-16</td><td>d6-run2 collapse: always-on entropy bonus has no equilibrium under mirror-self-play near-zero advantages (lr sets the runaway rate) — bonus retired for a hinge floor, driver guards promote to v0, anomaly rule two-sided; lr ceiling bracketed</td></tr>
   <tr><td><a href="decisions/ADR-0018-ruleset-scope-clarification.md">0018</a></td><td class="num">07-16</td><td>Ruleset scope: games are 1v1 Commander at 40 life — Duel Commander is pool provenance, not the format; features before breadth, content in set-sized boundary chunks, 4-player = a feature; no dataset invalidation</td></tr>
   <tr><td><a href="decisions/ADR-0019-d6-donewhen4-resolution.md">0019</a></td><td class="num">07-17</td><td>done-when #4 resolves TRUE: run-3 (guarded, first live guard halt at iter 13 on veto drift) reads 52.2% ± 1.1 corrected, +6.75pp paired over the BC arm (t=2.92) — the agent surpasses its teacher; veto drift = the named open front</td></tr>
+  <tr><td><a href="decisions/ADR-0020-m2-closeout.md">0020</a></td><td class="num">07-17</td><td>M2 closeout: all four done-whens resolved; forkcheck micro-batch matrix exonerates the batcher and re-scopes twin determinism as a policy property (engine bumps certify with the BC ckpt); commander-tax feature gap named as the veto-drift cause candidate; M3 planning next</td></tr>
 </table>
 
 <h2>For other Forge-AI builders</h2>
@@ -324,7 +325,7 @@ eval statistics, info-set enforcement, RL entropy collapse), each with detection
 </ul>
 
 <p class="foot">Living document — update at milestone boundaries alongside the CLAUDE.md status section.
-Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-17
+Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Last updated 2026-07-17 (ADR-0020: M2 closed)
 (ADR-0019: done-when #4 resolved — run-3's guarded chain surpasses the teacher at 52.2% ± 1.1; M2 closeout is next).</p>
 
 </main>
