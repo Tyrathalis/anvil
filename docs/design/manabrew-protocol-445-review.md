@@ -82,6 +82,6 @@ below, posted to their PR. Source: `feat/protocol-v1` branch,
 
 ## Disposition
 
-Comment posted to PR #445 (gap list, collaborative framing, offer of the
-CastPlan shape). Interop remains optional per the M3 plan — this review is
+Comment POSTED 2026-07-18 (user's voice, all six items + CastPlan offer):
+https://github.com/witchesofthehill/manabrew/pull/445#issuecomment-5012708413. Interop remains optional per the M3 plan — this review is
 the committed deliverable.
