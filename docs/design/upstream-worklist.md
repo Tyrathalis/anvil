@@ -155,6 +155,35 @@ merge note explicitly frames the duplication as technical debt whose removal
   discards go to graveyard instead of exile under Leyline). Useful when the
   consolidation forkcheck run produces digest diffs.
 
+## Queued idea — Android incremental asset updates (2026-07-18)
+
+User pain point (weekly app updates each force the full ~160MB assets.zip
+redownload) + Chronicle-relevant (collection mode is res-heavy). Archaeology:
+
+- **No recorded discussion of why delta updates don't exist.** GitHub searches
+  (issues + PRs: "incremental update", "delta assets", "redownload",
+  "assets.zip") = zero on-point hits; Discussions disabled on the repo. The
+  `AssetsDownloader.java` history is pure accretion of the whole-zip flow —
+  repeated iteration on *prompting/versioning* (release tags, snapshot 23-hour
+  allowance, version.txt/build.txt reconciliation, incomplete-res recovery)
+  but never on *transfer granularity*. Conclusion: nobody decided against it;
+  it's simply unbuilt. Per house survey lore, design conversations happen in
+  Discord/PRs — float the design in Discord before writing code.
+- **Constraint to preserve:** the mandatory-download-when-build-dates-mismatch
+  semantics are correct (card scripts are engine-coupled; res+engine are one
+  pinned unit — same invariant as our fork discipline). Delta changes the
+  transfer, not the lockstep.
+- **Implementation sketch (two options):** (a) CI-generated manifest of
+  per-file SHA-256 + sizes published beside assets.zip; client diffs local res
+  and fetches changed files. Requires per-file hosting. (b) **Zero-hosting-change
+  option: HTTP Range requests into assets.zip itself** — fetch the zip central
+  directory (tail range), diff entry CRCs/sizes against local files, download
+  only changed entries by offset. GitHub releases support Range. Needs a
+  fallback to full download when the server ignores Range (snapshot host TBD).
+  Either way typical weekly updates drop from ~160MB to single-digit MB.
+- Both release and snapshot channels benefit; snapshot users (daily builds,
+  23-hour update allowance) hit the pain hardest.
+
 ## Upstream drift watch (2026-07-10 sweep: pin `0bfdaa572f30` → `1eec01434e`, 57 commits)
 
 Full-log review ahead of PR #1 assembly. #11161 covered above. Also relevant:
