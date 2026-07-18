@@ -190,7 +190,8 @@ def _rl_summary(train_dir: Path) -> dict:
     last = rows[-1]
     n = max(1, len(rows))
     mean = {k: round(sum(r[k] for r in rows) / n, 5)
-            for k in ("reward", "v0", "rho_mean", "rho_clip", "kl_mu", "ent")
+            for k in ("reward", "v0", "rho_mean", "rho_clip", "kl_mu", "ent",
+                      "rej")
             if all(k in r for r in rows)}
     return {"steps": last.get("step"), "traj": last.get("traj"),
             "tripwire_viol": last.get("tripwire_viol"),
@@ -346,12 +347,18 @@ def main() -> None:
         if census.get("fallback"):
             flags.append(f"fallbacks={census['fallback']}")
         mean = rl.get("mean", {})
-        if mean.get("reward") is not None and mean.get("v0") is not None \
-                and abs(mean["reward"] - mean["v0"]) > 0.1:
+        if mean.get("reward") is not None and mean.get("v0") is not None:
             # §6 anomaly rule, two-sided per ADR-0017: reward >> critic is the
             # original bug-report direction; critic >> reward = value head
-            # chasing clipped-rho targets (run-2 iter 5 went unflagged)
-            flags.append(f"reward {mean['reward']} vs critic {mean['v0']}")
+            # chasing clipped-rho targets (run-2 iter 5 went unflagged).
+            # Under §6c shaping the critic predicts the SHAPED return, so the
+            # comparison basis is reward − λ·mean-rejected-per-trajectory
+            # (with λ=0 this reduces to the original rule).
+            shaped = mean["reward"] - args.penalty * mean.get("rej", 0.0)
+            if abs(shaped - mean["v0"]) > 0.1:
+                flags.append(f"shaped reward {round(shaped, 4)} "
+                             f"(raw {mean['reward']}, rej {mean.get('rej')}) "
+                             f"vs critic {mean['v0']}")
         if rl.get("tripwire_viol"):
             flags.append(f"tripwire={rl['tripwire_viol']}")
         non_won = {s: n for s, n in gstats["statuses"].items() if s != "won"}
