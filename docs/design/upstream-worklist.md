@@ -169,6 +169,10 @@ redownload) + Chronicle-relevant (collection mode is res-heavy). Archaeology:
   but never on *transfer granularity*. Conclusion: nobody decided against it;
   it's simply unbuilt. Per house survey lore, design conversations happen in
   Discord/PRs — float the design in Discord before writing code.
+  **Discord cross-check (user perusal, 2026-07-18): confirmed** — "delta" on
+  the server refers to netplay delta patching (reportedly troublesome —
+  unrelated system, avoid the term collision when pitching); download talk is
+  all card images; no asset-delta discussion exists there either.
 - **Constraint to preserve:** the mandatory-download-when-build-dates-mismatch
   semantics are correct (card scripts are engine-coupled; res+engine are one
   pinned unit — same invariant as our fork discipline). Delta changes the
@@ -183,6 +187,22 @@ redownload) + Chronicle-relevant (collection mode is res-heavy). Archaeology:
   Either way typical weekly updates drop from ~160MB to single-digit MB.
 - Both release and snapshot channels benefit; snapshot users (daily builds,
   23-hour update allowance) hit the pain hardest.
+
+## Queued idea — deck-site account sync (Archidekt/Moxfield, 2026-07-18)
+
+User wish; smaller lift than the asset-delta item. **Most of it already
+shipped**: PR #10570 (merged, in forge-2.0.13) = per-deck URL import via the
+sites' JSON APIs with edition+collector-number fidelity, exposed in the
+desktop deck chooser (`FDeckChooser` URL panel) *with a per-deck reload
+button* (providers: `forge-gui/src/main/java/forge/deck/
+{Archidekt,Moxfield}DeckUrlProvider.java`, `DeckUrlLoader`). In flight:
+#11045 (TappedOut/MTGGoldfish providers), #11044 (wire into the deck
+importer). **Remaining gap = the actual PR**: (a) account-level sync — link a
+username, enumerate the user's decks (Archidekt has public owner-listing
+endpoints; Moxfield's API is unofficial and permission-etiquette applies —
+polite rate limits, consider contacting them), loop the existing providers
+for bulk import/update; (b) mobile/Android exposure (current UI is
+desktop-chooser-only). Risk is API etiquette, not engineering.
 
 ## Upstream drift watch (2026-07-10 sweep: pin `0bfdaa572f30` → `1eec01434e`, 57 commits)
 
