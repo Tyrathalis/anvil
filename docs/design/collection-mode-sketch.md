@@ -9,9 +9,10 @@ huge collection by opening tons of packs across Magic's ~million printings, unlo
 increasingly weird high-paying autobattler formats, and let your decks earn currency in
 the background by playing *real* headless games. The gacha itch, minus the wallet.
 
-**Working codename candidates** (Magic vocabulary under the smithy umbrella, per house
-naming): **Vault** (Mana Vault; the collection is the vault), **Trove**, **Hoard**.
-Undecided.
+**Working codename: Chronicle** (chosen 2026-07-18, once the historical timeline
+became the master structure — replaying the history of Magic as an incremental
+collection game; on-the-nose bonus: Chronicles '95 is the mode's own canonical
+market-crash event). Earlier candidates: Vault, Trove, Hoard.
 
 ## Relationship to existing Forge modes
 
@@ -198,10 +199,39 @@ with one move: **history is the content designer.**
   modifiers** as prestige runs ("Chronicles never happened", "no Reserved List") —
   replayability from divergence, not new content.
 
-Timeline-specific caveats: Forge plays *modern rules only* — historical pools under
-anachronistic rules (no mana burn, no damage on stack, no real ante), the right
-compromise but state it; completeness of Forge's sealed-product/collation data for
+Timeline-specific caveat: completeness of Forge's sealed-product/collation data for
 early editions is an archaeology question alongside the Quest-code one.
+
+### Era rulesets — feasibility tiering (2026-07-18 fork archaeology)
+
+Default stance was "modern rules, historical pools" — but the fork dive shows era
+*flavor* rulesets are far cheaper than assumed. Pin for ANY era ruleset: **current
+Oracle wordings + era rules deltas + era pools** — never era wordings (functional
+errata history is per-card data; do not attempt). Era-limited pools kill most
+edge cases structurally: the rules deltas never meet the modern cards that stress
+them.
+
+- **Tier 0 — already in the engine, config only:** `GameRules.manaBurn`; full ante
+  suite (`playForAnte`/`matchAnteRarity`/`anteIncludeBasicLands`, `Ante` is a real
+  zone in the script language, Contract from Below / Darkpact / Demonic Attorney
+  scripted); mulligan variants already pluggable (`ParisMulligan`/`VancouverMulligan`/
+  `LondonMulligan` behind `MulliganService`). A "93/94 flavor" ruleset ≈ a config
+  object + era deck-legality data. (Real ante returns in Chronicle; module-name
+  collision with our Ante ledger is thematic, not technical.)
+- **Tier 1 — cheap localized flags:** legend-rule variants (one method,
+  `GameAction.handleLegendRule`); planeswalker damage redirection (mid-2010s slices
+  only); pre-6th tapped-blockers-deal-no-damage (combat flag).
+- **Tier 2 — the one real engine project:** combat damage on the stack (1999–2009).
+  Central combat/priority restructuring, weeks + permanent test-matrix tax; also the
+  heuristic AI doesn't know the era's signature sac-after-damage tactic, so
+  implemented-but-unplayed-well it still flattens era flavor. Skippable v1; but it IS
+  the 6th-era defining rule — decide late.
+- **Tier 3 — don't:** full pre-6th fidelity (interrupts, batches, damage-prevention
+  steps) = a second rules engine.
+- **Upstream constituency:** "modern rules, era pools" exactly matches how the living
+  Premodern and Old School 93/94 communities already play. Tier 0/1 work doubles as
+  real-format support for them — a standalone prosocial pitch, same shape as the
+  multilingual angle.
 
 ## Risks / honest caveats
 
