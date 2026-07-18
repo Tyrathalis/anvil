@@ -304,9 +304,29 @@ Full agent reports summarized; key paths repo-relative to the fork.
 ### Remaining platform question
 
 Where Chronicle's UI lives: desktop Swing (Quest-style, both UIs to maintain) vs
-mobile libGDX (Adventure-style) vs shared `forge-gui` screens. Unresolved; note that
-the deck editor is shared infra (`FDeckEditor`) either way, and Chronicle's economy
-core should be UI-free from day one regardless (the harvested layers already are).
+mobile libGDX (Adventure-style) vs shared `forge-gui` screens. The deck editor is
+shared infra (`FDeckEditor`) either way, and Chronicle's economy core should be
+UI-free from day one regardless (the harvested layers already are).
+
+**Upstream UI-activity read (2026-07-18):** no large UI modernization program exists;
+desktop Swing gets maintenance + small QoL (autotap highlighting, deck sleeves,
+window-ownership fixes), while *platform investment* flows to the libGDX frontend —
+open PR #11190 adds **iOS support** (JvmDowngrader/MobiVM pipeline), Adventure gets
+feature PRs (Randomizer/Archipelago #11167). The libGDX UI already runs on desktop
+via `forge-gui-mobile-dev`. **Lean: build Chronicle's UI on the libGDX frontend**
+(one codebase → Android + desktop + future iOS, and the Adventure UX pieces we'd
+harvest — RewardScene reveal, SpellSmith — are already there). Watch item:
+PR #11093 "Replace Scryfall's API with custom API using Scryfall data" — directly
+relevant to the printing/price import plans.
+
+**Related prosocial candidate — Android asset delta updates:** the ~160MB assets.zip
+full redownload every app update is by design (APK is ~12MB code-only; all of `res/`
+ships as assets.zip versioned in lockstep with the app — `AssetsDownloader` compares
+`assets/version.txt` + res `build.txt` against the APK and prompts, mandatory when
+build dates mismatch, because card scripts are engine-coupled). There is NO delta
+mechanism — a manifest/per-file-hash incremental updater would cut typical updates
+to a few MB. Self-contained, user-popular, and Chronicle-relevant (a collection mode
+is res-heavy).
 
 ## Risks / honest caveats
 
