@@ -178,8 +178,10 @@ X-class-specific removal instead of whole-row.
 
 ## 6c. M3 amendment: rejected-intent penalty — the §3d reward-shaping pin (2026-07-17, DRAFT)
 
-**Status: drafted during d6-run4; needs user sign-off on scope + coefficient
-before any run trains with it.** Amends design §3d's terminal-only reward.
+**Status: ACCEPTED 2026-07-17 (user sign-off mid-run-4): scope = vetoed
+casts + combat drops, λ = 0.02.** Amends design §3d's terminal-only reward.
+First training use = run-5, gated on run-4's feature-only verdict and the
+census-reconciliation gate below.
 
 **Motivation.** Re-ask (§6b) removed the reward *leak* but also the last
 vestige of *cost* for doomed attempts: every attempt in a re-ask chain
