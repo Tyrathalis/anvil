@@ -154,7 +154,8 @@ def composite_entropy(fwd: dict, batch: dict) -> torch.Tensor:
 
 def vtrace_targets(values: torch.Tensor, logp_pi: torch.Tensor,
                    logp_mu: torch.Tensor, reward: float, gamma: float = 1.0,
-                   rho_bar: float = 1.0, c_bar: float = 1.0
+                   rho_bar: float = 1.0, c_bar: float = 1.0,
+                   step_r: "torch.Tensor | None" = None
                    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """V-trace value targets + policy-gradient advantages for ONE trajectory
     (one seat's decision sequence in one game, time-ordered).
@@ -164,6 +165,8 @@ def vtrace_targets(values: torch.Tensor, logp_pi: torch.Tensor,
     cap-aware rule; a stalling leader forfeits the +1). The terminal state
     itself has value 0 (nothing follows); the reward rides the LAST
     transition — putting it in both places double-counts.
+    step_r: (T,) optional per-step shaping rewards (§6c rejected-intent
+    penalty); the terminal reward ADDS to step_r[-1].
 
     Returns (vs, pg_adv, rho): vs (T,) the value regression targets,
     pg_adv (T,) = rho_s (r_s + gamma vs_{s+1} - V(x_s)), rho (T,) clipped.
@@ -172,8 +175,8 @@ def vtrace_targets(values: torch.Tensor, logp_pi: torch.Tensor,
     rho = torch.exp(logp_pi - logp_mu)
     c = rho.clamp(max=c_bar)
     rho = rho.clamp(max=rho_bar)
-    r = torch.zeros(t_len)
-    r[-1] = reward
+    r = torch.zeros(t_len) if step_r is None else step_r.clone().float()
+    r[-1] += reward
     v_next = torch.cat([values[1:], torch.zeros(1)])  # V(terminal) = 0
     delta = rho * (r + gamma * v_next - values)
     vs = torch.zeros(t_len)
@@ -227,6 +230,57 @@ def mu_matches(ex: dict, rec: dict) -> bool:
     return True
 
 
+def rejected_events(decs: list, i: int, dec: dict, rec: dict, aux: dict) -> int:
+    """Engine-rejected intent count for one mu-covered window (§6c pin).
+
+    priority: 1 iff the mu pick was a cast (c > 0) and no SA realized
+    (ret null) — the vetoed-attempt signature (re-ask chains: every vetoed
+    attempt is its own dec, so each counts once).
+    attack: declared-but-not-realized attacker entities (per candidate row,
+    intended count minus realized count), via the D5 bounded obs join.
+    block: |declared - realized| blocker entities per row — dropped AND
+    forced-add repairs both count (the engine modified the declaration).
+
+    Combat bases come from the featurizer's aux (cmb_rows/cmb_members —
+    the same rows mu was recorded against, skew-free by construction).
+    Reader-side only; scripts/validate_rejected_intent.py reconciles these
+    against census veto/drop counts per run — the gate before any penalty
+    run trains (d6-vtrace-loop §6c)."""
+    task = rec["task"]
+    if task == "priority":
+        return 1 if rec["c"] > 0 and dec.get("ret") is None else 0
+    if task not in ("attack", "block"):
+        return 0
+    from anvil.training.dataset import _combat_label_window
+    obs = dec["obs"]
+    p = dec["p"]
+    rows = aux.get("cmb_rows") or []
+    members = aux.get("cmb_members") or {}
+    if not rows:
+        return 0
+    turn = obs["glob"].get("turn")
+    lw = _combat_label_window(decs, i, turn, "atk" if task == "attack" else "blk")
+    flag = "atk" if task == "attack" else "blk"
+    realized = set() if lw is None else {
+        e["e"] for e in lw["ents"] if flag in e and e.get("c") == p}
+    if task == "attack":
+        n = 0
+        for j, r in enumerate(rows):
+            ids = members[r]
+            want = min(rec["cnt"][j], len(ids)) if rec["atk"][j] else 0
+            got = sum(1 for eid in ids if eid in realized)
+            n += max(0, want - got)
+        return n
+    none_class = len(aux.get("blk_atk_rows") or [])
+    n = 0
+    for j, r in enumerate(rows):
+        ids = members[r]
+        want = min(rec["cnt"][j], len(ids)) if rec["blk"][j] != none_class else 0
+        got = sum(1 for eid in ids if eid in realized)
+        n += abs(want - got)
+    return n
+
+
 def game_trajectories(store, feat, g: int):
     """Per-seat mu-covered trajectories of one stored game, serve-identical
     windows via the featurizer path (store_wire_hist -> Featurizer.example ->
@@ -256,14 +310,16 @@ def game_trajectories(store, feat, g: int):
         if rec is not None and dec.get("obs") is not None:
             wire = dict(dec)
             wire["hist"] = store_wire_hist(prior, dec["_pos"])
-            ex, _aux = feat.example(wire, traj.header, rec["task"])
+            ex, aux = feat.example(wire, traj.header, rec["task"])
             if not mu_matches(ex, rec):
                 return [], "mu_mismatch"
+            rej = rejected_events(traj.decisions, len(prior), dec, rec, aux)
             apply_mu_labels(ex, rec)
-            by_seat.setdefault(dec["p"], []).append((ex, rec))
+            by_seat.setdefault(dec["p"], []).append((ex, rec, rej))
         prior.append(dec)
-    return [(p, exs, 1.0 if winner == p else 0.0)
-            for p, exs in sorted(by_seat.items())], None
+    return [(p, [(e, r) for e, r, _ in items], 1.0 if winner == p else 0.0,
+             [rj for _, _, rj in items])
+            for p, items in sorted(by_seat.items())], None
 
 
 def entropy_hinge(ent: "torch.Tensor", floor: float, b: int, t_len: int):
@@ -331,13 +387,14 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                 if hasattr(st, "_store_of"):
                     st = st._store_of[g]
                 mu_step = (st.mu_meta or {}).get("step")
-                for seat, exs, reward in trajs:
+                for seat, exs, reward, rej in trajs:
                     yield {"g": g, "seat": seat, "reward": reward,
                            # mu_step: which checkpoint generated these mu
                            # records — the recompute tripwire only applies
                            # when it matches the ref net (replay stores were
                            # sampled under older checkpoints)
                            "mu_step": mu_step,
+                           "rej": torch.tensor(rej, dtype=torch.float32),
                            "exs": [e for e, _ in exs],
                            "mu_logp": torch.tensor([r["logp"] for _, r in exs],
                                                    dtype=torch.float32)}
@@ -383,6 +440,12 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--tripwire-every", type=int, default=25,
                     help="mu-recompute check every Nth trajectory")
+    ap.add_argument("--penalty", type=float, default=0.0,
+                    help="rejected-intent penalty lambda (d6-vtrace-loop §6c): "
+                         "per-event negative reward on vetoed cast attempts "
+                         "and dropped/repaired combat declarations; 0 = off. "
+                         "A reward change is an RL-chain boundary — never mix "
+                         "replay stores across different lambda values.")
     ap.add_argument("--tripwire-tol", type=float, default=0.2,
                     help="per-decision |recomputed - recorded| logp tolerance. "
                          "bf16 serve-vs-recompute noise reaches ~0.075 on "
@@ -494,9 +557,10 @@ def main() -> None:
                       "— trajectory dropped")
                 continue
 
+        step_r = (-args.penalty) * item["rej"] if args.penalty else None
         vs, pg_adv, rho = vtrace_targets(values, logp_pi, mu_logp, reward,
                                          gamma=args.gamma, rho_bar=args.rho_bar,
-                                         c_bar=args.c_bar)
+                                         c_bar=args.c_bar, step_r=step_r)
 
         # ---- pass B (grad): policy gradient + value + entropy ----
         off = 0
@@ -524,6 +588,7 @@ def main() -> None:
         acc["kl_mu"] = acc.get("kl_mu", 0.0) + float((mu_logp - logp_pi).mean())
         acc["reward"] = acc.get("reward", 0.0) + reward
         acc["v0"] = acc.get("v0", 0.0) + float(values[0])
+        acc["rej"] = acc.get("rej", 0.0) + float(item["rej"].sum())
 
         if n_traj % args.traj_per_step == 0:
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)

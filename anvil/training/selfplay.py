@@ -139,11 +139,14 @@ def _census_tallies(run_dir: Path) -> dict:
 
 def guard_flags(census: dict, rl: dict, baseline: dict | None,
                 kl_max: float = 0.05, ent_mult: float = 2.0,
-                veto_mult: float = 1.5) -> list[str]:
+                veto_mult: float = 1.5, casts_floor: float = 0.8) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
     monitor.jsonl and nothing acting on it. kl is absolute (drift per
-    iteration); entropy/veto compare against the run's iter-0 baselines."""
+    iteration); entropy/veto compare against the run's iter-0 baselines.
+    casts_floor (§6c anti-passivity): halt if casts/game falls below this
+    fraction of iter-0 — the cheapest way to zero vetoes under the
+    rejected-intent penalty is to stop casting."""
     flags = []
     m = rl.get("mean") or {}
     kl = m.get("kl_mu")
@@ -156,6 +159,9 @@ def guard_flags(census: dict, rl: dict, baseline: dict | None,
         veto, veto0 = census.get("veto_rate"), baseline.get("veto_rate")
         if veto is not None and veto0 and veto > veto_mult * veto0:
             flags.append(f"guard: veto_rate {veto} > {veto_mult}x iter-0 ({veto0})")
+        cpg, cpg0 = census.get("casts_per_game"), baseline.get("casts_per_game")
+        if cpg is not None and cpg0 and cpg < casts_floor * cpg0:
+            flags.append(f"guard: casts_per_game {cpg} < {casts_floor}x iter-0 ({cpg0})")
     return flags
 
 
@@ -228,6 +234,13 @@ def main() -> None:
                     help="halt if mean entropy exceeds this multiple of iter-0")
     ap.add_argument("--guard-veto-mult", type=float, default=1.5,
                     help="halt if veto rate exceeds this multiple of iter-0")
+    ap.add_argument("--guard-casts-floor", type=float, default=0.8,
+                    help="halt if casts/game falls below this fraction of "
+                         "iter-0 (§6c anti-passivity)")
+    ap.add_argument("--penalty", type=float, default=0.0,
+                    help="rejected-intent penalty lambda (§6c); reward change "
+                         "= RL-chain boundary — do not resume a lambda=0 "
+                         "chain's replay mixture with a nonzero lambda")
     ap.add_argument("--value-weight", type=float, default=0.5)
     ap.add_argument("--traj-per-step", type=int, default=4)
     ap.add_argument("--arms-every", type=int, default=5,
@@ -314,6 +327,7 @@ def main() -> None:
                   "--traj-per-step", str(args.traj_per_step),
                   "--seg", str(args.rl_seg),
                   "--workers", str(args.rl_workers),
+                  "--penalty", str(args.penalty),
                   "--epochs", str(args.epochs), "--seed", str(k)])
         t_train = time.monotonic() - t0
         new_ckpt = train_dir / "last.pt"
@@ -323,6 +337,10 @@ def main() -> None:
         # ---- monitor row + anomaly flags (accept ckpt AFTER writing it) ----
         census = _census_tallies(run_dir)
         gstats = _game_stats(run_dir)
+        if gstats.get("games"):
+            # §6c anti-passivity basis (first attempts: chain-independent)
+            census["casts_per_game"] = round(
+                census.get("first_cast", 0) / gstats["games"], 2)
         rl = _rl_summary(train_dir)
         flags = []
         if census.get("fallback"):
@@ -343,7 +361,8 @@ def main() -> None:
         # ---- ADR-0017 halt guards: reject the ckpt, don't just narrate ----
         guards = guard_flags(census, rl, state.get("baseline"),
                              kl_max=args.guard_kl, ent_mult=args.guard_ent_mult,
-                             veto_mult=args.guard_veto_mult)
+                             veto_mult=args.guard_veto_mult,
+                             casts_floor=args.guard_casts_floor)
         row = {"iteration": k, "ckpt": state["ckpt"], "run": str(run_dir),
                "store": str(store), "gen_s": round(t_gen), "train_s": round(t_train),
                "census": census, "games": gstats, "rl": rl, "flags": flags,
@@ -363,7 +382,8 @@ def main() -> None:
             # the run's iter-0 operating point: the ent/veto guard baselines
             state["baseline"] = {"ent": mean.get("ent"),
                                  "veto_rate": census.get("veto_rate"),
-                                 "first_veto_rate": census.get("first_veto_rate")}
+                                 "first_veto_rate": census.get("first_veto_rate"),
+                                 "casts_per_game": census.get("casts_per_game")}
         state.update(iteration=k + 1, ckpt=str(new_ckpt),
                      start_index=state["start_index"] + args.games)
         state_path.write_text(json.dumps(state, indent=2))
