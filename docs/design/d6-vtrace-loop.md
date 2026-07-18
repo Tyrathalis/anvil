@@ -234,9 +234,40 @@ don't move. Loss-curve comparisons across the reward boundary are invalid
 derived at label construction from the store: vetoed attempts from the
 `retry_of` chain / ret-null pattern; combat drops by diffing the answered
 AttackMap/BlockMap against realized combat in the following obs (the D5
-bounded-join machinery). **Gate before first training use: derived counts
-must reconcile exactly with census veto/drop counts on the same run** (the
-loader-vs-measure reconciliation pattern that caught the D5 same-ids class).
+bounded-join machinery). **Gate (amended 2026-07-17 after the first live
+reconciliation, run3-i000, 480 games): priority must reconcile EXACTLY
+(certified: 9,007 = 9,007); combat census comparison is DIAGNOSTIC, not
+ground truth — every n≥2 event must match (they all do: the 7-, 5-, 3- and
+2-drop events reconcile to the event) and every residual single-event
+mismatch must be attributable to one of the named corner classes below.**
+The forensic dive on the 5 mismatch events found census and derivation
+measure *different things* at the corners, and the derivation's
+intent-vs-outcome accounting is the semantically correct penalty basis:
+
+1. *Census over-counts internal repair* (g443 attack, `dropped=1 forced=1`):
+   the realizer's tiered self-validation dropped a declared attacker and the
+   forced-add tier restored it — realized combat equals the declared intent
+   exactly. Derivation correctly reads 0; census counts the machinery's
+   round trip.
+2. *Census is blind to silent illegal-block discards* (g269: single block
+   into an animated Hive of the Eye Tyrant, menace; g363: single block into
+   Troll of Khazad-dûm, "except by three or more"): **min-blocker
+   RESTRICTIONS pass the block realizer** (whose repair handles
+   *requirements* via the `mustBlockAnAttacker` fixed point, not
+   restrictions) **and the engine discards the illegal block silently
+   downstream** — census records nothing, the model's block simply
+   evaporates. This extends the D5 "the engine never validates AI blocks"
+   finding: restrictions ARE enforced, silently, after the declaration.
+   These are genuine rejected-intent events the derivation catches and the
+   census misses — the penalty pricing them is a feature. (Serve-side
+   follow-up queued in the worklist: teach the block realizer MinMaxBlocker
+   restrictions, or re-ask on them.)
+3. *Post-declaration invalidation by opponent triggers* (g383: Seasoned
+   Dungeoneer's on-attack "target attacker gains protection from creatures"
+   removed a block that was legal when declared): environment dynamics, not
+   a declaration error — penalizing it is philosophically impure but the
+   class is tiny, inseparable reader-side in v1, and the gradient it adds
+   ("respect protection tricks") is not wrong play advice.
 
 **Anti-passivity guards.** The known failure mode: the cheapest way to zero
 vetoes is to stop casting. Guards: (a) casts/game joins the driver guard set

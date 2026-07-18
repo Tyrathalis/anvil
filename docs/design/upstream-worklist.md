@@ -197,3 +197,15 @@ Full-log review ahead of PR #1 assembly. #11161 covered above. Also relevant:
   Anvil controllers (verified in play, forkcheck `-bridge`/`-grpc`). Nothing
   to upstream; the generic swap behavior remains a landmine for non-AI-derived
   controllers — fork-API-conversation material, not a PR.
+
+- **Block realizer MinMaxBlocker gap (2026-07-17, §6c reconciliation dive):**
+  min-blocker *restrictions* (menace, "except by three or more" —
+  `MinMaxBlocker` statics) pass the D5 block realizer untouched (its repair
+  covers *requirements* via the `mustBlockAnAttacker` fixed point only) and
+  the engine silently discards the illegal block downstream — the model's
+  declared block evaporates with no census record (verified: run3-i000 g269
+  Hive of the Eye Tyrant single-block, g363 Troll of Khazad-dûm
+  single-block). Fork fix: realizer checks `MinMaxBlocker` bounds and
+  drops/re-asks under-strength blocks (census `dropped` then counts them).
+  Until then the §6c reader-side derivation is the only accounting that sees
+  this class. Small, serve-side, pairs with the block-drop re-ask follow-up.
