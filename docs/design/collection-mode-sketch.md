@@ -159,6 +159,50 @@ Market-specific cautions:
   (rotations, reprints, meta results), never pure noise — losses should be
   foreseeable-in-hindsight, not dice.
 
+## Historical timeline (2026-07-18 addition — candidate master structure)
+
+The mode recreates Magic's history: each player's game starts at year one (Alpha,
+1993) and advances on its own clock, ~one release event per week (~130+ major sets ≈
+2–3 years of content). Candidate *master structure* for the whole mode — it solves
+the two hardest open problems (content-calendar authorship, volatility legibility)
+with one move: **history is the content designer.**
+
+- **The event calendar writes itself.** Chronicles reprint crash ('95, the Reserved
+  List origin story), Fallen Empires overprint glut, Combo Winter ban wave, Mirrodin
+  affinity bans, Modern Masters cycles — every market shock is a literal historical
+  event. Perfects the "foreseeable-in-hindsight, not dice" principle: Magic-history
+  knowledge becomes real speculation skill; for players without it, the mode is a
+  history lesson taught through their portfolio.
+- **Core fantasy: buy Power Nine at release prices.** The universal "if only I'd
+  bought duals in 1994" counterfactual, playable. The endgame $1M trophy sits in the
+  year-one shop for pocket change if you know to grab it. Probably the mode's
+  strongest marketing hook.
+- **Historical price data not needed.** Bulk historical price archives don't exist
+  freely — but the structure dissolves the problem: today's real Scryfall prices are
+  the *boundary condition the timeline converges to*, launch-era prices are MSRP-ish
+  origins, and the event-driven + sim-meta-driven market generates the path between.
+  Plausible-path, not true-curve.
+- **Era-appropriate NPC metas = pipeline reuse.** Historical tournament decklists per
+  era (Necropotence summer, Academy winter) via the mtgtop8 fetcher we already have;
+  archives cover ~2000s+, pre-internet eras need light synthesis (Duelist-era lists).
+- **Accidental onboarding solution.** Pool starts at ~295 Alpha cards and accretes
+  complexity in deposition order (no planeswalkers until in-game 2007). Teaches
+  30 years of accreted rules the way they actually accreted — a real pedagogy claim —
+  and early-era pools are simpler for the heuristic AI to pilot.
+- **The endgame is the present.** Timeline decelerates as it approaches today and
+  lands on real-time tracking of actual releases — Forge's normal upstream set
+  cadence becomes the live postgame content feed; rarest-printing completion is the
+  infinite tail.
+- **Prestige:** standard shape = collection resets, meta-progress persists (unlocked
+  formats, timeline speed, collector achievements). Flavor option: **alternate-history
+  modifiers** as prestige runs ("Chronicles never happened", "no Reserved List") —
+  replayability from divergence, not new content.
+
+Timeline-specific caveats: Forge plays *modern rules only* — historical pools under
+anachronistic rules (no mana burn, no damage on stack, no real ante), the right
+compromise but state it; completeness of Forge's sealed-product/collation data for
+early editions is an archaeology question alongside the Quest-code one.
+
 ## Risks / honest caveats
 
 - **Scope:** a whole game mode beside an RL research program, competing for the same
