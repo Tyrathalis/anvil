@@ -176,7 +176,90 @@ once under the new environment; cross-environment paired comparisons
 **Follow-ups, not v0:** block-drop re-ask (same lever, combat surface);
 X-class-specific removal instead of whole-row.
 
-## 7. What v0 deliberately is not
+## 6c. M3 amendment: rejected-intent penalty — the §3d reward-shaping pin (2026-07-17, DRAFT)
+
+**Status: drafted during d6-run4; needs user sign-off on scope + coefficient
+before any run trains with it.** Amends design §3d's terminal-only reward.
+
+**Motivation.** Re-ask (§6b) removed the reward *leak* but also the last
+vestige of *cost* for doomed attempts: every attempt in a re-ask chain
+shares the window's eventual outcome, so the advantage differential between
+"attempted an unpayable cast, got vetoed" and "passed" is structurally zero.
+Consequence measured in run-4 (2026-07-17): the cmd_tax observation fix
+reaches the model (serve path verified end-to-end) yet commander unpayables
+kept *growing* (iter-4 arms: Spider-Man 2099 vetoes 178→207/400g vs init,
+first-attempt veto 0.242→0.329 argmax) — the feature has no gradient to
+train from because the reward never distinguishes doomed attempts. The
+observation fix and this penalty are one deliverable pair: the feature
+supplies the *how*, the penalty supplies the *why*.
+
+**Design.** A small negative per-event reward on **engine-rejected intent**
+— every event where the engine had to refuse or repair the model's declared
+action:
+
+1. **Vetoed cast attempts** (every attempt in a chain, first or re-ask):
+   r += −λ at that timestep. The counterspell-hold examination (M3-plan
+   prerequisite, run on iter-4 arms) clears this: the cluster is 664
+   `no_shape_fit` + 407 `unpayable` *attempts* — firing blanks / firing
+   without mana. Holding counter mana = choosing PASS, which is never
+   penalized.
+2. **Dropped/repaired combat declarations** (attack drops, block drops,
+   forced-add corrections): same λ per rejected declaration row. Same
+   no-differential structure (engine silently repairs; the model never
+   learns the declaration was illegal). Block-drop telemetry: 3.7%.
+
+Unified principle: *the engine detects; the penalty is how detection reaches
+the policy.* This is not heuristic shaping — no judgment enters, only
+rules-legality events the engine already adjudicates.
+
+**Coefficient: λ = 0.02 proposed; bracket [0.01, 0.05].** Scale logic: the
+local differential vs PASS needs only to dominate gradient noise (mirror
+advantages are O(0.01) mid-game); terminal stays 1.0, a 20-veto game loses
+0.4 max at the cap — visible, not dominant. Chain cap 8 bounds per-window
+exposure at 8λ.
+
+**Mechanics.** Penalty enters as r_t at the rejected timestep in the V-trace
+targets (terminal reward unchanged; §3d cap/draw rule unchanged). Reward is
+no longer strictly zero-sum — irrelevant to V-trace (not a zero-sum solver).
+The policy's masked value head learns the *shaped* return (win prob minus
+expected future penalties) — acceptable for its critic role; note the
+**Ante/eval critic (`d4-critic-fullvis`) trains on unshaped outcomes and is
+untouched**, and winrate arms remain terminal-based, so the eval yardsticks
+don't move. Loss-curve comparisons across the reward boundary are invalid
+(new environment for the learner); arms comparisons remain valid.
+
+**Reader-side derivation + validation gate.** Rejected-intent flags are
+derived at label construction from the store: vetoed attempts from the
+`retry_of` chain / ret-null pattern; combat drops by diffing the answered
+AttackMap/BlockMap against realized combat in the following obs (the D5
+bounded-join machinery). **Gate before first training use: derived counts
+must reconcile exactly with census veto/drop counts on the same run** (the
+loader-vs-measure reconciliation pattern that caught the D5 same-ids class).
+
+**Anti-passivity guards.** The known failure mode: the cheapest way to zero
+vetoes is to stop casting. Guards: (a) casts/game joins the driver guard set
+— flag/halt if it falls >20% below iter-0; (b) first-attempt veto rate is
+expected to FALL — if it falls while casts/game holds and arms hold, the
+penalty is working; (c) winrate arms stay the true gate (a λ that buys veto
+reduction at winrate cost is wrong, exactly like the D8 calibration finding).
+
+**Rejected alternatives** (considered 2026-07-17, kept out deliberately):
+- *Potential-based/board shaping (life, tempo, card advantage):* injects
+  heuristic value judgment — violates the learned-value principle and §1
+  hygiene; the value head's whole job is to learn this.
+- *Per-turn time cost:* biases play style toward haste; the §3d cap/draw
+  rule already removes the stall exploit.
+- *Rescue bonus (reward re-ask recoveries):* asymmetric double-count; the
+  recovered cast already earns whatever the game gives it.
+- *Fallback penalty:* the combat-declaration fallback class (~0.1%) is an
+  environment edge, not model intent — penalizing it teaches nothing.
+- *X-clamp penalty (X>16 clamp, 0.4% of casts):* same rejected-intent
+  family but realizes-as-clamped rather than refused; deferred — fold in
+  only if ent_x/clamp telemetry grows.
+
+**Provenance.** λ recorded in loop_config + monitor rows; a reward change is
+an RL-chain boundary (runs with different λ never share a replay mixture —
+the mixture's older stores carry returns priced under a different reward).
 
 Async IMPALA / weight push; server hot-swap; concession; AWR; mode heads;
 Grindstone economy; full-vis critic in the loop; upstream rebase. Each is
