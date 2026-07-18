@@ -116,6 +116,49 @@ from actual simulation sweeps" claim holds all the way down.
   prosocial standalone upstream contribution independent of this mode — worth doing
   on its own merits and pitching that way.
 
+## Market / trading layer (2026-07-18 addition)
+
+Second player fantasy alongside the gacha: substituting for cracking packs *to
+resell* — pull-jackpot and card-trading gameplay, no real money anywhere.
+
+- **Price base = real prices, stretched.** The Scryfall bulk import (already queued
+  for printing/multilingual support) carries per-printing market prices — snapshot at
+  import as the base layer, free. Stretch transform: exponent >1 in log-space blows
+  the tail out (top cards → ~$1M) while barely moving the bulk; real prices are
+  roughly power-law so the exaggerated tail = an exponentially deep progression
+  ladder, exactly the incremental-genre number spine. The $1M card is the endgame
+  trophy.
+- **Market and rotation are ONE mechanism.** Rotating sub-format bonuses are demand
+  shocks: rotation week spikes both earnings and the prices of the printings it
+  gates on, because they share a cause. Partially-telegraphed rotation calendar
+  ("spoiler season": rumors → announcements) yields speculation gameplay for free —
+  buy ahead, sell into the spike. Trader archetype emerges from an existing system.
+- **Prices driven by real simulated results.** Real Magic prices move on tournament
+  results; ours can move on *actual* headless tournament results — the empirical
+  calibration sweeps already measure meta share and winrates per format, so demand
+  derives from measured performance. The "numbers are real" pitch extends to finance.
+- **Real MTG-finance dynamics, all simulatable, all on the content calendar:**
+  reprint crashes (calendar set releases reprint staples), banlist shocks,
+  buylist-vs-market spreads, theme-collector NPCs who overpay (arbitrage minigame),
+  and market-cornering on obscure printings as an achievable incremental goal.
+  Counterparty problem (offline single-player) → NPC vendors + simulated global
+  market; no online trading.
+- **Ante finance ledger (the prosocial angle):** track lifetime pack EV vs realized
+  pulls. Cracking packs for EV is -EV gambling in real life; the ledger demonstrates
+  the house edge with the player's own data at zero real-money stakes, while jackpot
+  moments stay fun. Keeps the ethics stance coherent as the mode gets more
+  casino-shaped: money fake, math shown.
+
+Market-specific cautions:
+
+- **Income-balance dominance:** if trading out-earns the battler, optimal play stops
+  playing Magic. Viable archetype yes, dominant strategy no — calibration sweeps can
+  measure cross-archetype income rates, but it needs a design eye.
+- **Volatility tuning is the new pack curve:** too random reads as slots, too
+  predictable and speculation is solved. Principle: anchor shocks to legible causes
+  (rotations, reprints, meta results), never pure noise — losses should be
+  foreseeable-in-hindsight, not dice.
+
 ## Risks / honest caveats
 
 - **Scope:** a whole game mode beside an RL research program, competing for the same
