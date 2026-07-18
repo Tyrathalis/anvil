@@ -16,12 +16,14 @@ market-crash event). Earlier candidates: Vault, Trove, Hoard.
 
 ## Relationship to existing Forge modes
 
-Forge's **Quest Mode** is the skeleton: starter collection, real-edition boosters with
-real rarity collation, credits from AI matches, pack/singles shop. It's old and
-unloved (community energy went to Adventure Mode) — which is a *pitch advantage*:
-"revitalize Quest mode with X" is an easier upstream sell than a brand-new mode.
-Load-bearing feasibility question (unscoped): how much of Quest's
-inventory/booster/shop machinery is reusable headless vs. welded to the Swing UI.
+Forge's **Quest Mode** has the closest shape: starter collection, real-edition
+boosters with real collation, credits from AI matches, pack/singles shop.
+**Correction (2026-07-18 archaeology): the "old and unloved" assumption was wrong —
+both Quest and Adventure are actively maintained** (Quest core touched 2026-06, quest
+content through 2026-07; Adventure has 1,200+ commits and very recent feature work).
+Consequence: "replace Quest mode" is off the table — politically expensive and
+unnecessary. **Verdict: Chronicle = a NEW mode built on the shared headless layers,
+harvesting model code from both** (see the archaeology section below).
 
 ## The three pillars
 
@@ -199,8 +201,8 @@ with one move: **history is the content designer.**
   modifiers** as prestige runs ("Chronicles never happened", "no Reserved List") —
   replayability from divergence, not new content.
 
-Timeline-specific caveat: completeness of Forge's sealed-product/collation data for
-early editions is an archaeology question alongside the Quest-code one.
+Timeline-specific caveat — RESOLVED (2026-07-18 archaeology): early-edition
+collation data is complete; see the archaeology section.
 
 ### Era rulesets — feasibility tiering (2026-07-18 fork archaeology)
 
@@ -233,6 +235,79 @@ them.
   real-format support for them — a standalone prosocial pitch, same shape as the
   multilingual angle.
 
+## Quest/Adventure archaeology + platform verdict (2026-07-18)
+
+Three parallel fork dives (Quest mode, Adventure mode, supporting data systems).
+Full agent reports summarized; key paths repo-relative to the fork.
+
+### Verdict: new mode on shared headless layers; harvest both, base on neither
+
+- **Not "replace Quest"**: Quest is alive (core touched 2026-06, content 2026-07;
+  XStream save format at v13 with a long migration chain — a live user base).
+- **Not "base on Adventure"**: Adventure is welded to libGDX scene/stage code and
+  its overworld — machinery Chronicle doesn't want. But its *model layer* is the
+  best harvest in the codebase.
+- **The load-bearing shared layer is forge-core and it is fully headless**: the
+  entire booster/sealed collation engine (`BoosterGenerator`, `UnOpenedProduct`,
+  `SealedTemplate`/`SealedTemplateWithSlots`, `BoosterSlots`, `PrintSheet`) has no
+  GUI dependency and is what BOTH modes already use. Chronicle uses it directly.
+
+### What to harvest from where
+
+- **From Adventure** (`forge-gui-mobile/src/forge/adventure/`): the economy model
+  layer is clean plain Java over forge-core types, deliberately independent of Quest
+  — `AdventurePlayer` (collection = forge-core `CardPool`, dual currency, buy/sell,
+  per-deck loadouts), `RewardData` (rich filtered card-reward generator: edition/
+  rarity/color/regex-text filters + probabilities), seeded-shop-stock +
+  restock-reroll + per-shop reputation (`ShopData`/`PointOfInterestChanges`),
+  price-list override machinery (`AdventureReadPriceList`), and the
+  save-format pattern (`SaveFileData` key-value blobs with migration shims, zlib).
+  **`SpellSmithScene` is literally an existing gacha card-puller** (pay gold/shards,
+  filter, random pull, accept/decline) — upstream precedent that gacha-style
+  mechanics are already accepted in Forge. `RewardScene` has the card-flip pack
+  reveal UX.
+- **From Quest** (`forge-gui/src/main/java/forge/gamemodes/quest/`): toolkit-agnostic
+  inventory/shop-stock engine (`QuestUtilCards`), pricing (`ReadPriceList` +
+  `QuestSpellShop.getCardValue`, sell-multiplier-grows-with-wins), set-unlock
+  economics (`QuestUtilUnlockSets` — includes date-proximity set selection, directly
+  reusable for "sets near year X"), XStream persistence pattern (`QuestDataIO`).
+  Entanglements to avoid: the global `FModel.getQuest()` singleton and
+  `GuiBase`/`SOptionPane` dialogs inside `buy()`/`sell()`/win-lose paths
+  (a `HeadlessGuiDesktop` no-op stub exists as precedent for driving these headless).
+
+### Data-layer findings (resolves several open questions)
+
+- **Early-edition collation: COMPLETE.** Alpha/Beta/Unlimited/Arabian Nights/
+  Antiquities/Legends/The Dark/Fallen Empires all carry era-authentic `Booster=`
+  definitions — including the combined `UncommonRare` sheet for the single-print-run
+  sets and `†` multi-art variant commons; starter decks in `blockdata/starters.txt`.
+  676 edition files; the 487 without boosters are legitimately non-draft products.
+  Era-authentic pack opening from 1993 forward works today.
+- **Historical formats: SUBSTANTIALLY EXIST.** `res/formats/` has 1,313 definitions
+  incl. **152 dated archived Standard snapshots back to 1995-01-10**, each with
+  `Effective:` date, set list, banned/restricted (the 1995 file bans the ante cards —
+  Chronicle's era rulesets would un-ban them). `GameFormat` has effective dates and
+  date-ordered collections; only a small "format as of date X" resolver is missing.
+- **Price ecosystem precedent:** Forge already net-fetches a card price DB
+  (`all-prices.txt` from the forge-extras repo) **generated by
+  `forge-gui/tools/scryfallPricesGenerator.py`** — the Scryfall-derived price channel
+  exists upstream. Gap: name-keyed only, in-game credits, no per-printing
+  granularity — Chronicle's per-printing price base is an *extension* of an existing
+  pipeline, not a new one.
+- **Multilingual: better than assumed.** Card-text translation infra exists for 8
+  languages (`CardTranslation` + `res/languages/cardnames-*.txt`, ~218K lines:
+  names/types/oracle), plus set-level `CardLang` metadata and flavor-name/variant
+  parsing. The missing piece for language-constraint formats is per-printing language
+  as *collection identity* — ownable-card identity today is name+set+artIndex+foil
+  (art-index granularity already there; language would extend `PaperCard` identity).
+
+### Remaining platform question
+
+Where Chronicle's UI lives: desktop Swing (Quest-style, both UIs to maintain) vs
+mobile libGDX (Adventure-style) vs shared `forge-gui` screens. Unresolved; note that
+the deck editor is shared infra (`FDeckEditor`) either way, and Chronicle's economy
+core should be UI-free from day one regardless (the harvested layers already are).
+
 ## Risks / honest caveats
 
 - **Scope:** a whole game mode beside an RL research program, competing for the same
@@ -254,7 +329,9 @@ them.
 
 1. **Idle battler spike:** harness → Quest inventory → credits formula. Heuristic AI
    only, no UI beyond numbers. Proves the loop.
-2. **Quest-code archaeology:** scope headless reusability of inventory/booster/shop.
+2. ~~**Quest-code archaeology**~~ DONE 2026-07-18 (see archaeology section):
+   forge-core booster engine headless; harvest Adventure model layer + Quest shop
+   machinery; new mode, replace nothing.
 3. **Constraint-format engine:** deck-legality predicates over existing Forge
    metadata; first short ladder; empirical calibration sweep.
 4. **Collection UX:** binder/completion/reveal/pity. Biggest lift.
