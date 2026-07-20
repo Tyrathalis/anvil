@@ -235,6 +235,82 @@ them.
   real-format support for them — a standalone prosocial pitch, same shape as the
   multilingual angle.
 
+## Structural design v0 (2026-07-20)
+
+Priority order (user): collector / incremental / deckbuilder / trading. **Master
+structural move: the four layers unlock in the order they historically emerged —
+Magic's own history built them in exactly this priority order, so the timeline IS
+the tutorial.** 1993: packs + kitchen table (collector). Months in: the secondary
+market appears as the game explodes (trading seed). '94–'95: organized play +
+formats formalize (venues, deckbuilder). '96: Pro Tour era (high circuits).
+
+**Frame:** home screen = the binder, not a battlefield. Narrative voice = a period
+trade paper, *The Chronicle* (mode name doubles as the in-fiction newspaper): every
+simulation output arrives as news — spoilers, banlists, reprint bombshells, meta
+reports written from actual headless tournament results, price movers. No system
+logs; the trade press of the year you're living in.
+
+**Two clocks.** Timeline clock: in-game date advances at a player-owned cadence
+(default ≈ one release cycle per real week; pausable, adjustable — the player owns
+their clock; no engagement traps). Income clock: real time — the idle battler plays
+real games while away. Wall-clock feeds earning; the timeline never punishes absence.
+
+### Layer 1 — Collector (the core loop)
+
+- **The in-print shelf**: products purchasable at MSRP-ish prices ONLY while
+  historically in print; Alpha is on the shelf for weeks, then market-only forever.
+  Print runs + rotation = the scarcity engine; "I was there" delivered mechanically.
+- Era-authentic collation (data confirmed present); duplicate protection = explicit
+  settings knob, never hidden manipulation.
+- Completion per set/master-set, reveal moments, chase trophies, oddity achievements
+  (all † variants of FEM, etc.).
+
+### Layer 2 — Incremental (the engine)
+
+- **Venues** unlock along the historical organized-play arc: kitchen table → store
+  league → regionals → Pro-Tour-era circuits; format circuits appear on their real
+  birthdays. Assign decks; headless games run for real in the background.
+- Income = venue multiplier × measured winrate × real games/hour − entry fees (the
+  risk/reward knob); prizes partly IN PRODUCT (historically accurate; feeds layer 1).
+- Generators = concurrent tables, venue tiers, prize multipliers.
+
+### Layer 3 — Deckbuilder (the skill expression)
+
+- Venue gauntlets = era-real decklists under the dated format snapshots; the gate is
+  the deck's MEASURED performance, never an abstract collection-power stat.
+- Constraint tournaments on top: market-priced budget caps ("$50 deck at 1996
+  prices" — trading feeds deckbuilding), tribal/era/printing constraints, rotation.
+- Pre-Tutor deck judge = **sim probe**: a quick headless burst estimates winrate
+  before entry fees are committed; Tutor's learned scorer later makes it instant,
+  with the battler as the standing auditor (the engine-adjudicates invariant).
+
+### Layer 4 — Trading (the economy)
+
+- Secondary market EMERGES in the timeline's first months (it didn't exist at
+  launch) — historically accurate and the natural unlock gate.
+- Buylist (instant, wide spread) vs market (better price, slower); speculation on
+  telegraphed events; **market-depth limits** (dumping 40 Lotuses moves the price —
+  which makes cornering obscure printings a real strategy); Ante finance ledger for
+  pack-EV honesty throughout.
+
+### Cross-cutting
+
+- **Manual play optional everywhere**: take control of any battler game or venue
+  final for an earnings bonus; never required. Chronicle is a collection game that
+  *contains* Magic — Forge proper serves the people who mainly want to pilot.
+- Loops by scale — minute: open/sort/list/browse shelf; session: collect income →
+  read the new Chronicle issue → trade the news → reassign venues → tweak decks;
+  week: release event (spoiler → prerelease → shelf turnover) + rotating constraint
+  purses; era: format births + historic shocks + mastery; run: decelerate into the
+  present → live postgame → prestige ("New Collection" runs, alt-history modifiers).
+- Module skeleton (all UI-free per the platform verdict): timeline service (date,
+  release calendar, event feed, as-of-date format resolver), collection service
+  (printing-identity inventory over forge-core CardPool), product service (in-print
+  shelf + collation + era MSRP), market service (anchor-interpolated event-driven
+  prices, buylist spread, depth), battler service (venues, era gauntlets,
+  results→income), Ante ledger, news generator (everything → Chronicle issues),
+  binder-first libGDX screens.
+
 ## Quest/Adventure archaeology + platform verdict (2026-07-18)
 
 Three parallel fork dives (Quest mode, Adventure mode, supporting data systems).
