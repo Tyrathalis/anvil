@@ -74,7 +74,8 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
 
 
-def _launch_games(purpose: str, games: int, start_index: int, a) -> Path:
+def _launch_games(purpose: str, games: int, start_index: int, a,
+                  bridge_seats: "int | None" = None) -> Path:
     before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
     cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
            "--games", str(games), "--games-per-pair", str(a.games_per_pair),
@@ -82,6 +83,10 @@ def _launch_games(purpose: str, games: int, start_index: int, a) -> Path:
            "--chunk", str(a.chunk), "--bridge", f"grpc:localhost:{a.port}",
            "--obs", "--census", "--purpose", purpose,
            "--seed-base", str(a.seed_base)]
+    if bridge_seats is not None:
+        # §6d mixed-opponent batch: only this seat is model-driven; the
+        # other seat is the heuristic AI (the eval-arm configuration).
+        cmd += ["--bridge-seats", str(bridge_seats)]
     if getattr(a, "reask", False):
         cmd.append("--reask")
     _run(cmd)
@@ -91,12 +96,46 @@ def _launch_games(purpose: str, games: int, start_index: int, a) -> Path:
     return Path(new.pop())
 
 
-def _census_tallies(run_dir: Path) -> dict:
+def iteration_batches(name: str, k: int, games: int, heur_frac: float
+                      ) -> list[tuple[str, int, int, "int | None"]]:
+    """§6d generation plan for one iteration: (purpose, n_games,
+    start_index_offset, bridge_seats). Mirror batch first; heuristic-opponent
+    games split evenly across seat assignments for symmetry."""
+    n_heur = int(round(games * heur_frac))
+    h0 = n_heur // 2
+    h1 = n_heur - h0
+    n_mirror = games - n_heur
+    out = [(f"{name}-i{k:03d}", n_mirror, 0, None)]
+    if h0:
+        out.append((f"{name}-i{k:03d}h0", h0, n_mirror, 0))
+    if h1:
+        out.append((f"{name}-i{k:03d}h1", h1, n_mirror + h0, 1))
+    return out
+
+
+def replay_mixture(groups: list[list[str]], replay: int,
+                   fresh_weight: float, replay_weight: float
+                   ) -> tuple[list[str], list[float]]:
+    """Flatten the last `replay` iteration GROUPS into rl.py's store/weight
+    lists: every store of the newest group gets the fresh weight, all older
+    groups' stores the replay weight (§6d: the replay window is measured in
+    iterations, not stores)."""
+    mix_groups = groups[-replay:]
+    stores = [s for grp in mix_groups for s in grp]
+    n_fresh = len(mix_groups[-1])
+    weights = [replay_weight] * (len(stores) - n_fresh) + [fresh_weight] * n_fresh
+    return stores, weights
+
+
+def _census_tallies(run_dirs) -> dict:
     """Field semantics mirror scripts/arms_report.py: priority records carry
-    veto (string reason) / pick=="pass" / else cast."""
+    veto (string reason) / pick=="pass" / else cast. Accepts one run dir or a
+    list (§6d iteration batch groups); the by=bridge filter keeps every rate
+    model-seat-only regardless of opponent mix."""
     from collections import Counter
+    dirs = run_dirs if isinstance(run_dirs, (list, tuple)) else [run_dirs]
     c: Counter[str] = Counter()
-    for f in run_dir.glob("workers/inv-*/census.jsonl"):
+    for f in (f for rd in dirs for f in Path(rd).glob("workers/inv-*/census.jsonl")):
         for line in open(f):
             try:
                 r = json.loads(line)
@@ -165,10 +204,11 @@ def guard_flags(census: dict, rl: dict, baseline: dict | None,
     return flags
 
 
-def _game_stats(run_dir: Path) -> dict:
+def _game_stats(run_dirs) -> dict:
     import statistics
+    dirs = run_dirs if isinstance(run_dirs, (list, tuple)) else [run_dirs]
     rows = []
-    for f in run_dir.glob("workers/inv-*/games.jsonl"):
+    for f in (f for rd in dirs for f in Path(rd).glob("workers/inv-*/games.jsonl")):
         for line in open(f):
             try:
                 rows.append(json.loads(line))
@@ -242,6 +282,10 @@ def main() -> None:
                     help="rejected-intent penalty lambda (§6c); reward change "
                          "= RL-chain boundary — do not resume a lambda=0 "
                          "chain's replay mixture with a nonzero lambda")
+    ap.add_argument("--heur-frac", type=float, default=0.0,
+                    help="§6d mixed-opponent generation: fraction of each "
+                         "iteration's games played vs the heuristic (split "
+                         "evenly across seat assignments); 0 = pure mirror")
     ap.add_argument("--value-weight", type=float, default=0.5)
     ap.add_argument("--traj-per-step", type=int, default=4)
     ap.add_argument("--arms-every", type=int, default=5,
@@ -281,38 +325,55 @@ def main() -> None:
         t_iter = time.monotonic()
 
         # ---- generate (sampled serve); idempotent — a crash later in the
-        # iteration must not cost a ~25-min regeneration on resume ----
-        run_dir = store = None
-        for cand in sorted(glob.glob(str(RUNS_DIR / f"{purpose}-*"))):
-            st = TRAJ_DIR / Path(cand).name
-            if (st / "manifest.json").exists():
-                run_dir, store = Path(cand), st
-                print(f"[selfplay] iteration {k}: reusing {cand} (store present)")
-                break
-        if run_dir is None:
-            mu_path = it_dir / "mu.jsonl"
-            if mu_path.exists():
-                mu_path.unlink()  # a fresh server APPENDS; stale records from
-                # an interrupted attempt would conflict at the mu merge
+        # iteration must not cost a ~25-min regeneration on resume.
+        # §6d: an iteration is 1-3 batches (mirror + heur s0/s1) with disjoint
+        # start-index slices; each batch keeps its own run dir + store ----
+        batches = iteration_batches(args.name, k, args.games, args.heur_frac)
+        run_dirs: list = []
+        for bp, _, _, _ in batches:
+            found = None
+            for cand in sorted(glob.glob(str(RUNS_DIR / f"{bp}-*"))):
+                if (TRAJ_DIR / Path(cand).name / "manifest.json").exists():
+                    found = Path(cand)
+                    print(f"[selfplay] iteration {k}: reusing {cand} (store present)")
+                    break
+            run_dirs.append(found)
+        mu_path = it_dir / "mu.jsonl"
+        if any(rd is None for rd in run_dirs):
+            if all(rd is None for rd in run_dirs) and mu_path.exists():
+                mu_path.unlink()  # fresh iteration: a fresh server APPENDS;
+                # stale records from an interrupted attempt would conflict at
+                # the merge. Partial resume KEEPS the file — completed batches'
+                # records live there, and regenerated batches re-emit identical
+                # rows under seeded sampling.
             server = _start_server(state["ckpt"], args.port, it_dir / "server.log",
                                    sample=True, mu_out=mu_path,
                                    temperature=args.temperature)
             try:
-                run_dir = _launch_games(purpose, args.games, state["start_index"], args)
+                for j, (bp, n, off, seats) in enumerate(batches):
+                    if run_dirs[j] is None:
+                        run_dirs[j] = _launch_games(
+                            bp, n, state["start_index"] + off, args,
+                            bridge_seats=seats)
             finally:
                 _stop_server(server)
 
-            # ---- ingest (mu joined on (g, s)) ----
-            (run_dir / "mu.jsonl").write_bytes(mu_path.read_bytes())
-            _run([sys.executable, "-m", "anvil.store", "ingest", str(run_dir)])
-            store = TRAJ_DIR / run_dir.name
+        # ---- ingest (mu joined on (g, s); disjoint start-index slices make
+        # the shared mu file's game ids unambiguous across batches) ----
+        for rd in run_dirs:
+            if not (TRAJ_DIR / rd.name / "manifest.json").exists():
+                (rd / "mu.jsonl").write_bytes(mu_path.read_bytes())
+                _run([sys.executable, "-m", "anvil.store", "ingest", str(rd)])
         t_gen = time.monotonic() - t_iter
-        if str(store) not in state["stores"]:
-            state["stores"].append(str(store))
+        group = [str(TRAJ_DIR / rd.name) for rd in run_dirs]
+        groups = [g if isinstance(g, list) else [g] for g in state["stores"]]
+        if not groups or groups[-1] != group:
+            groups.append(group)
+        state["stores"] = groups
 
         # ---- train (V-trace on the replay mixture) ----
-        mix = state["stores"][-args.replay:]
-        weights = [args.replay_weight] * (len(mix) - 1) + [args.fresh_weight]
+        mix, weights = replay_mixture(groups, args.replay,
+                                      args.fresh_weight, args.replay_weight)
         train_dir = it_dir / "train"
         t0 = time.monotonic()
         if (train_dir / "DONE").exists():
@@ -336,8 +397,8 @@ def main() -> None:
             raise RuntimeError(f"training produced no checkpoint at {new_ckpt}")
 
         # ---- monitor row + anomaly flags (accept ckpt AFTER writing it) ----
-        census = _census_tallies(run_dir)
-        gstats = _game_stats(run_dir)
+        census = _census_tallies(run_dirs)
+        gstats = _game_stats(run_dirs)
         if gstats.get("games"):
             # §6c anti-passivity basis (first attempts: chain-independent)
             census["casts_per_game"] = round(
@@ -370,8 +431,9 @@ def main() -> None:
                              kl_max=args.guard_kl, ent_mult=args.guard_ent_mult,
                              veto_mult=args.guard_veto_mult,
                              casts_floor=args.guard_casts_floor)
-        row = {"iteration": k, "ckpt": state["ckpt"], "run": str(run_dir),
-               "store": str(store), "gen_s": round(t_gen), "train_s": round(t_train),
+        row = {"iteration": k, "ckpt": state["ckpt"],
+               "run": [str(rd) for rd in run_dirs],
+               "store": group, "gen_s": round(t_gen), "train_s": round(t_train),
                "census": census, "games": gstats, "rl": rl, "flags": flags,
                "guard": guards}
         monitor.write(json.dumps(row) + "\n")

@@ -204,3 +204,32 @@ def test_rejected_events_priority_and_combat():
         {"e": 2, "n": "B", "z": "battlefield", "c": 0, "pt": [3, 3],
          "blk": [9]}]}}
     assert rejected_events([dec_b, later_b], 0, dec_b, rec_b, exb) == 2
+
+
+def test_iteration_batches_and_replay_mixture():
+    """§6d: batch plan splits games with disjoint start-index slices; the
+    replay window is measured in iteration GROUPS, not stores."""
+    from anvil.training.selfplay import iteration_batches, replay_mixture
+
+    b = iteration_batches("r6", 3, 480, 0.5)
+    assert [(p, n, off) for p, n, off, _ in b] == [
+        ("r6-i003", 240, 0), ("r6-i003h0", 120, 240), ("r6-i003h1", 120, 360)]
+    assert [seats for *_, seats in b] == [None, 0, 1]
+    assert sum(n for _, n, _, _ in b) == 480
+    # pure mirror: single batch, unchanged semantics
+    assert iteration_batches("r6", 0, 480, 0.0) == [("r6-i000", 480, 0, None)]
+
+    groups = [["a1", "a2", "a3"], ["b1", "b2", "b3"], ["c1", "c2", "c3"],
+              ["d1", "d2", "d3"], ["e1", "e2", "e3"]]
+    stores, weights = replay_mixture(groups, replay=4, fresh_weight=1.0,
+                                     replay_weight=0.33)
+    assert stores == ["b1", "b2", "b3", "c1", "c2", "c3",
+                      "d1", "d2", "d3", "e1", "e2", "e3"]
+    assert weights == [0.33] * 9 + [1.0] * 3
+    # legacy flat chains load as singleton groups upstream; a mixed history
+    # (old flat run resumed with heur-frac on) still weights by group
+    stores2, weights2 = replay_mixture([["x"], ["y"], ["z1", "z2", "z3"]],
+                                       replay=4, fresh_weight=1.0,
+                                       replay_weight=0.33)
+    assert stores2 == ["x", "y", "z1", "z2", "z3"]
+    assert weights2 == [0.33, 0.33, 1.0, 1.0, 1.0]

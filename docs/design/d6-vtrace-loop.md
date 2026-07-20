@@ -298,6 +298,47 @@ Async IMPALA / weight push; server hot-swap; concession; AWR; mode heads;
 Grindstone economy; full-vis critic in the loop; upstream rebase. Each is
 documented above where it would slot in.
 
+## 6d. M3 D2 amendment: mixed-opponent generation (2026-07-19, ACCEPTED)
+
+**Diagnosis this answers (ADR-0022's ceiling datum):** mirror self-play with
+a calibrated critic yields ~zero per-decision advantages (pg ±0.002 in every
+healthy run), so winrate learning crawls — while the §6c penalty episode
+proved the loop learns FAST when a real differential signal exists. Run-5's
+late paired-arms decline (0.540 → 0.475, entropy gliding down) carries the
+mirror-overfit signature: generation shows the policy only itself, eval
+measures it against the heuristic. Both problems point the same direction:
+put the eval distribution INTO generation.
+
+**Design.** Per iteration, a fraction `heur_frac` (v0: 0.5) of games are
+model-vs-heuristic instead of mirror: the harness's existing single-seat
+bridged mode (`--bridge-seats`), split evenly between seat 0 and seat 1 for
+symmetry. Consequences, all falling out of existing machinery:
+
+- **Trajectories**: heuristic-opponent games contribute ONE mu-covered
+  trajectory (the model seat); mirror games two. `game_trajectories`
+  already excludes non-mu seats. At heur_frac 0.5 the trajectory mix is
+  2:1 mirror:heuristic — recorded, not corrected, in v0.
+- **Reward** unchanged (§3d terminal + §6c penalty); against the heuristic
+  E[win] ≈ 0.52, so genuinely asymmetric advantages exist on exactly the
+  distribution the arms measure.
+- **μ/ratios/tripwire** unchanged (μ only ever covered model decisions).
+- **Driver**: an iteration's generation becomes three harness launches
+  (mirror both-seats; heur s0; heur s1), three run dirs, three stores.
+  `loop_state.stores` becomes a list of per-iteration GROUPS so the replay
+  window (R=4) stays "last 4 iterations", not "last 4 stores"; old flat
+  loop_state entries load as singleton groups. Fresh weight applies to the
+  newest group's stores, replay weight to older groups' — the flat
+  store/weight lists rl.py already accepts.
+- **Guards/census**: per-run baselines as always (census now spans both
+  game types; the veto/casts metrics are model-seat-only by the `by=bridge`
+  filter, so their semantics are unchanged).
+- **Arms comparability**: untouched (arms were always vs-heuristic argmax).
+
+**What this is not:** a league (no opponent pool, no past-checkpoint
+opponents — documented upgrade if heuristic-anchoring plateaus); not a
+teacher-forcing return (the heuristic never labels anything — it just plays
+the other seat, exactly as in every eval arm since M1).
+
 ## 8. Build order
 
 1. `act()` sampling mode + per-item seeded sampling in the batcher view +
