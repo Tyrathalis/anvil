@@ -339,7 +339,28 @@ opponents — documented upgrade if heuristic-anchoring plateaus); not a
 teacher-forcing return (the heuristic never labels anything — it just plays
 the other seat, exactly as in every eval arm since M1).
 
-## 6e. M3 D2 amendment: generation temperature (2026-07-21, DRAFT — τ pinned by the curve)
+## 6e. M3 D2 amendment: generation temperature (2026-07-21, RESOLVED NEGATIVE — lever falsified by the curve)
+
+**Resolution (same day): the τ-strength curve on run-6 iter-19
+(`data/runs/tau-curve-run6i19-report.json`, 400 paired games/point) is FLAT
+in τ ∈ [0.3, 1.0].** Winrates 0.5200/0.5025/0.5200/0.5075 at τ =
+0.3/0.5/0.8/1.0 vs argmax 0.5400; paired-vs-argmax −2.0 to −3.75pp (all
+±~2.1); the sharpest read — τ-vs-τ paired with shared seeds AND shared
+sampling noise (CRN) — puts τ=0.3 only +1.25pp ± 2.0 over τ=1.0 (t=0.63).
+No temperature recovers the tax. Mechanics confirmed live (first-attempt
+veto rises monotonically 0.105→0.128 with τ), so the flat winrate is
+behavior, not instrumentation. **Interpretation: with a peaked policy
+(entropy ~0.17), τ<1 already plays argmax on confident windows; the
+surviving deviations sit in near-tie windows whose probabilities barely
+move with τ. The tax is the price of exploration itself — not a removable
+inefficiency — and the actionable defect is that exploration variance
+never gets credited back to the near-tie decisions that caused it: a
+credit-assignment (critic) problem, not a temperature problem.** Run-7
+therefore keeps τ=1.0 (single-variable discipline) and takes the critic
+lever (§6f). The tempered-μ plumbing below stays landed (any future τ≠1
+run trains correctly).
+
+Original design notes (kept for the record):
 
 **Diagnosis this answers (run-6's reward-split measurement):** the §6d
 heuristic-half games — τ=1 sampled play against the eval opponent — read
@@ -375,6 +396,67 @@ distribution — the recorded μ is the true behavior policy at any τ.
   choice head carries the pass/cast decision; combat heads may want more
   noise than X), per-game mixed τ (a τ≈1 slice preserves exploration
   coverage while most games generate signal).
+
+## 6f. M3 D2 amendment: full-vis critic in the loop (2026-07-21, DRAFT — run-7's lever)
+
+**Diagnosis this answers (two lines of evidence converging):** (a) the
+ADR-0022 ceiling datum — mirror parity + the calibrated masked critic give
+pg terms ±0.002, so winrate learning crawls; §6d put real signal into
+generation but the heur-half advantage is only ~+1–2pp. (b) The §6e curve —
+the sampling tax is exploration cost concentrated in near-tie windows, and
+its variance is never credited back to the decisions that caused it. Both
+point at credit precision. The full-vis critic is measured far sharper than
+the masked head the loop currently bootstraps from: AUC 0.8658 vs 0.788
+overall, +6.6/+12.0/+12.2pp at 5–8/9–16/17+ turns-from-end (ADR-0015).
+Sharper V ⇒ smaller noise floor under |vs − V| ⇒ the small real advantages
+stop drowning.
+
+**Design: asymmetric V-trace (AlphaStar precedent).** Pass-A values —
+baseline AND bootstrap — come from a separate full-vis critic net; π, μ,
+ratios, tripwire, reward, guards all unchanged.
+
+- **rl.py**: `--critic-ckpt` loads the critic net (`load_compat`). The
+  loader emits a parallel full-vis example stream for the same windows
+  (`Featurizer.example(full_vis=)` → `assemble(full_vis=)` — reader-side
+  un-masking of the full-state store records the wire always carried; the
+  ~3-line passthrough is the only encoder change). Pass A runs the frozen
+  critic on the fv segments for `values`; **pass B never sees fv tensors —
+  the policy gradient's leak boundary, test-pinned.**
+- **The policy's own masked value head keeps training** on the same vs
+  targets (serve-artifact consistency + §6 monitor continuity). The monitor
+  logs BOTH critics' v0-vs-realized — a live masked-vs-full-vis A/B every
+  iteration for free.
+- **Critic lifecycle**: init `d4-critic-fullvis`; per iteration the driver
+  runs generate → ingest → **critic phase** (`finetune_value --full-vis
+  --trainable all`, low lr ~1e-5, ~1 pass over the fresh+replay window,
+  init = previous iteration's critic) → **policy phase** (rl.py with the
+  fresh critic) → arms. Iteration 0's critic phase adapts the D4 critic to
+  the self-play distribution before the first policy gradient consumes it —
+  no separate warm-start run needed. Critic ckpt saved per iteration
+  (provenance; `loop_state` gains the critic path).
+- **Costs**: loader featurization ~×1.7 (second example per window), pass A
+  +1 forward per segment, one extra resident net during the policy phase
+  (`--rl-seg` absorbs VRAM pressure); critic phase = minutes on the freed
+  GPU between generation and training.
+- **Monitoring/guards**: the §6 anomaly rule reads the LOOP critic
+  (full-vis) vs realized reward; masked-head read kept alongside; critic
+  phase logs BCE on fresh vs replay stores (overfit watch — 480-game
+  iterations are small for `--trainable all`).
+- **Bias note**: bootstrapping from full-vis V injects hidden info into vs
+  targets (the standard asymmetric-critic caveat; the §4 v0 decision
+  deferred exactly this). The policy only receives it through advantage
+  magnitudes, never as an input feature; ρ/KL/entropy monitors watch for
+  pathology. Ante keeps its own copy of the critic question independent —
+  certify still runs d4-critic-fullvis until a mid-run critic proves
+  sharper there too.
+
+**Run-7 config pin: identical to run-6 except the critic** (heur_frac 0.5,
+λ=0.02, guard-kl 0.06, lr 2e-5, 480 g/iter, τ=1.0, re-ask, init run-6
+iter-19) — single-variable attribution, same paired arms.
+
+**What this is not:** rollout labels (D4's machinery stays parked behind
+its economics), not a critic ensemble, not a change to what the policy
+observes.
 
 ## 8. Build order
 
