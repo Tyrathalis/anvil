@@ -339,6 +339,43 @@ opponents — documented upgrade if heuristic-anchoring plateaus); not a
 teacher-forcing return (the heuristic never labels anything — it just plays
 the other seat, exactly as in every eval arm since M1).
 
+## 6e. M3 D2 amendment: generation temperature (2026-07-21, DRAFT — τ pinned by the curve)
+
+**Diagnosis this answers (run-6's reward-split measurement):** the §6d
+heuristic-half games — τ=1 sampled play against the eval opponent — read
+0.5064 ± 0.0081 pooled (3,837 games) where the same checkpoints' argmax
+arms read 0.53–0.54. The ~2pp sampling tax lands exactly on the learning
+signal: the heur-half mean advantage was ~+0.006, not the ~+0.025 the
+argmax arms implied, so §6d was mispriced by the temperature gap. τ-noise
+is a compute multiplier (outcome variance uncorrelated with credited
+decisions), and at desktop scale signal efficiency IS the strength budget.
+
+**Design.** Generation serves at τ < 1 (value from the τ-strength curve on
+run-6 iter-19: arms at τ ∈ {0.3, 0.5, 0.8, 1.0}, `scripts/tau_curve.py`;
+expectation ≈ 0.5–0.8). Everything else keeps §6b/§6c/§6d. Serve plumbing
+existed since D6 day one: `make_noise` scales the Gumbel noise (argmax(l/τ
++ g) == argmax(l + τ·g)), `act()` reports logp under the TEMPERED
+distribution — the recorded μ is the true behavior policy at any τ.
+
+- **Learner (LANDED 2026-07-21):** the μ-recompute tripwire reads the
+  generation temperature from mu meta per store (`composite_logp(...,
+  temperature=mu_tau)`); replay mixtures may span runs at different τ.
+  Negative-control test: a τ=0.5 record recomputed at τ=1 trips the 0.2
+  tolerance (sparse — ~2/160 windows on a peaked policy — but real runs
+  sample 10^5 decisions/iteration).
+- **V-trace needs NO change:** ratios are π(a)/μ(a) with π the τ=1 policy
+  being optimized and μ the recorded tempered logp — exactly the
+  off-policy correction V-trace exists for. Note the asymmetry to watch:
+  τ<1 sharpens μ, so ρ < 1 on modal actions and >1-clipped (ρ̄=1) on rare
+  sampled ones; monitor mean ρ (run-1..6 baseline 0.94–0.99 at τ=1).
+- **Exploration:** τ↓ trades exploration for signal; the entropy hinge
+  floor (§ADR-0017) still guards collapse, and τ is generation-only —
+  arms/eval stay argmax, Ante unchanged.
+- **Finer dials if the curve is interesting:** per-head temperature (the
+  choice head carries the pass/cast decision; combat heads may want more
+  noise than X), per-game mixed τ (a τ≈1 slice preserves exploration
+  coverage while most games generate signal).
+
 ## 8. Build order
 
 1. `act()` sampling mode + per-item seeded sampling in the batcher view +
