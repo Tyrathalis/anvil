@@ -387,13 +387,18 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                 if hasattr(st, "_store_of"):
                     st = st._store_of[g]
                 mu_step = (st.mu_meta or {}).get("step")
+                # mu_tau: the GENERATION temperature — recorded mu logps are
+                # tempered (act() reports the sampled distribution), so the
+                # tripwire recompute must use it; per-store because replay
+                # mixtures may span runs at different temperatures
+                mu_tau = (st.mu_meta or {}).get("temperature", 1.0)
                 for seat, exs, reward, rej in trajs:
                     yield {"g": g, "seat": seat, "reward": reward,
                            # mu_step: which checkpoint generated these mu
                            # records — the recompute tripwire only applies
                            # when it matches the ref net (replay stores were
                            # sampled under older checkpoints)
-                           "mu_step": mu_step,
+                           "mu_step": mu_step, "mu_tau": mu_tau,
                            "rej": torch.tensor(rej, dtype=torch.float32),
                            "exs": [e for e, _ in exs],
                            "mu_logp": torch.tensor([r["logp"] for _, r in exs],
@@ -547,7 +552,8 @@ def main() -> None:
                 and item.get("mu_step") == ref_ckpt.get("step")):
             head = exs[:args.seg]
             (seg, fwd), = forward_segments(ref, head, grad=False)
-            lp_ref = composite_logp(fwd, seg)["logp"].cpu()
+            lp_ref = composite_logp(
+                fwd, seg, temperature=float(item.get("mu_tau", 1.0)))["logp"].cpu()
             bad = (lp_ref - mu_logp[:len(head)]).abs() > args.tripwire_tol
             if bad.any():
                 tripwire_viol += int(bad.sum())

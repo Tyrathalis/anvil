@@ -125,17 +125,19 @@ def test_batch_composition_invariance(net_and_feat):
     assert checked >= 8
 
 
-def _roundtrip(net, feat, dec, header, prior, task, seed):
+def _roundtrip(net, feat, dec, header, prior, task, seed, tau=1.0):
     """act(sample) -> mu_record -> apply_mu_labels -> forward -> composite_logp;
-    returns (record, recomputed per-head dict)."""
+    returns (record, recomputed per-head dict). tau follows the serve path:
+    make_noise scales the noise, act reports tempered logp, and the recompute
+    must be told the same temperature (rl.py reads it from mu meta)."""
     from anvil.policy.sampling import make_noise, mu_record, noise_seed, pad_noise
     from anvil.training.dataset import collate
     from anvil.training.rl import apply_mu_labels, composite_logp
 
     ex, aux = feat.example(_wire(dec, prior), header, task)
-    nz = make_noise(ex, task, seed=noise_seed(seed, dec["s"]))
+    nz = make_noise(ex, task, tau, seed=noise_seed(seed, dec["s"]))
     batch = collate([ex])
-    out = net.act(batch, noise=pad_noise([nz], batch, "cpu"))
+    out = net.act(batch, noise=pad_noise([nz], batch, "cpu"), temperature=tau)
     rec = mu_record(header["g"], dec["s"], task, ex, aux, out)
 
     import torch
@@ -143,7 +145,7 @@ def _roundtrip(net, feat, dec, header, prior, task, seed):
     apply_mu_labels(ex2, rec)
     b2 = collate([ex2])
     with torch.no_grad():
-        lp = composite_logp(net(b2), b2)
+        lp = composite_logp(net(b2), b2, temperature=tau)
     return rec, {k: float(v[0]) for k, v in lp.items()}
 
 
@@ -185,6 +187,43 @@ def test_mu_roundtrip_reduced_options(net_and_feat):
         if checked >= 8:
             return
     assert checked >= 8, checked
+
+
+def test_mu_roundtrip_temperature(net_and_feat):
+    """τ≠1 mu-parity (run-7 prerequisite): serve records TEMPERED logp, so the
+    recompute matches only at the generation temperature — recomputing a
+    τ=0.5 record at τ=1 must trip the 0.2 tolerance on at least some casts
+    (the failure mode the rl.py mu-meta fix exists to prevent)."""
+    from anvil.training.rl import apply_mu_labels, composite_logp
+
+    net, feat = net_and_feat
+    checked = mismatched = 0
+    for dec, header, prior in _windows({"chooseSpellAbilityToPlay"}, n=160):
+        rec, lp = _roundtrip(net, feat, dec, header, prior, "priority", 577,
+                             tau=0.5)
+        assert abs(lp["logp"] - rec["logp"]) < 5e-3, (rec, lp)
+        assert abs(lp["choice"] - rec["lp"]["choice"]) < 5e-3
+        # the negative control: same record recomputed at τ=1
+        import torch
+
+        from anvil.training.dataset import collate
+        ex2, _ = feat.example(_wire(dec, prior), header, "priority")
+        apply_mu_labels(ex2, rec)
+        b2 = collate([ex2])
+        with torch.no_grad():
+            lp1 = float(composite_logp(net(b2), b2)["logp"][0])
+        if abs(lp1 - rec["logp"]) > 0.2:
+            mismatched += 1
+        checked += 1
+        if checked >= 24 and mismatched >= 1:
+            return
+    assert checked >= 24, checked
+    # the policy is peaked on most priority windows (logp≈0 barely moves
+    # under tempering), so wrong-τ trips are sparse — ~2/160 on the D5 ckpt.
+    # ≥1 is enough teeth: real iterations sample 10^5 decisions.
+    assert mismatched >= 1, ("τ=1 recompute of τ=0.5 records never tripped "
+                             "the tripwire tolerance — control has no teeth",
+                             mismatched)
 
 
 def test_mu_roundtrip_combat(net_and_feat):
