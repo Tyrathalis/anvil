@@ -230,8 +230,8 @@ def _rl_summary(train_dir: Path) -> dict:
     last = rows[-1]
     n = max(1, len(rows))
     mean = {k: round(sum(r[k] for r in rows) / n, 5)
-            for k in ("reward", "v0", "rho_mean", "rho_clip", "kl_mu", "ent",
-                      "rej")
+            for k in ("reward", "v0", "v0_masked", "rho_mean", "rho_clip",
+                      "kl_mu", "ent", "rej")
             if all(k in r for r in rows)}
     return {"steps": last.get("step"), "traj": last.get("traj"),
             "tripwire_viol": last.get("tripwire_viol"),
@@ -286,6 +286,20 @@ def main() -> None:
                     help="§6d mixed-opponent generation: fraction of each "
                          "iteration's games played vs the heuristic (split "
                          "evenly across seat assignments); 0 = pure mirror")
+    ap.add_argument("--critic", default=None,
+                    help="full-vis critic init ckpt (d6-vtrace-loop §6f, e.g. "
+                         "data/training/d4-critic-fullvis/last.pt). Enables the "
+                         "per-iteration critic phase: finetune_value --full-vis "
+                         "--trainable all on the replay mixture, then rl.py "
+                         "trains against the fresh critic's values. Off = v0 "
+                         "masked-head bootstrap.")
+    ap.add_argument("--critic-lr", type=float, default=1e-5,
+                    help="critic-phase lr (low: 480-game iterations are small "
+                         "for --trainable all)")
+    ap.add_argument("--critic-steps", type=int, default=2000,
+                    help="critic-phase steps per iteration (~1 pass over the "
+                         "fresh store + replay tail at batch 256)")
+    ap.add_argument("--critic-batch", type=int, default=256)
     ap.add_argument("--value-weight", type=float, default=0.5)
     ap.add_argument("--traj-per-step", type=int, default=4)
     ap.add_argument("--arms-every", type=int, default=5,
@@ -371,9 +385,39 @@ def main() -> None:
             groups.append(group)
         state["stores"] = groups
 
-        # ---- train (V-trace on the replay mixture) ----
         mix, weights = replay_mixture(groups, args.replay,
                                       args.fresh_weight, args.replay_weight)
+
+        # ---- critic phase (§6f): adapt the full-vis critic on the same
+        # replay mixture BEFORE the policy consumes its values. Iteration 0
+        # adapts the D4 critic to the self-play distribution — the designed
+        # warm start. The critic path only advances in loop_state alongside
+        # an ACCEPTED policy ckpt (a guard-rejected iteration rejects both).
+        critic_ckpt = None
+        if args.critic:
+            prev_critic = state.get("critic", args.critic)
+            critic_dir = it_dir / "critic"
+            if (critic_dir / "DONE").exists():
+                print(f"[selfplay] iteration {k}: reusing critic in {critic_dir}")
+            else:
+                _run([sys.executable, "-m", "anvil.training.finetune_value",
+                      "--ckpt", prev_critic, "--store", ",".join(mix),
+                      "--full-vis", "--trainable", "all",
+                      "--lr", str(args.critic_lr),
+                      "--steps", str(args.critic_steps),
+                      "--warmup", "100", "--batch", str(args.critic_batch),
+                      "--workers", str(args.rl_workers),
+                      "--eval-every", str(args.critic_steps),
+                      "--eval-batches", "50",
+                      "--final-eval-batches", "50",
+                      "--out", str(critic_dir)])
+                if not (critic_dir / "last.pt").exists():
+                    raise RuntimeError(
+                        f"critic phase produced no checkpoint in {critic_dir}")
+                (critic_dir / "DONE").touch()
+            critic_ckpt = critic_dir / "last.pt"
+
+        # ---- train (V-trace on the replay mixture) ----
         train_dir = it_dir / "train"
         t0 = time.monotonic()
         if (train_dir / "DONE").exists():
@@ -390,7 +434,8 @@ def main() -> None:
                   "--seg", str(args.rl_seg),
                   "--workers", str(args.rl_workers),
                   "--penalty", str(args.penalty),
-                  "--epochs", str(args.epochs), "--seed", str(k)])
+                  "--epochs", str(args.epochs), "--seed", str(k)]
+                 + (["--critic-ckpt", str(critic_ckpt)] if critic_ckpt else []))
         t_train = time.monotonic() - t0
         new_ckpt = train_dir / "last.pt"
         if not new_ckpt.exists():
@@ -412,14 +457,19 @@ def main() -> None:
             # §6 anomaly rule, two-sided per ADR-0017: reward >> critic is the
             # original bug-report direction; critic >> reward = value head
             # chasing clipped-rho targets (run-2 iter 5 went unflagged).
-            # Under §6c shaping the critic predicts the SHAPED return, so the
-            # comparison basis is reward − λ·mean-rejected-per-trajectory
-            # (with λ=0 this reduces to the original rule).
+            # Basis per critic (§6f): the full-vis critic trains on RAW
+            # outcomes (finetune_value BCE vs won), so its v0 compares to raw
+            # reward; the masked head chases SHAPED vs targets, so it compares
+            # to reward − λ·mean-rejected-per-trajectory (λ=0 ⇒ same basis).
             shaped = mean["reward"] - args.penalty * mean.get("rej", 0.0)
-            if abs(shaped - mean["v0"]) > 0.1:
-                flags.append(f"shaped reward {round(shaped, 4)} "
+            v0_basis = mean["reward"] if args.critic else shaped
+            if abs(v0_basis - mean["v0"]) > 0.1:
+                flags.append(f"reward basis {round(v0_basis, 4)} "
                              f"(raw {mean['reward']}, rej {mean.get('rej')}) "
                              f"vs critic {mean['v0']}")
+            if args.critic and mean.get("v0_masked") is not None                     and abs(shaped - mean["v0_masked"]) > 0.1:
+                flags.append(f"shaped reward {round(shaped, 4)} "
+                             f"vs masked head {mean['v0_masked']}")
         if rl.get("tripwire_viol"):
             flags.append(f"tripwire={rl['tripwire_viol']}")
         non_won = {s: n for s, n in gstats["statuses"].items() if s != "won"}
@@ -455,6 +505,8 @@ def main() -> None:
                                  "casts_per_game": census.get("casts_per_game")}
         state.update(iteration=k + 1, ckpt=str(new_ckpt),
                      start_index=state["start_index"] + args.games)
+        if critic_ckpt is not None:
+            state["critic"] = str(critic_ckpt)
         state_path.write_text(json.dumps(state, indent=2))
 
         # ---- arms (argmax serve, paired seeds, both seat assignments) ----

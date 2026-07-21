@@ -83,12 +83,16 @@ class Featurizer:
         self.methods = MethodVocab(methods)
         self.sa_vocab = SaVocab(sa_vocab or default_sa_vocab())
 
-    def example(self, dec: dict, header: dict, task: str) -> tuple[dict, dict]:
+    def example(self, dec: dict, header: dict, task: str,
+                full_vis: bool = False) -> tuple[dict, dict]:
         """One wire dec record -> (model example with label pads, aux maps for
-        answer translation)."""
+        answer translation). full_vis (M3 §6f): asymmetric-critic windows —
+        same window/history semantics, info-set gate bypassed in assemble;
+        NEVER a policy input (rl.py's pass-B leak boundary is test-pinned)."""
         p = dec["p"]
         out = assemble(dec, header, perspective=p,
-                       history=wire_history(dec.get("hist"), p))
+                       history=wire_history(dec.get("hist"), p),
+                       full_vis=full_vis)
         row_of = out["entity_row_of"]
 
         cand_rows = [-1]

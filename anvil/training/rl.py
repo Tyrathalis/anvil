@@ -281,15 +281,18 @@ def rejected_events(decs: list, i: int, dec: dict, rec: dict, aux: dict) -> int:
     return n
 
 
-def game_trajectories(store, feat, g: int):
+def game_trajectories(store, feat, g: int, full_vis: bool = False):
     """Per-seat mu-covered trajectories of one stored game, serve-identical
     windows via the featurizer path (store_wire_hist -> Featurizer.example ->
     apply_mu_labels).
 
-    Returns (trajs, skip_reason): trajs = [(seat, [(ex, rec), ...], reward)],
-    reward per §3d — win 1, loss/draw/cap 0 (a stalling leader forfeits the
-    +1); skip_reason set (and trajs empty) for crash/no-outcome games, whose
-    returns are engine artifacts, and for games without mu records."""
+    Returns (trajs, skip_reason): trajs = [(seat, [(ex, rec), ...], reward,
+    rej, exs_fv)]; reward per §3d — win 1, loss/draw/cap 0 (a stalling leader
+    forfeits the +1); skip_reason set (and trajs empty) for crash/no-outcome
+    games, whose returns are engine artifacts, and for games without mu
+    records. full_vis (§6f): exs_fv = the asymmetric critic's windows (same
+    decisions, info-set gate bypassed) — consumed ONLY by the frozen critic's
+    value forward in pass A, never by the policy passes; [] when off."""
     from anvil.bridge.featurize import store_wire_hist
 
     mu = store.mu_for_game(g)
@@ -315,10 +318,13 @@ def game_trajectories(store, feat, g: int):
                 return [], "mu_mismatch"
             rej = rejected_events(traj.decisions, len(prior), dec, rec, aux)
             apply_mu_labels(ex, rec)
-            by_seat.setdefault(dec["p"], []).append((ex, rec, rej))
+            ex_fv = (feat.example(wire, traj.header, rec["task"],
+                                  full_vis=True)[0] if full_vis else None)
+            by_seat.setdefault(dec["p"], []).append((ex, rec, rej, ex_fv))
         prior.append(dec)
-    return [(p, [(e, r) for e, r, _ in items], 1.0 if winner == p else 0.0,
-             [rj for _, _, rj in items])
+    return [(p, [(e, r) for e, r, _, _ in items], 1.0 if winner == p else 0.0,
+             [rj for _, _, rj, _ in items],
+             [fv for _, _, _, fv in items] if full_vis else [])
             for p, items in sorted(by_seat.items())], None
 
 
@@ -350,13 +356,15 @@ class RlTrajectories(torch.utils.data.IterableDataset):
     Worker-sharded by game; schedule reshuffled per epoch from the seed."""
 
     def __init__(self, stores: list[str], weights: list[float], stem: str,
-                 methods: list[str], seed: int = 0, epochs: int = 1):
+                 methods: list[str], seed: int = 0, epochs: int = 1,
+                 full_vis: bool = False):
         self.stores = stores
         self.weights = weights
         self.stem = stem
         self.methods = methods
         self.seed = seed
         self.epochs = epochs
+        self.full_vis = full_vis
 
     def __iter__(self):
         import random as _random
@@ -379,7 +387,8 @@ class RlTrajectories(torch.utils.data.IterableDataset):
             for si, g in schedule:
                 if (g * 2654435761 + si) % nw != wid:
                     continue
-                trajs, skip = game_trajectories(opened[si], feat, g)
+                trajs, skip = game_trajectories(opened[si], feat, g,
+                                                full_vis=self.full_vis)
                 if skip is not None:
                     yield {"skip": skip, "g": g}
                     continue
@@ -392,8 +401,9 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                 # tripwire recompute must use it; per-store because replay
                 # mixtures may span runs at different temperatures
                 mu_tau = (st.mu_meta or {}).get("temperature", 1.0)
-                for seat, exs, reward, rej in trajs:
+                for seat, exs, reward, rej, exs_fv in trajs:
                     yield {"g": g, "seat": seat, "reward": reward,
+                           "exs_fv": exs_fv,
                            # mu_step: which checkpoint generated these mu
                            # records — the recompute tripwire only applies
                            # when it matches the ref net (replay stores were
@@ -422,6 +432,12 @@ def main() -> None:
     ap.add_argument("--ckpt", required=True, help="init/pi checkpoint (last.pt)")
     ap.add_argument("--ref-ckpt", default=None,
                     help="mu-recompute tripwire checkpoint (default: --ckpt)")
+    ap.add_argument("--critic-ckpt", default=None,
+                    help="full-vis critic checkpoint (d6-vtrace-loop §6f): "
+                         "pass-A values (baseline + bootstrap) come from this "
+                         "frozen net on full-vis windows; the policy's own "
+                         "masked value head keeps training on the same vs "
+                         "targets. Off = v0 behavior (masked head values).")
     ap.add_argument("--out", required=True)
     ap.add_argument("--lr", type=float, default=1e-5)
     ap.add_argument("--wd", type=float, default=0.0)
@@ -479,12 +495,22 @@ def main() -> None:
                 if args.ref_ckpt else ckpt)
     ref.load_compat(ref_ckpt["model"])
     ref.eval()
+    critic = None
+    if args.critic_ckpt:
+        critic_ck = torch.load(args.critic_ckpt, map_location="cpu",
+                               weights_only=False)
+        critic = build_net(cfg["embed"], cfg["pool_manifest"], len(methods),
+                           n_sa=n_sa).to(dev)
+        critic.load_compat(critic_ck["model"])
+        critic.eval()
+        critic.requires_grad_(False)
 
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd)
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     rl_cfg = {**cfg, "rl": {k: getattr(args, k.replace("-", "_")) for k in
-                            ("store", "weights", "ckpt", "lr", "traj_per_step",
+                            ("store", "weights", "ckpt", "critic_ckpt",
+                             "lr", "traj_per_step",
                              "gamma", "rho_bar", "c_bar", "value_weight",
                              "ent_weight", "ent_floor", "epochs", "seed",
                              "tripwire_tol")},
@@ -493,7 +519,8 @@ def main() -> None:
     metrics = open(out_dir / "metrics.jsonl", "a", buffering=1)
 
     ds = RlTrajectories(stores, weights, cfg["embed"], methods,
-                        seed=args.seed, epochs=args.epochs)
+                        seed=args.seed, epochs=args.epochs,
+                        full_vis=critic is not None)
     loader = torch.utils.data.DataLoader(
         ds, batch_size=None, num_workers=args.workers,
         collate_fn=_identity, persistent_workers=False)
@@ -540,12 +567,27 @@ def main() -> None:
         win_count += t_len
 
         # ---- pass A (no grad): values + logp_pi for targets/ratios ----
+        # §6f: with a critic, values come from the frozen full-vis net on the
+        # fv windows (baseline AND bootstrap — asymmetric V-trace); the policy
+        # forward still supplies logp_pi, and its masked head's first-window
+        # read is logged as v0_masked (the live masked-vs-full-vis A/B).
         values, logp_pi = [], []
+        v0_masked = None
         for seg, fwd in forward_segments(net, exs, grad=False):
-            values.append(torch.sigmoid(fwd["value_logit"].float()).cpu())
             logp_pi.append(composite_logp(fwd, seg)["logp"].cpu())
+            if critic is None:
+                values.append(torch.sigmoid(fwd["value_logit"].float()).cpu())
+            elif v0_masked is None:
+                v0_masked = float(torch.sigmoid(fwd["value_logit"].float())[0])
+        if critic is not None:
+            for seg, fwd in forward_segments(critic, item["exs_fv"], grad=False):
+                values.append(torch.sigmoid(fwd["value_logit"].float()).cpu())
         values = torch.cat(values)
         logp_pi = torch.cat(logp_pi)
+        if len(values) != len(logp_pi):
+            raise RuntimeError(
+                f"game {item['g']} seat {item['seat']}: fv window count "
+                f"{len(values)} != masked {len(logp_pi)} — loader misalignment")
 
         # ---- mu recompute tripwire (sampled): serve/loader drift detector ----
         if (n_traj % args.tripwire_every == 1
@@ -594,6 +636,8 @@ def main() -> None:
         acc["kl_mu"] = acc.get("kl_mu", 0.0) + float((mu_logp - logp_pi).mean())
         acc["reward"] = acc.get("reward", 0.0) + reward
         acc["v0"] = acc.get("v0", 0.0) + float(values[0])
+        if v0_masked is not None:
+            acc["v0_masked"] = acc.get("v0_masked", 0.0) + v0_masked
         acc["rej"] = acc.get("rej", 0.0) + float(item["rej"].sum())
 
         if n_traj % args.traj_per_step == 0:
