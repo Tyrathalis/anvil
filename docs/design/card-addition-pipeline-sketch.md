@@ -101,3 +101,27 @@ policy for when to decline — cold-ID card in the window, OOV SA
 descriptor, entropy/confidence thresholds — not new plumbing. The open
 design work is the gating heuristic itself and measuring the blend's
 strength (gate-rate telemetry slots into the standing census).
+
+## The gate is TWO-SIDED (user, 2026-07-23)
+
+The heuristic has its own unsupported population, and Forge maintains the
+list: `RemAIDeck`-flagged cards (the never-cast audit measured 138/1,701
+pool cards never cast in 113K games — 95 RemAIDeck + 34 unflagged blind
+spots; record `data/runs/never-cast-audit-20260716.json`). For those, the
+heuristic's "handling" is typically never-casting — dead cards in hand.
+So the gate policy compares RELATIVE competence per decision:
+
+- model OOD + heuristic supported → heuristic (the tier-0 direction);
+- model trained + card RemAIDeck/blind-spot → MODEL, even at moderate
+  confidence — the bar is "beats never-casting", not "beats the
+  heuristic";
+- both weak → model's text-prior best guess (a semantic prior beats a
+  dead card).
+
+Caveat that sequences the work: the BC teacher never cast these cards, so
+today's model is weak there too — competence must come from RL
+exploration, text priors, and DRILLS. This is Grindstone's first market
+niche (the M3 flex item — drill seeding from the 34 blind spots — is the
+same work seen upstream-first): the cards where the model differentiates
+itself against the heuristic's admitted gaps, measurable per-card via the
+standing census.
