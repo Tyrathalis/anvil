@@ -75,3 +75,29 @@ model serves badly — replacing it outright was never the plan; a
 per-decision confidence gate (serve heuristic when the model is
 out-of-distribution) is the obvious hybrid and worth its own sketch when
 the time comes.
+
+## The cadence argument: the hybrid gate is REQUIRED, not optional
+
+(User, 2026-07-23.) Forge adds cards continuously — several per week, plus
+prerelease teasers well ahead of full sets (e.g. a dozen Star Trek cards
+landing months before November's full expansion), plus the custom-cards
+community. Honest retraining is inherently batched (tier 2 = per set
+release at the fastest). So there is ALWAYS a window where the pool
+contains cards the model has never trained on, and the gate is what makes
+that window safe. Mapping onto Forge's actual rhythm:
+
+- **Teaser/weekly/custom cards** → tier 0 (+ optional tier 1): embedding
+  appended, model plays the card from text+features where confident, gate
+  hands the rest to the heuristic. Zero training.
+- **Set release** → tier 2 batch refresh sweeps up everything added since
+  the last one.
+
+**The architectural gift: the gate already exists.** Per-decision
+heuristic fallback has been a first-class bridge response with provenance
+telemetry since M0 (`by=bridge` vs heuristic-fallback tagging;
+`PlayerControllerAnvil extends PlayerControllerAi`, so declining to answer
+IS the heuristic answering). Upstream, "confidence gate" is a serve-side
+policy for when to decline — cold-ID card in the window, OOV SA
+descriptor, entropy/confidence thresholds — not new plumbing. The open
+design work is the gating heuristic itself and measuring the blend's
+strength (gate-rate telemetry slots into the standing census).
