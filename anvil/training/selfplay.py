@@ -21,6 +21,7 @@ import argparse
 import glob
 import json
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -30,6 +31,51 @@ from pathlib import Path
 
 RUNS_DIR = Path("data/runs")
 TRAJ_DIR = Path("data/trajectories")
+
+
+def _notify(title: str, msg: str) -> None:
+    """Best-effort push for unattended runs (2026-07-23 QoL rider). Tries
+    $ANVIL_NOTIFY_CMD (an executable, invoked with title and message as its
+    two arguments — wire ntfy/kdeconnect/mail there), then notify-send as
+    the at-desk fallback. Never raises: no notification path may kill the
+    loop it exists to report on."""
+    print(f"[selfplay] NOTIFY: {title} — {msg}")
+    cmds = []
+    if os.environ.get("ANVIL_NOTIFY_CMD"):
+        cmds.append([os.environ["ANVIL_NOTIFY_CMD"], title, msg])
+    cmds.append(["notify-send", "--urgency=critical", "--app-name=anvil",
+                 title, msg])
+    for cmd in cmds:
+        if shutil.which(cmd[0]) is None:
+            continue
+        try:
+            subprocess.run(cmd, timeout=30, check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:  # noqa: BLE001
+            print(f"[selfplay] notify via {cmd[0]} failed: {e}")
+
+
+def _sleep_inhibitor(name: str) -> subprocess.Popen | None:
+    """Driver-owned systemd-inhibit holder (2026-07-22 suspend lesson): the
+    desktop must not sleep while a loop runs. The holder child gets
+    PR_SET_PDEATHSIG so it dies with the driver on ANY exit path — crash,
+    SIGKILL, guard halt — never orphaning a block on the user's laptop lid."""
+    if shutil.which("systemd-inhibit") is None:
+        return None
+
+    def _die_with_parent() -> None:
+        import ctypes
+        PR_SET_PDEATHSIG = 1
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(
+            PR_SET_PDEATHSIG, signal.SIGTERM)
+
+    proc = subprocess.Popen(
+        ["systemd-inhibit", "--what=sleep:idle", "--who=anvil-selfplay",
+         f"--why=RL loop {name}", "--mode=block", "sleep", "infinity"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        preexec_fn=_die_with_parent)
+    print(f"[selfplay] sleep inhibitor held (pid {proc.pid})")
+    return proc
 
 
 def _wait_port(port: int, timeout: float = 300.0) -> None:
@@ -312,6 +358,8 @@ def main() -> None:
                     help="re-ask-on-veto (d6-vtrace-loop §6b) for generation AND "
                          "arms — an environment change; arms are only comparable "
                          "to other -reask arms")
+    ap.add_argument("--no-inhibit", action="store_true",
+                    help="skip the systemd-inhibit sleep holder")
     args = ap.parse_args()
 
     # GPU cotenancy insurance (2026-07-16 OOMs beside a resident ComfyUI):
@@ -326,6 +374,8 @@ def main() -> None:
                    "start_index": 0})
     monitor = open(out / "monitor.jsonl", "a", buffering=1)
     (out / "loop_config.json").write_text(json.dumps(vars(args), indent=2))
+    if not args.no_inhibit:
+        _sleep_inhibitor(args.name)  # dies with the driver (PDEATHSIG)
 
     while state["iteration"] < args.iterations:
         if (out / "STOP").exists():
@@ -495,6 +545,8 @@ def main() -> None:
                   f"[selfplay] ckpt NOT accepted; loop_state unchanged; "
                   f"re-running re-evaluates the same iteration (deterministic "
                   f"halt — needs a human)")
+            _notify(f"anvil {args.name}: GUARD HALT iter {k}",
+                    "; ".join(guards))
             sys.exit(3)
 
         if state.get("baseline") is None:
@@ -539,7 +591,17 @@ def main() -> None:
 
     print(f"[selfplay] loop complete: {state['iteration']} iterations, "
           f"final ckpt {state['ckpt']}")
+    _notify(f"anvil {args.name}: COMPLETE",
+            f"{state['iteration']} iterations, final ckpt {state['ckpt']}")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise  # guard halts notify at the halt site
+    except Exception as e:  # noqa: BLE001
+        name = next((sys.argv[i + 1] for i, a in enumerate(sys.argv[:-1])
+                     if a == "--name"), "?")
+        _notify(f"anvil {name}: DRIVER CRASHED", repr(e))
+        raise
