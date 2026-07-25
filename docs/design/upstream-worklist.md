@@ -258,3 +258,35 @@ Full-log review ahead of PR #1 assembly. #11161 covered above. Also relevant:
   drops/re-asks under-strength blocks (census `dropped` then counts them).
   Until then the §6c reader-side derivation is the only accounting that sees
   this class. Small, serve-side, pairs with the block-drop re-ask follow-up.
+
+## Upstream determinism convergence (2026-07-24, three merged PRs)
+
+Three PRs merged upstream 07-24, all attacking classes we characterized in
+M2 D1 — independent work (none reference #11285), complementary surfaces:
+
+- **[#11360](https://github.com/Card-Forge/forge/pull/11360)** (liamiak,
+  merged): hash-order iteration nondeterminism in AI decision paths —
+  `ComputerUtil{,Cost,Mana}`, `AttackConstraints`, `ManaCostBeingPaid`,
+  `TriggerWaiting`. Root-cause diagnosis matches our D1 twin-residual
+  exactly (identity `hashCode` randomized per JVM launch; their measure:
+  ~40% seed divergence on a reanimator deck). **This is the class behind
+  our 1% twin-nondeterminism tail** (40x amplified under `-bridge` random
+  policy); D1 bounded it, they fixed (some of) it.
+- **[#11358](https://github.com/Card-Forge/forge/pull/11358)** (delebedev,
+  merged): `TriggerWaiting.setTriggers` HashMap iteration — simultaneous-
+  trigger order now preserved.
+- **[#11365](https://github.com/Card-Forge/forge/pull/11365)** (delebedev,
+  merged): `sim -s <seed>` CLI — seeded simulation runs upstream.
+
+Consequences:
+
+- **#11285 unaffected**: still MERGEABLE (no file overlap), still awaiting
+  review; our per-thread MyRandom + pre-shuffle sort surface is
+  complementary to all three.
+- **D4 rebase dividend**: the rebase picks these up — re-measure the twin
+  tail (`forkcheck -twin`/`-bridge`) expecting the hash-order residual to
+  shrink; re-read the 67 repro seeds against the new baseline.
+- **Technique harvest**: `-XX:+UnlockExperimentalVMOptions -XX:hashCode=3`
+  (deterministic identity hashes) was liamiak's diagnostic — a natural
+  forkcheck stress instrument to adopt (turns the hash-order class from
+  probabilistic to reproducible).
