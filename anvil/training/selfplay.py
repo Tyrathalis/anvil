@@ -397,6 +397,11 @@ def main() -> None:
     state = (json.loads(state_path.read_text()) if state_path.exists()
              else {"iteration": 0, "ckpt": args.ckpt, "stores": [],
                    "start_index": 0})
+    # Line-buffer our own narration: under a detached launch (stdout -> log
+    # file) block buffering held EVERY driver print in memory for run-8's
+    # whole 36h — "===== iteration" markers, guard text — starving the log
+    # watcher; subprocess output interleaved fine (own fds). Found 2026-07-25.
+    sys.stdout.reconfigure(line_buffering=True)
     monitor = open(out / "monitor.jsonl", "a", buffering=1)
     (out / "loop_config.json").write_text(json.dumps(vars(args), indent=2))
     if not args.no_inhibit:
