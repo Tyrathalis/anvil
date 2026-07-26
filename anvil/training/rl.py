@@ -585,8 +585,31 @@ def main() -> None:
         torch.save({"step": step, "model": net.state_dict(), "config": rl_cfg},
                    out_dir / f"{tag}.pt")
 
+    # Per-phase wall clock (bench 2026-07-25: the GPU sits ~90% idle through
+    # the train phase and throughput is flat in both --seg and --workers, so
+    # the bottleneck is neither device capacity nor worker count — this says
+    # which phase actually holds the clock). `load` is isolated by timing the
+    # loader handoff itself, so `continue` paths can't misattribute it.
+    tprof: dict[str, float] = {}
+
+    def timed_loader(src):
+        it = iter(src)
+        while True:
+            t0 = time.monotonic()
+            try:
+                item = next(it)
+            except StopIteration:
+                return
+            tprof["load"] = tprof.get("load", 0.0) + (time.monotonic() - t0)
+            yield item
+
+    def tick(key: str, t: float) -> float:
+        now = time.monotonic()
+        tprof[key] = tprof.get(key, 0.0) + (now - t)
+        return now
+
     opt.zero_grad(set_to_none=True)
-    for item in loader:
+    for item in timed_loader(loader):
         if "skip" in item:
             skips[item["skip"]] = skips.get(item["skip"], 0) + 1
             continue
@@ -599,6 +622,7 @@ def main() -> None:
             break
         n_traj += 1
         win_count += t_len
+        tphase = time.monotonic()
 
         # ---- pass A (no grad): values + logp_pi for targets/ratios ----
         # §6f: with a critic, values come from the frozen full-vis net on the
@@ -616,6 +640,7 @@ def main() -> None:
         if critic is not None:
             for seg, fwd in forward_segments(critic, item["exs_fv"], grad=False):
                 values.append(torch.sigmoid(fwd["value_logit"].float()).cpu())
+        tphase = tick("fwd_nograd", tphase)
         values = torch.cat(values)
         logp_pi = torch.cat(logp_pi)
         if len(values) != len(logp_pi):
@@ -639,6 +664,7 @@ def main() -> None:
                       "— trajectory dropped")
                 continue
 
+        tphase = tick("tripwire", tphase)
         step_r = (-args.penalty) * item["rej"] if args.penalty else None
         vs, pg_adv, rho = vtrace_targets(values, logp_pi, mu_logp, reward,
                                          gamma=args.gamma, rho_bar=args.rho_bar,
@@ -665,6 +691,7 @@ def main() -> None:
             acc["ent"] = acc.get("ent", 0.0) + float(ent_mean)
             acc["ent_pen"] = acc.get("ent_pen", 0.0) + float(ent_pen)
             off += b
+        tphase = tick("fwd_bwd", tphase)
         acc["rho_mean"] = acc.get("rho_mean", 0.0) + float(rho.mean())
         acc["rho_clip"] = acc.get("rho_clip", 0.0) + float((rho >= args.rho_bar).float().mean())
         acc["kl_mu"] = acc.get("kl_mu", 0.0) + float((mu_logp - logp_pi).mean())
@@ -687,10 +714,16 @@ def main() -> None:
                 # (run-1 iter rows; rediscovered on the re-ask smoke)
                 n = max(n_traj - last_flush_traj, 1)
                 last_flush_traj = n_traj
+                wall = time.monotonic() - t0
                 row = {"step": step, "traj": n_traj,
                        **{k: round(v / n, 5) for k, v in acc.items()},
                        "skips": dict(skips), "tripwire_viol": tripwire_viol,
-                       "win_per_s": round(win_count / (time.monotonic() - t0), 1)}
+                       "win_per_s": round(win_count / wall, 1),
+                       # cumulative share of wall clock per phase; `load` is
+                       # loader-handoff wait, so a high share means the
+                       # learner is data-starved, not compute-bound
+                       "phase": {k: round(v / wall, 3)
+                                 for k, v in sorted(tprof.items())}}
                 metrics.write(json.dumps(row) + "\n")
                 print(f"[rl] {row}")
                 acc = {}
@@ -701,8 +734,11 @@ def main() -> None:
     (out_dir / "DONE").touch()  # completion marker: the loop driver skips
     # the train phase on resume iff this exists (last.pt alone is ambiguous
     # — periodic saves leave one behind mid-run)
+    wall = time.monotonic() - t0
     print(f"[rl] done: {step} steps, {n_traj} trajectories, skips={skips}, "
           f"tripwire_viol={tripwire_viol}")
+    print(f"[rl] wall {wall:.0f}s; phase shares "
+          + ", ".join(f"{k} {v / wall:.1%}" for k, v in sorted(tprof.items())))
 
 
 if __name__ == "__main__":
