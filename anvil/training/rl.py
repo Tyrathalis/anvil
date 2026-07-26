@@ -510,6 +510,10 @@ def main() -> None:
                          "bf16 serve-vs-recompute noise reaches ~0.075 on "
                          "soft heads (measured, d6 smoke); real skew shows "
                          "pick mismatches or O(1)+ deviations")
+    ap.add_argument("--max-traj", type=int, default=0,
+                    help="stop after N trajectories (0 = whole store). "
+                         "Profiling/smoke only — a capped run's checkpoint is "
+                         "trained on a store prefix, never promote one")
     ap.add_argument("--clip", type=float, default=1.0)
     ap.add_argument("--log-every", type=int, default=20)
     ap.add_argument("--device", default="cuda")
@@ -590,6 +594,9 @@ def main() -> None:
         t_len = len(exs)
         if t_len == 0:
             continue
+        if args.max_traj and n_traj >= args.max_traj:
+            print(f"[rl] --max-traj {args.max_traj} reached; stopping early")
+            break
         n_traj += 1
         win_count += t_len
 
