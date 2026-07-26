@@ -55,6 +55,38 @@ def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
     return float((r[pos].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
 
 
+def _train_batch(net, batch: dict, device: str, denom: int) -> float:
+    """Forward+backward one training batch; returns the mean loss value.
+
+    VRAM elasticity (task #12): on CUDA OOM the batch is split in half
+    along the batch dim and gradient-ACCUMULATED — each half contributes
+    its sum-loss / denom, so the accumulated gradient equals the whole
+    batch's mean-BCE gradient and the effective batch size (a training
+    hyperparameter, unlike rl.py's seg) is preserved exactly."""
+    b = next(iter(batch.values())).shape[0]
+    try:
+        with torch.autocast(device, dtype=torch.bfloat16):
+            out = net(batch)
+            m = batch["has_outcome"].bool()
+            if not m.any():
+                return 0.0
+            loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                out["value_logit"][m], batch["won"][m].float(),
+                reduction="sum") / denom
+        loss.backward()
+        return float(loss.detach())
+    except torch.cuda.OutOfMemoryError:
+        if b < 2:
+            raise  # not a batching problem at one example
+        torch.cuda.empty_cache()
+        print(f"[vfix] OOM at batch {b} -> gradient-accumulating halves")
+        h = b // 2
+        return (_train_batch(net, {k: v[:h] for k, v in batch.items()},
+                             device, denom)
+                + _train_batch(net, {k: v[h:] for k, v in batch.items()},
+                               device, denom))
+
+
 @torch.no_grad()
 def eval_value(net, loader, device: str, max_batches: int) -> dict:
     net.eval()
@@ -155,25 +187,21 @@ def main() -> None:
                 g["lr"] = lr_at(step)
             net.train()
             batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
-            with torch.autocast(device, dtype=torch.bfloat16):
-                out = net(batch)
-                m = batch["has_outcome"].bool()
-                if not m.any():
-                    continue
-                loss = torch.nn.functional.binary_cross_entropy_with_logits(
-                    out["value_logit"][m], batch["won"][m].float())
+            n_out = int(batch["has_outcome"].sum())
+            if n_out == 0:
+                continue
             opt.zero_grad(set_to_none=True)
-            loss.backward()
+            loss_val = _train_batch(net, batch, device, n_out)
             opt.step()
-            seen += int(m.sum())
+            seen += n_out
             step += 1
             if step % 200 == 0:
-                metrics.write(json.dumps({"step": step, "value_loss": float(loss.detach()),
+                metrics.write(json.dumps({"step": step, "value_loss": loss_val,
                                           "lr": lr_at(step), "windows": seen,
                                           "wall_s": round(time.time() - t0, 1)}) + "\n")
                 metrics.flush()
             if step % 1000 == 0:
-                print(f"[vfix] step {step}: loss {float(loss.detach()):.4f} "
+                print(f"[vfix] step {step}: loss {loss_val:.4f} "
                       f"({seen / (time.time() - t0):.0f} win/s)")
             if step % a.eval_every == 0 or step == a.steps:
                 nb = a.final_eval_batches if step == a.steps else a.eval_batches

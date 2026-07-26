@@ -21,7 +21,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 
-from anvil.training.dataset import TASKS
+from anvil.training.dataset import TASKS, collate, default_methods
 
 
 def _gather_lp(logits: torch.Tensor, labels: torch.Tensor,
@@ -415,13 +415,51 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                                                    dtype=torch.float32)}
 
 
+def make_forward_segments(dev: str, seg: int):
+    """Segmented GPU forward passes over a trajectory's examples.
+
+    VRAM elasticity (task #12): seg is pure micro-batching — activation
+    peak scales with it, semantics don't — so cotenant memory pressure (a
+    resident ComfyUI job, run-3's OOM class) is absorbed by halving it and
+    retrying instead of crashing the iteration. The reduced size sticks
+    for the rest of the run (conservative: the cotenant is usually still
+    there)."""
+    seg_size = {"n": seg}
+
+    def forward_segments(model, exs, grad: bool):
+        # GENERATOR, deliberately: with grad on, each yielded fwd holds a
+        # ~GB-scale autograd graph — the caller must backward/drop it before
+        # the next segment runs. Materializing the list OOM'd on the first
+        # real store (grindy games reach 2K+ decisions/seat = 8+ segments).
+        i = 0
+        while i < len(exs):
+            n = min(seg_size["n"], len(exs) - i)
+            try:
+                seg = {k: v.to(dev) for k, v in
+                       collate(exs[i:i + n]).items()}
+                ctx = torch.enable_grad() if grad else torch.no_grad()
+                with ctx, torch.autocast(dev, dtype=torch.bfloat16):
+                    fwd = model(seg)
+            except torch.cuda.OutOfMemoryError:
+                if seg_size["n"] <= 8:
+                    raise  # not a batching problem at this size
+                seg_size["n"] //= 2
+                torch.cuda.empty_cache()
+                print(f"[rl] OOM at seg {n} -> retrying at {seg_size['n']} "
+                      f"(sticks for the rest of the run)")
+                continue
+            yield seg, fwd
+            i += n
+
+    return forward_segments
+
+
 def main() -> None:
     import argparse
     import json
     import time
     from pathlib import Path
 
-    from anvil.training.dataset import collate, default_methods
     from anvil.training.train import build_net
 
     ap = argparse.ArgumentParser(description="V-trace self-play learner (M2 D6)")
@@ -525,18 +563,7 @@ def main() -> None:
         ds, batch_size=None, num_workers=args.workers,
         collate_fn=_identity, persistent_workers=False)
 
-    def forward_segments(model, exs, grad: bool):
-        # GENERATOR, deliberately: with grad on, each yielded fwd holds a
-        # ~GB-scale autograd graph — the caller must backward/drop it before
-        # the next segment runs. Materializing the list OOM'd on the first
-        # real store (grindy games reach 2K+ decisions/seat = 8+ segments).
-        for i in range(0, len(exs), args.seg):
-            seg = {k: v.to(dev) for k, v in
-                   collate(exs[i:i + args.seg]).items()}
-            ctx = torch.enable_grad() if grad else torch.no_grad()
-            with ctx, torch.autocast(dev, dtype=torch.bfloat16):
-                fwd = model(seg)
-            yield seg, fwd
+    forward_segments = make_forward_segments(dev, args.seg)
 
     # step continues from the init checkpoint: monotonic across the whole
     # BC->RL chain, so mu meta "step" uniquely names the generating ckpt

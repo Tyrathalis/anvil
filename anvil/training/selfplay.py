@@ -33,6 +33,30 @@ RUNS_DIR = Path("data/runs")
 TRAJ_DIR = Path("data/trajectories")
 
 
+def _auto_seg(pinned: int) -> int:
+    """Per-phase learner seg autotune (task #12): price GPU cotenancy at
+    phase start instead of discovering it by OOM. Reads free VRAM via
+    nvidia-smi (NOT torch — a CUDA context in the driver would hold ~300MB
+    for the loop's lifetime, defeating the subprocess-per-phase design).
+    Thresholds from the run-3 incident: seg 256 OOM'd with ~13GB free
+    beside a resident ComfyUI, 128 fit. A nonzero --rl-seg pins manually;
+    rl.py's OOM-halving backstops mid-phase pressure changes either way."""
+    if pinned:
+        return pinned
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=10)
+        free_mb = int(out.stdout.split()[0])
+    except Exception as e:  # noqa: BLE001
+        print(f"[selfplay] seg autotune: nvidia-smi failed ({e}); using 128")
+        return 128
+    seg = 256 if free_mb >= 16000 else 128 if free_mb >= 9000 else 64
+    print(f"[selfplay] seg autotune: {free_mb} MB free -> seg {seg}")
+    return seg
+
+
 def _notify(title: str, msg: str) -> None:
     """Best-effort push for unattended runs (2026-07-23 QoL rider). Tries
     $ANVIL_NOTIFY_CMD (an executable, invoked with title and message as its
@@ -311,10 +335,11 @@ def main() -> None:
     ap.add_argument("--ent-weight", type=float, default=3e-3)
     ap.add_argument("--ent-floor", type=float, default=0.08,
                     help="hinge entropy floor passed to the learner (ADR-0017)")
-    ap.add_argument("--rl-seg", type=int, default=256,
-                    help="learner windows per GPU pass (rl.py --seg); halve when "
-                         "cohabiting the GPU with another resident process — "
-                         "activation peak scales with it, semantics don't")
+    ap.add_argument("--rl-seg", type=int, default=0,
+                    help="learner windows per GPU pass (rl.py --seg); "
+                         "activation peak scales with it, semantics don't. "
+                         "0 (default) = autotune per phase from free VRAM "
+                         "(task #12); nonzero pins it manually")
     ap.add_argument("--guard-kl", type=float, default=0.05,
                     help="halt if an iteration's mean KL(pi||mu) exceeds this")
     ap.add_argument("--guard-ent-mult", type=float, default=2.0,
@@ -372,6 +397,11 @@ def main() -> None:
     state = (json.loads(state_path.read_text()) if state_path.exists()
              else {"iteration": 0, "ckpt": args.ckpt, "stores": [],
                    "start_index": 0})
+    # Line-buffer our own narration: under a detached launch (stdout -> log
+    # file) block buffering held EVERY driver print in memory for run-8's
+    # whole 36h — "===== iteration" markers, guard text — starving the log
+    # watcher; subprocess output interleaved fine (own fds). Found 2026-07-25.
+    sys.stdout.reconfigure(line_buffering=True)
     monitor = open(out / "monitor.jsonl", "a", buffering=1)
     (out / "loop_config.json").write_text(json.dumps(vars(args), indent=2))
     if not args.no_inhibit:
@@ -481,7 +511,7 @@ def main() -> None:
                   "--ent-floor", str(args.ent_floor),
                   "--value-weight", str(args.value_weight),
                   "--traj-per-step", str(args.traj_per_step),
-                  "--seg", str(args.rl_seg),
+                  "--seg", str(_auto_seg(args.rl_seg)),
                   "--workers", str(args.rl_workers),
                   "--penalty", str(args.penalty),
                   "--epochs", str(args.epochs), "--seed", str(k)]
