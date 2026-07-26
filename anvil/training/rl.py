@@ -357,7 +357,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
 
     def __init__(self, stores: list[str], weights: list[float], stem: str,
                  methods: list[str], seed: int = 0, epochs: int = 1,
-                 full_vis: bool = False):
+                 full_vis: bool = False, seg: int = 256):
         self.stores = stores
         self.weights = weights
         self.stem = stem
@@ -365,6 +365,16 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         self.seed = seed
         self.epochs = epochs
         self.full_vis = full_vis
+        # Collate WORKER-SIDE at exactly the learner's seg size (2026-07-26).
+        # Yielding per-window example dicts shipped ~20 tensors x hundreds of
+        # windows x2 (masked + fv) through the DataLoader's shm+pickle path for
+        # the single main process to deserialize and collate: measured 87% of
+        # the train phase in loader handoff, main process at 83% CPU while six
+        # workers idled at 25% and the GPU sat ~10% busy. Chunking here at the
+        # same boundaries the main process used keeps segmentation and padding
+        # IDENTICAL, so the change is verifiable byte-for-byte rather than
+        # to a tolerance.
+        self.seg = seg
 
     def __iter__(self):
         import random as _random
@@ -402,15 +412,20 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                 # mixtures may span runs at different temperatures
                 mu_tau = (st.mu_meta or {}).get("temperature", 1.0)
                 for seat, exs, reward, rej, exs_fv in trajs:
+                    plain = [e for e, _ in exs]
+                    n = max(1, self.seg)
                     yield {"g": g, "seat": seat, "reward": reward,
-                           "exs_fv": exs_fv,
+                           "t_len": len(plain),
+                           "segs": [collate(plain[i:i + n])
+                                    for i in range(0, len(plain), n)],
+                           "segs_fv": [collate(exs_fv[i:i + n])
+                                       for i in range(0, len(exs_fv), n)],
                            # mu_step: which checkpoint generated these mu
                            # records — the recompute tripwire only applies
                            # when it matches the ref net (replay stores were
                            # sampled under older checkpoints)
                            "mu_step": mu_step, "mu_tau": mu_tau,
                            "rej": torch.tensor(rej, dtype=torch.float32),
-                           "exs": [e for e, _ in exs],
                            "mu_logp": torch.tensor([r["logp"] for _, r in exs],
                                                    dtype=torch.float32)}
 
@@ -426,30 +441,43 @@ def make_forward_segments(dev: str, seg: int):
     there)."""
     seg_size = {"n": seg}
 
-    def forward_segments(model, exs, grad: bool):
+    def forward_segments(model, segs, grad: bool):
         # GENERATOR, deliberately: with grad on, each yielded fwd holds a
         # ~GB-scale autograd graph — the caller must backward/drop it before
         # the next segment runs. Materializing the list OOM'd on the first
         # real store (grindy games reach 2K+ decisions/seat = 8+ segments).
-        i = 0
-        while i < len(exs):
-            n = min(seg_size["n"], len(exs) - i)
-            try:
-                seg = {k: v.to(dev) for k, v in
-                       collate(exs[i:i + n]).items()}
-                ctx = torch.enable_grad() if grad else torch.no_grad()
-                with ctx, torch.autocast(dev, dtype=torch.bfloat16):
-                    fwd = model(seg)
-            except torch.cuda.OutOfMemoryError:
-                if seg_size["n"] <= 8:
-                    raise  # not a batching problem at this size
-                seg_size["n"] //= 2
-                torch.cuda.empty_cache()
-                print(f"[rl] OOM at seg {n} -> retrying at {seg_size['n']} "
-                      f"(sticks for the rest of the run)")
-                continue
-            yield seg, fwd
-            i += n
+        #
+        # Segments arrive PRE-COLLATED from the loader worker at the same seg
+        # size, so the common path is one forward per segment and the tensors
+        # are already batch-first. OOM elasticity still works: halving splits
+        # a collated segment by SLICING dim 0, which inherits the parent's
+        # padding — marginally wasteful, but numerically identical to the
+        # unsplit pass (padding is masked), where re-collating a sub-range
+        # would change the padded width.
+        for s in segs:
+            # every collate() output is batch-first with the same leading dim,
+            # so any entry answers "how many windows" and slicing dim 0 is
+            # valid across all of them
+            b = next(iter(s.values())).shape[0]
+            i = 0
+            while i < b:
+                n = min(seg_size["n"], b - i)
+                try:
+                    seg = {k: (v if n == b else v[i:i + n]).to(dev)
+                           for k, v in s.items()}
+                    ctx = torch.enable_grad() if grad else torch.no_grad()
+                    with ctx, torch.autocast(dev, dtype=torch.bfloat16):
+                        fwd = model(seg)
+                except torch.cuda.OutOfMemoryError:
+                    if seg_size["n"] <= 8:
+                        raise  # not a batching problem at this size
+                    seg_size["n"] //= 2
+                    torch.cuda.empty_cache()
+                    print(f"[rl] OOM at seg {n} -> retrying at {seg_size['n']} "
+                          f"(sticks for the rest of the run)")
+                    continue
+                yield seg, fwd
+                i += n
 
     return forward_segments
 
@@ -562,7 +590,7 @@ def main() -> None:
 
     ds = RlTrajectories(stores, weights, cfg["embed"], methods,
                         seed=args.seed, epochs=args.epochs,
-                        full_vis=critic is not None)
+                        full_vis=critic is not None, seg=args.seg)
     loader = torch.utils.data.DataLoader(
         ds, batch_size=None, num_workers=args.workers,
         collate_fn=_identity, persistent_workers=False)
@@ -613,8 +641,8 @@ def main() -> None:
         if "skip" in item:
             skips[item["skip"]] = skips.get(item["skip"], 0) + 1
             continue
-        exs, mu_logp, reward = item["exs"], item["mu_logp"], item["reward"]
-        t_len = len(exs)
+        segs, mu_logp, reward = item["segs"], item["mu_logp"], item["reward"]
+        t_len = item["t_len"]
         if t_len == 0:
             continue
         if args.max_traj and n_traj >= args.max_traj:
@@ -631,14 +659,14 @@ def main() -> None:
         # read is logged as v0_masked (the live masked-vs-full-vis A/B).
         values, logp_pi = [], []
         v0_masked = None
-        for seg, fwd in forward_segments(net, exs, grad=False):
+        for seg, fwd in forward_segments(net, segs, grad=False):
             logp_pi.append(composite_logp(fwd, seg)["logp"].cpu())
             if critic is None:
                 values.append(torch.sigmoid(fwd["value_logit"].float()).cpu())
             elif v0_masked is None:
                 v0_masked = float(torch.sigmoid(fwd["value_logit"].float())[0])
         if critic is not None:
-            for seg, fwd in forward_segments(critic, item["exs_fv"], grad=False):
+            for seg, fwd in forward_segments(critic, item["segs_fv"], grad=False):
                 values.append(torch.sigmoid(fwd["value_logit"].float()).cpu())
         tphase = tick("fwd_nograd", tphase)
         values = torch.cat(values)
@@ -651,16 +679,17 @@ def main() -> None:
         # ---- mu recompute tripwire (sampled): serve/loader drift detector ----
         if (n_traj % args.tripwire_every == 1
                 and item.get("mu_step") == ref_ckpt.get("step")):
-            head = exs[:args.seg]
+            head = segs[:1]  # the first pre-collated segment
+            n_head = head[0]["label"].shape[0]
             (seg, fwd), = forward_segments(ref, head, grad=False)
             lp_ref = composite_logp(
                 fwd, seg, temperature=float(item.get("mu_tau", 1.0)))["logp"].cpu()
-            bad = (lp_ref - mu_logp[:len(head)]).abs() > args.tripwire_tol
+            bad = (lp_ref - mu_logp[:n_head]).abs() > args.tripwire_tol
             if bad.any():
                 tripwire_viol += int(bad.sum())
                 print(f"[rl] TRIPWIRE: game {item['g']} seat {item['seat']}: "
-                      f"{int(bad.sum())}/{len(head)} decisions off by "
-                      f"{float((lp_ref - mu_logp[:len(head)]).abs().max()):.4f} "
+                      f"{int(bad.sum())}/{n_head} decisions off by "
+                      f"{float((lp_ref - mu_logp[:n_head]).abs().max()):.4f} "
                       "— trajectory dropped")
                 continue
 
@@ -672,7 +701,7 @@ def main() -> None:
 
         # ---- pass B (grad): policy gradient + value + entropy ----
         off = 0
-        for seg, fwd in forward_segments(net, exs, grad=True):
+        for seg, fwd in forward_segments(net, segs, grad=True):
             b = seg["label"].shape[0]
             adv = pg_adv[off:off + b].to(dev)
             tgt = vs[off:off + b].clamp(0.0, 1.0).to(dev)

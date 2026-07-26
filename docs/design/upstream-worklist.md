@@ -204,6 +204,37 @@ polite rate limits, consider contacting them), loop the existing providers
 for bulk import/update; (b) mobile/Android exposure (current UI is
 desktop-chooser-only). Risk is API etiquette, not engineering.
 
+## Queued idea — configurable tap angle (2026-07-26)
+
+User wish (paper-like ~60–75° tap instead of a flat 90°). **No option exists,
+and no prior discussion found** — GitHub issue/PR searches for "tap angle",
+"tapped rotation", "tap angle rotation" all return nothing. Same conclusion as
+the asset-delta item: nobody decided against it, it is simply unbuilt.
+
+- **Current state = a compile-time constant on both UIs.** Desktop:
+  `CardPanel.TAPPED_ANGLE = Math.PI / 2` (`forge-gui-desktop/.../view/arcane/
+  CardPanel.java:89`), a `public static final double` consumed only by the tap
+  animation (`view/arcane/util/Animation.java:203-212`). Mobile:
+  `FCardPanel.getTappedAngle()` returns a literal `-90`
+  (`forge-gui-mobile/src/forge/toolbox/FCardPanel.java:70`), consumed at three
+  draw sites; the single override (`VCardDisplayArea:594`) only flips the sign
+  for areas rotated 180°. Nearby prefs are unrelated:
+  `UI_ROTATE_PLANE_OR_PHENOMENON`, `UI_ROTATE_SPLIT_CARDS`,
+  `UI_ANIMATED_CARD_TAPUNTAP` (animation on/off, not angle).
+- **Lift:** small — a new `FPref` (e.g. `UI_TAP_ANGLE`, default 90) threaded
+  into one desktop constant and one mobile accessor, plus a settings entry on
+  each UI. The existing `UI_ACTIONABLE_HIGHLIGHT_COLOR` pref is the shape to
+  copy for a free-form (non-boolean) display setting on both UIs.
+- **Wrinkle to check before pitching:** desktop's static image path rounds to
+  the nearest 90° (`toolbox/imaging/FImagePanel.java`: "rotations are currently
+  rounded to the nearest 90 degrees", `FImageUtil.getRotationToNearest`). A
+  non-90 angle likely needs the animation/transform path to own tapped
+  rendering rather than the pre-rotated image cache — verify whether the tapped
+  card is drawn via the rounded image path or the AffineTransform path before
+  scoping. Hit-testing also assumes the tapped footprint
+  (`FCardPanel.renderedCardContains` adjusts width "to make room for tapping").
+- Per house survey lore, float the idea in Discord before writing code.
+
 ## Upstream drift watch (2026-07-10 sweep: pin `0bfdaa572f30` → `1eec01434e`, 57 commits)
 
 Full-log review ahead of PR #1 assembly. #11161 covered above. Also relevant:

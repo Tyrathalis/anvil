@@ -34,32 +34,48 @@ def _stub_collate(exs):
     return {"x": torch.stack([e["x"] for e in exs])}
 
 
-def test_forward_segments_halves_on_oom_and_sticks(monkeypatch):
-    monkeypatch.setattr(rl_mod, "collate", _stub_collate)
+def _pre_collated(n: int, seg: int):
+    """Segments as the loader worker now hands them over: already collated at
+    the learner's seg size (2026-07-26 refactor), so OOM elasticity has to
+    SLICE them rather than re-chunk a list of examples."""
+    exs = [{"x": torch.full((3,), float(i))} for i in range(n)]
+    return [_stub_collate(exs[i:i + seg]) for i in range(0, n, seg)]
+
+
+def test_forward_segments_halves_on_oom_and_sticks():
     fs = rl_mod.make_forward_segments("cpu", seg=32)
     net = _CountingNet(fits=10)
-    exs = [{"x": torch.full((3,), float(i))} for i in range(50)]
-    outs = [seg["x"] for seg, _ in fs(net, exs, grad=False)]
-    # 32 -> 16 (OOM) -> 8 (OOM, fits): all examples served, order preserved
+    segs = _pre_collated(50, 32)
+    outs = [seg["x"] for seg, _ in fs(net, segs, grad=False)]
+    # 32 -> 16 (OOM) -> 8 (OOM, fits): every window served, order preserved
     assert torch.cat(outs).shape[0] == 50
     assert torch.equal(torch.cat(outs)[:, 0], torch.arange(50, dtype=torch.float32))
     assert all(b <= 8 for b in net.served)
     # the reduction sticks across calls of the same factory instance
     net2 = _CountingNet(fits=10)
-    list(fs(net2, exs[:20], grad=False))
+    list(fs(net2, _pre_collated(20, 32), grad=False))
     assert all(b <= 8 for b in net2.served)
 
 
-def test_forward_segments_raises_at_floor(monkeypatch):
-    monkeypatch.setattr(rl_mod, "collate", _stub_collate)
+def test_forward_segments_raises_at_floor():
     fs = rl_mod.make_forward_segments("cpu", seg=16)
     net = _CountingNet(fits=0)  # nothing ever fits
-    exs = [{"x": torch.zeros(3)} for _ in range(4)]
     try:
-        list(fs(net, exs, grad=False))
+        list(fs(net, _pre_collated(4, 16), grad=False))
         raise AssertionError("expected OutOfMemoryError at the seg floor")
     except torch.cuda.OutOfMemoryError:
         pass
+
+
+def test_oom_slice_inherits_parent_padding():
+    """A halved slice must keep the PARENT's padded width — re-collating the
+    sub-range would change it, and with it the numerics the equivalence gate
+    is asserting are unchanged."""
+    seg = {"x": torch.zeros(8, 5), "pad_w": torch.zeros(8, 5)}
+    fs = rl_mod.make_forward_segments("cpu", seg=4)
+    net = _CountingNet(fits=4)
+    widths = [s["x"].shape[1] for s, _ in fs(net, [seg], grad=False)]
+    assert widths == [5, 5]  # two slices of 4, both at the parent's width
 
 
 class _ValueNet(torch.nn.Module):
