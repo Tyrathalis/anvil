@@ -113,10 +113,46 @@ feeds) parse our repo's release/commit atoms.
 
 ---
 
+## 4. Window resizing in Adventure Mode / the mobile build on desktop Linux
+
+The Adventure Mode build (`forge-gui-mobile-dev`, the libGDX/LWJGL3 desktop
+launcher that also drives Adventure) does not resize properly on desktop Linux.
+**Wanted:** resizing that behaves like a normal desktop window, ideally
+including **corner/edge snapping** (half-screen and quarter-screen tiling —
+KWin/GNOME-style drag-to-edge).
+
+Not yet diagnosed. Where to look when this gets picked up:
+
+- The LWJGL3 application config in the mobile-dev launcher — window created
+  with a fixed size / `setResizable`, and whether `HdpiMode`, a locked aspect
+  ratio, or a min/max size is set.
+- `Forge.resize()` / the libGDX `ApplicationListener.resize` path and how the
+  scene graph recomputes layout — a window that resizes but doesn't re-layout
+  looks like the same bug from the outside as one that refuses to resize.
+- Wayland vs X11 behavior. Snapping is compositor-driven, so a window that
+  refuses tiling usually does so because it advertises fixed size hints or the
+  app runs a fullscreen/undecorated mode; worth confirming which backend the
+  launcher actually gets (`GLFW` / SDL under XWayland vs native Wayland) before
+  blaming the app.
+
+Establish first whether this is fork-specific or reproduces on stock upstream
+Forge — if upstream, it is an upstream bug report and possibly an upstream PR,
+which suits the pattern the fork already follows. Training-neutral either way
+(`forge-gui-mobile*` is never loaded by the headless harness).
+
+---
+
 ## Suggested sequence
 
 1. **Item 3** — trivial, and required before any of our own builds can
    self-update at all.
 2. **Item 2 → 1** together — delta payload makes seamless in-place apply cheap.
+3. **Item 4** — independent of the updater items; pick up whenever Adventure
+   Mode gets real desktop use.
 
 None scheduled; revisit when the Commander-night plan firms up.
+
+> A fifth workstream — multiplayer protocol hardening — is tracked separately
+> and is **not** in this file. See the local-only note on branch
+> `security/playable-multiplayer` (held back from this public repo pending
+> private upstream disclosure).
