@@ -256,24 +256,68 @@ silently — the card gets drawn somewhere you cannot click.
    in those files. Offer a short value list (**90 / 75 / 60 / 45**) rather than
    a free slider: it bounds the layout-reservation problem below, and neither
    settings screen has a slider widget to reuse.
-4. **Decide the layout reservation deliberately.** Both clients size the tapped
-   footprint from the 90° swap (desktop `PlayArea` row packing; mobile
-   `MatchScreen:421` hover-preview offsets and field width math). At a shallow
-   angle the drawn bounding box is *wider than either* the untapped or the
-   90°-tapped box — worst case `w·cosθ + h·sinθ`. Either reserve the true
-   rotated AABB (more spacing, rows may repack) or keep reserving the 90° box
-   and accept mild neighbour overlap. Overlap is probably the better look — it
-   is what a paper table looks like — but it must be a decision, not an
-   accident.
+4. **Layout reservation: keep the 90° box, accept the overlap** (decided
+   2026-07-26, user). Both clients size the tapped footprint from the 90° swap
+   (desktop `PlayArea` row packing; mobile `MatchScreen:421` hover-preview
+   offsets and field width math). At a shallow angle the drawn bounding box is
+   *wider than either* the untapped or the 90°-tapped box — worst case
+   `w·cosθ + h·sinθ` — so a shallow tilt will let tapped cards overhang their
+   neighbours slightly. **That is the intended look**: it is what a real table
+   looks like, and it is also the cheap option (zero changes to row packing,
+   no repack cascade, no risk of the field re-flowing every time something
+   taps). Consequence to watch: the *stacking order* now matters visually where
+   it did not before — a tapped card overhanging the one to its right should be
+   drawn under it, not over it, or the overlap reads as a glitch rather than as
+   a table. Check draw order in both clients before calling the tilt done.
 5. **Localization** keys for the new setting label in
    `forge-gui/res/languages/*.properties`.
+
+### Which client first — mobile, but do both eventually
+
+Measured 2026-07-26 rather than assumed. **Neither client is dramatically
+easier, but desktop is modestly cheaper** — which is the opposite of the one we
+want to prioritize.
+
+| | desktop (Swing) | mobile (libGDX) |
+|---|---|---|
+| exact-90 geometry to generalize | 1 (`PlayArea.getCardPanel:718`) | 2 (`renderedCardContains:74`, `getTargetingArrowOrigin:560`) |
+| tap/untap animation | already generic — `Animation.java:203` scales off the constant | hardcoded `-90` at `:288`, must be fixed |
+| mouse-point inverse-rotation | already in tree (`CardPanel:647`, badge hit-test) | none; port the desktop one |
+| settings screens to touch | 1 (`VSubmenuPreferences` + controller) | 2 (`SettingsPage`, adventure `SettingsScene`) |
+
+So mobile is roughly **2× desktop's work, not 10×**. And a large slice of the
+cost — choosing the value list, writing the inverse-rotate helper,
+localization, building and actually playing a game to check it — is paid once
+regardless of how many clients ship it. Doing a single client saves maybe a
+third of a small job, which is not enough to justify a split experience.
+
+**Prioritize mobile/Adventure**, for reasons that are about *this* work rather
+than a guess at upstream's roadmap:
+
+- Item 4 (resizing) is mobile-only, so `forge-gui-mobile*` is the tree already
+  being built and played on — one build to compile, one client to test.
+- Upstream does invest more there: over the last 12 months `forge-gui-mobile`
+  took 430 commits vs `forge-gui-desktop`'s 262 (6-month split: 220 vs 188).
+  Real, but note the shape of that number — **desktop is not abandoned**, it is
+  simply the slower-moving of two live UIs. Don't plan as if it were dead.
+  (`forge-gui-mobile-dev` itself is only 8 commits in 6 months; it is a thin
+  launcher over `forge-gui-mobile`, which is where the work lands.)
+- Desktop's share is small enough (one hit-test, one settings screen) that it
+  can follow later without re-deciding anything.
+
+**Nobody needs to pin a version.** The angle is a local render preference
+defaulting to `"90"` — stock behavior for anyone who never opens settings — and
+it is never sent over the wire. A table can mix clients and angles freely; each
+player sees their own board their own way.
 
 ### Acceptance
 
 At 90° the build is visually and behaviorally identical to stock (the step-1
 gate). At 60°: tapped cards are legible; clicking a tapped card anywhere on its
-drawn face selects it **in both clients**; targeting arrows still anchor to the
-card; tap and untap animations start and end at the configured angle.
+drawn face selects it; targeting arrows still anchor to the card; tap and untap
+animations start and end at the configured angle; and overhanging tapped cards
+are drawn *under* their right-hand neighbours (per the reservation decision
+above), so the overlap reads as a table rather than as clipping.
 
 Upstream: the step-1 hit-test generalization stands on its own as a latent
 correctness fix and is an easy yes. The preference is bigger and more
@@ -296,15 +340,23 @@ parallel. Branch *ownership* still needs care.
 
 **Do not check out `playable` in a worktree.** A branch can live in exactly one
 worktree, so claiming it would block the other workstream from committing to
-it. Cut a new branch from its tip instead:
+it. Cut a new branch from its tip instead — **done 2026-07-26**:
 
 ```
 git worktree add -b playable-qol ../forge-play playable
 ```
 
-That reads `playable` without claiming it. Merge `playable-qol` back once the
-other workstream's commits have settled (or rebase onto `playable` if it moves
-first). Same rule on the Anvil side: `main` and the notes branch
+`playable-qol` @ `cc32912078` in `../forge-play` is where all QoL code for
+items 1–5 goes. `playable` itself remains unclaimed by any worktree.
+
+The Anvil-side docs (this file, the project map, the Status section) stay on
+`main` rather than moving to a side branch: they are the public record of the
+track, they collide with nothing, and fragmenting them across branches costs
+more than it saves. Only the *code* needed its own branch.
+
+Merge `playable-qol` back once the other workstream's commits have settled (or
+rebase onto `playable` if it moves first). Same rule on the Anvil side: `main`
+and the notes branch
 (`security/playable-multiplayer`) share a single worktree — keep the tree clean
 and commit promptly so a branch switch is never blocked.
 
