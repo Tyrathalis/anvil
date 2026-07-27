@@ -105,6 +105,13 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except BaseException as e:  # noqa: BLE001 — a read that dies must SAY so
+    except SystemExit as e:
+        # argparse --help and clean sys.exit(0) raise SystemExit too; only a
+        # NONZERO code is a failure. The first version caught BaseException
+        # flat and pushed "read FAILED SystemExit: 0" from a --help call.
+        if e.code not in (0, None):
+            notify("anvil read FAILED", f"exit {e.code}", tag="final_read")
+        raise
+    except BaseException as e:  # noqa: BLE001 — a job that dies must SAY so
         notify("anvil read FAILED", f"{type(e).__name__}: {e}", tag="final_read")
         raise
