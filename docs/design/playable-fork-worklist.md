@@ -548,9 +548,9 @@ half of the same gap. Offer 6 first.
 
 ## Branch hygiene: sharing the `playable` branch family
 
-Another workstream shares the `playable` branch family (see the footer note).
-Its contents stay out of this file; what matters here is only the coordination
-rule.
+Another workstream shares the `playable` branch family. Its contents are
+tracked separately and stay out of this file; what matters here is only the
+coordination rule.
 
 The QoL items in this doc touch UI files exclusively (`forge-gui-mobile*`,
 `forge-gui-desktop/view/arcane`, `ForgePreferences`, language props) and do not
@@ -575,9 +575,8 @@ more than it saves. Only the *code* needed its own branch.
 
 Merge `playable-qol` back once the other workstream's commits have settled (or
 rebase onto `playable` if it moves first). Same rule on the Anvil side: `main`
-and the notes branch
-(`security/playable-multiplayer`) share a single worktree — keep the tree clean
-and commit promptly so a branch switch is never blocked.
+and the other track's notes branch share a single worktree — keep the tree
+clean and commit promptly so a branch switch is never blocked.
 
 ---
 
@@ -657,8 +656,3 @@ so the next one is roughly **1–2 weeks out**. That is comfortably enough room
 for the sequence above in order — the earlier worry about pulling items 1–2
 forward (the two the user has now hit twice in real play) does not apply at this
 distance. Nothing here displaces M3 closeout or the Grindstone/M4 session.
-
-> A further workstream — multiplayer protocol hardening — is tracked separately
-> and is **not** in this file. See the local-only note on branch
-> `security/playable-multiplayer` (held back from this public repo pending
-> private upstream disclosure).
