@@ -403,11 +403,85 @@ no folders API at all:
 
 - **Sync into a local Forge folder** — one Forge deck folder per synced
   username. Entirely local, needs no remote concept, and is probably what
-  "folder syncing" means operationally anyway.
+  "folder syncing" means operationally anyway. Layout decided below.
 - **Filter client-side on grouping the payload already carries.** Check at
   implementation time whether the owner-listing JSON exposes a
   folder/category/tag per deck; if it does, folder filtering falls out for free.
   Verify it, don't assume it.
+
+### Where synced decks land
+
+Imported decks do **not** go into Forge's format-partitioned stores. They live
+in their own flat collection — `DeckUrlLoader.getStorage():150` builds a
+`StorageImmediatelySerialized<Deck>("URL decks", …)` rooted at
+`DECK_BASE_DIR + "URL"`. So the layout inside `decks/URL/` is entirely ours to
+choose; nothing in Forge forces a shape.
+
+**Recommendation: `decks/URL/<username>/`, flat, with format as deck metadata —
+not a folder level.** Two reasons:
+
+- **The format axis already exists twice in the UI.** `FDeckChooser` is
+  constructed per `GameType` (`:75` — `isForCommander ? Commander :
+  Constructed`) and drives layout off `getGameType().getDeckFormat()`
+  (`:145/190/206`), so when you are picking for Commander night the chooser is
+  *already* Commander-scoped; and the URL pool is handed to an `ItemManager`
+  (`:302`, `NET_DECKS` config) that brings its own filter/search UI. A
+  `<format>/` folder level re-encodes in the filesystem a dimension the UI
+  already has — and on a Commander night it degenerates into chains of
+  single-child folders (`alice/Commander/deck.dck`) for essentially every deck.
+- **Re-sync must never move a deck.** Any layout that adapts to what a user
+  currently owns — "flat until they have two formats, then split" — relocates
+  existing decks the first time a friend uploads a Modern list. That breaks
+  muscle memory and any last-used/favourite pointer. A stable path is worth more
+  than a tidy one for something that re-runs.
+
+  **Verify before committing to this:** the reasoning above is measured on the
+  *desktop* chooser. Mobile is the priority client (item 6), so confirm the
+  libGDX deck chooser has equivalent game-type scoping and filter affordances.
+  If it does not, a `<format>/` level earns its keep there — decide after item 6
+  exists, not before.
+
+Provider is recorded as deck metadata rather than a path level (`archidekt:` /
+`moxfield:` source keys already exist — `DeckUrlLoader:156-167`). Only
+disambiguate in the folder name if the same handle is synced from two sites.
+
+### The "unknown format" bucket — the prerequisite nobody would notice
+
+**There is no unknown-format state today: both providers already collapse it to
+`Constructed`, silently.** Archidekt maps four numeric cases and defaults the
+rest (`ArchidektDeckUrlProvider:127-137` — 3/11/12 → Commander, 6 → Pauper,
+13 → Brawl, `default -> Constructed`); Moxfield calls
+`DeckFormat.smartValueOf(value, Constructed)` and catches the
+`IllegalArgumentException` to return `Constructed` anyway
+(`DeckUrlLoader:142-148`). So an Oathbreaker list, a Canadian Highlander pile,
+or a deck with no format set is *already* filed as Constructed — and looks
+exactly like a real Constructed deck.
+
+**So the prerequisite for any "invalid/unsorted" bucket is to stop destroying
+the label at the provider boundary**: preserve the site's raw format string
+alongside the mapped `DeckFormat` (or add an explicit `Unknown` sentinel) so
+downstream can tell *"genuinely Constructed"* from *"we had no idea"*. Small,
+precise, and load-bearing — nothing else here works without it.
+
+**Then route on one failure mode only, and annotate the other two.** Three
+distinct things get conflated by the word "invalid", and they want different
+handling:
+
+| | what it is | handling |
+|---|---|---|
+| (a) site format unmapped or absent | a **routing** problem — we don't know where it goes | **route** it: an `Unsorted` folder |
+| (b) format known, deck doesn't conform | `DeckFormat.getDeckConformanceProblem()` already returns a human-readable reason (size, singleton, illegal commander) | **annotate**, don't move |
+| (c) cards Forge can't resolve | unscripted card or uninstalled set — the most common real failure for a stranger's deck | **annotate**, don't move |
+
+Call the bucket **`Unsorted`, not `Invalid`** — in case (a) the deck is fine, we
+simply couldn't place it, and a name that blames the deck will send people
+hunting for a defect that isn't there.
+
+Cases (b) and (c) should never relocate a deck. It is still your friend's deck
+and they will want to *fix* it, not find it in quarantine — and a deck that
+becomes legal later (a card gets scripted, a set gets installed) would have to
+move back, which is the same re-sync instability the flat layout is chosen to
+avoid.
 
 **Moxfield: build the seam, defer the provider.** Its per-deck public endpoint
 (already in use) keeps working, but bulk listing sits behind a **whitelisted
