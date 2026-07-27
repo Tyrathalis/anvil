@@ -248,12 +248,12 @@ not a testable arm on this build.
   drew at 1280×720 in the bottom-left with the rest black; post-L2b the UI fills
   the window. Clean startup logs both runs.
 
-**Still owed by a human, and deliberately not claimed here:** actually
-*dragging* to a screen edge and seeing KWin offer the tile (the captures used
-`xdotool windowsize`, which proves the app handles arbitrary sizes but not that
-the compositor offers snapping), and **playing a full match** at half-screen and
-maximized — the acceptance clause that matters most and the one no automated
-check substitutes for.
+**Human pass 2026-07-27 (user): resizing and edge-snapping confirmed working
+in real use** — the two things automation could not claim (an actual drag to a
+screen edge with KWin offering the tile) are now verified. Remaining acceptance
+residue: a *full match* at half-screen/maximized hasn't been specifically
+reported; expect it to be covered incidentally the next time a game is played
+on this build.
 
 **Pre-existing quirk, not caused by T1 and not fixed by it:** the boot
 mode-selector (`SplashScreen.java`) has an **empty `doLayout(width, height)`
@@ -482,9 +482,14 @@ chooser was never opened: **`xdotool` cannot inject pointer input into the app
 on this Wayland session** — XTEST pointer warping is refused by the compositor
 (`xdotool mousemove` leaves `getmouselocation` at `0,0`), while
 `xdotool windowsize` works because that is a window-management request. So the
-resize work above could be verified automatically and this could not. First
-human run should: open the deck chooser, pick "Provide Deck URL", paste an
-Archidekt link, and confirm the deck lands and is selectable.
+resize work above could be verified automatically and this could not.
+**Human pass 2026-07-27 (user): "the Provide Deck URL folder works great" —
+item 6 verified in real use.** Also noted from the same first run of this
+instance: the 113 `dc-*` research-pool decks (installed into
+`~/.forge/decks/commander/` by `anvil.pool install`) show up in Deck Manager /
+the game picker's custom-deck views, since the playable build shares the same
+Forge user store the training harness loads from. **User decision: leave them
+be.** The one standing caution recorded below in "shared user store".
 
 ---
 
@@ -640,6 +645,38 @@ etiquette-sensitive than items 4–6. Item 6 is the easier, more obviously-wante
 half of the same gap. Offer 6 first.
 
 ---
+
+## Shared user store: the playable build and the research harness read the same decks
+
+Noticed on the instance's first real run (2026-07-27): Deck Manager shows the
+113 `dc-*` decks. Traced end-to-end — they are the research pool, and the
+sharing is deeper than cosmetic:
+
+- `anvil.pool install` copies the built pool into
+  `~/.forge/decks/commander/` (`anvil/pool/__init__.py:15`), because the
+  research worker resolves decks **by name in Forge's standard user deck
+  store**: the pool manifest carries bare filenames (`build.py:87`), the
+  harness passes them through (`orchestrator.py:121`), and the fork's
+  `AnvilRun` resolves them via `SimulateMatch.deckFromCommandLineParameter`
+  (`AnvilRun.java:302`).
+- The playable build reads (and its deck editor writes) that same store.
+
+**Consequence: editing, renaming, or deleting a `dc-*` deck in the playable
+build's GUI would silently change future research game generation.** The
+`pool_version` pin covers the manifest, not the installed file contents —
+nothing re-verifies them at launch. Playing games *with* the decks is
+completely safe; only mutation matters. (User decision 2026-07-27: leave the
+decks visible rather than split the profile — a separate
+`forge.profile.properties` user-dir for the playable build remains the clean
+isolation move if the clutter or the hazard ever starts to matter.)
+
+**Queued rider (research-side, ~30 lines, not built):** at `launch --pool`
+time, hash-compare each installed `~/.forge/decks/commander/dc-*.dck` against
+its `data/pool/decks/` source and abort with "re-run `anvil.pool install`" on
+mismatch. Sits naturally next to the existing jar-hash verification in the
+same launch path, and would convert this whole hazard class into a loud
+one-line fix. Belongs to the pool-manifest hazard family already tracked in
+Status.
 
 ## Branch hygiene: sharing the `playable` branch family
 
