@@ -335,6 +335,39 @@ silently — the card gets drawn somewhere you cannot click.
    into a small helper per client). Behavior must be pixel-identical at 90° —
    that identity *is* the check that the refactor is correct, and it is worth
    doing as its own commit.
+
+   **Step 1 LANDED for mobile 2026-07-27 (session 2; `playable-qol`
+   `d3bd019dc6`/`d52a43e6aa`/`514efc0dc7`).** How the open decisions resolved:
+
+   - **One shared helper, not one per client:** `forge.util.RotatedRect` in
+     `forge-gui` — pure `java.lang`, no libGDX/Swing, no `Utils` class-init
+     landmine. `forge-gui-mobile` got **no test infra**; the geometry test
+     (`RotatedRectTest`, TestNG) lives in `forge-gui-desktop`'s existing tree,
+     which depends on `forge-gui`. Desktop's own step reuses the same class
+     (convention note: helper angle = the mobile `startRotateTransform`
+     convention; Swing callers pass the *negated* `Graphics2D.rotate` angle in
+     degrees — both clients' stock tap is −90 in it).
+   - **The identity gate ran and is strict where it matters:** hit-test
+     bit-identical to the legacy swap box at −90 over dense grids (~60M
+     points, 4 geometries, zero mismatches; trig snapped exactly at multiples
+     of 90). The *bounding box* (arrow anchor only) is identical to ~1e-5 —
+     call-site float pivot rounding, asserted at that tolerance.
+   - **Latent bug found by the derivation, fixed by the same technique:** on
+     **180-rotated fields** (local two-human, non-hotseat matches — the
+     Commander-night mode) `CardAreaPanel.draw` composes an outer 180°
+     rotation with the +90 tap, but the old angle-blind hit-test kept the −90
+     box: **the drawn tapped card sits offset by h−w from where taps were
+     accepted** (top ~40% of the card missed; empty space below it hit).
+     Fixed by undoing the outer 180 (point reflection about the untapped rect
+     center) before the base test; targeting-arrow anchors had the same
+     offset and now key off the drawn box. Untapped cards are
+     reflection-symmetric ⇒ unchanged in every mode. **Formula-verified in
+     the unit test; owes a human pass in a real local two-human match**
+     (untestable single-handed, same XTEST wall as items 4/6).
+   - **Arrow origin generalized now rather than at step 2** (it needed the
+     same bounding-box math); the `:288` untap-animation hardcode stays step
+     2 as planned. **Desktop `PlayArea.getCardPanel` still open** — small,
+     precedented, next round with the same helper.
 2. **Route the angle through one accessor per client**, and make the untap
    animation delegate to it (kills the `:288` duplicate).
 3. **Add the preference.** `FPref.UI_TAP_ANGLE` in `ForgePreferences.java`
