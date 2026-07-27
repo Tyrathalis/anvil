@@ -546,11 +546,10 @@ half of the same gap. Offer 6 first.
 
 ---
 
-## Branch hygiene while the security work is in flight
+## Branch hygiene: sharing the `playable` branch family
 
-As of 2026-07-26 the separately-tracked workstream referenced in the footer note
-below is live and is landing commits on the `playable` branch family. Its
-contents stay out of this file; what matters here is only the coordination
+Another workstream shares the `playable` branch family (see the footer note).
+Its contents stay out of this file; what matters here is only the coordination
 rule.
 
 The QoL items in this doc touch UI files exclusively (`forge-gui-mobile*`,
