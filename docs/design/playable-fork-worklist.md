@@ -47,6 +47,17 @@ That's the "it wanted to save a snapshot file" behavior — the user is left to
 run a full installer GUI and gets an installer jar cluttering Downloads each
 time.
 
+**User-confirmed 2026-07-26** (independently, from play): the mobile UI on
+desktop Linux does prompt to update, and the update "asks you to save a new file
+to a new location" instead of applying in place. One detail to pin when
+reproducing: whether a **save-as dialog** actually appears, or whether the file
+lands in Downloads silently and the *installer* it hands off to
+(`openFile(installer)`) is what prompts. The code path above suggests the
+latter, the recollection suggests the former, and they imply different repro
+steps. It changes nothing about the fix — applying in place removes the prompt
+either way — but pin it before writing the fix so the "before" is described
+accurately.
+
 **Nice-to-have:** apply the update in place and auto-restart — download to a
 temp/staging dir (not Downloads), swap files, relaunch — no manual installer
 step, no leftover artifact. The libGDX/desktop launcher already relaunches
@@ -77,6 +88,12 @@ scripts and a few res files, not the whole tree. Implementation sketch:
   `assets.zip` resource block in `AssetsDownloader` is Android-only) — the
   observed ~160 MB is the installer/package re-pull, and the delta target is
   whichever payload that resolves to. Pin the number empirically.
+  **User-confirmed 2026-07-26** (independently, from play): the ~160 MB pull is
+  real, happens on the **mobile UI on desktop Linux**, and arrives as an "extra
+  data download" *after* the update prompt — i.e. it is a second transfer
+  following the update itself, which is a useful discriminator for identifying
+  the payload. That observation is the empirical anchor this bullet asked for;
+  still confirm which code path serves it before designing the diff.
 
 Related: the same idea sits in
 [upstream-worklist.md](upstream-worklist.md) as a queued upstream idea (HTTP
@@ -435,11 +452,20 @@ not a folder level.** Two reasons:
   muscle memory and any last-used/favourite pointer. A stable path is worth more
   than a tidy one for something that re-runs.
 
-  **Verify before committing to this:** the reasoning above is measured on the
-  *desktop* chooser. Mobile is the priority client (item 6), so confirm the
-  libGDX deck chooser has equivalent game-type scoping and filter affordances.
-  If it does not, a `<format>/` level earns its keep there — decide after item 6
-  exists, not before.
+  **Mobile checked 2026-07-26 — the argument holds there too, so this is
+  decided, not deferred.** The libGDX chooser is game-type scoped exactly like
+  desktop: `FDeckChooser.promptForDeck(title, GameType, forAi, callback):90`,
+  constructor `FDeckChooser(GameType, isAi, handler):126`, and
+  `lstDecks.getGameType()` drives its behaviour throughout. Decks go into a
+  `DeckManager` `ItemManager`, which carries filter/search like the desktop one.
+
+  One narrower question stays open and is **not** a layout question: whether the
+  URL-deck list *hides* format-illegal decks or merely shows them. Item 6 will
+  answer it concretely when the mobile screen gets wired. Note that **a folder
+  layout would not fix it either** — if the picker doesn't filter, folders just
+  convert scrolling into navigating. Filtering is the right lever regardless,
+  and it is independent of where the files sit. So: flat layout, and if the list
+  turns out not to filter, add the filter.
 
 Provider is recorded as deck metadata rather than a path level (`archidekt:` /
 `moxfield:` source keys already exist — `DeckUrlLoader:156-167`). Only
