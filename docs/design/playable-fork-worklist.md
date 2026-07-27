@@ -121,38 +121,218 @@ launcher that also drives Adventure) does not resize properly on desktop Linux.
 including **corner/edge snapping** (half-screen and quarter-screen tiling —
 KWin/GNOME-style drag-to-edge).
 
-Not yet diagnosed. Where to look when this gets picked up:
+**Diagnosed 2026-07-26. Not fork-specific.** `GameLauncher.java` is
+byte-identical between our pinned base (`3e3818f1ba`) and upstream, and
+upstream's tip touches the file only for an unrelated window-focus refactor
+(`Forge.setWindowFocus` → `SoundSystem.instance.setWindowFocus`). This is stock
+upstream behavior, so it is an upstream-PR candidate, not a fork wart.
 
-- The LWJGL3 application config in the mobile-dev launcher — window created
-  with a fixed size / `setResizable`, and whether `HdpiMode`, a locked aspect
-  ratio, or a min/max size is set.
-- `Forge.resize()` / the libGDX `ApplicationListener.resize` path and how the
-  scene graph recomputes layout — a window that resizes but doesn't re-layout
-  looks like the same bug from the outside as one that refuses to resize.
-- Wayland vs X11 behavior. Snapping is compositor-driven, so a window that
-  refuses tiling usually does so because it advertises fixed size hints or the
-  app runs a fullscreen/undecorated mode; worth confirming which backend the
-  launcher actually gets (`GLFW` / SDL under XWayland vs native Wayland) before
-  blaming the app.
+Three layers, in increasing depth:
 
-Establish first whether this is fork-specific or reproduces on stock upstream
-Forge — if upstream, it is an upstream bug report and possibly an upstream PR,
-which suits the pattern the fork already follows. Training-neutral either way
-(`forge-gui-mobile*` is never loaded by the headless harness).
+**L1 — the window is declared non-resizable.**
+`forge-gui-mobile-dev/src/forge/app/GameLauncher.java:118`:
+
+```java
+} else {
+    config.setWindowedMode(windowWidth, windowHeight);
+    config.setResizable(false);
+}
+```
+
+GLFW then publishes fixed min=max size hints, and KWin/GNOME refuse to tile a
+window advertising fixed size hints. **That one line explains the missing
+corner/edge snapping by itself**, independent of anything in the app's layout
+code — the compositor never even offers the tile.
+
+**L2 — the render loop draws at a launch-time size.**
+`forge-gui-mobile/src/forge/Forge.java:206` captures `screenWidth`/`screenHeight`
+once, with the comment *"should be set initially and only change upon restarting
+the app"*. Those statics drive `render()` every frame:
+`graphics.begin(screenWidth, screenHeight)` (:991),
+`screen.screenPos.setSize(...)` (:992), overlay sizing (:1002). `Forge.resize()`
+(:1040) forwards the new size to `currentScreen.setSize(...)` and
+`currentScene.resize(...)` but never updates the statics — so flipping L1 alone
+yields a window that resizes around a stale viewport.
+
+**L3 — the UI scale factor is frozen at class-init.**
+`forge-gui-mobile/src/forge/util/Utils.java:12` declares `SCREEN_WIDTH`,
+`SCREEN_HEIGHT` and `HEIGHT_RATIO` as `static final`, read from `Gdx.graphics`
+at class load. `Utils.scale()` feeds fonts, `FCardPanel.PADDING`, and
+`AVG_FINGER_WIDTH/HEIGHT` — every touch target and font size in the mobile UI.
+A live resize does not rescale any of it. Related: `isPortraitMode` is decided
+once from the initial aspect (`Forge.java:210`), so crossing the square boundary
+should really swap the whole layout family.
+
+### Tiered plan
+
+- **T1 (small) — resizable window + live viewport.** `setResizable(true)`,
+  `setWindowSizeLimits(minW, minH, -1, -1)` for a sane floor, and update
+  `screenWidth`/`screenHeight` inside `Forge.resize()` before forwarding. Leaves
+  L3 alone: fonts and touch targets stay at launch scale, which reads fine
+  within roughly ±40% of the launch size and visibly off beyond it. **This is
+  the tier that unlocks compositor snapping.** Ship it first and play a real
+  game on it before deciding whether T2 is wanted.
+- **T2 (medium) — rescale on resize-end.** Make the `Utils` ratio a settable
+  static recomputed from the current backbuffer, and regenerate FSkin fonts on a
+  **debounced** resize-end — font regeneration is far too expensive to run
+  per-frame during a drag. The real work is the audit: find every `static final`
+  that transitively reads `Utils.scale()` at class-init time. Changing them is
+  trivial; finding them is not.
+- **T3 (larger, optional) — orientation flip.** On crossing the square
+  boundary, re-derive `isPortraitMode` and rebuild the screen stack. Highest
+  blast radius of the three. Skip unless someone actually tiles the window into
+  a portrait half.
+
+### Acceptance
+
+Window drags to arbitrary sizes without stale-viewport artifacts; KWin
+drag-to-edge tiles it to half and quarter screen; a full match is playable at
+both a half-screen and a maximized size; relaunch still restores the
+config-file size. Check **both X11 and native Wayland** — the GLFW backend
+differs, and snapping semantics with it; record which backend the launcher
+actually gets rather than assuming.
+
+Upstream: T1 is small, self-contained and defensible — same shape as #11203 /
+#11285. Land it in the fork, verify it on the Commander night box, then offer
+it upstream with the compositor-size-hints rationale. Training-neutral either
+way (`forge-gui-mobile*` is never loaded by the headless harness).
+
+---
+
+## 5. Shallower / configurable tap rotation angle
+
+Both clients rotate a tapped card a full 90°. **Wanted:** a shallower tilt
+(Arena/MTGO-ish), ideally a preference rather than a new hardcoded constant, so
+tapped cards stay legible and the battlefield row reflows less.
+
+The angle itself is one line per client. The work is that **three geometry
+consumers hard-assume exactly 90°**, and they are precisely the ones that fail
+silently — the card gets drawn somewhere you cannot click.
+
+**Mobile** (`forge-gui-mobile`):
+
+- `FCardPanel.getTappedAngle():70` → `-90`; overridden in
+  `VCardDisplayArea:595` (negated for 180-rotated fields).
+- `FCardPanel.CardUnTapAnimation.drawCard:288` hardcodes
+  `-90 + (percentage * 90)` instead of delegating to `getTappedAngle()` — **a
+  latent bug that activates the moment the angle becomes configurable** (the
+  untap animation would sweep from the wrong start angle). Worth fixing on its
+  own regardless of this item.
+- `FCardPanel.renderedCardContains:74` — hit-test swaps `w`/`h` and shifts
+  `top += h - w`. Exact-90 assumption.
+- `VCardDisplayArea.getTargetingArrowOrigin:560` — same swap, for arrow anchors.
+
+**Desktop** (`forge-gui-desktop`):
+
+- `CardPanel.TAPPED_ANGLE:89` = `Math.PI / 2`, applied in `paint():307`
+  (`g2d.rotate` about `(cardX + w/2, cardY + h - w/2)`) and set in
+  `PlayArea:1052`.
+- `PlayArea.getCardPanel(x, y):718` — hit-test swaps `cardWidth`/`cardHeight`
+  and shifts `panelY`. Same exact-90 assumption as mobile.
+- `PlayArea:775 / :790 / :808` compare `getTappedAngle() != TAPPED_ANGLE` as an
+  "animation still in flight" guard. These keep working at any angle **provided
+  the comparison stays against the same configured value**, not a literal.
+- Useful precedent already in tree: `CardPanel:647` inverse-rotates the mouse
+  point into card space for the badge hit-test. **That is exactly the technique
+  both card hit-tests should adopt** — no new math to invent.
+
+### Plan
+
+1. **Generalize the hit-tests first, with the angle still 90.** Replace the
+   exact-90 w/h swaps in `FCardPanel.renderedCardContains`,
+   `VCardDisplayArea.getTargetingArrowOrigin` and `PlayArea.getCardPanel` with
+   inverse-rotate-then-test-unrotated-rect (the `CardPanel:647` method, lifted
+   into a small helper per client). Behavior must be pixel-identical at 90° —
+   that identity *is* the check that the refactor is correct, and it is worth
+   doing as its own commit.
+2. **Route the angle through one accessor per client**, and make the untap
+   animation delegate to it (kills the `:288` duplicate).
+3. **Add the preference.** `FPref.UI_TAPPED_CARD_ANGLE` in
+   `ForgePreferences.java`, default `"90"` so stock behavior is preserved for
+   anyone who doesn't touch it. Rendered as a `CustomSelectSetting` in mobile
+   `SettingsPage.java` (+ adventure `SettingsScene.java`, which mirrors a subset
+   of the same prefs) and as an `FComboBoxPanel<String>` in desktop
+   `VSubmenuPreferences` / `CSubmenuPreferences` — both patterns already exist
+   in those files. Offer a short value list (**90 / 75 / 60 / 45**) rather than
+   a free slider: it bounds the layout-reservation problem below, and neither
+   settings screen has a slider widget to reuse.
+4. **Decide the layout reservation deliberately.** Both clients size the tapped
+   footprint from the 90° swap (desktop `PlayArea` row packing; mobile
+   `MatchScreen:421` hover-preview offsets and field width math). At a shallow
+   angle the drawn bounding box is *wider than either* the untapped or the
+   90°-tapped box — worst case `w·cosθ + h·sinθ`. Either reserve the true
+   rotated AABB (more spacing, rows may repack) or keep reserving the 90° box
+   and accept mild neighbour overlap. Overlap is probably the better look — it
+   is what a paper table looks like — but it must be a decision, not an
+   accident.
+5. **Localization** keys for the new setting label in
+   `forge-gui/res/languages/*.properties`.
+
+### Acceptance
+
+At 90° the build is visually and behaviorally identical to stock (the step-1
+gate). At 60°: tapped cards are legible; clicking a tapped card anywhere on its
+drawn face selects it **in both clients**; targeting arrows still anchor to the
+card; tap and untap animations start and end at the configured angle.
+
+Upstream: the step-1 hit-test generalization stands on its own as a latent
+correctness fix and is an easy yes. The preference is bigger and more
+opinionated — offer it separately so the first one isn't held hostage to
+taste.
+
+---
+
+## Branch hygiene while the security work is in flight
+
+As of 2026-07-26 the separately-tracked workstream referenced in the footer note
+below is live and is landing commits on the `playable` branch family. Its
+contents stay out of this file; what matters here is only the coordination
+rule.
+
+The QoL items in this doc touch UI files exclusively (`forge-gui-mobile*`,
+`forge-gui-desktop/view/arcane`, `ForgePreferences`, language props) and do not
+overlap the other workstream's files at all — so the two can proceed in
+parallel. Branch *ownership* still needs care.
+
+**Do not check out `playable` in a worktree.** A branch can live in exactly one
+worktree, so claiming it would block the other workstream from committing to
+it. Cut a new branch from its tip instead:
+
+```
+git worktree add -b playable-qol ../forge-play playable
+```
+
+That reads `playable` without claiming it. Merge `playable-qol` back once the
+other workstream's commits have settled (or rebase onto `playable` if it moves
+first). Same rule on the Anvil side: `main` and the notes branch
+(`security/playable-multiplayer`) share a single worktree — keep the tree clean
+and commit promptly so a branch switch is never blocked.
 
 ---
 
 ## Suggested sequence
 
-1. **Item 3** — trivial, and required before any of our own builds can
+Two independent tracks. The **QoL track (4 → 5)** is what Commander night
+actually feels; the **updater track (3 → 2 → 1)** only matters once we are
+shipping builds to other people's machines.
+
+1. **Item 4 tier T1** — one-line unlock plus a small `resize()` fix, and it is
+   the change a player notices within ten seconds. Best first commit on the
+   branch: small, self-contained, immediately testable.
+2. **Item 5 step 1** (hit-test generalization at an unchanged 90°) — a no-op
+   refactor whose correctness gate is "nothing changed", so it is safe to land
+   before anyone has decided on a favourite angle. Steps 2–5 follow whenever
+   the taste question is settled.
+3. **Item 3** — trivial, and required before any of our own builds can
    self-update at all.
-2. **Item 2 → 1** together — delta payload makes seamless in-place apply cheap.
-3. **Item 4** — independent of the updater items; pick up whenever Adventure
-   Mode gets real desktop use.
+4. **Item 2 → 1** together — a delta payload makes seamless in-place apply
+   cheap.
+5. **Item 4 tiers T2/T3** — only if T1's fixed-scale compromise actually annoys
+   someone in play. Do not pre-pay for it.
 
-None scheduled; revisit when the Commander-night plan firms up.
+Still none of it scheduled; revisit when the Commander-night plan firms up.
 
-> A fifth workstream — multiplayer protocol hardening — is tracked separately
+> A further workstream — multiplayer protocol hardening — is tracked separately
 > and is **not** in this file. See the local-only note on branch
 > `security/playable-multiplayer` (held back from this public repo pending
 > private upstream disclosure).
