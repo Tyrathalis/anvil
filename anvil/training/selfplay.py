@@ -29,6 +29,8 @@ import sys
 import time
 from pathlib import Path
 
+from anvil.training.notify import notify as _shared_notify
+
 RUNS_DIR = Path("data/runs")
 TRAJ_DIR = Path("data/trajectories")
 
@@ -58,25 +60,9 @@ def _auto_seg(pinned: int) -> int:
 
 
 def _notify(title: str, msg: str) -> None:
-    """Best-effort push for unattended runs (2026-07-23 QoL rider). Tries
-    $ANVIL_NOTIFY_CMD (an executable, invoked with title and message as its
-    two arguments — wire ntfy/kdeconnect/mail there), then notify-send as
-    the at-desk fallback. Never raises: no notification path may kill the
-    loop it exists to report on."""
-    print(f"[selfplay] NOTIFY: {title} — {msg}")
-    cmds = []
-    if os.environ.get("ANVIL_NOTIFY_CMD"):
-        cmds.append([os.environ["ANVIL_NOTIFY_CMD"], title, msg])
-    cmds.append(["notify-send", "--urgency=critical", "--app-name=anvil",
-                 title, msg])
-    for cmd in cmds:
-        if shutil.which(cmd[0]) is None:
-            continue
-        try:
-            subprocess.run(cmd, timeout=30, check=False,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception as e:  # noqa: BLE001
-            print(f"[selfplay] notify via {cmd[0]} failed: {e}")
+    """Driver-side wrapper over the shared notifier (anvil.training.notify),
+    which final_read.py and any other long-running entry point also use."""
+    _shared_notify(title, msg, tag="selfplay")
 
 
 def _sleep_inhibitor(name: str) -> subprocess.Popen | None:
@@ -328,8 +314,13 @@ def main() -> None:
     ap.add_argument("--replay-weight", type=float, default=0.33,
                     help="expected passes over each older store (1.0 + 3x0.33 "
                          "≈ two store-scans, 50%% fresh samples)")
-    ap.add_argument("--rl-workers", type=int, default=6,
-                    help="featurize workers for the learner (its bottleneck)")
+    ap.add_argument("--rl-workers", type=int, default=12,
+                    help="featurize workers for the learner. Was 6 while the "
+                         "main process was the funnel (collate ran there, so "
+                         "extra workers only added shm churn and 12 measured "
+                         "SLOWER than 6). Since worker-side collate (2026-07-26) "
+                         "the consumer is no longer the bottleneck and workers "
+                         "scale again: 2.062 -> 2.979 traj/s going 6 -> 12.")
     ap.add_argument("--epochs", type=int, default=1)
     ap.add_argument("--lr", type=float, default=1e-5)
     ap.add_argument("--ent-weight", type=float, default=3e-3)

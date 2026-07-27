@@ -17,6 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from anvil.training.notify import notify
 from anvil.training.selfplay import RUNS_DIR, _run, _start_server, _stop_server
 
 CRITIC = "data/training/d4-critic-fullvis/last.pt"
@@ -24,6 +25,11 @@ TRAJ_DIR = Path("data/trajectories")
 
 
 def main() -> None:
+    # Detached stdout to a redirected log is BLOCK-buffered, so a log-tail
+    # watcher sees nothing until exit (run-8 held 36h of narration in memory).
+    # The driver fixed this for itself on 2026-07-25; reads never got it.
+    sys.stdout.reconfigure(line_buffering=True)
+
     ap = argparse.ArgumentParser(description="2,000-game corrected read")
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--name", required=True, help="report prefix, e.g. run6-final")
@@ -36,7 +42,18 @@ def main() -> None:
                     default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
     ap.add_argument("--seed-base", type=int, default=20260710)
     ap.add_argument("--critic", default=CRITIC)
+    ap.add_argument("--pool-version", default=None,
+                    help="pool manifest version to stamp on the runs. Default "
+                         "resolves the same manifest the harness would use — "
+                         "ingest warns 'provenance is incomplete' without it, "
+                         "and latest_pool_manifest() picks by MTIME, so an "
+                         "untouched pin is worth recording explicitly.")
     a = ap.parse_args()
+
+    if a.pool_version is None:
+        from anvil.bridge.harness.pairs import latest_pool_manifest
+        a.pool_version = latest_pool_manifest()["pool_version"]
+    print(f"[final_read] pool version {a.pool_version}")
 
     # ---- generation: both seat assignments under one argmax server ----
     arm_dirs: list[Path] = []
@@ -53,6 +70,7 @@ def main() -> None:
                   "--bridge", f"grpc:localhost:{a.port}",
                   "--census", "--obs", "--purpose", purpose,
                   "--seed-base", str(a.seed_base),
+                  "--pool-version", a.pool_version,
                   "--bridge-seats", str(seat), "--reask"])
             new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
             if len(new) != 1:
@@ -81,7 +99,12 @@ def main() -> None:
           "--ante", f"{a.name}={','.join(ante_reports)}",
           "--out", str(out)])
     print(f"[final_read] report: {out}")
+    notify(f"anvil {a.name}: read complete", str(out), tag="final_read")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BaseException as e:  # noqa: BLE001 — a read that dies must SAY so
+        notify("anvil read FAILED", f"{type(e).__name__}: {e}", tag="final_read")
+        raise

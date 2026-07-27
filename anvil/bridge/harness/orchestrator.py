@@ -253,6 +253,8 @@ def launch(a) -> Path:
             "n_pairs": n_lines,
             "games_per_pair": a.games_per_pair,
         }
+        if getattr(a, "pool_version", None):
+            pool_fields["pool_version"] = a.pool_version
         print(f"[harness] explicit pairs file: {n_lines} pairs x {a.games_per_pair} games")
     elif a.pool:
         from anvil.bridge.harness.pairs import (latest_pool_manifest, pair_schedule,

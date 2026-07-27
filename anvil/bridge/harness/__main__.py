@@ -29,6 +29,12 @@ def main() -> None:
     la.add_argument("--tags", default="")
     la.add_argument("--purpose", default="run")
     la.add_argument("--seed-base", type=int, default=None)
+    la.add_argument("--pool-version", default=None,
+                    help="stamp this pool version into run.json. The --pool "
+                         "branch derives it; an explicit --pairs-file run has "
+                         "no pool to derive it FROM, so without this the store "
+                         "ingest warns 'provenance is incomplete' (every "
+                         "final_read arm did, through the D4 re-baseline).")
     la.add_argument("--chunk", type=int, default=200)
     la.add_argument("--calibrated", action="store_true")
     la.add_argument("--obs", action="store_true",
