@@ -459,13 +459,19 @@ not a folder level.** Two reasons:
   `lstDecks.getGameType()` drives its behaviour throughout. Decks go into a
   `DeckManager` `ItemManager`, which carries filter/search like the desktop one.
 
-  One narrower question stays open and is **not** a layout question: whether the
-  URL-deck list *hides* format-illegal decks or merely shows them. Item 6 will
-  answer it concretely when the mobile screen gets wired. Note that **a folder
-  layout would not fix it either** — if the picker doesn't filter, folders just
-  convert scrolling into navigating. Filtering is the right lever regardless,
-  and it is independent of where the files sit. So: flat layout, and if the list
-  turns out not to filter, add the filter.
+  The narrower "does the picker hide format-illegal decks" question is
+  **closed** (user, confirmed in code 2026-07-26): Forge runs its own legality
+  check when a deck is taken into a game — `FPref.ENFORCE_DECK_LEGALITY`
+  (`ForgePreferences.java:205`, **default `"true"`**), consumed at the lobby
+  (`forge-gui/.../gamemodes/match/GameLobby.java`) and shared by both clients.
+  So the picker only has to *route and label*; conformance has an authoritative,
+  default-on gate downstream of it. Label-based exposure in the picker is
+  sufficient, and no folder layout was ever going to improve on it — if the
+  picker didn't filter, folders would only convert scrolling into navigating.
+
+  This also **retroactively strengthens the "annotate, don't move" rule** for
+  non-conforming decks below: quarantining them would duplicate a check Forge
+  already performs at the only moment it actually matters.
 
 Provider is recorded as deck metadata rather than a path level (`archidekt:` /
 `moxfield:` source keys already exist — `DeckUrlLoader:156-167`). Only
@@ -646,7 +652,12 @@ shipping builds to other people's machines.
 7. **Item 4 tiers T2/T3** — only if T1's fixed-scale compromise actually annoys
    someone in play. Do not pre-pay for it.
 
-Still none of it scheduled; revisit when the Commander-night plan firms up.
+**Ordering agreed by the user 2026-07-26.** Still not a scheduled milestone, but
+it now has a rough horizon rather than none: Commander night ran on 2026-07-26,
+so the next one is roughly **1–2 weeks out**. That is comfortably enough room
+for the sequence above in order — the earlier worry about pulling items 1–2
+forward (the two the user has now hit twice in real play) does not apply at this
+distance. Nothing here displaces M3 closeout or the Grindstone/M4 session.
 
 > A further workstream — multiplayer protocol hardening — is tracked separately
 > and is **not** in this file. See the local-only note on branch
