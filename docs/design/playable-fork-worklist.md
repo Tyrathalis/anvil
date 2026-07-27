@@ -13,7 +13,7 @@ is on the M3/M4 critical path.
 The research fork is pinned as the M4 teacher/opponent and must stay
 byte-deterministic on the headless game path (fork-discipline convention;
 [ADR-0025](../decisions/ADR-0025-d4-rebase-closeout.md)). **Every item here
-lives in UI / net-transport / auto-updater code** (`forge-gui`,
+lives in UI / net-transport / auto-updater / deck-import code** (`forge-gui`,
 `forge-gui-desktop`, `forge-gui-mobile*`) — modules the headless training
 harness never loads (it drives the engine over the gRPC bridge, no Swing/libGDX,
 no Netty multiplayer stack). So these changes are training-neutral by
@@ -353,6 +353,93 @@ taste.
 
 ---
 
+## 6. Deck-site import on mobile — expose what already ships
+
+Upstream #10570 shipped per-deck URL import (Archidekt/Moxfield) with
+edition + collector-number fidelity and a per-deck reload button. **Verified
+2026-07-26: the machinery already lives in the shared module** —
+`forge-gui/src/main/java/forge/deck/{DeckUrlLoader,DeckUrlProvider,
+ArchidektDeckUrlProvider,MoxfieldDeckUrlProvider}.java` — and its *only*
+consumer is `forge-gui-desktop/.../deckchooser/FDeckChooser.java`. **Nothing
+needs porting; the mobile UI simply never got a button.**
+
+So this is UI wiring in `forge-gui-mobile` (deck chooser / `FDeckEditor` entry
+point): a URL field, a call into `DeckUrlLoader`, a save into the local deck
+store, and the same reload affordance desktop already has. Probably the highest
+value-per-line item on this list for a Commander night — everyone shows up with
+an Archidekt link — and it lands in the client item 4 already prioritizes.
+
+Watch: the loader is synchronous, with 15 s connect / 30 s read timeouts
+(`DeckUrlLoader:192-196`). Desktop can afford to block a Swing dialog; the
+libGDX UI **must not block the GL thread** — run it off-thread with visible
+progress, the way the mobile UI already handles the online image fetcher.
+
+---
+
+## 7. Bulk sync: every public deck from a username
+
+Requested 2026-07-26 as *"folder syncing, including syncing all public decks
+from a particular user — that avoids any need for auth"*. **Those two halves
+behave differently and only one of them avoids auth.**
+
+**Public-decks-by-owner: yes, and it is the right primitive.** Archidekt exposes
+an unauthenticated paginated listing —
+`https://archidekt.com/api/decks/cards/?owner=<username>&ownerexact=true&orderBy=-createdAt&pageSize=50`.
+Community-documented only: Archidekt publishes no API docs (open beta, changes
+too frequently to keep them current) and warns that heavy use trips rate
+limiters. So treat the endpoint as *unstable*: tolerant parsing, a clear failure
+message when the shape changes, and no assumption that it will look the same
+next year.
+
+**Folder syncing: no — and it does not buy what it was expected to buy.** No
+public folders endpoint surfaced in any search, and folders are a **per-user
+organization feature** — precisely the kind of thing that sits behind the
+account. Folder sync would therefore *reintroduce* the auth problem rather than
+dodge it. The auth-free property comes from the decks being **public**, not from
+folders being folders.
+
+The organizing goal is still worth having, and there are two ways to get it with
+no folders API at all:
+
+- **Sync into a local Forge folder** — one Forge deck folder per synced
+  username. Entirely local, needs no remote concept, and is probably what
+  "folder syncing" means operationally anyway.
+- **Filter client-side on grouping the payload already carries.** Check at
+  implementation time whether the owner-listing JSON exposes a
+  folder/category/tag per deck; if it does, folder filtering falls out for free.
+  Verify it, don't assume it.
+
+**Moxfield: build the seam, defer the provider.** Its per-deck public endpoint
+(already in use) keeps working, but bulk listing sits behind a **whitelisted
+User-Agent issued by Moxfield support, plus Cloudflare bot protection** — with a
+documented open issue (Nov 2025) where even whitelisted agents still hit
+Cloudflare/reCAPTCHA. That is a relationship problem with an unresolved failure
+mode, not an engineering one. Ship Archidekt bulk behind a provider-agnostic
+interface, leave Moxfield bulk unimplemented, and pursue the whitelist only if
+someone actually asks. Do not let it gate the feature.
+
+**Politeness is mandatory here in a way per-deck import never was.**
+`DeckUrlLoader` has no throttling at all today — correct for one deck on a
+button press, wrong for N+1 requests against a service that explicitly warns
+about rate limiters. Reuse the norm this project already set in the DC pool
+fetcher: sequential requests, **≥2 s apart**, a hard cap on decks per sync,
+honest progress, and a User-Agent that identifies the client (the existing
+`"Forge Deck URL Loader"` string is the right shape; make it name our fork if we
+ship our own builds).
+
+**Reuse over rebuild:** enumerate ids, then hand each one to the *existing*
+per-deck provider path, which already handles sections, editions, collector
+numbers and naming. Bulk sync should be a loop and a folder, not a second
+importer — and #10570's per-deck reload button means per-deck re-sync semantics
+already exist to build on.
+
+Upstream: this is the exact "remaining gap" the upstream worklist identified on
+07-18, so it is a plausible contribution — but it is larger and more
+etiquette-sensitive than items 4–6. Item 6 is the easier, more obviously-wanted
+half of the same gap. Offer 6 first.
+
+---
+
 ## Branch hygiene while the security work is in flight
 
 As of 2026-07-26 the separately-tracked workstream referenced in the footer note
@@ -410,19 +497,11 @@ things sit next to it and should not be re-derived from scratch:
    and engine are one pinned unit (the same invariant as our own fork
    discipline). Fold both into item 2 when it is picked up.
 
-2. **Deck-site account sync (Archidekt/Moxfield)** —
-   [upstream-worklist.md](upstream-worklist.md), 2026-07-18. A player-facing QoL
-   item that is *not* in this file and is arguably the most Commander-night-
-   relevant of the lot: everyone will be importing decks. Most of it already
-   shipped upstream (#10570 = per-deck URL import with edition/collector-number
-   fidelity and a per-deck reload button in the desktop deck chooser). The gap
-   is account-level sync — link a username, enumerate the user's decks, loop the
-   existing providers for bulk import/update — plus mobile exposure, since the
-   current UI is desktop-chooser-only. Risk there is API etiquette, not
-   engineering. **Open question worth deciding before we proceed: does this join
-   the QoL track?** For a Commander night it may matter more than either item
-   here, and the mobile-exposure half is squarely in the client we just chose to
-   prioritize.
+2. **Deck-site sync — GRADUATED into this file (2026-07-26, user).** Was queued
+   in [upstream-worklist.md](upstream-worklist.md) since 07-18; now split into
+   **item 6** (mobile exposure) and **item 7** (bulk sync by username) above.
+   The upstream entry remains the pitch-side record; keep the two in sync as
+   with item 5.
 
 3. **The UI-platform lean is already recorded** —
    [collection-mode-sketch.md](collection-mode-sketch.md), 2026-07-18. It
@@ -443,22 +522,28 @@ workstream's notes branch.
 
 ## Suggested sequence
 
-Two independent tracks. The **QoL track (4 → 5)** is what Commander night
-actually feels; the **updater track (3 → 2 → 1)** only matters once we are
+Two independent tracks. The **QoL track (4 → 6 → 5 → 7)** is what Commander
+night actually feels; the **updater track (3 → 2 → 1)** only matters once we are
 shipping builds to other people's machines.
 
 1. **Item 4 tier T1** — one-line unlock plus a small `resize()` fix, and it is
    the change a player notices within ten seconds. Best first commit on the
    branch: small, self-contained, immediately testable.
-2. **Item 5 step 1** (hit-test generalization at an unchanged 90°) — a no-op
+2. **Item 6** — mobile deck-site import. Pure UI wiring over machinery that
+   already ships in the shared module, and the thing everyone actually does on
+   game night (paste a link). Highest value per line on the list.
+3. **Item 5 step 1** (hit-test generalization at an unchanged 90°) — a no-op
    refactor whose correctness gate is "nothing changed", so it is safe to land
    before anyone has decided on a favourite angle. Steps 2–5 follow whenever
    the taste question is settled.
-3. **Item 3** — trivial, and required before any of our own builds can
+4. **Item 7** — bulk sync by username. Bigger, network-etiquette-sensitive, and
+   strictly more useful once item 6 exists to display the results. Archidekt
+   only; Moxfield stays a stub.
+5. **Item 3** — trivial, and required before any of our own builds can
    self-update at all.
-4. **Item 2 → 1** together — a delta payload makes seamless in-place apply
+6. **Item 2 → 1** together — a delta payload makes seamless in-place apply
    cheap.
-5. **Item 4 tiers T2/T3** — only if T1's fixed-scale compromise actually annoys
+7. **Item 4 tiers T2/T3** — only if T1's fixed-scale compromise actually annoys
    someone in play. Do not pre-pay for it.
 
 Still none of it scheduled; revisit when the Commander-night plan firms up.
