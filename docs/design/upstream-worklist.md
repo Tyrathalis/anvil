@@ -235,6 +235,23 @@ the asset-delta item: nobody decided against it, it is simply unbuilt.
   (`FCardPanel.renderedCardContains` adjusts width "to make room for tapping").
 - Per house survey lore, float the idea in Discord before writing code.
 
+**Wrinkle RESOLVED 2026-07-26 — it does not apply.** The nearest-90° rounding
+lives in `FImagePanel`/`FImageUtil`, which is the **zoomer/detail** path
+(`toolbox/special/CardZoomer`, split/planar image rotation). The battlefield
+card is a different component: `CardPanel` holds a `ScaledImagePanel` (`:117`)
+and `CardPanel.paint():307` rotates the **`Graphics2D` itself**
+(`g2d.rotate(getTappedAngle(), …)`) before delegating to `super.paint(g2d)` — a
+live `AffineTransform` at an arbitrary angle, with no image-cache rounding
+anywhere on the path. **Arbitrary tap angles render correctly on desktop**; the
+image path never sees the tap rotation. Desktop's tap animation
+(`Animation.java:203-212`) is likewise already angle-generic — it scales off the
+constant, so it needs no change beyond the constant becoming a preference.
+
+The hit-testing half of that bullet **is** real, on both UIs, and is the actual
+work — see the fork-side build plan, which sequences it first:
+[playable-fork-worklist.md](playable-fork-worklist.md) item 5. Keep the two in
+sync: the fork builds it, this entry pitches it.
+
 ## Upstream drift watch (2026-07-10 sweep: pin `0bfdaa572f30` → `1eec01434e`, 57 commits)
 
 Full-log review ahead of PR #1 assembly. #11161 covered above. Also relevant:

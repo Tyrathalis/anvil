@@ -205,6 +205,25 @@ Both clients rotate a tapped card a full 90°. **Wanted:** a shallower tilt
 (Arena/MTGO-ish), ideally a preference rather than a new hardcoded constant, so
 tapped cards stay legible and the battlefield row reflows less.
 
+> **Paired with the upstream entry.** The same idea is queued as an upstream
+> pitch in [upstream-worklist.md](upstream-worklist.md) ("Queued idea —
+> configurable tap angle", 2026-07-26), which carries the archaeology: **no
+> GitHub issue or PR discussion exists** on tap angle / tapped rotation — nobody
+> decided against it, it is simply unbuilt; the nearby prefs
+> (`UI_ROTATE_PLANE_OR_PHENOMENON`, `UI_ROTATE_SPLIT_CARDS`,
+> `UI_ANIMATED_CARD_TAPUNTAP`) are unrelated; and per house survey lore the idea
+> should be floated in Discord before code is written. **This file builds it;
+> that file pitches it. Keep the pref name and the value list identical across
+> the two.**
+>
+> That entry flagged one risk — desktop's image path rounds rotations to the
+> nearest 90° (`FImageUtil.getRotationToNearest`). **Checked 2026-07-26: it does
+> not apply.** The rounding lives in `FImagePanel`, the zoomer/detail component.
+> The battlefield card uses `ScaledImagePanel` inside a `Graphics2D` that
+> `CardPanel.paint():307` rotates by an arbitrary angle — a live
+> `AffineTransform`, no image-cache rounding on the path. Arbitrary angles are
+> safe on desktop.
+
 The angle itself is one line per client. The work is that **three geometry
 consumers hard-assume exactly 90°**, and they are precisely the ones that fail
 silently — the card gets drawn somewhere you cannot click.
@@ -247,15 +266,23 @@ silently — the card gets drawn somewhere you cannot click.
    doing as its own commit.
 2. **Route the angle through one accessor per client**, and make the untap
    animation delegate to it (kills the `:288` duplicate).
-3. **Add the preference.** `FPref.UI_TAPPED_CARD_ANGLE` in
-   `ForgePreferences.java`, default `"90"` so stock behavior is preserved for
-   anyone who doesn't touch it. Rendered as a `CustomSelectSetting` in mobile
-   `SettingsPage.java` (+ adventure `SettingsScene.java`, which mirrors a subset
-   of the same prefs) and as an `FComboBoxPanel<String>` in desktop
-   `VSubmenuPreferences` / `CSubmenuPreferences` — both patterns already exist
-   in those files. Offer a short value list (**90 / 75 / 60 / 45**) rather than
-   a free slider: it bounds the layout-reservation problem below, and neither
-   settings screen has a slider widget to reuse.
+3. **Add the preference.** `FPref.UI_TAP_ANGLE` in `ForgePreferences.java`
+   (name taken from the upstream entry — do not diverge), default `"90"` so
+   stock behavior is preserved for anyone who doesn't touch it. Rendered as a
+   `CustomSelectSetting` in mobile `SettingsPage.java` (+ adventure
+   `SettingsScene.java`, which mirrors a subset of the same prefs) and as an
+   `FComboBoxPanel<String>` in desktop `VSubmenuPreferences` /
+   `CSubmenuPreferences` — both widgets already exist in those files.
+
+   Offer a short value list (**90 / 75 / 60 / 45**) rather than a free slider or
+   text field. The upstream entry suggests copying
+   `UI_ACTIONABLE_HIGHLIGHT_COLOR` as the both-UIs precedent; that is the right
+   precedent for *validation* but not for the widget — it is free-form text and
+   needed a bespoke `HexColorSetting` class on mobile, whereas a discrete list
+   reuses `CustomSelectSetting` and adds no new class. **Do** copy its
+   defensive read: `CardPanel:416-420` parses the pref and falls back to
+   `FPref.getDefault()` on anything unparseable. An angle read from a config
+   file deserves the same treatment.
 4. **Layout reservation: keep the 90° box, accept the overlap** (decided
    2026-07-26, user). Both clients size the tapped footprint from the 90° swap
    (desktop `PlayArea` row packing; mobile `MatchScreen:421` hover-preview
@@ -359,6 +386,58 @@ rebase onto `playable` if it moves first). Same rule on the Anvil side: `main`
 and the notes branch
 (`security/playable-multiplayer`) share a single worktree — keep the tree clean
 and commit promptly so a branch switch is never blocked.
+
+---
+
+## Adjacent items tracked elsewhere (swept 2026-07-26)
+
+A sweep of `docs/design/`, `docs/devlog/` and `docs/decisions/` for QoL markers
+turned up nothing else player-facing that belongs *in* this file, but three
+things sit next to it and should not be re-derived from scratch:
+
+1. **Asset-update delta — the upstream twin of item 2.**
+   [upstream-worklist.md](upstream-worklist.md) "Queued idea — Android
+   incremental asset updates" (2026-07-18) carries archaeology item 2 lacks: no
+   recorded upstream discussion of why deltas don't exist (the
+   `AssetsDownloader` history iterates endlessly on *prompting/versioning*, never
+   on *transfer granularity*); a zero-hosting-change variant — **HTTP Range
+   requests into `assets.zip`**, diffing entry CRCs against local files, with a
+   full-download fallback when the server ignores Range; and a Discord
+   cross-check confirming no prior art. Two traps recorded there: **"delta"
+   collides with netplay delta patching** in that community (reportedly
+   troublesome — avoid the term when pitching), and the
+   mandatory-download-on-build-mismatch semantics must be preserved, since res
+   and engine are one pinned unit (the same invariant as our own fork
+   discipline). Fold both into item 2 when it is picked up.
+
+2. **Deck-site account sync (Archidekt/Moxfield)** —
+   [upstream-worklist.md](upstream-worklist.md), 2026-07-18. A player-facing QoL
+   item that is *not* in this file and is arguably the most Commander-night-
+   relevant of the lot: everyone will be importing decks. Most of it already
+   shipped upstream (#10570 = per-deck URL import with edition/collector-number
+   fidelity and a per-deck reload button in the desktop deck chooser). The gap
+   is account-level sync — link a username, enumerate the user's decks, loop the
+   existing providers for bulk import/update — plus mobile exposure, since the
+   current UI is desktop-chooser-only. Risk there is API etiquette, not
+   engineering. **Open question worth deciding before we proceed: does this join
+   the QoL track?** For a Commander night it may matter more than either item
+   here, and the mobile-exposure half is squarely in the client we just chose to
+   prioritize.
+
+3. **The UI-platform lean is already recorded** —
+   [collection-mode-sketch.md](collection-mode-sketch.md), 2026-07-18. It
+   reached today's mobile-first conclusion by *different* evidence (no large UI
+   modernization program upstream; desktop Swing gets maintenance and small QoL;
+   platform investment flows to libGDX — iOS support PR #11190, Adventure
+   feature PRs), and its standing lean is to build Chronicle's UI on the libGDX
+   frontend. Today's commit-count read corroborates it; treat item 5's
+   mobile-first ordering as consistent with that lean rather than as a new
+   decision.
+
+Not player-facing, checked and excluded: `m3-candidates.md` Track D
+"Infrastructure QoL" is research-side only (VRAM elasticity, monitor/babysit
+polish — all landed). Also not swept, deliberately: the separately-tracked
+workstream's notes branch.
 
 ---
 
