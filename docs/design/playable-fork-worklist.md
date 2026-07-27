@@ -171,6 +171,23 @@ the app"*. Those statics drive `render()` every frame:
 `currentScene.resize(...)` but never updates the statics — so flipping L1 alone
 yields a window that resizes around a stale viewport.
 
+**L2b — the sprite batches carry a projection fixed at construction.**
+*Found by testing on 2026-07-26, not by the original read of the code — L1+L2
+alone are **not** sufficient and the first build of T1 was visibly broken.*
+`Graphics.java:38-39` holds `new SpriteBatch()` and `new ShapeRenderer()`;
+libGDX builds each one's ortho projection from `Gdx.graphics` in the
+constructor and never revisits it. `Graphics.begin()` (`:94`) only sets logical
+bounds — it never touches the projection or calls `glViewport`. So with L1+L2
+applied, a window launched at 1280×720 and dragged to 1720×1382 still drew the
+UI at 1280×720 **anchored to the GL origin in the bottom-left**, rest of the
+window black. `Forge.animationBatch` (`Forge.java:191`) is a third such batch.
+Fix: a `Graphics.resize()` that re-orthos both, called from `Forge.resize()`.
+Safe between frames — the transform stack rides on the *transform* matrix
+(`Dtransforms` / `batch.getTransformMatrix()`), not the projection one.
+Corroborating evidence that this was always the intended-but-unfinished shape:
+`FrameRate.resize(int,int)` (`FrameRate.java:36`) already existed and **was
+never called from anywhere**.
+
 **L3 — the UI scale factor is frozen at class-init.**
 `forge-gui-mobile/src/forge/util/Utils.java:12` declares `SCREEN_WIDTH`,
 `SCREEN_HEIGHT` and `HEIGHT_RATIO` as `static final`, read from `Gdx.graphics`
@@ -183,12 +200,14 @@ should really swap the whole layout family.
 ### Tiered plan
 
 - **T1 (small) — resizable window + live viewport.** `setResizable(true)`,
-  `setWindowSizeLimits(minW, minH, -1, -1)` for a sane floor, and update
-  `screenWidth`/`screenHeight` inside `Forge.resize()` before forwarding. Leaves
-  L3 alone: fonts and touch targets stay at launch scale, which reads fine
-  within roughly ±40% of the launch size and visibly off beyond it. **This is
-  the tier that unlocks compositor snapping.** Ship it first and play a real
-  game on it before deciding whether T2 is wanted.
+  `setWindowSizeLimits(minW, minH, -1, -1)` for a sane floor, update
+  `screenWidth`/`screenHeight` inside `Forge.resize()` before forwarding, **and
+  re-project the batches (L2b)**. Leaves L3 alone: fonts and touch targets stay
+  at launch scale, which reads fine within roughly ±40% of the launch size and
+  visibly off beyond it. **This is the tier that unlocks compositor snapping.**
+  Ship it first and play a real game on it before deciding whether T2 is wanted.
+  **BUILT 2026-07-26** on `playable-qol` (`41cb5f5bc9` L1+L2, `61088aff57` L2b) —
+  see the verification note below for what is and isn't confirmed.
 - **T2 (medium) — rescale on resize-end.** Make the `Utils` ratio a settable
   static recomputed from the current backbuffer, and regenerate FSkin fonts on a
   **debounced** resize-end — font regeneration is far too expensive to run
@@ -208,6 +227,41 @@ both a half-screen and a maximized size; relaunch still restores the
 config-file size. Check **both X11 and native Wayland** — the GLFW backend
 differs, and snapping semantics with it; record which backend the launcher
 actually gets rather than assuming.
+
+**Backend question answered 2026-07-26: there is only one arm to test here.**
+The box is a Wayland/KWin session (`XDG_SESSION_TYPE=wayland`), but the
+launcher pulls LWJGL **3.3.3**, whose `lwjgl-glfw` artifact ships no
+`natives-linux-wayland` classifier — only `natives-linux` (X11). So the app
+gets the **X11 GLFW native via XWayland**. KWin applies X11 size hints to
+XWayland clients the same way it does to native X11 ones, so the T1 mechanism
+holds; native Wayland is not reachable without an LWJGL bump and is therefore
+not a testable arm on this build.
+
+**Verified 2026-07-26 (automated, `xprop` + window captures):**
+
+- **The mechanism, objectively.** With T1 applied the window publishes
+  `WM_NORMAL_HINTS: program specified minimum size: 480 by 320` **and no
+  maximum size hint**. That is exactly the difference that matters —
+  `setResizable(false)` published max == min, the fixed-size advertisement that
+  makes KWin decline to tile at all.
+- **Live viewport.** Launched 1280×720, resized to 1720×1382: pre-L2b the UI
+  drew at 1280×720 in the bottom-left with the rest black; post-L2b the UI fills
+  the window. Clean startup logs both runs.
+
+**Still owed by a human, and deliberately not claimed here:** actually
+*dragging* to a screen edge and seeing KWin offer the tile (the captures used
+`xdotool windowsize`, which proves the app handles arbitrary sizes but not that
+the compositor offers snapping), and **playing a full match** at half-screen and
+maximized — the acceptance clause that matters most and the one no automated
+check substitutes for.
+
+**Pre-existing quirk, not caused by T1 and not fixed by it:** the boot
+mode-selector (`SplashScreen.java`) has an **empty `doLayout(width, height)`
+(`:65-66`)** and positions its two buttons bespoke inside `draw()`, so on resize
+the logo re-centres off live `getHeight()` while the buttons keep launch-time
+positions and can overlap it. Ordinary screens are unaffected — they implement
+`doLayout`, and `FContainer.setSize()` (`:96-100`) calls it. Only reachable by
+resizing during the two seconds you are on the selector. Left alone.
 
 Upstream: T1 is small, self-contained and defensible — same shape as #11203 /
 #11285. Land it in the fork, verify it on the Commander night box, then offer
@@ -391,6 +445,47 @@ Watch: the loader is synchronous, with 15 s connect / 30 s read timeouts
 libGDX UI **must not block the GL thread** — run it off-thread with visible
 progress, the way the mobile UI already handles the online image fetcher.
 
+**BUILT 2026-07-26** on `playable-qol` (`db05b25b86`). How it landed, and the
+two places the plan above was refined by contact with the code:
+
+- **Why it was absent is now exact.** `DeckType.PROVIDED_DECK_URL` *is* already
+  in the shared `DeckType.ConstructedOptions`/`CommanderOptions` arrays
+  (`DeckType.java:78/100/113/122`), but the mobile chooser does not read those —
+  it builds its combo from a **hand-written `addItem` list**
+  (`FDeckChooser.java:545-613`). So the entry was omitted rather than filtered,
+  and `refreshDecksList`'s `default:` arm would have hit
+  `BugReporter.reportBug("Unsupported deck type")` had it ever been selected.
+  Added to the Constructed/Gauntlet, Commander-family and DeckManager lists,
+  matching where the shared arrays put it.
+- **Entry point: a button, not an inline field** (user decision). "New Deck"
+  becomes "Provide Deck URL" for this deck type — the same repurposing the file
+  already does to make it "Generate New Deck" for generated types — and it opens
+  `FOptionPane.showInputDialog` **pre-filled with the selected deck's
+  `getSourceUrl()`**. Re-confirming therefore re-fetches that deck, which is
+  desktop's separate reload button folded into the same control rather than
+  spending one of only four button slots. Threading uses
+  `LoadingOverlay.runBackgroundTask`, which is exactly the show-overlay /
+  background-thread / return-to-EDT primitive this needed.
+- **Zero new localization keys.** `lblProvideDeckUrl`, `lblDeckUrlLabel`,
+  `lblLoadingEllipsis` and `lblUnableToLoadDeckUrl` all already exist **and are
+  already translated in all nine locales** — checked. The plan's step-5
+  "localization keys" cost is therefore nil for this item (it still applies to
+  item 5's new preference).
+- **Static sweep clean:** every other `switch` on deck type in the file either
+  handles the new value or defaults safely (`getEditorConfig` → Constructed,
+  `isGeneratedDeck` → false, `editSelectedDeck` → the duplicate-to-Constructed
+  path net decks already use), and `getDeckTypeFromSavedState`'s
+  `DeckType.valueOf` round-trips it with an `IllegalArgumentException` fallback.
+
+**Not yet exercised at runtime.** The build compiles and launches, but the
+chooser was never opened: **`xdotool` cannot inject pointer input into the app
+on this Wayland session** — XTEST pointer warping is refused by the compositor
+(`xdotool mousemove` leaves `getmouselocation` at `0,0`), while
+`xdotool windowsize` works because that is a window-management request. So the
+resize work above could be verified automatically and this could not. First
+human run should: open the deck chooser, pick "Provide Deck URL", paste an
+Archidekt link, and confirm the deck lands and is selectable.
+
 ---
 
 ## 7. Bulk sync: every public deck from a username
@@ -565,8 +660,13 @@ it. Cut a new branch from its tip instead — **done 2026-07-26**:
 git worktree add -b playable-qol ../forge-play playable
 ```
 
-`playable-qol` @ `cc32912078` in `../forge-play` is where all QoL code for
-items 1–5 goes. `playable` itself remains unclaimed by any worktree.
+`playable-qol` in `../forge-play` is where all QoL code for items 1–5 goes.
+`playable` itself remains unclaimed by any worktree. Cut at `cc32912078`;
+**rebased forward onto `playable`'s tip `eed3a3e21d` on 2026-07-26** before the
+first QoL commit (a clean fast-forward — the branch had no commits of its own
+yet). The other workstream had moved one commit ahead in the meantime, and
+since the two touch disjoint files this cost nothing; doing it before writing
+code rather than at merge time keeps the eventual merge trivial.
 
 The Anvil-side docs (this file, the project map, the Status section) stay on
 `main` rather than moving to a side branch: they are the public record of the
@@ -630,12 +730,16 @@ Two independent tracks. The **QoL track (4 → 6 → 5 → 7)** is what Commande
 night actually feels; the **updater track (3 → 2 → 1)** only matters once we are
 shipping builds to other people's machines.
 
-1. **Item 4 tier T1** — one-line unlock plus a small `resize()` fix, and it is
-   the change a player notices within ten seconds. Best first commit on the
-   branch: small, self-contained, immediately testable.
-2. **Item 6** — mobile deck-site import. Pure UI wiring over machinery that
-   already ships in the shared module, and the thing everyone actually does on
-   game night (paste a link). Highest value per line on the list.
+1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
+   2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
+   estimate was wrong by one layer: L1+L2 alone shipped a visibly broken window
+   and the batch re-projection (L2b) was only found by running it. Lesson worth
+   carrying into item 5: *these UI items are cheap to write and are not
+   verifiable by reading.*
+2. **Item 6** — mobile deck-site import. **DONE 2026-07-26** (`db05b25b86`),
+   pending a human runtime pass. Pure UI wiring over machinery that already
+   ships in the shared module, and the thing everyone actually does on game
+   night (paste a link). Highest value per line on the list.
 3. **Item 5 step 1** (hit-test generalization at an unchanged 90°) — a no-op
    refactor whose correctness gate is "nothing changed", so it is safe to land
    before anyone has decided on a favourite angle. Steps 2–5 follow whenever
