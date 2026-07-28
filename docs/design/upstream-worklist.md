@@ -252,6 +252,26 @@ work — see the fork-side build plan, which sequences it first:
 [playable-fork-worklist.md](playable-fork-worklist.md) item 5. Keep the two in
 sync: the fork builds it, this entry pitches it.
 
+**BUILT fork-side 2026-07-27** (`playable-qol` `d3bd019dc6`..`33d8c64b41`).
+What the pitch can now say, with evidence:
+
+- **The hit-test generalization stands alone as a correctness fix** and found
+  a live bug while landing: on 180-rotated fields (local two-human matches)
+  the mobile tapped hit-box sits offset by h−w from the drawn card (top ~40%
+  of the card doesn't respond to taps). Shared `forge.util.RotatedRect` in
+  `forge-gui` + a TestNG geometry test in `forge-gui-desktop` (bit-identity to
+  the legacy boxes at 90° over dense grids) — upstreamable as its own small PR.
+- **Pref as built:** `FPref.UI_TAP_ANGLE`, default `"90"`, discrete values
+  90/75/60/45 (reuses `CustomSelectSetting`/`FComboBoxPanel`, no new widget
+  class), defensive parse, localized in all nine languages, exposed in mobile
+  SettingsPage, adventure SettingsScene, and desktop Graphic Options.
+- Known cosmetic caveat for the pitch: at shallow angles desktop draws the
+  tapped overhang OVER the right neighbour (Swing child paint order); mobile
+  draws it under. Purely a <90° concern.
+
+Per house lore: float in Discord before PRing; offer the hit-test fix
+separately from the preference so the correctness fix isn't hostage to taste.
+
 ## Upstream drift watch (2026-07-10 sweep: pin `0bfdaa572f30` → `1eec01434e`, 57 commits)
 
 Full-log review ahead of PR #1 assembly. #11161 covered above. Also relevant:

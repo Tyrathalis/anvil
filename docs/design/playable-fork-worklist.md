@@ -368,6 +368,43 @@ silently — the card gets drawn somewhere you cannot click.
      same bounding-box math); the `:288` untap-animation hardcode stays step
      2 as planned. **Desktop `PlayArea.getCardPanel` still open** — small,
      precedented, next round with the same helper.
+
+   **Steps 2, 3 and the desktop hit-test ALL LANDED 2026-07-27 (same
+   session, continued; `playable-qol` `484fdb3df5`/`ac824cc606`/`33d8c64b41`)
+   — item 5 is now BUILT end-to-end on both clients.**
+
+   - **Step 2:** `CardUnTapAnimation` sweeps from `getTappedAngle()` — the
+     `:288` hardcode is gone (it was also wrong on 180-rotated fields, where
+     the untap swept from the wrong side).
+   - **Desktop hit-test:** `PlayArea.getCardPanel` inverse-rotates via a new
+     `RotatedRect.inverseRotate` (returns the local point so the caller keeps
+     its exclusive-bounds comparisons where mobile's are inclusive). New
+     desktop-form identity test: full integer pixel grids, zero mismatches.
+     `isBadgeHit` already inverse-rotated and needed nothing.
+   - **Step 3, the pref:** `FPref.UI_TAP_ANGLE`, default `"90"`, values
+     **90/75/60/45**, localized in all nine languages. Mobile caches it in
+     `Forge.tapAngle` (the `animatedCardTapUntap` pattern) with a defensive
+     parse (fallback outside (0, 90]); exposed in `SettingsPage` **and** the
+     adventure `SettingsScene`. Desktop: `CardPanel.TAPPED_ANGLE` became a
+     lazily-read value — **degrees are the source of truth** (exact multiples
+     of 90 keep the snapped hit-test math exact; radians derived for
+     paint/animation); the `PlayArea` in-flight guards read the same accessor;
+     combo in Graphic Options refreshes the cache. Full desktop suite 336
+     green; shipping jar builds.
+   - **Step 4 draw-order check, static half done:** **mobile is correct by
+     construction** — `FContainer.draw` iterates children forward, rows add
+     left→right, so a tapped card's rightward overhang draws UNDER its right
+     neighbour (the table look). **Desktop is inverted**: Swing paints
+     lower-index children on top, so at a shallow angle a tapped card would
+     overlap OVER its right neighbour. Fixing it means z-order surgery that
+     interacts with the deliberate left-on-top stack fanning — assess
+     visually when the desktop tilt is actually played, don't engineer blind.
+     At the default 90° none of this is reachable.
+
+   **Owed (human/visual):** play at 60° on mobile — legibility, tapping the
+   drawn face, arrows, animation endpoints, overhang direction; the
+   rotate-180 two-human check from step 1 stands; desktop shallow-angle look
+   (incl. the overlap direction above) whenever desktop gets played.
 2. **Route the angle through one accessor per client**, and make the untap
    animation delegate to it (kills the `:288` duplicate).
 3. **Add the preference.** `FPref.UI_TAP_ANGLE` in `ForgePreferences.java`
