@@ -263,6 +263,12 @@ positions and can overlap it. Ordinary screens are unaffected — they implement
 `doLayout`, and `FContainer.setSize()` (`:96-100`) calls it. Only reachable by
 resizing during the two seconds you are on the selector. Left alone.
 
+> **FIXED 2026-07-27 (`playable-qol` `4ad8b4c94b`).** "Left alone" didn't
+> survive contact: with the resizable window the launch-time restore made the
+> overlap show up on *every* boot (user hit it twice). Bounds math moved into
+> `layoutSelectorButtons()`, called from the previously-empty `doLayout` and at
+> button creation; skipped while the exit animation slides the buttons.
+
 Upstream: T1 is small, self-contained and defensible — same shape as #11203 /
 #11285. Land it in the fork, verify it on the Commander night box, then offer
 it upstream with the compositor-size-hints rationale. Training-neutral either
@@ -382,7 +388,7 @@ silently — the card gets drawn somewhere you cannot click.
      desktop-form identity test: full integer pixel grids, zero mismatches.
      `isBadgeHit` already inverse-rotated and needed nothing.
    - **Step 3, the pref:** `FPref.UI_TAP_ANGLE`, default `"90"`, values
-     **90/75/60/45**, localized in all nine languages. Mobile caches it in
+     **90/75/60/45/30/15** (30/15 added same day — play feedback: 45 was not shallow enough; `255df64491`), localized in all nine languages. Mobile caches it in
      `Forge.tapAngle` (the `animatedCardTapUntap` pattern) with a defensive
      parse (fallback outside (0, 90]); exposed in `SettingsPage` **and** the
      adventure `SettingsScene`. Desktop: `CardPanel.TAPPED_ANGLE` became a

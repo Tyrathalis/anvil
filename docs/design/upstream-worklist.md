@@ -262,7 +262,7 @@ What the pitch can now say, with evidence:
   `forge-gui` + a TestNG geometry test in `forge-gui-desktop` (bit-identity to
   the legacy boxes at 90° over dense grids) — upstreamable as its own small PR.
 - **Pref as built:** `FPref.UI_TAP_ANGLE`, default `"90"`, discrete values
-  90/75/60/45 (reuses `CustomSelectSetting`/`FComboBoxPanel`, no new widget
+  90/75/60/45/30/15 (reuses `CustomSelectSetting`/`FComboBoxPanel`, no new widget
   class), defensive parse, localized in all nine languages, exposed in mobile
   SettingsPage, adventure SettingsScene, and desktop Graphic Options.
 - Known cosmetic caveat for the pitch: at shallow angles desktop draws the
