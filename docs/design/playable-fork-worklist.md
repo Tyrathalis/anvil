@@ -868,6 +868,41 @@ Two independent tracks. The **QoL track (4 → 6 → 5 → 7)** is what Commande
 night actually feels; the **updater track (3 → 2 → 1)** only matters once we are
 shipping builds to other people's machines.
 
+> **UPDATER TRACK BUILT 2026-07-27 (`playable-qol` `fc0b546555` + `ecbffd7116`)
+> — code complete for all of 3, 2 and 1; what remains is PUBLISHING, a human
+> step.** As-built:
+>
+> - **Item 3:** constants repointed at `Tyrathalis/forge`; commits atom tracks
+>   the **playable** branch (not master); wiki link pinned back to upstream
+>   (forks don't carry it); same `daily-snapshots` tag name as upstream so no
+>   URL shapes changed. Verified live: with no release published the check
+>   404s and the app boots normally.
+> - **Items 2+1 together, as this file suggested:** each release publishes
+>   `manifest.txt` (sha256/size/path over the jar + the whole res tree —
+>   ~55K files, ~6MB text). The updater diffs it against the install
+>   (size-first, hash-on-match), shows the REAL download size in the prompt,
+>   pulls changed `res/` files from **raw.githubusercontent.com at the
+>   release's commit** (the res tree IS the repo tree — per-file delta with
+>   zero extra hosting; the "Range into assets.zip" variant wasn't needed),
+>   hash-verifies everything before touching the install, applies res in
+>   place at the splash (before assets load), and swaps the jar via
+>   `UpdateApplier` — a helper spawned from the *staged* jar at exit that
+>   retries the copy (Windows lock) and relaunches. No Downloads folder, no
+>   installer handoff. Any failure → untouched install + legacy full-package
+>   fallback.
+> - `scripts/release-playable.sh` assembles a release **from the built jar**
+>   (version.txt/build.txt extracted from it — can't drift) and prints the
+>   `gh release` commands. Validated locally end-to-end minus the network:
+>   `DeltaUpdateTest` (5 tests) runs fetch→plan→download→verify→apply over
+>   `file://` URLs, including the corrupt-download abort.
+>
+> **To go live:** commit+push the playable branch, run the script, publish
+> with the printed `gh` commands (create the `daily-snapshots` prerelease
+> once, then `upload --clobber` per build). First real-network update pass
+> owed once a release exists. Non-manifest deletions are deliberately never
+> applied (user-modified res files are left alone; stale orphans possible —
+> revisit if it ever bites).
+
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
    estimate was wrong by one layer: L1+L2 alone shipped a visibly broken window
