@@ -571,6 +571,31 @@ be.** The one standing caution recorded below in "shared user store".
 
 ## 7. Bulk sync: every public deck from a username
 
+**BUILT 2026-07-27 (`playable-qol` `96e3d0942a`) — sequence 4→6→5→7 complete;
+owes a live sync + play pass.** As-built deltas from the notes below:
+
+- **The recorded endpoint was wrong.** `/api/decks/cards/?owner=…&ownerexact=`
+  is a client route ("Client Unavailable" from the API host), established by
+  live probe 2026-07-27. The working listing is
+  **`/api/decks/v3/?ownerUsername=<name>`** (exact match, paginated via `next`
+  which comes back plain-http and needs re-upgrading to https; `pageSize` is
+  ignored, ~60/page; `owner=`/`ownerexact=`/`ownerName=` are silently ignored —
+  hence a client-side exact-owner re-check on every entry). Parse pinned to a
+  captured fixture in `DeckSiteSyncTest` (desktop test tree, 5 tests).
+- All the decisions below implemented as decided: `decks/URL/<username>/`
+  flat; re-sync overwrites in place keyed on source URL and **never moves**;
+  Unknown-format sentinel (unmapped site format id ⇒ no silent Constructed;
+  first import lands in `<username>/Unsorted/`, raw id noted in the comment);
+  missing-card and conformance problems **annotated in the deck comment,
+  never quarantined**; 2s politeness, caps 200 decks / 10 pages; re-syncs
+  skip unchanged decks with zero requests via new `Sync Updated At` deck
+  metadata (forge-core header/serializer). Moxfield bulk not attempted.
+- Mobile UX: the Provide Deck URL button now asks single-URL vs
+  "Sync a User's Decks"; sync runs behind the loading overlay, ends with a
+  summary dialog (new/updated/unchanged/failed + reasons). The URL store
+  gained subfolder listing, so username folders appear in the chooser.
+  Desktop chooser exposure not done (same shared core when wanted).
+
 Requested 2026-07-26 as *"folder syncing, including syncing all public decks
 from a particular user — that avoids any need for auth"*. **Those two halves
 behave differently and only one of them avoids auth.**
