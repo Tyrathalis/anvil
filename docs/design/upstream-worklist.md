@@ -390,7 +390,8 @@ Consequences:
 - **Technique harvest**: `-XX:+UnlockExperimentalVMOptions -XX:hashCode=3`
   (deterministic identity hashes) was liamiak's diagnostic — a natural
   forkcheck stress instrument to adopt (turns the hash-order class from
-  probabilistic to reproducible).
+  probabilistic to reproducible). **ADOPTED 2026-07-25 (Anvil `47fea51`):
+  `FIXED_HASH` mode in `scripts/forkcheck/run_forkcheck.sh`.**
 - **Queued (2026-07-24, user)**: consider a comment on #11360 later —
   complementarity note (#11285's surface vs theirs), offer forkcheck twin
   data as validation, possible #11285 review nudge. Deliberately not sent

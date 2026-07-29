@@ -104,8 +104,17 @@ old-vs-new bit-identical across all 195 tensors, new-vs-new as control.
   gap (serve-side, pairs with block-drop re-ask); the
   `IndexOutOfBoundsException` class (deck `dc-863943`, seed-pinned, replay
   with `-Danvil.crash.trace`; plausible upstream filing).
-- **Tooling riders:** `final_read.py` notify hook + stdout line-buffering +
-  `pool_version` provenance; the pool-manifest mtime-selection hazard.
+- **Tooling riders:** ~~`final_read.py` notify hook + stdout line-buffering +
+  `pool_version` provenance~~ — **correction (same day): already shipped
+  2026-07-26 (`e012736`, same unabsorbed session as the collate fix)**. The
+  pool-manifest mtime-selection hazard remains open, with raised stakes:
+  `final_read` provenance now derives through the mtime-sorted
+  `latest_pool_manifest()`, so a stale pick stamps wrong provenance.
+- **Serving-path profiling (surfaced by the same session, `f9f344f`):**
+  post-collate, generation is ~80% of run cost and w=8 already saturates
+  the server's ~189 rps ceiling (~5.3 ms/request for a 42M model —
+  per-request Python overhead suspected, not GPU). The follow-on throughput
+  lever for M4-era runs; fresh-context task, noise floor first.
 - The falsified-lever ledger and lr brackets are M3 assets M4 plans
   against, not around: temperature, batch size, and feature-alone are
   closed questions on this recipe.
