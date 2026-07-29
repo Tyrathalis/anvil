@@ -671,6 +671,19 @@ owes a live sync + play pass.** As-built deltas from the notes below:
   overlay caption live ("47/133: Deck Name") via a
   `LoadingOverlay.runBackgroundTask` variant whose task receives a caption
   updater. Remaining residue: play a game with a synced deck.
+- **Deletion rider (2026-07-28, user request, `700738bc0f`, shipped v7):
+  URL-imported decks were undeletable** — they're read-only snapshots (edit
+  = duplicate-to-Constructed), so the editor's delete button was unreachable
+  and a bulk sync had no undo (user hit it after syncing a YouTuber's
+  decks). Edit Deck on a URL deck now opens an options dialog: **Duplicate**
+  (old behavior) / **Delete Deck** / **Delete folder '<user>'** (bulk-synced
+  decks only — removes everything the sync created incl. `Unsorted/`, with
+  a confirmation noting a re-sync restores from the site). Mechanics:
+  proxies carry their folder in `DeckProxy.path` (new path ctor);
+  `DeckUrlLoader.deleteFolder` works at the storage level and is pinned by
+  a real-directory test in `StorageSubfolderTest`; two new keys ×9 locales.
+  Desktop chooser still lacks delete for URL decks (same shared core when
+  wanted). Owed: the user deletes the YouTuber folder for real.
 
 Requested 2026-07-26 as *"folder syncing, including syncing all public decks
 from a particular user — that avoids any need for auth"*. **Those two halves
