@@ -814,6 +814,16 @@ just lost the knob:**
   after the manifest-path fix, so shipping it doubles as the end-to-end
   in-app delta test.
 
+**BUILT 2026-07-28 same session (`a5e819166a`), published as v5
+(`origin/playable` @ `8a04677902`, build stamp 2026-07-29 02:53:10,
+production-parse check green).** As planned: three-value combo in the
+non-Android branch where the stale comment sat, mirroring the classic
+`SettingsPage` wiring (save + `setAltZoneTabMode` + live
+`resetPlayerPanels`); initial selection normalizes a legacy boolean pref to
+Vertical, matching what Adventure boot forces at runtime in that state.
+Owed: the user's visual pass on what Horizontal actually looks like (this
+release is also the end-to-end in-app delta test vehicle).
+
 ## Shared user store: the playable build and the research harness read the same decks
 
 Noticed on the instance's first real run (2026-07-27): Deck Manager shows the
@@ -838,13 +848,14 @@ decks visible rather than split the profile — a separate
 `forge.profile.properties` user-dir for the playable build remains the clean
 isolation move if the clutter or the hazard ever starts to matter.)
 
-**Queued rider (research-side, ~30 lines, not built):** at `launch --pool`
-time, hash-compare each installed `~/.forge/decks/commander/dc-*.dck` against
-its `data/pool/decks/` source and abort with "re-run `anvil.pool install`" on
-mismatch. Sits naturally next to the existing jar-hash verification in the
-same launch path, and would convert this whole hazard class into a loud
-one-line fix. Belongs to the pool-manifest hazard family already tracked in
-Status.
+**Rider BUILT 2026-07-28 (Anvil `89178d7`):** `launch --pool` hash-compares
+every manifest deck's installed copy in `~/.forge/decks/commander/` against
+its `data/pool/decks/` source, beside the existing jar-hash gate, and aborts
+with "re-run `uv run python -m anvil.pool install`" on any mismatch/missing
+file (first 10 problems listed). `anvil.pool.verify_installed_decks` +
+`test_verify_installed_decks` (pool suite 15 green). The hazard class is now
+loud: a GUI edit to a `dc-*` deck stops the next pool launch instead of
+silently changing generation.
 
 ## Branch hygiene: sharing the `playable` branch family
 
