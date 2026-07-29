@@ -100,12 +100,15 @@ def _wait_port(port: int, timeout: float = 300.0) -> None:
 
 
 def _start_server(ckpt: str, port: int, log: Path, sample: bool,
-                  mu_out: Path | None = None, temperature: float = 1.0):
+                  mu_out: Path | None = None, temperature: float = 1.0,
+                  drill_ckpt: str | None = None):
     cmd = [sys.executable, "-m", "anvil.bridge.server", "--mode", "model",
            "--ckpt", ckpt, "--port", str(port), "--pass-delta", "0"]
     if sample:
         cmd += ["--sample", "--temperature", str(temperature),
                 "--mu-out", str(mu_out)]
+    if drill_ckpt:
+        cmd += ["--drill-ckpt", drill_ckpt]
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen(cmd, stdout=open(log, "w"), stderr=subprocess.STDOUT,
                             env=env)

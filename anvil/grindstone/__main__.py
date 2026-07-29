@@ -110,38 +110,46 @@ def plan(a: argparse.Namespace) -> None:
           f"across {len(arms)} arms -> {out / 'manifest.json'}")
 
 
+def _launch_arms(manifest: dict, port: int, workers: int, chunk: int,
+                 k: int, drill_stop: bool, purpose_prefix: str) -> None:
+    from anvil.training.selfplay import _run
+
+    for arm in manifest["arms"]:
+        purpose = f"{purpose_prefix}-{arm['store']}"
+        cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch",
+               "--pairs-file", arm["pairs_file"],
+               "--games-per-pair", str(arm["games_per_pair"]),
+               "--seed-base", str(arm["seed_base"]),
+               "--start-index", str(arm["index_min"]),
+               "--games", str(arm["index_span"]),
+               "--workers", str(workers),
+               "--chunk", str(chunk),
+               "--bridge", f"grpc:localhost:{port}",
+               "--purpose", purpose,
+               "--obs",
+               "--rollout-k", str(k),
+               "--drill-file", arm["drillfile"]]
+        if arm["bridge_seats"] is not None:
+            cmd += ["--bridge-seats", str(arm["bridge_seats"])]
+        if arm["reask"]:
+            cmd += ["--reask"]
+        if drill_stop:
+            cmd += ["--drill-stop"]
+        print(f"[launch] {purpose}: {arm['n_drills']} drills / "
+              f"{arm['n_games']} games (span {arm['index_span']})")
+        _run(cmd)
+
+
 def generate(a: argparse.Namespace) -> None:
-    from anvil.training.selfplay import _run, _start_server, _stop_server
+    from anvil.training.selfplay import _start_server, _stop_server
 
     out = Path(a.manifest)
     manifest = json.loads((out / "manifest.json").read_text())
     server = _start_server(a.ckpt or manifest["ckpt"], a.port,
                            out / "drill-server.log", sample=False)
     try:
-        for arm in manifest["arms"]:
-            purpose = f"drill-{arm['store']}"
-            cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch",
-                   "--pairs-file", arm["pairs_file"],
-                   "--games-per-pair", str(arm["games_per_pair"]),
-                   "--seed-base", str(arm["seed_base"]),
-                   "--start-index", str(arm["index_min"]),
-                   "--games", str(arm["index_span"]),
-                   "--workers", str(a.workers),
-                   "--chunk", str(a.chunk),
-                   "--bridge", f"grpc:localhost:{a.port}",
-                   "--purpose", purpose,
-                   "--obs",
-                   "--rollout-k", str(a.k or manifest["k"]),
-                   "--drill-file", arm["drillfile"]]
-            if arm["bridge_seats"] is not None:
-                cmd += ["--bridge-seats", str(arm["bridge_seats"])]
-            if arm["reask"]:
-                cmd += ["--reask"]
-            if a.drill_stop:
-                cmd += ["--drill-stop"]
-            print(f"[generate] {purpose}: {arm['n_drills']} drills / "
-                  f"{arm['n_games']} games (span {arm['index_span']})")
-            _run(cmd)
+        _launch_arms(manifest, a.port, a.workers, a.chunk,
+                     a.k or manifest["k"], a.drill_stop, "drill")
     finally:
         _stop_server(server)
     print(f"[generate] done; labels under data/runs/drill-*/workers/")
@@ -227,6 +235,154 @@ def report(a: argparse.Namespace) -> None:
           f"({len(missed)} replay-missed)")
 
 
+def _bin_of(model_wins: int, n: int) -> str:
+    wr = model_wins / n
+    return ("lost" if wr <= 0.2 else "long_shot" if wr <= 0.45
+            else "coin" if wr <= 0.7 else "winnable")
+
+
+def evalset(a: argparse.Namespace) -> None:
+    """Select a fixed held-out drill set from a mapped manifest.
+
+    Stratified over rollout-ground-truth bins, deterministic (sorted rows,
+    even-spaced picks). The selected games are HELD OUT: D3 training plans
+    must subtract them (meta.json carries the membership list).
+    """
+    map_dir = Path(a.map)
+    manifest = json.loads((map_dir / "manifest.json").read_text())
+    drills = [json.loads(line) for line in (map_dir / "drills.jsonl").open()]
+    ok = sorted((r for r in drills if r["n"] > 0),
+                key=lambda r: (r["store"], r["g"]))
+    by_bin: dict[str, list[dict]] = defaultdict(list)
+    for r in ok:
+        by_bin[_bin_of(r["model_wins"], r["n"])].append(r)
+
+    takes = {"winnable": a.winnable, "coin": a.coin,
+             "long_shot": a.long_shot, "lost": a.lost}
+    picked = []
+    for b in ("winnable", "coin", "long_shot", "lost"):
+        rows, t = by_bin.get(b, []), takes[b]
+        if t < 0 or t >= len(rows):
+            sel = rows
+        else:
+            step = len(rows) / t
+            sel = [rows[int(i * step)] for i in range(t)]
+        picked += [dict(r, bin=b) for r in sel]
+
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    cur_by_key = {}
+    for line in Path(manifest["curation"]).open():
+        c = json.loads(line)
+        cur_by_key[(c["store"], c["g"])] = c
+    subset = out / "evalset-curation.jsonl"
+    with subset.open("w") as f:
+        for r in picked:
+            f.write(json.dumps(cur_by_key[(r["store"], r["g"])]) + "\n")
+    with (out / "baseline.jsonl").open("w") as f:
+        for r in picked:
+            f.write(json.dumps(r) + "\n")
+
+    plan(argparse.Namespace(curation=subset, out=str(out / "plan"),
+                            ckpt=manifest["ckpt"], k=manifest["k"],
+                            turn_offset=manifest.get("turn_offset", 0),
+                            limit=0))
+    meta = {
+        "map": str(map_dir),
+        "pinned_ckpt": manifest["ckpt"],
+        "k": manifest["k"],
+        "n": len(picked),
+        "bins": dict(Counter(r["bin"] for r in picked)),
+        "held_out": [[r["store"], r["g"]] for r in picked],
+    }
+    (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+    print(f"[evalset] {len(picked)} drills {meta['bins']} -> {out}")
+
+
+def eval_ckpt(a: argparse.Namespace) -> None:
+    """Run the held-out drill set with completions played by --ckpt.
+
+    Mainline replays stay on the evalset's pinned checkpoint (dual-policy
+    server, fork wids routed to --ckpt argmax); per-drill deltas are paired
+    against the baseline map labels.
+    """
+    import time as _time
+
+    from anvil.training.selfplay import _start_server, _stop_server
+
+    es = Path(a.evalset)
+    meta = json.loads((es / "meta.json").read_text())
+    plan_manifest = json.loads((es / "plan" / "manifest.json").read_text())
+    if meta.get("baseline_eval"):
+        # Baseline-of-record = the pinned policy's own re-measurement under
+        # eval conditions (rows carry the same model_wins/n/bin fields).
+        # Never pair against the map's selection-time labels: bins were
+        # selected on those, so they regress on re-measure (winnable
+        # 0.865->0.794 with zero policy change).
+        baseline = {(r["store"], r["g"]): r for r in json.loads(
+            (es / meta["baseline_eval"]).read_text())["rows"]}
+    else:
+        baseline = {(r["store"], r["g"]): r
+                    for r in map(json.loads, (es / "baseline.jsonl").open())}
+    t0 = _time.strftime("%Y%m%d-%H%M%S")
+
+    server = _start_server(meta["pinned_ckpt"], a.port, es / "eval-server.log",
+                           sample=False, drill_ckpt=a.ckpt)
+    try:
+        _launch_arms(plan_manifest, a.port, a.workers, a.chunk,
+                     meta["k"], True, "drilleval")
+    finally:
+        _stop_server(server)
+
+    rows = []
+    for arm in plan_manifest["arms"]:
+        seat = int(str(arm["bridge_seats"]))
+        for run_dir in sorted(glob.glob(
+                str(RUNS_DIR / f"drilleval-{arm['store']}-*"))):
+            if run_dir.rsplit("-", 2)[-2] + "-" + run_dir.rsplit("-", 1)[-1] < t0:
+                continue
+            for lf in glob.glob(f"{run_dir}/workers/*/labels.jsonl"):
+                for line in open(lf):
+                    r = json.loads(line)
+                    b = baseline.get((arm["store"], r["i"]))
+                    if b is None:
+                        continue
+                    n = sum(r["w"]) + r["draw"]
+                    rows.append({
+                        "store": arm["store"], "g": r["i"], "bin": b["bin"],
+                        "model_wins": r["w"][seat], "n": n,
+                        "base_wins": b["model_wins"], "base_n": b["n"],
+                    })
+
+    per_bin: dict[str, dict] = {}
+    for b in ("winnable", "coin", "long_shot", "lost"):
+        sub = [r for r in rows if r["bin"] == b and r["n"] > 0]
+        if not sub:
+            continue
+        w = sum(r["model_wins"] for r in sub)
+        n = sum(r["n"] for r in sub)
+        bw = sum(r["base_wins"] for r in sub)
+        bn = sum(r["base_n"] for r in sub)
+        per_bin[b] = {"drills": len(sub), "winrate": round(w / n, 4),
+                      "baseline": round(bw / bn, 4)}
+    tot_w = sum(r["model_wins"] for r in rows)
+    tot_n = sum(r["n"] for r in rows)
+    result = {
+        "evalset": str(es), "ckpt": a.ckpt, "at": t0,
+        "drills": len(rows), "planned": meta["n"],
+        "winrate": round(tot_w / tot_n, 4) if tot_n else None,
+        "baseline": round(sum(r["base_wins"] for r in rows)
+                          / sum(r["base_n"] for r in rows), 4) if rows else None,
+        "per_bin": per_bin,
+        "rows": rows,
+    }
+    rep = es / f"eval-{t0}.json"
+    rep.write_text(json.dumps(result, indent=2) + "\n")
+    print(json.dumps({k: v for k, v in result.items() if k != "rows"},
+                     indent=2))
+    print(f"[eval] -> {rep}")
+
+
 def main() -> None:
     sys.stdout.reconfigure(line_buffering=True)
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -269,6 +425,26 @@ def main() -> None:
                    help="directory written by plan (aggregates every drill "
                         "run dir for its arms; later runs supersede per game)")
     r.set_defaults(fn=report)
+
+    e = sub.add_parser("evalset")
+    e.add_argument("--map", required=True,
+                   help="mapped manifest dir (plan + generate + report done)")
+    e.add_argument("--out", required=True)
+    e.add_argument("--winnable", type=int, default=-1, help="-1 = all")
+    e.add_argument("--coin", type=int, default=-1)
+    e.add_argument("--long-shot", dest="long_shot", type=int, default=40)
+    e.add_argument("--lost", type=int, default=20)
+    e.set_defaults(fn=evalset)
+
+    v = sub.add_parser("eval")
+    v.add_argument("--evalset", required=True,
+                   help="directory written by evalset")
+    v.add_argument("--ckpt", required=True,
+                   help="checkpoint under evaluation (plays the completions)")
+    v.add_argument("--port", type=int, default=50067)
+    v.add_argument("--workers", type=int, default=8)
+    v.add_argument("--chunk", type=int, default=50)
+    v.set_defaults(fn=eval_ckpt)
 
     args = ap.parse_args()
     args.fn(args)

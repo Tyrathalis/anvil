@@ -139,3 +139,36 @@ def test_report_aggregates_and_supersedes(tmp_path, src_arm):
     assert rep["model_wins"] == 11 and rep["completions"] == 16
     drills = [json.loads(l) for l in (out / "drills.jsonl").open()]
     assert {d["g"]: d["model_wins"] for d in drills} == {5: 5, 7: 6}
+
+
+def test_evalset_stratifies_and_holds_out(tmp_path, src_arm):
+    store = src_arm.name
+    # 6 mapped drills: 2 winnable (7/8), 2 lost (0/8), 2 coin (4/8).
+    rows, drills = [], []
+    for g, wins in [(1, 7), (2, 7), (3, 0), (4, 0), (5, 4), (6, 4)]:
+        rows.append({"store": store, "g": g, "seed": g, "crash_from_turn": 10,
+                     "v_before": 0.7, "drop": 0.4, "peak_turn": 8,
+                     "model_seat": 1, "decks": ["dc-a", "dc-b"]})
+        drills.append({"store": store, "g": g, "tt": 10, "fired_t": 10,
+                       "k": 8, "model_wins": wins, "n": 8,
+                       "engine_crashes": 0, "v_before": 0.7, "drop": 0.4,
+                       "crash_from_turn": 10, "peak_turn": 8, "deck": "dc-b"})
+    out = tmp_path / "plan"
+    m = _plan(_curation(tmp_path, rows), out)
+    (out / "drills.jsonl").write_text(
+        "".join(json.dumps(d) + "\n" for d in drills))
+
+    es = tmp_path / "es"
+    a = argparse.Namespace(map=str(out), out=str(es), winnable=-1, coin=-1,
+                           long_shot=-1, lost=1)
+    gs.evalset(a)
+    meta = json.loads((es / "meta.json").read_text())
+    assert meta["bins"] == {"winnable": 2, "coin": 2, "lost": 1}
+    assert meta["n"] == 5 and len(meta["held_out"]) == 5
+    # deterministic pick: lost=1 takes the first of the sorted lost rows (g3)
+    assert [store, 3] in meta["held_out"] and [store, 4] not in meta["held_out"]
+    # the nested plan is complete and pins the map's replay ckpt
+    pm = json.loads((es / "plan" / "manifest.json").read_text())
+    assert pm["ckpt"] == m["ckpt"] and pm["arms"][0]["n_drills"] == 5
+    baseline = [json.loads(l) for l in (es / "baseline.jsonl").open()]
+    assert {b["g"] for b in baseline} == {1, 2, 3, 5, 6}

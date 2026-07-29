@@ -322,11 +322,18 @@ class ModelBackend:
 
 class DecisionServicer(pb_grpc.DecisionBridgeServicer):
     def __init__(self, mode: str, bridged_tags: list[str], deadline_ms: int = 5000,
-                 backend: ModelBackend | None = None):
+                 backend: ModelBackend | None = None,
+                 drill_backend: ModelBackend | None = None):
         self.mode = mode
         self.bridged_tags = bridged_tags
         self.deadline_ms = deadline_ms
         self.backend = backend
+        # Dual-policy drill serving (M4 D2.4): fork wire sessions (wid
+        # contains ".f", e.g. "g42.f0r3") are answered by drill_backend while
+        # the mainline replay stays on the pinned backend — per-checkpoint
+        # drill evals need the replay policy frozen to reach the fork at all.
+        self.drill_backend = drill_backend
+        self.drill_requests = 0
         self.requests_by_tag: Counter[str] = Counter()
         self.fallbacks: Counter[str] = Counter()
         self.games = 0
@@ -363,6 +370,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         worker = "?"
         header: dict | None = None
         game_seed = 0
+        use_drill = False
         for msg in request_iterator:
             kind = msg.WhichOneof("msg")
             if kind == "hello":
@@ -377,6 +385,10 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 self.games += 1
                 game_seed = msg.game_start.seed
                 rng = random.Random(game_seed)
+                # Requests belong to the stream's last-announced game; the
+                # worker re-announces the mainline after each fork block.
+                use_drill = (self.drill_backend is not None
+                             and ".f" in msg.game_start.game_id)
                 header = None
                 if msg.game_start.header:
                     try:
@@ -385,9 +397,12 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                         print(f"[server] worker={worker}: unparseable game header")
             elif kind == "request":
                 self.requests_by_tag[msg.request.decision_tag] += 1
+                if use_drill:
+                    self.drill_requests += 1
                 if self.mode == "model":
                     yield pb.ServerMsg(response=self._model_answer(
-                        msg.request, header, game_seed))
+                        msg.request, header, game_seed,
+                        self.drill_backend if use_drill else self.backend))
                 else:
                     yield pb.ServerMsg(response=self._answer(msg.request, rng))
             elif kind == "game_end":
@@ -397,9 +412,12 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         print(f"[server] stream closed: worker={worker}")
 
     def _model_answer(self, req: pb.DecisionRequest, header: dict | None,
-                      game_seed: int = 0) -> pb.DecisionResponse:
+                      game_seed: int = 0,
+                      backend: ModelBackend | None = None) -> pb.DecisionResponse:
+        if backend is None:
+            backend = self.backend
         try:
-            resp = self.backend.answer(req, header, game_seed)
+            resp = backend.answer(req, header, game_seed)
         except Exception as e:  # loud decline; a silent wrong answer poisons the arm
             print(f"[server] MODEL ERROR on {req.decision_tag} seq={req.decision_seq}: {e!r}")
             resp = None
@@ -412,6 +430,8 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         dt = time.monotonic() - self.t0
         total = sum(self.requests_by_tag.values())
         lines = [f"{self.games} games, {total} requests in {dt:.0f}s ({total / dt:.0f} rps)"]
+        if self.drill_backend is not None:
+            lines.append(f"  drill-policy requests: {self.drill_requests}")
         lines += [f"  {t}: {n}" for t, n in self.requests_by_tag.most_common()]
         if self.fallbacks:
             lines += [f"  FALLBACK {t}: {n}" for t, n in self.fallbacks.most_common()]
@@ -437,17 +457,27 @@ def main() -> None:
                     help="sampling temperature (with --sample)")
     ap.add_argument("--mu-out", default=None,
                     help="behavior-policy mu.jsonl path (required with --sample)")
+    ap.add_argument("--drill-ckpt", default=None,
+                    help="dual-policy drill serving (M4 D2.4): fork wire "
+                         "sessions (wid contains '.f') are answered by this "
+                         "checkpoint, argmax; the mainline replay stays on "
+                         "--ckpt. Model mode only.")
     args = ap.parse_args()
 
     backend = None
+    drill_backend = None
     if args.mode == "model":
         backend = ModelBackend(args.ckpt, args.pass_delta, args.device,
                                sample=args.sample, temperature=args.temperature,
                                mu_path=args.mu_out)
+        if args.drill_ckpt:
+            drill_backend = ModelBackend(args.drill_ckpt, args.pass_delta,
+                                         args.device, sample=False)
     tags = args.tags if args.tags is not None else (
         (MODEL_TAGS + ("," + COMBAT_TAGS if backend.has_combat else ""))
         if args.mode == "model" else DEFAULT_TAGS)
-    servicer = DecisionServicer(args.mode, tags.split(","), backend=backend)
+    servicer = DecisionServicer(args.mode, tags.split(","), backend=backend,
+                                drill_backend=drill_backend)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=32))
     pb_grpc.add_DecisionBridgeServicer_to_server(servicer, server)
     server.add_insecure_port(f"127.0.0.1:{args.port}")
