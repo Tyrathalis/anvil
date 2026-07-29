@@ -684,6 +684,8 @@ owes a live sync + play pass.** As-built deltas from the notes below:
   a real-directory test in `StorageSubfolderTest`; two new keys ×9 locales.
   Desktop chooser still lacks delete for URL decks (same shared core when
   wanted). Owed: the user deletes the YouTuber folder for real.
+  **VERIFIED 2026-07-28 (user): "the mass deletion worked great" — v7's
+  folder delete confirmed in real use. Nothing owed on this rider.**
 
 Requested 2026-07-26 as *"folder syncing, including syncing all public decks
 from a particular user — that avoids any need for auth"*. **Those two halves
