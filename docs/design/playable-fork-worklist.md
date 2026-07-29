@@ -824,6 +824,15 @@ Vertical, matching what Adventure boot forces at runtime in that state.
 Owed: the user's visual pass on what Horizontal actually looks like (this
 release is also the end-to-end in-app delta test vehicle).
 
+**BOTH VERIFIED 2026-07-28 (user): the v4→v5 in-app update completed
+end-to-end — "it downloaded the patch and restarted itself" — closing the
+updater track's last owed item; and Horizontal mode works in play.**
+Observed limitation, noted not scheduled: the Horizontal zone display covers
+only half the bottom width, so it reads cramped on a narrow window — very
+reasonable fullscreen on an ultrawide. If narrow-window play matters later,
+a follow-up could widen the display area; that is upstream's layout choice,
+not something item 8 changed.
+
 ## Shared user store: the playable build and the research harness read the same decks
 
 Noticed on the instance's first real run (2026-07-27): Deck Manager shows the
@@ -1036,6 +1045,13 @@ shipping builds to other people's machines.
 > evening: a game with a synced deck was played (user). Remaining owed on
 > the updater: one successful end-to-end in-app delta apply + auto-restart
 > (the user's v3-equivalent install → v4).
+>
+> **CLOSED 2026-07-28 (user): the v4→v5 update ran end-to-end in-app —
+> delta downloaded, applied in place, auto-restarted. The updater track
+> (items 3+2+1) is now fully built, published, and live-verified.** (One
+> systemic lesson banked en route: a fix to the updater cannot ship through
+> the updater it fixes — the v2 install's buggy parser rejected v4's
+> manifest identically; one manual jar refresh was the unavoidable bridge.)
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
