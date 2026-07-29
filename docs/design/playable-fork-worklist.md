@@ -418,6 +418,30 @@ silently — the card gets drawn somewhere you cannot click.
    z-order (overhang over the right neighbour) does not read as clipping in
    practice, so the z-order surgery item never activates.** Item 5's only
    remaining residue is the rotate-180 two-human check.
+
+   **The rotate-180 check RAN 2026-07-28 (user, shared-screen two-human in
+   the Adventure-styled build) and found a STOCK RENDERING BUG deeper than
+   the hit-test one (`b65a74cc85`, shipped v6):** at 30° the rotated side's
+   tapped cards rendered facing the bottom player, mirrored (user: 330 where
+   the table look says 210). Root cause is in `Graphics` itself —
+   `startRotateTransform` idt()'d the live matrix, so **nested transforms
+   never composed**: the tap rotation inside a 180-rotated panel silently
+   wiped the outer 180. The stock negation in the rotated-field
+   `getTappedAngle` override was a hand-calibration to exactly that breakage
+   — bare +θ equals true composition 180−θ **only at θ=90**, which is why
+   nobody ever saw it. Fix: transforms now save/restore and compose (the
+   `Dtransforms` consumers only ever read the live matrix, so they're
+   unaffected), and the negation override is deleted; at 90 the result is
+   pixel-identical to stock. Step 1's own rotated-field hit-test modeled the
+   *composed* draw all along, so it now matches rendering at every angle.
+   Two more observations from the same pass: **the sideways stack showed no
+   items** — predicted to be the same nesting bug (children of the rotate-90
+   header drew at unrotated coordinates) and expected fixed by v6,
+   unverified; **the card zoom popup renders upright on the rotated side** —
+   stock behavior (global overlay, outside all panel transforms), noted as
+   possible polish, not fixed. **Owed: the user re-runs the two-human pass
+   on v6** (tapped-card orientation 210-style at 30°, taps landing on the
+   drawn face, stack items visible sideways, animations).
 2. **Route the angle through one accessor per client**, and make the untap
    animation delegate to it (kills the `:288` duplicate).
 3. **Add the preference.** `FPref.UI_TAP_ANGLE` in `ForgePreferences.java`

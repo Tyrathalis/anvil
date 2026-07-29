@@ -204,6 +204,23 @@ polite rate limits, consider contacting them), loop the existing providers
 for bulk import/update; (b) mobile/Android exposure (current UI is
 desktop-chooser-only). Risk is API etiquette, not engineering.
 
+## Queued idea — mobile Graphics nested-transform composition fix (2026-07-28)
+
+`Graphics.startRotateTransform` (forge-gui-mobile) idt()'s the live transform
+matrix, so nested transforms never compose — an inner rotation silently wipes
+its outer one, and `endTransform` restores to identity rather than the
+enclosing transform. Every consumer of the shared-screen two-human layout is
+affected: tapped cards in 180-rotated panels lose the outer 180 (masked at
+stock's 90° by a hand-calibrated negation in `VCardDisplayArea.getTappedAngle`
+— bare +θ ≡ true 180−θ composition only at θ=90), and the rotate-90 header's
+nested children (the stack dropdown) draw at unrotated coordinates —
+observed live as "the sideways stack doesn't display items". Fix on the
+playable branch (`b65a74cc85`): transforms save/restore and compose (the
+`Dtransforms` consumers only read the live matrix, so unaffected), negation
+override deleted; pixel-identical at 90°. Found via the fork's configurable
+tap angle, but the stack symptom is reachable in pure stock. Bundle with or
+after the tap-angle pitch; pixel-identity-at-90 is the safety argument.
+
 ## Queued idea — StorageNestedFolders subfolder creation fix (2026-07-28)
 
 `IStorage.getFolderOrCreate` has never worked in stock Forge:
