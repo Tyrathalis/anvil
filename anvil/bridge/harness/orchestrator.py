@@ -161,6 +161,11 @@ class Run:
             cmd += ["-rollout", str(m["rollout_k"]),
                     "-points", str(m.get("rollout_points", 4)),
                     "-labels", str(wdir / "labels.jsonl")]
+        if m.get("drill_file"):
+            # M4 D2 drill mode: curated fork turns replace -points sampling
+            cmd += ["-drillfile", str(self.dir / m["drill_file"])]
+            if m.get("drill_stop"):
+                cmd += ["-drillstop"]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
         return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
@@ -256,6 +261,11 @@ def launch(a) -> Path:
         if getattr(a, "pool_version", None):
             pool_fields["pool_version"] = a.pool_version
         print(f"[harness] explicit pairs file: {n_lines} pairs x {a.games_per_pair} games")
+    if getattr(a, "drill_file", None):
+        # M4 D2 drill mode: the run dir carries its own copy (provenance +
+        # workers resolve it relative to the run dir, like pairs.txt).
+        import shutil
+        shutil.copy(a.drill_file, run_dir / "drillfile.txt")
     elif a.pool:
         from anvil.bridge.harness.pairs import (latest_pool_manifest, pair_schedule,
                                                 write_pairs_file)
@@ -313,6 +323,9 @@ def launch(a) -> Path:
         "reask": getattr(a, "reask", False),
         "rollout_k": getattr(a, "rollout_k", None),
         "rollout_points": getattr(a, "rollout_points", None),
+        "drill_file": "drillfile.txt" if getattr(a, "drill_file", None) else None,
+        "drill_source": str(a.drill_file) if getattr(a, "drill_file", None) else None,
+        "drill_stop": getattr(a, "drill_stop", False),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "

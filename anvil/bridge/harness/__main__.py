@@ -50,6 +50,11 @@ def main() -> None:
                     help="rollout-label mode (M2 D4): K fork completions per point")
     la.add_argument("--rollout-points", type=int, default=4,
                     help="sampled fork points per game (rollout-label mode)")
+    la.add_argument("--drill-file", type=Path, default=None,
+                    help="drill mode (M4 D2): explicit per-index fork turns; "
+                         "unlisted indices are skipped (requires --rollout-k)")
+    la.add_argument("--drill-stop", action="store_true",
+                    help="end mainlines after their last drill fork point")
 
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)
