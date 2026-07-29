@@ -1088,7 +1088,19 @@ shipping builds to other people's machines.
 >
 > **CLOSED 2026-07-28 (user): the v4→v5 update ran end-to-end in-app —
 > delta downloaded, applied in place, auto-restarted. The updater track
-> (items 3+2+1) is now fully built, published, and live-verified.** (One
+> (items 3+2+1) is now fully built, published, and live-verified.**
+>
+> **Distribution facts (2026-07-28): the shipped jar is a UNIVERSAL desktop
+> jar — macOS included.** The `windows-linux` Maven profile only affects the
+> unshipped installer module; the shaded jar bundles libGDX's full desktop
+> natives (verified: LWJGL dylibs for macOS x64 AND arm64, incl.
+> `libglfw_async` — which `GameLauncher.java:40` already switches to on Macs,
+> upstream's standard `-XstartOnFirstThread` dodge). One zip of the install
+> folder (jar + res, ~259MB, nothing user-specific — user data lives in
+> `~/.forge`) serves Windows/Linux/macOS friends alike; requirement is Java
+> 17+, and first boot self-updates so the zip never goes stale. **Mac is
+> read-verified only — no Mac on hand; the first mac friend is the runtime
+> test** (watch for: startup crash on the glfw_async path, Retina scaling). (One
 > systemic lesson banked en route: a fix to the updater cannot ship through
 > the updater it fixes — the v2 install's buggy parser rejected v4's
 > manifest identically; one manual jar refresh was the unavoidable bridge.)
