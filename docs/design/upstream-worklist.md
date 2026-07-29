@@ -72,6 +72,29 @@ Notes (replay triage, 2026-07-06):
   drop our fork-local copies then. Worktree `../forge-pr1` can be removed.
   History: submission 2026-07-10; review + [reply](https://github.com/Card-Forge/forge/pull/11203#issuecomment-4946992438) 2026-07-11.
 
+## Queued PR candidate — effect-card copy fix after monarchy/initiative transfer (found 2026-07-29, M4 D2 drill sweep)
+
+- **The bug (fork-fixed `6d728677d1`, upstream still has it):**
+  `Zone.remove()` never clears the removed card's `zone` field, so after a
+  monarchy (or initiative) transfer the ex-holder's cached
+  `monarchEffect`/`initiativeEffect` card keeps a stale zone pointer.
+  `Player.copyEffectCardsToSnapshot` (our #11203-merged method) guarded on
+  the pointer (`getZone() != null`), so `GameCopier.makeCopy` of ANY game
+  whose crown/initiative ever moved throws `Couldn't map The Monarch`.
+  Fix = guard on zone-list membership (`!effect.getZone().contains(effect)`).
+- **Evidence bundle ready:** 44/578 curated drill positions failed all K
+  completions with exactly this signature (deck-diffuse,
+  transfer-correlated); `MonarchTransferCopyTest` ×2, both validated
+  failing first; desktop suite 299 green.
+- **Bundle in the same PR:** `Player.getMonarchSet()` inverted ternary
+  (`monarchEffect == null ? monarchEffect.getSetCode() : null` — NPE when
+  null, null when set; the initiative twin is written correctly). Callers:
+  `Game.java:985/987` monarch-leaves-game path. Not fixed fork-side (game
+  path; cosmetic set-code only; boundary discipline).
+- **Framing:** natural follow-up to #11203 (same method, sibling defect);
+  also strengthens the consolidation argument (the snapshot path needs the
+  same membership rule). Simulation-only blast radius ⇒ small review.
+
 ## Queued follow-up PR — GameCopier → GameSnapshot consolidation (volunteered 2026-07-11, maintainer-blessed at #11203 merge 2026-07-12)
 
 Make the snapshot path own simulation copies and delete GameCopier's
