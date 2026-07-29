@@ -260,6 +260,17 @@ def launch(a) -> Path:
         from anvil.bridge.harness.pairs import (latest_pool_manifest, pair_schedule,
                                                 write_pairs_file)
         pool = latest_pool_manifest()
+        # the playable build's GUI shares this deck store (worklist "shared user
+        # store"): a GUI edit would silently change generation, so gate on content
+        from anvil.pool import verify_installed_decks
+        problems = verify_installed_decks([d["file"] for d in pool["decks"]])
+        if problems:
+            for p in problems[:10]:
+                print(f"[harness] deck store: {p}", file=sys.stderr)
+            if len(problems) > 10:
+                print(f"[harness] ... and {len(problems) - 10} more", file=sys.stderr)
+            sys.exit("installed pool decks differ from data/pool/decks — "
+                     "re-run `uv run python -m anvil.pool install`")
         # schedule covers [0, start+games) so a start-index run's pair mapping
         # (index // gpp) is identical to the run it extends — pair_schedule is
         # prefix-stable in n_pairs, so the shared prefix matches by construction

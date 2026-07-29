@@ -104,3 +104,27 @@ def test_banlist_section_attribution():
     names = [c["name"] for c in cards]
     assert "Tasigur, the Golden Fang" not in names  # unbanned section is informational
     assert "${data.card_name}" not in names
+
+
+def test_verify_installed_decks(tmp_path):
+    from anvil.pool import verify_installed_decks
+
+    src = tmp_path / "src"
+    inst = tmp_path / "installed"
+    src.mkdir()
+    inst.mkdir()
+    (src / "dc-1.dck").write_text("[Commander]\n1 A\n")
+    (inst / "dc-1.dck").write_text("[Commander]\n1 A\n")
+    (src / "dc-2.dck").write_text("[Commander]\n1 B\n")
+    (inst / "dc-2.dck").write_text("[Commander]\n1 B (edited in GUI)\n")
+    (src / "dc-3.dck").write_text("[Commander]\n1 C\n")
+    # dc-3 never installed; dc-4 in neither place
+
+    problems = verify_installed_decks(
+        ["dc-1.dck", "dc-2.dck", "dc-3.dck", "dc-4.dck"],
+        decks_out_dir=src, installed_dir=inst)
+    assert len(problems) == 3
+    assert not any("dc-1" in p for p in problems)  # clean deck passes
+    assert any("dc-2" in p and "differs" in p for p in problems)
+    assert any("dc-3" in p and "not installed" in p for p in problems)
+    assert any("dc-4" in p and "missing from" in p for p in problems)

@@ -21,3 +21,30 @@ CACHE_DIR = POOL_DIR / "cache"
 DECKS_OUT_DIR = POOL_DIR / "decks"
 FLEX_FILE = POOL_DIR / "flex.txt"
 OVERRIDES_FILE = POOL_DIR / "overrides.json"
+
+
+def verify_installed_decks(deck_files, decks_out_dir=None, installed_dir=None):
+    """Hash-compare installed pool decks against their built sources.
+
+    The playable build's GUI shares the Forge user deck store the research
+    worker resolves decks from by name, so a GUI edit/rename would silently
+    change future game generation; the pool_version pin covers the manifest,
+    not the installed file contents. Returns a list of problem strings
+    (empty = clean).
+    """
+    import hashlib
+
+    decks_out_dir = Path(decks_out_dir) if decks_out_dir else DECKS_OUT_DIR
+    installed_dir = Path(installed_dir) if installed_dir else FORGE_USER_DECKS
+    problems = []
+    for name in deck_files:
+        src = decks_out_dir / name
+        installed = installed_dir / name
+        if not src.exists():
+            problems.append(f"{name}: missing from {decks_out_dir}")
+        elif not installed.exists():
+            problems.append(f"{name}: not installed in {installed_dir}")
+        elif (hashlib.sha256(installed.read_bytes()).hexdigest()
+                != hashlib.sha256(src.read_bytes()).hexdigest()):
+            problems.append(f"{name}: installed copy differs from pool source")
+    return problems
