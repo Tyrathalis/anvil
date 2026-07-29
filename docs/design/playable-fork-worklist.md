@@ -595,6 +595,24 @@ owes a live sync + play pass.** As-built deltas from the notes below:
   summary dialog (new/updated/unchanged/failed + reasons). The URL store
   gained subfolder listing, so username folders appear in the chooser.
   Desktop chooser exposure not done (same shared core when wanted).
+- **First live sync (2026-07-28, user) CRASHED — and the cause was an
+  upstream landmine, not the sync logic** (`ad9a9b89c2`, fixed):
+  `IStorage.getFolderOrCreate` had never worked in stock Forge —
+  `StorageNestedFolders.add` is a TODO stub (mkdir, then throw
+  `UnsupportedOperationException`), and `getOrCreateSubfolder` built the
+  child unit on the *parent's* serializer, so even without the throw, decks
+  would have saved into the parent dir. Item 7 was the first real caller.
+  Fixed by routing creation through the load-time nested factory (child
+  rooted at the subfolder, with subfolder support of its own — which the
+  lazy `Unsorted/` path needs). `StorageSubfolderTest` pins it, validated
+  failing first with the production exception. The fixture-pinned sync tests
+  couldn't have caught this: they cover parsing, not real on-disk storage —
+  the "not verifiable by reading" lesson, third occurrence. Two riders from
+  the same crash: `LoadingOverlay.runBackgroundTask` now hides the overlay
+  on the task's error path (`14424e2d52` — the crash dialog was unreachable
+  behind the modal "Syncing…" overlay), and the storage fix is an
+  upstream-PR candidate (latent-correctness class, same shape as the
+  hit-test fix). Still owed: a successful live sync + play pass.
 
 Requested 2026-07-26 as *"folder syncing, including syncing all public decks
 from a particular user — that avoids any need for auth"*. **Those two halves
@@ -929,6 +947,19 @@ shipping builds to other people's machines.
 > pass (boot an older install, accept the prompt, confirm delta apply +
 > restart) — needs a second release to move *to*, so it lands naturally
 > with the next publish.
+>
+> **Second publish 2026-07-28 same day (`origin/playable` @ `31ce920154`):**
+> the bulk-sync crash fix round (see item 7's live-sync note) republished
+> via `upload --clobber` — the release script + clobber flow works as
+> designed. **The >23h update gate is retired in the same batch**
+> (`c97755cef7`): upstream's rule shielded users from same-day full-package
+> re-pulls, but the delta updater prices updates exactly, so the shield only
+> delayed fixes (it would have hidden this very crash fix from every
+> less-than-a-day-old install, including the user's). New rule: prompt on
+> any strictly-newer published build; an empty delta plan (identical content
+> republished) skips the prompt silently. Installs carrying the *old* gate
+> (the first release) won't self-offer this fix — one manual jar re-download,
+> then the new gate governs.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"

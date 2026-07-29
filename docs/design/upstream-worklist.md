@@ -204,6 +204,22 @@ polite rate limits, consider contacting them), loop the existing providers
 for bulk import/update; (b) mobile/Android exposure (current UI is
 desktop-chooser-only). Risk is API etiquette, not engineering.
 
+## Queued idea — StorageNestedFolders subfolder creation fix (2026-07-28)
+
+`IStorage.getFolderOrCreate` has never worked in stock Forge:
+`StorageNestedFolders.add` is a TODO stub (creates the directory, then throws
+`UnsupportedOperationException("method is not implemented")`), and
+`StorageImmediatelySerialized.getOrCreateSubfolder` constructs the child unit
+on the **parent's** serializer, so even past the throw, items would save into
+the parent directory. Dead code upstream today — no caller reaches it — but a
+live API landmine; our deck-site sync was its first real caller and crashed on
+first use. Fix (playable branch `ad9a9b89c2`/`195d245ae8`): route creation
+through the existing load-time nested factory (child rooted at the subfolder,
+with subfolder support of its own); `StorageSubfolderTest` pins it, validated
+failing first. Same latent-correctness shape as the tap hit-test fix — small,
+test-carried, no behavior change for any existing caller. Offer independently
+of the sync feature.
+
 ## Queued idea — configurable tap angle (2026-07-26)
 
 User wish (paper-like ~60–75° tap instead of a flat 90°). **No option exists,
