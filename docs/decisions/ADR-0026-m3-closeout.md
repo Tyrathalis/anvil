@@ -37,9 +37,9 @@ windows = the Grindstone seed list, all on the old scale), the falsified-
 lever ledger (feature-alone, τ in [0.3, 1.0], 2× batch — ADR-0024), lr
 brackets refined to per-signal-regime and per-batch-size (ADR-0017
 extended), VRAM elasticity (task #12), the connive-regression catch and its
-method lessons, and the learner-throughput diagnosis (train phase = 62% of
-run wall clock at 87% loader wait; collate-in-worker fix designed with a
-byte-identical equivalence gate).
+method lessons, and the learner-throughput diagnosis and fix (train phase
+was 62% of run wall clock at 87% loader wait; collate-in-worker landed as
+`c09a755`, 4.7–6.7×, CPU bit-identical gate — see the correction below).
 
 ## The honest headline
 
@@ -79,10 +79,18 @@ the M1/M2/M3 pattern. Its seed material and standing agenda:
 - **Old-scale artifacts**: decide which (if any) pre-rebase analyses are
   worth re-running on the new engine before they inform targets.
 
-**Hard prerequisite before the next long RL run: the collate refactor**
-(pre-collate in the DataLoader worker at current seg chunking; segmentation
-identical ⇒ strict byte-identical equivalence gate; batches stay sliceable
-for the OOM retry).
+~~**Hard prerequisite before the next long RL run: the collate refactor.**~~
+**Correction (same day, discovered when the closeout session went to build
+it): the refactor was already built and gated on 2026-07-26 (`c09a755`, a
+parallel session this record had not absorbed).** Worker-side collate at
+exactly the learner's seg size (segmentation + padding identical; OOM
+elasticity slices the pre-collated segment on dim 0). Measured 0.442→2.062
+traj/s at 6 workers (4.7×) / 2.979 at 12 (6.7×); run-7b's 16.6h train phase
+projects to ~2.5h, making generation ~80% of a run. Gate note for the
+record: GPU bf16 is not bit-reproducible (new-vs-new ≈ old-vs-new ≈ 3e-5),
+so the byte-identical gate ran on CPU, where the model is deterministic —
+old-vs-new bit-identical across all 195 tensors, new-vs-new as control.
+**The next long RL run is unblocked.**
 
 ## Consequences and carried-forward inventory
 
