@@ -411,6 +411,13 @@ silently — the card gets drawn somewhere you cannot click.
    drawn face, arrows, animation endpoints, overhang direction; the
    rotate-180 two-human check from step 1 stands; desktop shallow-angle look
    (incl. the overlap direction above) whenever desktop gets played.
+
+   **Desktop look VERIFIED 2026-07-28 (user, desktop client at 30°): "looks
+   about the same as mobile — that one's fine. Overlap looks intentional."
+   That also CLOSES the step-4 draw-order question: the inverted Swing
+   z-order (overhang over the right neighbour) does not read as clipping in
+   practice, so the z-order surgery item never activates.** Item 5's only
+   remaining residue is the rotate-180 two-human check.
 2. **Route the angle through one accessor per client**, and make the untap
    animation delegate to it (kills the `:288` duplicate).
 3. **Add the preference.** `FPref.UI_TAP_ANGLE` in `ForgePreferences.java`
