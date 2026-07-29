@@ -95,6 +95,24 @@ Notes (replay triage, 2026-07-06):
   also strengthens the consolidation argument (the snapshot path needs the
   same membership rule). Simulation-only blast radius ⇒ small review.
 
+## Diagnosed crash class — StaticAbilityContinuous MayPlayPlayer `.get(0)` on empty (2026-07-29, upgrades the carried post-rebase IndexOutOfBounds item)
+
+- **Deterministic repro in hand:** 9/578 M4 drill positions fail every
+  `GameCopier.makeCopy` with `IndexOutOfBoundsException: Index 0 out of
+  bounds for length 0` at `StaticAbilityContinuous.applyContinuousAbility:900`
+  — `AbilityUtils.getDefinedPlayers(affectedCard, params.get("MayPlayPlayer"),
+  stAb).get(0)` resolves EMPTY while the copy re-applies continuous effects
+  (leading hypothesis: statics re-applied before remembered/defined objects
+  are wired — copy-ordering, the consolidation follow-up's home turf).
+  Same exception class as the carried normal-game item (2/2,000 games,
+  `dc-863943` seed-pinned) — likely the same `.get(0)` reached by a rarer
+  in-game path. Repro rows: `data/runs/drill-crash2-rows.jsonl` (9 decks,
+  deck-diffuse; MayPlay statics = impulse-draw/play-from-exile effects).
+- **Not fixed yet (deliberate):** the honest fix wants the ordering
+  question answered, not a blind empty-guard; scope for its own session or
+  fold into the consolidation PR. Drill accounting carries the 9 as
+  excluded-with-cause meanwhile (1.6% of the map).
+
 ## Queued follow-up PR — GameCopier → GameSnapshot consolidation (volunteered 2026-07-11, maintainer-blessed at #11203 merge 2026-07-12)
 
 Make the snapshot path own simulation copies and delete GameCopier's
