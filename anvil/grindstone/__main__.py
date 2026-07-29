@@ -23,11 +23,12 @@ M1 D2), census stays off (fork decisions pollute telemetry).
 """
 
 import argparse
+import glob
 import hashlib
 import json
 import subprocess
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 RUNS_DIR = Path("data/runs")
@@ -146,7 +147,88 @@ def generate(a: argparse.Namespace) -> None:
     print(f"[generate] done; labels under data/runs/drill-*/workers/")
 
 
+def report(a: argparse.Namespace) -> None:
+    """Join drill labels back to curation rows; bin by rollout ground truth."""
+    out = Path(a.manifest)
+    manifest = json.loads((out / "manifest.json").read_text())
+    cur = {}
+    for line in Path(manifest["curation"]).open():
+        r = json.loads(line)
+        cur[(r["store"], r["g"])] = r
+
+    joined, missed = [], []
+    for arm in manifest["arms"]:
+        seat = int(str(arm["bridge_seats"]))
+        run_glob = str(RUNS_DIR / f"drill-{arm['store']}-*")
+        run_dirs = sorted(glob.glob(run_glob))
+        if not run_dirs:
+            sys.exit(f"FATAL: no drill run dirs match {run_glob}")
+        # Aggregate across every drill run for this arm, ascending by
+        # timestamp — a later run's label for the same game supersedes
+        # (the re-drill flow: fix a crash class, rerun just those rows).
+        by_game: dict[int, dict] = {}
+        for run_dir in run_dirs:
+            for lf in glob.glob(f"{run_dir}/workers/*/labels.jsonl"):
+                for line in open(lf):
+                    r = json.loads(line)
+                    c = cur.get((arm["store"], r["i"]))
+                    if c is None:
+                        continue
+                    by_game[r["i"]] = {
+                        "store": arm["store"], "g": r["i"], "tt": r["tt"],
+                        "fired_t": r["t"], "k": r["k"],
+                        "model_wins": r["w"][seat],
+                        "n": sum(r["w"]) + r["draw"],
+                        "engine_crashes": r["crash"],
+                        "v_before": c["v_before"], "drop": c["drop"],
+                        "crash_from_turn": c["crash_from_turn"],
+                        "peak_turn": c["peak_turn"],
+                        "deck": c["decks"][c["model_seat"]],
+                    }
+        joined += by_game.values()
+        planned = {g for (s, g) in cur if s == arm["store"]}
+        missed += [{"store": arm["store"], "g": g}
+                   for g in planned - set(by_game)]
+
+    ok = [r for r in joined if r["n"] > 0]
+    zero = [r for r in joined if r["n"] == 0]
+
+    def bin_of(r):
+        wr = r["model_wins"] / r["n"]
+        return ("lost" if wr <= 0.2 else "long_shot" if wr <= 0.45
+                else "coin" if wr <= 0.7 else "winnable")
+
+    bins = Counter(bin_of(r) for r in ok)
+    tot_w = sum(r["model_wins"] for r in ok)
+    tot_n = sum(r["n"] for r in ok)
+    summary = {
+        "manifest": str(out / "manifest.json"),
+        "drills_planned": sum(x["n_drills"] for x in manifest["arms"]),
+        "drills_labeled": len(joined),
+        "replay_missed": len(missed),
+        "all_completions_crashed": len(zero),
+        "completions": tot_n,
+        "model_wins": tot_w,
+        "rollout_winrate": round(tot_w / tot_n, 4) if tot_n else None,
+        "mean_v_before": round(sum(r["v_before"] for r in ok) / len(ok), 4)
+                         if ok else None,
+        "bins": dict(bins),
+        "zero_completion_decks":
+            Counter(r["deck"] for r in zero).most_common(6),
+        "missed": missed,
+    }
+    (out / "report.json").write_text(json.dumps(summary, indent=2) + "\n")
+    with (out / "drills.jsonl").open("w") as f:
+        for r in sorted(joined, key=lambda x: (x["store"], x["g"])):
+            f.write(json.dumps(r) + "\n")
+    print(json.dumps({k: v for k, v in summary.items() if k != "missed"},
+                     indent=2))
+    print(f"[report] -> {out / 'report.json'} + drills.jsonl "
+          f"({len(missed)} replay-missed)")
+
+
 def main() -> None:
+    sys.stdout.reconfigure(line_buffering=True)
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -181,6 +263,12 @@ def main() -> None:
                         "(--no-drill-stop = full replay, the determinism "
                         "gate)")
     g.set_defaults(fn=generate)
+
+    r = sub.add_parser("report")
+    r.add_argument("--manifest", required=True,
+                   help="directory written by plan (aggregates every drill "
+                        "run dir for its arms; later runs supersede per game)")
+    r.set_defaults(fn=report)
 
     args = ap.parse_args()
     args.fn(args)

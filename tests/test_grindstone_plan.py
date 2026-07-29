@@ -93,3 +93,49 @@ def test_plan_unknown_store_fatal(tmp_path, src_arm):
     rows = [{"store": "no-such-arm", "g": 0, "seed": 1, "crash_from_turn": 5}]
     with pytest.raises(SystemExit):
         _plan(_curation(tmp_path, rows), tmp_path / "plan")
+
+
+def _label(i, tt, w, draw=0, crash=0):
+    return {"i": i, "seed": 1, "fp": 0, "t": tt, "tt": tt, "k": 8,
+            "w": w, "draw": draw, "crash": crash, "copy_ms": 1, "ms": 1}
+
+
+def test_report_aggregates_and_supersedes(tmp_path, src_arm):
+    store = src_arm.name
+    rows = [
+        {"store": store, "g": 5, "seed": 1, "crash_from_turn": 9,
+         "v_before": 0.8, "drop": 0.5, "peak_turn": 7, "model_seat": 1,
+         "decks": ["dc-a", "dc-b"]},
+        {"store": store, "g": 7, "seed": 2, "crash_from_turn": 13,
+         "v_before": 0.7, "drop": 0.4, "peak_turn": 11, "model_seat": 1,
+         "decks": ["dc-a", "dc-c"]},
+        {"store": store, "g": 9, "seed": 3, "crash_from_turn": 4,
+         "v_before": 0.6, "drop": 0.3, "peak_turn": 2, "model_seat": 1,
+         "decks": ["dc-a", "dc-d"]},
+    ]
+    out = tmp_path / "plan"
+    _plan(_curation(tmp_path, rows), out)
+
+    runs = gs.RUNS_DIR
+    # Run 1 (map sweep): g5 all-crash, g7 labeled; g9 replay-missed.
+    r1 = runs / f"drill-{store}-20260729-080000" / "workers" / "inv-0000"
+    r1.mkdir(parents=True)
+    (r1 / "labels.jsonl").write_text(
+        json.dumps(_label(5, 9, [0, 0], crash=8)) + "\n"
+        + json.dumps(_label(7, 13, [2, 6])) + "\n")
+    # Run 2 (post-fix re-drill): g5 now labels — must supersede run 1.
+    r2 = runs / f"drill-{store}-20260729-090000" / "workers" / "inv-0000"
+    r2.mkdir(parents=True)
+    (r2 / "labels.jsonl").write_text(json.dumps(_label(5, 9, [3, 5])) + "\n")
+
+    a = argparse.Namespace(manifest=str(out))
+    gs.report(a)
+    rep = json.loads((out / "report.json").read_text())
+
+    assert rep["drills_labeled"] == 2
+    assert rep["replay_missed"] == 1 and rep["missed"][0]["g"] == 9
+    assert rep["all_completions_crashed"] == 0  # run 2 superseded g5
+    # bridge_seats "1": model wins are w[1] -> g5: 5/8, g7: 6/8.
+    assert rep["model_wins"] == 11 and rep["completions"] == 16
+    drills = [json.loads(l) for l in (out / "drills.jsonl").open()]
+    assert {d["g"]: d["model_wins"] for d in drills} == {5: 5, 7: 6}

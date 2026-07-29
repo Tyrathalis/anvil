@@ -135,7 +135,12 @@ class Run:
         cmd = []
         if m["nice"]:
             cmd += ["nice", "-n", "19"]
+        # ANVIL_EXTRA_JVM_OPTS: ad-hoc worker JVM flags (e.g.
+        # -Danvil.crash.trace=true for crash-class diagnosis) without a
+        # manifest change; space-separated.
+        extra = os.environ.get("ANVIL_EXTRA_JVM_OPTS", "").split()
         cmd += ["java", f"-Xms{m['heap']}", f"-Xmx{m['heap']}", *m["jvm_opts"],
+                *extra,
                 "-jar", str(jar), "anvil",
                 *self._deck_args(), "-f", m["format"],
                 "-range", str(span[0]), str(span[1]),
