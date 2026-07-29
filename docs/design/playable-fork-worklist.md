@@ -783,6 +783,37 @@ half of the same gap. Offer 6 first.
 
 ---
 
+## 8. Horizontal hand zone in the Adventure UI (requested 2026-07-28, user)
+
+Wanted: the Adventure/landscape match UI's hand as a horizontal row (like
+portrait mobile) instead of the vertical side panel. **Archaeology done
+2026-07-28 — the option already exists in the shared match UI and Adventure
+just lost the knob:**
+
+- `FPref.UI_ALT_PLAYERZONETABS` ("Alternate Player Zone Layout (Landscape
+  Mode)") is a three-value select — Off / Vertical / **Horizontal** — wired
+  through `Forge.setAltZoneTabMode` at boot (`Forge.java:238`, with a legacy
+  true/false migration at `:390`) and consumed by
+  `VPlayerPanel`/`VCardDisplayArea`/`VField`/`VManaPool`
+  (`Forge.isHorizontalTabLayout()`). It applies to every match, Adventure
+  included — the pref is global.
+- Classic mobile `SettingsPage` exposes it (`:301`, `CustomSelectSetting`).
+  **Adventure `SettingsScene:334` has it COMMENTED OUT — as a stale
+  `addCheckBox`** from when the pref was a boolean; presumably disabled when
+  upstream widened it to three values rather than reworked.
+- **Workaround available today, zero code:** set the pref from the classic
+  (non-Adventure) settings page — it persists globally and applies in
+  Adventure matches after the boot-time read.
+- **The implementation task is therefore small:** revive the `SettingsScene`
+  entry as a proper three-value selector (the tap-angle work already
+  established the multi-value-selector pattern in that scene), not a
+  checkbox. Verify visually what Horizontal actually looks like before
+  shipping — the mode's exact rendering hasn't been checked, only its
+  plumbing.
+- **Pairing note: this item is the natural v5 vehicle** — the first release
+  after the manifest-path fix, so shipping it doubles as the end-to-end
+  in-app delta test.
+
 ## Shared user store: the playable build and the research harness read the same decks
 
 Noticed on the instance's first real run (2026-07-27): Deck Manager shows the
