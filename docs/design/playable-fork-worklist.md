@@ -978,6 +978,22 @@ shipping builds to other people's machines.
 > republished) skips the prompt silently. Installs carrying the *old* gate
 > (the first release) won't self-offer this fix — one manual jar re-download,
 > then the new gate governs.
+>
+> **First genuine in-app update attempt (2026-07-28, user, v2 install → v3):
+> prompt + changelog fired correctly (the retired gate verified live), but
+> the delta plan aborted — the res tree contains
+> `res/adventure/common/maps/map/aerie/wastetown..tmx` and the manifest
+> path-safety check refused `..` as a *substring*, so EVERY real plan failed
+> to the legacy fallback (which cannot succeed for this fork: no installer
+> jar is published). Fixed segment-wise (`4f1897779e`), the test now carries
+> the real filename; republished as v4. No fixture could have caught it
+> (synthetic-safe names only) and the earlier live URL verification bypassed
+> `parse` — the standing lesson now reads: **verify the production artifact
+> through the production code path**; post-publish routine gains "parse the
+> published manifest with the shipped parser." Play residue also closed same
+> evening: a game with a synced deck was played (user). Remaining owed on
+> the updater: one successful end-to-end in-app delta apply + auto-restart
+> (the user's v3-equivalent install → v4).
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
