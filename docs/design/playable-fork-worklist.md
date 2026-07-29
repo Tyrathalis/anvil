@@ -613,6 +613,24 @@ owes a live sync + play pass.** As-built deltas from the notes below:
   behind the modal "Syncing…" overlay), and the storage fix is an
   upstream-PR candidate (latent-correctness class, same shape as the
   hit-test fix). Still owed: a successful live sync + play pass.
+- **First successful live sync 2026-07-28 (user), same evening as the crash
+  fix: 133 decks in 5–10 minutes — exactly the politeness math** (~136
+  requests × ≥2s + fetch latency; under the 200-deck cap). First sync is the
+  expensive one by design; re-syncs skip unchanged decks with zero per-deck
+  requests. Play feedback drove a same-evening **sync UX round
+  (`5dcebd13ff`)**: Enter submits input dialogs (opt-in `FTextField` submit
+  handler wired by `FOptionPane.showInputDialog` — the field's edit-mode
+  handler was swallowing Enter to close the keyboard; other text fields
+  unchanged), the username prompt accepts a pasted Archidekt URL
+  (`DeckSiteSyncer.parseUsernameInput`: the `/search/decks?owner=` /
+  `ownerUsername=` page usernames actually link to — live-probed, `/u/` and
+  `/user/` paths speculatively; unrecognized input passes through verbatim
+  so the existing "no decks found" error names it; prompt text updated in
+  all nine locales), and the syncer's per-deck progress — already localized,
+  previously dropped on mobile (`sync(username, null)`) — now updates the
+  overlay caption live ("47/133: Deck Name") via a
+  `LoadingOverlay.runBackgroundTask` variant whose task receives a caption
+  updater. Remaining residue: play a game with a synced deck.
 
 Requested 2026-07-26 as *"folder syncing, including syncing all public decks
 from a particular user — that avoids any need for auth"*. **Those two halves
