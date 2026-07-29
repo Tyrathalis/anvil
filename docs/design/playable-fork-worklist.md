@@ -799,7 +799,13 @@ git worktree add -b playable-qol ../forge-play playable
 ```
 
 `playable-qol` in `../forge-play` is where all QoL code for items 1–5 goes.
-`playable` itself remains unclaimed by any worktree. Cut at `cc32912078`;
+`playable` itself remains unclaimed by any worktree. A third branch,
+**`playable-pub` in `../forge-pub`** (added 2026-07-28), is the publish
+branch: the QoL commits rebased onto the shared pre-workstream base, and the
+thing actually pushed to `origin/playable` — see the PUBLISHED note in the
+suggested-sequence section. Rebuild it the same way (cherry-pick
+`eed3a3e21d..playable-qol`-style ranges) rather than merging, until the other
+workstream's commits are public. Cut at `cc32912078`;
 **rebased forward onto `playable`'s tip `eed3a3e21d` on 2026-07-26** before the
 first QoL commit (a clean fast-forward — the branch had no commits of its own
 yet). The other workstream had moved one commit ahead in the meantime, and
@@ -902,6 +908,27 @@ shipping builds to other people's machines.
 > owed once a release exists. Non-manifest deletions are deliberately never
 > applied (user-modified res files are left alone; stale orphans possible —
 > revisit if it ever bites).
+>
+> **PUBLISHED 2026-07-28.** The other workstream's commits are not yet
+> public, so the release was cut from a dedicated publish branch:
+> `playable-pub` = the 19 QoL/updater commits cherry-picked onto
+> `5fbc2ac98d` (the shared pre-workstream base; conflict-free, zero file
+> overlap — verified with `git diff --name-only` on both ranges, and the
+> resulting tree differs from `playable-qol` by exactly the other
+> workstream's files). Gate re-run on the publish branch: shipping jar
+> builds, DeltaUpdate/DeckSiteSync/RotatedRect suites 16/16 green. Pushed as
+> **`origin/playable` @ `cf8e71deef`** (the branch name the commits atom
+> tracks); `daily-snapshots` prerelease created with
+> `forge-playable.jar`/`manifest.txt`/`version.txt`/`build.txt`
+> (2.0.14-SNAPSHOT-07.29, 54,654-file manifest). Verified against the real
+> network: version/build/manifest URLs serve, `commits/playable.atom` 200s,
+> and a raw res fetch at the manifest commit hash-matches the manifest.
+> **Note the branch split: local `playable` ≠ `origin/playable`** until the
+> other workstream's commits become public — then reconcile with a merge
+> (disjoint files, trivial). Still owed: the first real **in-app** update
+> pass (boot an older install, accept the prompt, confirm delta apply +
+> restart) — needs a second release to move *to*, so it lands naturally
+> with the next publish.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
