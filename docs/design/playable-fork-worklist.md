@@ -442,6 +442,15 @@ silently — the card gets drawn somewhere you cannot click.
    possible polish, not fixed. **Owed: the user re-runs the two-human pass
    on v6** (tapped-card orientation 210-style at 30°, taps landing on the
    drawn face, stack items visible sideways, animations).
+
+   **v6 VERIFIED 2026-07-28 (user, screenshot): the rotated side's tapped
+   cards render the table look at the shallow angle — "looking more
+   appropriate."** The rotate-180 check is thereby substantively closed:
+   it ran, found the stock nesting bug, and the fix is confirmed in play.
+   Incidental residue, expected to self-verify in future two-human games:
+   taps on the rotated tapped face (hit-test provably matches the now-fixed
+   draw), and stack items in the sideways header when something is actually
+   on the stack in that mode.
 2. **Route the angle through one accessor per client**, and make the untap
    animation delegate to it (kills the `:288` duplicate).
 3. **Add the preference.** `FPref.UI_TAP_ANGLE` in `ForgePreferences.java`
