@@ -156,19 +156,52 @@ def _launch_arms(manifest: dict, port: int, workers: int, chunk: int,
 
 
 def generate(a: argparse.Namespace) -> None:
+    import shutil
+
     from anvil.training.selfplay import _start_server, _stop_server
 
     out = Path(a.manifest)
     manifest = json.loads((out / "manifest.json").read_text())
-    server = _start_server(a.ckpt or manifest["ckpt"], a.port,
-                           out / "drill-server.log", sample=False)
     prefix = "drill" + manifest.get("tag", "")
-    try:
-        _launch_arms(manifest, a.port, a.workers, a.chunk,
-                     a.k or manifest["k"], a.drill_stop, prefix,
-                     fork_obs=a.fork_obs)
-    finally:
-        _stop_server(server)
+    if a.sample_forks:
+        if not (a.drill_ckpt and a.fork_obs):
+            sys.exit("FATAL: --sample-forks requires --drill-ckpt and "
+                     "--fork-obs (mu joins need synthetic ids + "
+                     "per-completion seeds)")
+        # Training generation (M4 D3): mainline replay argmax on the pinned
+        # manifest ckpt, fork completions SAMPLED by --drill-ckpt with mu
+        # records. One server (and one mu file) PER ARM: mu is keyed by the
+        # synthetic game id, and the arms' id namespaces overlap — a shared
+        # file would cross-conflict. Arms run sequentially anyway.
+        for i, arm in enumerate(manifest["arms"]):
+            sub = dict(manifest, arms=[arm])
+            mu_path = out / f"mu-{arm['store']}.jsonl"
+            mu_path.unlink(missing_ok=True)
+            server = _start_server(a.ckpt or manifest["ckpt"], a.port,
+                                   out / f"drill-server-{i}.log", sample=False,
+                                   drill_ckpt=a.drill_ckpt, drill_sample=True,
+                                   drill_mu_out=mu_path)
+            try:
+                _launch_arms(sub, a.port, a.workers, a.chunk,
+                             a.k or manifest["k"], a.drill_stop, prefix,
+                             fork_obs=True)
+            finally:
+                _stop_server(server)
+            run_dirs = sorted(glob.glob(str(RUNS_DIR / f"{prefix}-{arm['store']}-*")))
+            if not run_dirs or not mu_path.exists():
+                sys.exit(f"FATAL: no run dir or mu file for arm {arm['store']}")
+            shutil.copy(mu_path, Path(run_dirs[-1]) / "mu.jsonl")
+            print(f"[generate] mu -> {run_dirs[-1]}/mu.jsonl")
+    else:
+        server = _start_server(a.ckpt or manifest["ckpt"], a.port,
+                               out / "drill-server.log", sample=False,
+                               drill_ckpt=a.drill_ckpt)
+        try:
+            _launch_arms(manifest, a.port, a.workers, a.chunk,
+                         a.k or manifest["k"], a.drill_stop, prefix,
+                         fork_obs=a.fork_obs)
+        finally:
+            _stop_server(server)
     print(f"[generate] done; labels under data/runs/{prefix}-*/workers/")
 
 
@@ -534,6 +567,14 @@ def main() -> None:
                    help="training generation (M4 D3): completions written "
                         "as store frames (obs-forks.zst, per-completion "
                         "seeds) for `anvil.store ingest --forks`")
+    g.add_argument("--drill-ckpt", default=None,
+                   help="dual-policy serving: fork completions answered by "
+                        "this checkpoint, mainline replay stays on the "
+                        "manifest ckpt")
+    g.add_argument("--sample-forks", action="store_true",
+                   help="sample the drill backend with mu records (per-arm "
+                        "server + mu file; requires --drill-ckpt and "
+                        "--fork-obs) — the drill TRAINING generation mode")
     g.set_defaults(fn=generate)
 
     r = sub.add_parser("report")

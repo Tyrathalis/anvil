@@ -197,6 +197,14 @@ class ModelBackend:
         delta = self.pass_delta if task == "priority" else 0.0
         noise = None
         if self.sample:
+            if header.get("g", -1) < 0:
+                # A wire-only fork header (g=-1): every completion would share
+                # (g, s) mu keys AND the parent's noise seed. Sampled drill
+                # serving requires -forkobs (synthetic unique g, per-completion
+                # announced seed). Raising -> loud decline -> heuristic
+                # fallback with NO mu record, so nothing poisoned can train.
+                raise ValueError("sampled serving needs a store-indexed header "
+                                 "(fork sessions require -forkobs)")
             from anvil.policy.sampling import make_noise, noise_seed
             noise = make_noise(ex, task, self.temperature,
                                seed=noise_seed(game_seed or 0, dec["s"]))
@@ -460,8 +468,17 @@ def main() -> None:
     ap.add_argument("--drill-ckpt", default=None,
                     help="dual-policy drill serving (M4 D2.4): fork wire "
                          "sessions (wid contains '.f') are answered by this "
-                         "checkpoint, argmax; the mainline replay stays on "
-                         "--ckpt. Model mode only.")
+                         "checkpoint; the mainline replay stays on --ckpt. "
+                         "Model mode only. Argmax unless --drill-sample.")
+    ap.add_argument("--drill-sample", action="store_true",
+                    help="sample the drill backend (M4 D3 training "
+                         "generation: fork completions sampled with mu "
+                         "records at --temperature, mainline stays argmax); "
+                         "requires --drill-ckpt and --drill-mu-out, and the "
+                         "run must use -forkobs")
+    ap.add_argument("--drill-mu-out", default=None,
+                    help="drill backend's behavior-policy mu.jsonl (required "
+                         "with --drill-sample)")
     args = ap.parse_args()
 
     backend = None
@@ -472,7 +489,9 @@ def main() -> None:
                                mu_path=args.mu_out)
         if args.drill_ckpt:
             drill_backend = ModelBackend(args.drill_ckpt, args.pass_delta,
-                                         args.device, sample=False)
+                                         args.device, sample=args.drill_sample,
+                                         temperature=args.temperature,
+                                         mu_path=args.drill_mu_out)
     tags = args.tags if args.tags is not None else (
         (MODEL_TAGS + ("," + COMBAT_TAGS if backend.has_combat else ""))
         if args.mode == "model" else DEFAULT_TAGS)
