@@ -33,11 +33,12 @@ from pathlib import Path
 
 RUNS_DIR = Path("data/runs")
 
-# Fork-turn anchor: the value-crash window itself, or the last turn the
-# critic still liked the position (peak). The map showed 58% of crash
-# windows are already lost at K=8 ground truth — the real error is
-# earlier — so peak/offset targeting is the first D3 sweep axis.
-ANCHOR_FIELD = {"crash": "crash_from_turn", "peak": "peak_turn"}
+# Fork-turn anchor: the value-crash window itself, the last turn the
+# critic still liked the position (peak), or a per-game selected turn
+# (the `select` verb — D3's rule; the sweep proved no global offset
+# wins: o4/peak recover different games, 65 vs 56 exclusive).
+ANCHOR_FIELD = {"crash": "crash_from_turn", "peak": "peak_turn",
+                "selected": "drill_turn"}
 
 
 def _load_curation(path: Path, limit: int = 0) -> list[dict]:
@@ -254,6 +255,91 @@ def _bin_of(model_wins: int, n: int) -> str:
             else "coin" if wr <= 0.7 else "winnable")
 
 
+def select(a: argparse.Namespace) -> None:
+    """Per-game drill fork-turn selection from K-rollout labels (M4 D3).
+
+    The turn-offset sweep resolved that no global offset wins — drill
+    fork turns are selected per game from measured ground truth. Rule:
+    the LATEST labeled fork turn whose rollout winrate lands in the
+    trainable band (default [0.25, 0.75] — outcome variance exists, and
+    later = closest to the decision error, cheapest completions); if no
+    turn is in-band, the latest turn ABOVE the band (the position is
+    winnable early — converting won positions is still a drill); if
+    nothing clears the band floor anywhere, the game is excluded (the
+    luck-locked profile: lost before the critic ever liked it).
+
+    Label sources are dirs containing drills.jsonl (the map, sweep
+    arms); LATER sources supersede earlier ones at the same fork turn —
+    list re-measures after selection-time labels (the D2.4 lesson).
+    Output rows are the source curation rows plus drill_turn/selection
+    provenance: `plan --anchor selected` consumes them directly.
+    Evalset holdout is subtracted HERE — this is where training lists
+    are built.
+    """
+    cur = {}
+    for line in a.curation.open():
+        c = json.loads(line)
+        cur[(c["store"], c["g"])] = c
+
+    cands: dict[tuple, dict[int, tuple[int, int]]] = defaultdict(dict)
+    for src in a.labels.split(","):
+        for line in (Path(src) / "drills.jsonl").open():
+            r = json.loads(line)
+            if r["n"] > 0:
+                cands[(r["store"], r["g"])][r["fired_t"]] = (
+                    r["model_wins"], r["n"])
+
+    holdout = set()
+    if a.holdout:
+        meta = json.loads((Path(a.holdout) / "meta.json").read_text())
+        holdout = {tuple(x) for x in meta["held_out"]}
+
+    lo, hi = (float(x) for x in a.band.split(":"))
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    picked, stats = [], Counter()
+    for key in sorted(cands, key=lambda k: (k[0], k[1])):
+        if key not in cur:
+            sys.exit(f"FATAL: labeled game {key} has no curation row")
+        if key in holdout:
+            stats["held_out"] += 1
+            continue
+        by_t = cands[key]
+        in_band = [t for t, (w, n) in by_t.items() if lo <= w / n <= hi]
+        above = [t for t, (w, n) in by_t.items() if w / n > hi]
+        if in_band:
+            t, rule = max(in_band), "band"
+        elif above:
+            t, rule = max(above), "above"
+        else:
+            stats["excluded"] += 1
+            continue
+        stats[rule] += 1
+        w, n = by_t[t]
+        picked.append(dict(cur[key], drill_turn=t, sel_rule=rule,
+                           sel_wr=round(w / n, 4), sel_n=n))
+
+    with (out / "selection.jsonl").open("w") as f:
+        for r in picked:
+            f.write(json.dumps(r) + "\n")
+    offsets = Counter(min(r["drill_turn"] - r["crash_from_turn"], 0)
+                      for r in picked)
+    meta = {
+        "curation": str(a.curation),
+        "labels": a.labels.split(","),
+        "holdout": a.holdout,
+        "band": [lo, hi],
+        "selected": len(picked),
+        "stats": dict(stats),
+        "mean_sel_wr": round(sum(r["sel_wr"] for r in picked)
+                             / len(picked), 4) if picked else None,
+        "offset_vs_crash": {str(k): v for k, v in sorted(offsets.items())},
+    }
+    (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+    print(json.dumps(meta, indent=2))
+    print(f"[select] {len(picked)} drill points -> {out / 'selection.jsonl'}")
+
+
 def evalset(a: argparse.Namespace) -> None:
     """Select a fixed held-out drill set from a mapped manifest.
 
@@ -447,6 +533,21 @@ def main() -> None:
                    help="directory written by plan (aggregates every drill "
                         "run dir for its arms; later runs supersede per game)")
     r.set_defaults(fn=report)
+
+    s = sub.add_parser("select")
+    s.add_argument("--curation", type=Path, required=True,
+                   help="full curation rows (payload for the output)")
+    s.add_argument("--labels", required=True,
+                   help="comma-joined dirs each holding drills.jsonl "
+                        "(map, sweep arms); later supersedes at the same "
+                        "fork turn — list re-measures last")
+    s.add_argument("--holdout", default=None,
+                   help="evalset dir whose meta.json held_out games are "
+                        "subtracted (training lists MUST pass this)")
+    s.add_argument("--band", default="0.25:0.75",
+                   help="trainable winrate band lo:hi")
+    s.add_argument("--out", required=True)
+    s.set_defaults(fn=select)
 
     e = sub.add_parser("evalset")
     e.add_argument("--map", required=True,

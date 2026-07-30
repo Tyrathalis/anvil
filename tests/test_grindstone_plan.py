@@ -183,6 +183,91 @@ def test_report_tag_isolates_sweep_arms(tmp_path, src_arm):
     assert drill["fired_t"] == 7  # the offset arm's fork turn, not the decoy's
 
 
+def _label_src(tmp_path, name, rows):
+    d = tmp_path / name
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "drills.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in rows))
+    return d
+
+
+def _drill_row(store, g, t, wins, n=8):
+    return {"store": store, "g": g, "fired_t": t, "model_wins": wins, "n": n}
+
+
+def _select(tmp_path, curation, labels, out="sel", holdout=None,
+            band="0.25:0.75"):
+    o = tmp_path / out
+    gs.select(argparse.Namespace(curation=curation,
+                                 labels=",".join(str(x) for x in labels),
+                                 holdout=holdout, band=band, out=str(o)))
+    rows = [json.loads(l) for l in (o / "selection.jsonl").open()]
+    meta = json.loads((o / "meta.json").read_text())
+    return rows, meta
+
+
+def test_select_rule_band_above_excluded(tmp_path, src_arm):
+    store = src_arm.name
+    cur_rows = [{"store": store, "g": g, "seed": g, "crash_from_turn": 14,
+                 "peak_turn": 8} for g in (1, 2, 3)]
+    cur = _curation(tmp_path, cur_rows)
+    # g1: in-band at t12 (4/8) and t10 (5/8) -> latest in-band wins (12).
+    # g2: never in-band, above at t8 (7/8) -> latest above wins.
+    # g3: nothing clears the floor anywhere -> excluded.
+    src = _label_src(tmp_path, "arms", [
+        _drill_row(store, 1, 14, 1), _drill_row(store, 1, 12, 4),
+        _drill_row(store, 1, 10, 5),
+        _drill_row(store, 2, 14, 0), _drill_row(store, 2, 12, 1),
+        _drill_row(store, 2, 8, 7),
+        _drill_row(store, 3, 14, 0), _drill_row(store, 3, 8, 1),
+    ])
+    rows, meta = _select(tmp_path, cur, [src])
+    by_g = {r["g"]: r for r in rows}
+    assert by_g[1]["drill_turn"] == 12 and by_g[1]["sel_rule"] == "band"
+    assert by_g[1]["sel_wr"] == 0.5
+    assert by_g[2]["drill_turn"] == 8 and by_g[2]["sel_rule"] == "above"
+    assert 3 not in by_g and meta["stats"]["excluded"] == 1
+    assert meta["offset_vs_crash"] == {"-6": 1, "-2": 1}
+
+
+def test_select_later_source_supersedes_and_holdout(tmp_path, src_arm):
+    store = src_arm.name
+    cur = _curation(tmp_path, [
+        {"store": store, "g": 1, "seed": 1, "crash_from_turn": 10,
+         "peak_turn": 6},
+        {"store": store, "g": 2, "seed": 2, "crash_from_turn": 10,
+         "peak_turn": 6}])
+    # Map says t10 is in-band (selection-time label); the re-measure says
+    # t10 is lost — listed later, it must supersede, pushing g1 to t8.
+    map_src = _label_src(tmp_path, "map", [
+        _drill_row(store, 1, 10, 4), _drill_row(store, 2, 10, 4)])
+    remeasure = _label_src(tmp_path, "o0", [
+        _drill_row(store, 1, 10, 0), _drill_row(store, 1, 8, 3)])
+    es = tmp_path / "es"
+    es.mkdir()
+    (es / "meta.json").write_text(json.dumps(
+        {"held_out": [[store, 2]]}))
+    rows, meta = _select(tmp_path, cur, [map_src, remeasure],
+                         holdout=str(es))
+    assert len(rows) == 1
+    assert rows[0]["g"] == 1 and rows[0]["drill_turn"] == 8
+    assert meta["stats"] == {"band": 1, "held_out": 1}
+
+
+def test_plan_consumes_selection(tmp_path, src_arm):
+    store = src_arm.name
+    cur = _curation(tmp_path, [{"store": store, "g": 5, "seed": 1,
+                                "crash_from_turn": 14, "peak_turn": 8}])
+    src = _label_src(tmp_path, "arms", [_drill_row(store, 5, 11, 4)])
+    rows, _ = _select(tmp_path, cur, [src])
+    sel = tmp_path / "sel" / "selection.jsonl"
+    assert [json.loads(l)["drill_turn"] for l in sel.open()] == [11]
+    m = _plan(sel, tmp_path / "plan", anchor="selected")
+    lines = [ln for ln in open(m["arms"][0]["drillfile"])
+             if not ln.startswith("#")]
+    assert lines == ["5 11\n"]  # the selected turn, not crash or peak
+
+
 def test_evalset_stratifies_and_holds_out(tmp_path, src_arm):
     store = src_arm.name
     # 6 mapped drills: 2 winnable (7/8), 2 lost (0/8), 2 coin (4/8).
