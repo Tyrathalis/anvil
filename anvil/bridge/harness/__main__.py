@@ -55,6 +55,10 @@ def main() -> None:
                          "unlisted indices are skipped (requires --rollout-k)")
     la.add_argument("--drill-stop", action="store_true",
                     help="end mainlines after their last drill fork point")
+    la.add_argument("--fork-obs", action="store_true",
+                    help="fork-session store (M4 D3): completions written as "
+                         "store frames to obs-forks.zst with per-completion "
+                         "seeds (requires --obs and --rollout-k)")
 
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)

@@ -23,6 +23,10 @@ def main() -> None:
     p_ingest.add_argument("--pool-version", default=None)
     p_ingest.add_argument("--verify", action="store_true",
                           help="decode every frame after ingest")
+    p_ingest.add_argument("--forks", action="store_true",
+                          help="ingest fork-session frames (obs-forks.zst, "
+                               "M4 D3 drill runs); mainline frames are "
+                               "NEVER ingested from drill runs")
 
     p_status = sub.add_parser("status", help="summarize a store directory")
     p_status.add_argument("store_dir")
@@ -33,7 +37,7 @@ def main() -> None:
 
     a = ap.parse_args()
     if a.verb == "ingest":
-        ingest(a.run_dir, a.dest, a.pool_version, a.verify)
+        ingest(a.run_dir, a.dest, a.pool_version, a.verify, forks=a.forks)
     elif a.verb == "validate":
         from anvil.store.castplan import validate
         report = validate(TrajectoryStore(a.store_dir), limit=a.limit)

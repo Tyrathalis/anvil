@@ -381,9 +381,16 @@ class PriorityWindows(IterableDataset):
                 prior.append(dec)
                 continue
             p = dec["p"]
-            out = assemble(dec, traj.header, perspective=p,
-                           history=history_tokens(prior, p, self.history_k,
-                                                  now_pos=dec.get("_pos")),
+            if "hist" in dec:
+                # Fork frames (M4 D3) store the serve-time wire hist verbatim:
+                # the first windows' history includes parent-game entries a
+                # reconstruction from this frame's records could never see.
+                from anvil.bridge.featurize import wire_history
+                hist = wire_history(dec["hist"], p, self.history_k)
+            else:
+                hist = history_tokens(prior, p, self.history_k,
+                                      now_pos=dec.get("_pos"))
+            out = assemble(dec, traj.header, perspective=p, history=hist,
                            full_vis=self.full_vis)
             row_of = out["entity_row_of"]
 

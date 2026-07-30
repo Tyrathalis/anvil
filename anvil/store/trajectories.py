@@ -230,24 +230,35 @@ def open_store(spec) -> TrajectoryStore | MultiStore:
 
 
 def ingest(run_dir: Path | str, dest: Path | str | None = None,
-           pool_version: str | None = None, verify: bool = False) -> Path:
-    """Consolidate a harness run's worker observation files into the store."""
+           pool_version: str | None = None, verify: bool = False,
+           forks: bool = False) -> Path:
+    """Consolidate a harness run's worker observation files into the store.
+
+    forks=True (M4 D3): ingest the FORK-SESSION frames (obs-forks.zst,
+    -forkobs runs) instead of the mainline frames. Drill-run mainlines
+    NEVER enter training ingest — under -drillstop they record a
+    Forge-computed pseudo-winner (D2.2 pinned hazard). Fork frames carry
+    their own true outcomes in the end record (driver-computed winner,
+    registered-players index), from which games.jsonl is synthesized;
+    per-fork-point aggregates are cross-checked against labels.jsonl.
+    """
     run_dir = Path(run_dir)
     run_manifest = json.loads((run_dir / "run.json").read_text())
-    run_id = run_manifest["run_id"]
+    run_id = run_manifest["run_id"] + ("-forks" if forks else "")
     dest = Path(dest) if dest else TRAJECTORIES_DIR / run_id
     if (dest / "manifest.json").exists():
         sys.exit(f"store already exists at {dest}; ingest is one-shot (delete it to re-ingest)")
     dest.mkdir(parents=True, exist_ok=True)
 
+    src_name = "obs-forks.zst" if forks else "obs.zst"
     index_entries: list[dict] = []
     n_files = 0
     total_clen = 0
     total_rlen = 0
     seen_games: set[int] = set()
-    worker_files = sorted(run_dir.glob("workers/inv-*/obs.zst"))
+    worker_files = sorted(run_dir.glob(f"workers/inv-*/{src_name}"))
     for src in worker_files:
-        idx_path = src.with_name("obs.idx.jsonl")
+        idx_path = src.with_name(src_name[:-4] + ".idx.jsonl")
         if not idx_path.exists():
             print(f"[ingest] WARNING: {src} has no index sidecar, skipping", file=sys.stderr)
             continue
@@ -273,26 +284,69 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
             n_files += 1
 
     if not index_entries:
-        sys.exit(f"no observation frames found under {run_dir}/workers/ — "
-                 "was the run launched with --obs?")
+        sys.exit(f"no {'fork ' if forks else ''}observation frames found under "
+                 f"{run_dir}/workers/ — was the run launched with "
+                 f"{'--fork-obs' if forks else '--obs'}?")
 
     index_entries.sort(key=lambda e: e["g"])
     with open(dest / "index.jsonl", "w") as f:
         for e in index_entries:
             f.write(json.dumps(e) + "\n")
 
-    # merge per-game outcome records (the harness progress logs)
-    outcomes: dict[int, dict] = {}
-    for f_ in sorted(run_dir.glob("workers/inv-*/games.jsonl")):
-        for line in f_.read_text().splitlines():
-            try:
-                r = json.loads(line)
-                outcomes[r["i"]] = r
-            except (json.JSONDecodeError, KeyError):
-                continue
-    with open(dest / "games.jsonl", "w") as f:
-        for i in sorted(outcomes):
-            f.write(json.dumps(outcomes[i]) + "\n")
+    fork_agg: dict[tuple[int, int], dict] = {}
+    if forks:
+        # Synthesize games.jsonl from the fork frames' own end records —
+        # the harness progress logs carry MAINLINE outcomes, which under
+        # -drillstop are pseudo-winners and must never be joined. The end
+        # record's winner is the driver-computed registered-players index
+        # (the same tally that feeds labels.jsonl w[]); winner_seat() needs
+        # the player NAME, taken from the frame header.
+        by_file: dict[str, list[dict]] = {}
+        for e in index_entries:
+            by_file.setdefault(e["file"], []).append(e)
+        rows: dict[int, dict] = {}
+        for fname, entries in sorted(by_file.items()):
+            data = (dest / fname).read_bytes()
+            for e in entries:
+                header, _, end, _ = decode_frame(data[e["off"]:e["off"] + e["clen"]])
+                fk = header.get("fork") or {}
+                agg = fork_agg.setdefault(
+                    (fk.get("pg", -1), fk.get("fp", -1)),
+                    {"w": [0] * len(header["players"]), "draw": 0, "crash": 0})
+                if end is None:
+                    print(f"[ingest] WARNING: fork game {e['g']} has no end "
+                          f"record (killed worker?); no outcome row",
+                          file=sys.stderr)
+                    continue
+                winner = None
+                if end["status"] == "won" and 0 <= end["winner"] < len(header["players"]):
+                    winner = header["players"][end["winner"]]["name"]
+                    agg["w"][end["winner"]] += 1
+                elif end["status"] == "crash":
+                    agg["crash"] += 1
+                else:
+                    agg["draw"] += 1
+                rows[e["g"]] = {"i": e["g"], "status": end["status"],
+                                "winner": winner, "turns": end["turns"],
+                                "fork": fk}
+        with open(dest / "games.jsonl", "w") as f:
+            for i in sorted(rows):
+                f.write(json.dumps(rows[i]) + "\n")
+        print(f"[ingest] {len(rows)} fork-completion outcome rows synthesized "
+              f"from end records")
+    else:
+        # merge per-game outcome records (the harness progress logs)
+        outcomes: dict[int, dict] = {}
+        for f_ in sorted(run_dir.glob("workers/inv-*/games.jsonl")):
+            for line in f_.read_text().splitlines():
+                try:
+                    r = json.loads(line)
+                    outcomes[r["i"]] = r
+                except (json.JSONDecodeError, KeyError):
+                    continue
+        with open(dest / "games.jsonl", "w") as f:
+            for i in sorted(outcomes):
+                f.write(json.dumps(outcomes[i]) + "\n")
 
     # merge rollout-label records (M2 D4 labeler runs); keyed (i, fp),
     # first record wins on chunk re-issue like the frame rule above
@@ -309,6 +363,35 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
             for key in sorted(label_rows):
                 f.write(json.dumps(label_rows[key]) + "\n")
         print(f"[ingest] {len(label_rows)} rollout-label records -> labels.jsonl")
+
+    labels_check = None
+    if forks and label_rows:
+        # Consistency diagnostic: the per-fork-point frame aggregates must
+        # reproduce the labels row (same tally, two paths). Copy crashes
+        # never open a frame, so frame crashes <= labels crash; wins and
+        # draws must match exactly. A mismatch usually means a mid-block
+        # worker re-issue mixed two attempts — frames stay individually
+        # valid (each is a completed game with its own outcome), so this
+        # warns and records rather than dropping.
+        mismatched = []
+        for (pg, fp), agg in sorted(fork_agg.items()):
+            lab = label_rows.get((pg, fp))
+            if lab is None:
+                mismatched.append({"pg": pg, "fp": fp, "why": "no labels row"})
+                continue
+            if agg["w"] != lab["w"] or agg["draw"] != lab["draw"] \
+                    or agg["crash"] > lab["crash"]:
+                mismatched.append({"pg": pg, "fp": fp, "frames": agg,
+                                   "labels": {"w": lab["w"], "draw": lab["draw"],
+                                              "crash": lab["crash"]}})
+        labels_check = {"fork_points": len(fork_agg), "mismatched": len(mismatched)}
+        if mismatched:
+            print(f"[ingest] WARNING: {len(mismatched)}/{len(fork_agg)} fork "
+                  f"points disagree with labels.jsonl: {mismatched[:5]}",
+                  file=sys.stderr)
+        else:
+            print(f"[ingest] labels cross-check: {len(fork_agg)} fork points "
+                  f"all agree with labels.jsonl")
 
     # merge behavior-policy records (M2 D6 sampled actors; server-side file,
     # run-level), keyed (g, s). A re-issued game (first attempt crashed
@@ -357,7 +440,7 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
               "provenance is incomplete", file=sys.stderr)
     manifest = {
         "run_id": run_id,
-        "source": "selfplay-heuristic",
+        "source": "drill-forks" if forks else "selfplay-heuristic",
         "obs_schema": OBS_SCHEMA_VERSION,
         "pool_version": pool_version,
         "games": len(index_entries),
@@ -371,6 +454,16 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
                  "games_per_pair", "format", "seed_base",
                  "games", "bridge", "tags") if k in run_manifest},
     }
+    if forks:
+        # The drill provenance tag: loaders and mixing logic key off this —
+        # fork-frame games are position-initialized and must stay
+        # distinguishable from full-game trajectories.
+        manifest["drill"] = {
+            "parent_run": run_manifest["run_id"],
+            "drill_file": run_manifest.get("drill_file"),
+            "drill_source": run_manifest.get("drill_source"),
+            "labels_check": labels_check,
+        }
     (dest / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
     if verify:

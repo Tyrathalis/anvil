@@ -171,6 +171,9 @@ class Run:
             cmd += ["-drillfile", str(self.dir / m["drill_file"])]
             if m.get("drill_stop"):
                 cmd += ["-drillstop"]
+        if m.get("fork_obs"):
+            # M4 D3: completions become store frames of their own
+            cmd += ["-forkobs"]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
         return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
@@ -331,6 +334,7 @@ def launch(a) -> Path:
         "drill_file": "drillfile.txt" if getattr(a, "drill_file", None) else None,
         "drill_source": str(a.drill_file) if getattr(a, "drill_file", None) else None,
         "drill_stop": getattr(a, "drill_stop", False),
+        "fork_obs": getattr(a, "fork_obs", False),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "

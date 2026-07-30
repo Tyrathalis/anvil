@@ -312,7 +312,11 @@ def game_trajectories(store, feat, g: int, full_vis: bool = False):
         rec = mu.get(dec["s"])
         if rec is not None and dec.get("obs") is not None:
             wire = dict(dec)
-            wire["hist"] = store_wire_hist(prior, dec["_pos"])
+            if "hist" not in dec:
+                wire["hist"] = store_wire_hist(prior, dec["_pos"])
+            # else: fork frames (M4 D3) store the serve-time wire hist
+            # verbatim — the first windows' history includes parent-game
+            # entries a reconstruction from this frame could never see
             ex, aux = feat.example(wire, traj.header, rec["task"])
             if not mu_matches(ex, rec):
                 return [], "mu_mismatch"

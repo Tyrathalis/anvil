@@ -234,3 +234,91 @@ def test_multistore_rejects_index_collision(tmp_path):
     sb = ingest(rb, dest=tmp_path / "store-b")
     with pytest.raises(ValueError, match="present in both"):
         MultiStore([sa, sb])
+
+
+# ---------- fork-session ingest (M4 D3) ----------
+
+def _fork_frame_records(pg, fp, r, tt, winner=0, status="won", turns=14):
+    """A drill completion's frame, as Obs.startForkGame/endForkGame write it:
+    synthetic unique g, fork provenance in the header, per-dec stored wire
+    hist (the serve-time view, incl. parent-ring entries)."""
+    g = (pg * 100 + fp) * 100 + r
+    recs = [{"k": "game", "sv": OBS_SCHEMA_VERSION, "g": g, "seed": 1000 + r,
+             "wid": f"g{pg}.f{fp}r{r}", "fmt": "Commander",
+             "players": [{"name": "Anvil(1)-D0", "deck": "D0"},
+                         {"name": "Anvil(2)-D1", "deck": "D1"}],
+             "fork": {"pg": pg, "fp": fp, "r": r, "tt": tt}}]
+    for s in range(2):
+        recs.append({"k": "dec", "s": s, "t": tt + s, "ph": "MAIN1", "p": 0,
+                     "m": "chooseSpellAbilityToPlay", "d": 10, "obs": _obs(),
+                     "hist": [{"m": "parentDec", "p": 1, "e": 7}]})
+        recs.append({"k": "ret", "s": s, "v": {"e": 1, "sa": "Sol Ring - cast"}})
+    recs.append({"k": "end", "status": status,
+                 "winner": winner if status == "won" else -1,
+                 "turns": turns, "ms": 55})
+    return recs
+
+
+def _write_fork_worker(wdir: Path, frames: list[list[dict]], labels: list[dict]):
+    """obs-forks.zst + sidecar + labels.jsonl, plus DECOY mainline files with
+    pseudo-winner outcomes that a forks ingest must never touch."""
+    _write_worker(wdir, [_frame_records(0, 11)])  # decoy mainline frame
+    cctx = zstandard.ZstdCompressor(level=3)
+    offset = 0
+    with open(wdir / "obs-forks.zst", "wb") as f, \
+            open(wdir / "obs-forks.idx.jsonl", "w") as idx:
+        for recs in frames:
+            raw = "".join(json.dumps(r) + "\n" for r in recs).encode()
+            frame = cctx.compress(raw)
+            f.write(frame)
+            idx.write(json.dumps({"g": recs[0]["g"], "off": offset,
+                                  "clen": len(frame), "rlen": len(raw),
+                                  "seed": recs[0]["seed"],
+                                  "recs": len(recs)}) + "\n")
+            offset += len(frame)
+    with open(wdir / "labels.jsonl", "w") as f:
+        for row in labels:
+            f.write(json.dumps(row) + "\n")
+
+
+def _label_row(pg, fp, tt, w, draw=0, crash=0):
+    return {"i": pg, "seed": 1, "fp": fp, "t": tt, "tt": tt, "k": sum(w) + draw + crash,
+            "w": w, "draw": draw, "crash": crash, "copy_ms": 1, "ms": 1}
+
+
+def test_forks_ingest_synthesizes_outcomes_and_checks_labels(tmp_path):
+    run_dir = _make_run(tmp_path, [[_frame_records(9, 77)]])
+    wdir = run_dir / "workers/inv-0001"
+    _write_fork_worker(wdir, [
+        _fork_frame_records(5, 0, 0, 12, winner=1),
+        _fork_frame_records(5, 0, 1, 12, winner=0),
+        _fork_frame_records(5, 1, 0, 14, status="draw"),
+    ], labels=[_label_row(5, 0, 12, [1, 1]), _label_row(5, 1, 14, [0, 0], draw=1)])
+
+    dest = ingest(run_dir, dest=tmp_path / "store-forks", forks=True)
+    store = TrajectoryStore(dest)
+    # Only the 3 fork frames — the mainline frames (incl. the decoy with its
+    # pseudo-winner games.jsonl) never enter a forks ingest.
+    assert len(store.index) == 3
+    assert store.manifest["source"] == "drill-forks"
+    assert store.manifest["drill"]["parent_run"] == "test-run"
+    assert store.manifest["drill"]["labels_check"] == {
+        "fork_points": 2, "mismatched": 0}
+    # Outcomes synthesized from end records; winner_seat parses the name.
+    assert store.winner_seat((5 * 100 + 0) * 100 + 0) == 1
+    assert store.winner_seat((5 * 100 + 0) * 100 + 1) == 0
+    assert store.winner_seat((5 * 100 + 1) * 100 + 0) is None  # draw
+    # Fork provenance survives the round trip; stored hist survives decode.
+    traj = store.game((5 * 100 + 0) * 100 + 0)
+    assert traj.header["fork"] == {"pg": 5, "fp": 0, "r": 0, "tt": 12}
+    assert traj.decisions[0]["hist"] == [{"m": "parentDec", "p": 1, "e": 7}]
+
+
+def test_forks_ingest_flags_label_mismatch(tmp_path, capsys):
+    run_dir = _make_run(tmp_path, [[_frame_records(9, 77)]])
+    _write_fork_worker(run_dir / "workers/inv-0001",
+                       [_fork_frame_records(5, 0, 0, 12, winner=1)],
+                       labels=[_label_row(5, 0, 12, [1, 0])])  # claims seat-0 win
+    dest = ingest(run_dir, dest=tmp_path / "store-forks", forks=True)
+    check = TrajectoryStore(dest).manifest["drill"]["labels_check"]
+    assert check == {"fork_points": 1, "mismatched": 1}

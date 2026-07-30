@@ -123,7 +123,8 @@ def plan(a: argparse.Namespace) -> None:
 
 
 def _launch_arms(manifest: dict, port: int, workers: int, chunk: int,
-                 k: int, drill_stop: bool, purpose_prefix: str) -> None:
+                 k: int, drill_stop: bool, purpose_prefix: str,
+                 fork_obs: bool = False) -> None:
     from anvil.training.selfplay import _run
 
     for arm in manifest["arms"]:
@@ -147,6 +148,8 @@ def _launch_arms(manifest: dict, port: int, workers: int, chunk: int,
             cmd += ["--reask"]
         if drill_stop:
             cmd += ["--drill-stop"]
+        if fork_obs:
+            cmd += ["--fork-obs"]
         print(f"[launch] {purpose}: {arm['n_drills']} drills / "
               f"{arm['n_games']} games (span {arm['index_span']})")
         _run(cmd)
@@ -162,7 +165,8 @@ def generate(a: argparse.Namespace) -> None:
     prefix = "drill" + manifest.get("tag", "")
     try:
         _launch_arms(manifest, a.port, a.workers, a.chunk,
-                     a.k or manifest["k"], a.drill_stop, prefix)
+                     a.k or manifest["k"], a.drill_stop, prefix,
+                     fork_obs=a.fork_obs)
     finally:
         _stop_server(server)
     print(f"[generate] done; labels under data/runs/{prefix}-*/workers/")
@@ -526,6 +530,10 @@ def main() -> None:
                    help="end mainlines after their last fork point "
                         "(--no-drill-stop = full replay, the determinism "
                         "gate)")
+    g.add_argument("--fork-obs", action="store_true",
+                   help="training generation (M4 D3): completions written "
+                        "as store frames (obs-forks.zst, per-completion "
+                        "seeds) for `anvil.store ingest --forks`")
     g.set_defaults(fn=generate)
 
     r = sub.add_parser("report")
