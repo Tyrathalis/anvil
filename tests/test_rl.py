@@ -233,3 +233,18 @@ def test_iteration_batches_and_replay_mixture():
                                        replay_weight=0.33)
     assert stores2 == ["x", "y", "z1", "z2", "z3"]
     assert weights2 == [0.33, 0.33, 1.0, 1.0, 1.0]
+
+
+def test_drill_slice_rotates_and_wraps():
+    from anvil.training.selfplay import drill_slice
+    rows = [{"g": i} for i in range(7)]
+    # ppi 3 over 7 rows: iterations tile the list, wrapping without dupes
+    s0 = drill_slice(rows, 0, 3)
+    s1 = drill_slice(rows, 1, 3)
+    s2 = drill_slice(rows, 2, 3)
+    assert [r["g"] for r in s0] == [0, 1, 2]
+    assert [r["g"] for r in s1] == [3, 4, 5]
+    assert [r["g"] for r in s2] == [6, 0, 1]
+    assert all(len({r["g"] for r in s}) == 3 for s in (s0, s1, s2))
+    # ppi >= n: one full pass, no duplicates
+    assert [r["g"] for r in drill_slice(rows, 4, 10)] == [5, 6, 0, 1, 2, 3, 4][:7]

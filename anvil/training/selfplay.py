@@ -178,6 +178,47 @@ def iteration_batches(name: str, k: int, games: int, heur_frac: float
     return out
 
 
+def drill_slice(rows: list[dict], k: int, ppi: int) -> list[dict]:
+    """Rotating per-iteration window over the drill selection: iteration k
+    takes ppi rows starting at (k*ppi) mod n, wrapping — every point is
+    re-drilled fresh (by the then-current ckpt) once per full cycle."""
+    n = len(rows)
+    start = (k * ppi) % n
+    return [rows[(start + i) % n] for i in range(min(ppi, n))]
+
+
+def _drill_phase(args, state: dict, k: int, drill_dir: Path) -> list[str]:
+    """M4 D3 drill-mixed generation: a rotating slice of the selection list
+    is re-drilled — mainline replay argmax on the PINNED source ckpt (the
+    only policy those games replay under), completions SAMPLED by the
+    current training ckpt with mu records. Fork frames ingest as their own
+    drill-provenance stores and join this iteration's store group: fresh
+    now, replay-aged later, exactly like game stores. Returns store paths."""
+    drill_dir.mkdir(exist_ok=True)
+    rows = [json.loads(line) for line in open(args.drill_selection)]
+    sl = drill_slice(rows, k, args.drill_points_per_iter)
+    subset = drill_dir / "slice.jsonl"
+    subset.write_text("".join(json.dumps(r) + "\n" for r in sl))
+    tag = f"mix{k:03d}"
+    _run([sys.executable, "-m", "anvil.grindstone", "plan",
+          "--curation", str(subset), "--out", str(drill_dir / "plan"),
+          "--ckpt", args.drill_replay_ckpt, "--k", str(args.drill_k),
+          "--anchor", "selected", "--tag", tag])
+    before = set(glob.glob(str(RUNS_DIR / f"drill{tag}-*")))
+    _run([sys.executable, "-m", "anvil.grindstone", "generate",
+          "--manifest", str(drill_dir / "plan"), "--port", str(args.port),
+          "--workers", str(args.workers),
+          "--fork-obs", "--sample-forks", "--drill-ckpt", state["ckpt"]])
+    new_dirs = sorted(set(glob.glob(str(RUNS_DIR / f"drill{tag}-*"))) - before)
+    if not new_dirs:
+        raise RuntimeError(f"drill phase produced no run dirs (tag {tag})")
+    stores = []
+    for rd in new_dirs:
+        _run([sys.executable, "-m", "anvil.store", "ingest", rd, "--forks"])
+        stores.append(str(TRAJ_DIR / (Path(rd).name + "-forks")))
+    return stores
+
+
 def replay_mixture(groups: list[list[str]], replay: int,
                    fresh_weight: float, replay_weight: float
                    ) -> tuple[list[str], list[float]]:
@@ -379,6 +420,17 @@ def main() -> None:
                     help="pairs file for arms runs (D8 valpair schedule)")
     ap.add_argument("--arms-games", type=int, default=200)
     ap.add_argument("--arms-seed-base", type=int, default=20260710)
+    ap.add_argument("--drill-selection", default=None,
+                    help="drill-mixed generation (M4 D3): selection.jsonl "
+                         "from `grindstone select` (holdout already "
+                         "subtracted there)")
+    ap.add_argument("--drill-points-per-iter", type=int, default=15,
+                    help="rotating slice size; f = ppi*K / (games + ppi*K)")
+    ap.add_argument("--drill-k", type=int, default=8,
+                    help="sampled completions per drill point")
+    ap.add_argument("--drill-replay-ckpt", default=None,
+                    help="PINNED mainline replay ckpt (the source games' "
+                         "generator; required with --drill-selection)")
     ap.add_argument("--reask", action="store_true",
                     help="re-ask-on-veto (d6-vtrace-loop §6b) for generation AND "
                          "arms — an environment change; arms are only comparable "
@@ -386,6 +438,9 @@ def main() -> None:
     ap.add_argument("--no-inhibit", action="store_true",
                     help="skip the systemd-inhibit sleep holder")
     args = ap.parse_args()
+    if args.drill_selection and not args.drill_replay_ckpt:
+        ap.error("--drill-selection requires --drill-replay-ckpt "
+                 "(the pinned source-game generator)")
 
     # GPU cotenancy insurance (2026-07-16 OOMs beside a resident ComfyUI):
     # reclaims allocator fragmentation for this process and all subprocesses
@@ -459,7 +514,22 @@ def main() -> None:
                 (rd / "mu.jsonl").write_bytes(mu_path.read_bytes())
                 _run([sys.executable, "-m", "anvil.store", "ingest", str(rd)])
         t_gen = time.monotonic() - t_iter
-        group = [str(TRAJ_DIR / rd.name) for rd in run_dirs]
+
+        # ---- drill phase (M4 D3): drill stores join THIS iteration's group,
+        # so they age through the replay window like game stores; the drill
+        # fraction f is set by volume (points_per_iter x K vs games). Phase-
+        # idempotent via stores.json ----
+        drill_stores: list[str] = []
+        if args.drill_selection:
+            stores_rec = it_dir / "drill" / "stores.json"
+            if stores_rec.exists():
+                drill_stores = json.loads(stores_rec.read_text())
+                print(f"[selfplay] iteration {k}: reusing drill stores")
+            else:
+                drill_stores = _drill_phase(args, state, k, it_dir / "drill")
+                stores_rec.write_text(json.dumps(drill_stores))
+
+        group = [str(TRAJ_DIR / rd.name) for rd in run_dirs] + drill_stores
         groups = [g if isinstance(g, list) else [g] for g in state["stores"]]
         if not groups or groups[-1] != group:
             groups.append(group)
