@@ -1003,10 +1003,24 @@ things sit next to it and should not be re-derived from scratch:
    mobile-first ordering as consistent with that lean rather than as a new
    decision.
 
+4. **Multiplayer hardening — [multiplayer-hardening.md](multiplayer-hardening.md)
+   (2026-07-30).** Ran alongside this list from 07-26 and is now closed: nine
+   findings, four private reports to upstream, **three fixes merged to public
+   Forge master**, plus a public chat-anti-spam PR. Two findings were declined
+   with reasoning and remain live — the host is not an authoritative referee
+   (a modified client can cheat), and a disconnected seat is reclaimable by
+   username alone. Both declined patches live on the `playable` distribution
+   branch and are ours to keep.
+
+   **Relevant to this list in one concrete way:** those patches are *not* in
+   the published build. `origin/playable` carries none of the 13 security
+   commits, so the next publish is the first release where any of this reaches
+   the friends' builds — and merging current upstream master into it picks up
+   three of the four for free.
+
 Not player-facing, checked and excluded: `m3-candidates.md` Track D
 "Infrastructure QoL" is research-side only (VRAM elasticity, monitor/babysit
-polish — all landed). Also not swept, deliberately: the separately-tracked
-workstream's notes branch.
+polish — all landed).
 
 ---
 
