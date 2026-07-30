@@ -45,9 +45,10 @@ def _curation(tmp_path, rows):
 
 
 def _plan(curation, out, **kw):
-    a = argparse.Namespace(curation=curation, out=str(out),
-                           ckpt="ckpt/last.pt", k=16, turn_offset=0,
-                           limit=0, **kw)
+    defaults = dict(curation=curation, out=str(out), ckpt="ckpt/last.pt",
+                    k=16, anchor="crash", turn_offset=0, tag="", limit=0)
+    defaults.update(kw)
+    a = argparse.Namespace(**defaults)
     gs.plan(a)
     return json.loads((out / "manifest.json").read_text())
 
@@ -80,13 +81,27 @@ def test_plan_merges_and_pins(tmp_path, src_arm):
 def test_plan_turn_offset_clamps(tmp_path, src_arm):
     rows = [{"store": src_arm.name, "g": 0, "seed": 1, "crash_from_turn": 2}]
     out = tmp_path / "plan"
-    a = argparse.Namespace(curation=_curation(tmp_path, rows), out=str(out),
-                           ckpt="c", k=8, turn_offset=-5, limit=0)
-    gs.plan(a)
-    m = json.loads((out / "manifest.json").read_text())
+    m = _plan(_curation(tmp_path, rows), out, k=8, turn_offset=-5)
     lines = [ln for ln in open(m["arms"][0]["drillfile"])
              if not ln.startswith("#")]
     assert lines == ["0 1\n"]  # 2-5 clamps to 1, never 0 or negative
+
+
+def test_plan_peak_anchor(tmp_path, src_arm):
+    rows = [{"store": src_arm.name, "g": 3, "seed": 1,
+             "crash_from_turn": 14, "peak_turn": 8}]
+    out = tmp_path / "plan"
+    m = _plan(_curation(tmp_path, rows), out, anchor="peak", turn_offset=-1)
+    assert m["anchor"] == "peak" and m["turn_offset"] == -1
+    lines = [ln for ln in open(m["arms"][0]["drillfile"])
+             if not ln.startswith("#")]
+    assert lines == ["3 7\n"]  # peak 8 - 1, crash turn ignored
+
+
+def test_plan_rejects_non_alnum_tag(tmp_path, src_arm):
+    rows = [{"store": src_arm.name, "g": 0, "seed": 1, "crash_from_turn": 5}]
+    with pytest.raises(SystemExit):
+        _plan(_curation(tmp_path, rows), tmp_path / "plan", tag="o-2")
 
 
 def test_plan_unknown_store_fatal(tmp_path, src_arm):
@@ -139,6 +154,33 @@ def test_report_aggregates_and_supersedes(tmp_path, src_arm):
     assert rep["model_wins"] == 11 and rep["completions"] == 16
     drills = [json.loads(l) for l in (out / "drills.jsonl").open()]
     assert {d["g"]: d["model_wins"] for d in drills} == {5: 5, 7: 6}
+
+
+def test_report_tag_isolates_sweep_arms(tmp_path, src_arm):
+    """A tagged manifest must aggregate ONLY its own drill<tag>-* run dirs:
+    untagged (and other-tag) runs of the same store would otherwise
+    supersede this arm's labels per game."""
+    store = src_arm.name
+    rows = [{"store": store, "g": 5, "seed": 1, "crash_from_turn": 9,
+             "v_before": 0.8, "drop": 0.5, "peak_turn": 7, "model_seat": 1,
+             "decks": ["dc-a", "dc-b"]}]
+    out = tmp_path / "plan"
+    _plan(_curation(tmp_path, rows), out, tag="o2", turn_offset=-2)
+
+    runs = gs.RUNS_DIR
+    # Decoy: an untagged (map) run for the same store, LATER timestamp.
+    decoy = runs / f"drill-{store}-20260729-090000" / "workers" / "inv-0000"
+    decoy.mkdir(parents=True)
+    (decoy / "labels.jsonl").write_text(json.dumps(_label(5, 9, [0, 0])) + "\n")
+    ours = runs / f"drillo2-{store}-20260729-080000" / "workers" / "inv-0000"
+    ours.mkdir(parents=True)
+    (ours / "labels.jsonl").write_text(json.dumps(_label(5, 7, [2, 6])) + "\n")
+
+    gs.report(argparse.Namespace(manifest=str(out)))
+    rep = json.loads((out / "report.json").read_text())
+    assert rep["drills_labeled"] == 1 and rep["model_wins"] == 6
+    drill = json.loads((out / "drills.jsonl").read_text())
+    assert drill["fired_t"] == 7  # the offset arm's fork turn, not the decoy's
 
 
 def test_evalset_stratifies_and_holds_out(tmp_path, src_arm):

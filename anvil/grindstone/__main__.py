@@ -33,6 +33,12 @@ from pathlib import Path
 
 RUNS_DIR = Path("data/runs")
 
+# Fork-turn anchor: the value-crash window itself, or the last turn the
+# critic still liked the position (peak). The map showed 58% of crash
+# windows are already lost at K=8 ground truth — the real error is
+# earlier — so peak/offset targeting is the first D3 sweep axis.
+ANCHOR_FIELD = {"crash": "crash_from_turn", "peak": "peak_turn"}
+
 
 def _load_curation(path: Path, limit: int = 0) -> list[dict]:
     rows = [json.loads(line) for line in path.open()]
@@ -42,6 +48,9 @@ def _load_curation(path: Path, limit: int = 0) -> list[dict]:
 
 
 def plan(a: argparse.Namespace) -> None:
+    if a.tag and not a.tag.isalnum():
+        sys.exit(f"FATAL: --tag must be alphanumeric (got {a.tag!r}) — it "
+                 f"lands in run-dir names and the report glob")
     rows = _load_curation(a.curation, a.limit)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -65,7 +74,7 @@ def plan(a: argparse.Namespace) -> None:
         # game merge into one comma-joined turn list.
         turns: dict[int, list[int]] = defaultdict(list)
         for r in srows:
-            t = int(r["crash_from_turn"]) + a.turn_offset
+            t = int(r[ANCHOR_FIELD[a.anchor]]) + a.turn_offset
             turns[int(r["g"])].append(max(1, t))
         drillfile = out / f"drill-{store}.txt"
         with drillfile.open("w") as f:
@@ -100,7 +109,9 @@ def plan(a: argparse.Namespace) -> None:
             a.curation.read_bytes()).hexdigest(),
         "ckpt": a.ckpt,
         "k": a.k,
+        "anchor": a.anchor,
         "turn_offset": a.turn_offset,
+        "tag": a.tag,
         "limit": a.limit or None,
         "arms": arms,
     }
@@ -147,12 +158,13 @@ def generate(a: argparse.Namespace) -> None:
     manifest = json.loads((out / "manifest.json").read_text())
     server = _start_server(a.ckpt or manifest["ckpt"], a.port,
                            out / "drill-server.log", sample=False)
+    prefix = "drill" + manifest.get("tag", "")
     try:
         _launch_arms(manifest, a.port, a.workers, a.chunk,
-                     a.k or manifest["k"], a.drill_stop, "drill")
+                     a.k or manifest["k"], a.drill_stop, prefix)
     finally:
         _stop_server(server)
-    print(f"[generate] done; labels under data/runs/drill-*/workers/")
+    print(f"[generate] done; labels under data/runs/{prefix}-*/workers/")
 
 
 def report(a: argparse.Namespace) -> None:
@@ -164,10 +176,11 @@ def report(a: argparse.Namespace) -> None:
         r = json.loads(line)
         cur[(r["store"], r["g"])] = r
 
+    prefix = "drill" + manifest.get("tag", "")
     joined, missed = [], []
     for arm in manifest["arms"]:
         seat = int(str(arm["bridge_seats"]))
-        run_glob = str(RUNS_DIR / f"drill-{arm['store']}-*")
+        run_glob = str(RUNS_DIR / f"{prefix}-{arm['store']}-*")
         run_dirs = sorted(glob.glob(run_glob))
         if not run_dirs:
             sys.exit(f"FATAL: no drill run dirs match {run_glob}")
@@ -285,8 +298,9 @@ def evalset(a: argparse.Namespace) -> None:
 
     plan(argparse.Namespace(curation=subset, out=str(out / "plan"),
                             ckpt=manifest["ckpt"], k=manifest["k"],
+                            anchor=manifest.get("anchor", "crash"),
                             turn_offset=manifest.get("turn_offset", 0),
-                            limit=0))
+                            tag="", limit=0))
     meta = {
         "map": str(map_dir),
         "pinned_ckpt": manifest["ckpt"],
@@ -396,9 +410,17 @@ def main() -> None:
                         "(mainline replay policy; served argmax)")
     p.add_argument("--k", type=int, default=16,
                    help="completions per fork point")
+    p.add_argument("--anchor", choices=sorted(ANCHOR_FIELD), default="crash",
+                   help="fork-turn anchor: the value-crash window or the "
+                        "pre-crash value peak (default: crash)")
     p.add_argument("--turn-offset", type=int, default=0,
-                   help="fork this many turns before (+after) the crash "
-                        "window (default: at crash_from_turn)")
+                   help="fork this many turns before (+after) the anchor "
+                        "(default: at the anchor turn)")
+    p.add_argument("--tag", default="",
+                   help="alphanumeric run-dir tag: generate launches as "
+                        "drill<tag>-* and report aggregates only drill<tag>-* "
+                        "dirs — REQUIRED to keep concurrent sweep arms from "
+                        "superseding each other's labels")
     p.add_argument("--limit", type=int, default=0,
                    help="first N curation rows only (smokes)")
     p.set_defaults(fn=plan)
