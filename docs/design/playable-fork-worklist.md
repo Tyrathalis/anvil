@@ -1189,6 +1189,33 @@ shipping builds to other people's machines.
 > the production-built encoded URL for the exact failing path was fetched
 > live and hash-matched. Post-publish routine re-run in full on the
 > published assets.
+>
+> **The live two-hop migration RAN and PASSED same evening (user's 07.29
+> install): hop 1 jar swap + applier auto-restart clean (journal: old jar
+> 18:25:20 → new jar 18:25:30), hop 2 self-heal found the stale res,
+> downloaded and applied it, stamp written, install verified fully
+> consistent (jar sha = published v8, `res-sync.txt` = published
+> build.txt).** One wart: after the res-only apply the app exited without
+> reopening (user relaunched manually, everything worked). Root cause is
+> STOCK and one layer down from the same defect class: `RestartUtil`
+> builds one command *string* for `Runtime.exec(String)`, which tokenizes
+> on whitespace and honors no quoting — the quoted java binary never
+> exec'd on Linux, and the install path (".../Forge Fork/") splits
+> mid-path, failure swallowed inside the shutdown hook. **Stock desktop
+> restart likely never relaunched for anyone**; hop 1 worked only because
+> our `UpdateApplier` already used a ProcessBuilder argument list.
+> **Fixed (`57e345f922`) and published as v9 same night:** rebuilt on
+> `ProcessBuilder` + argument list; jar launches derive the path from the
+> code source (the one space-safe source), trailing program args
+> recovered past the jar filename; unreconstructible commands return
+> false instead of relaunching garbage (RestartUtilTest 4 new, suite
+> 14/14 with DeltaUpdateTest). Serves both call sites (mobile-dev adapter
+> + desktop Swing `restartForge`). With v9 up, friends' hop 2 relaunches
+> correctly — the fixed RestartUtil is in the jar they hop to before the
+> res pass runs. Upstream candidate queued (stock bug, clean standalone
+> patch). Pre-publish legacy gate note: the user's install is v8 now, so
+> the ≤07.29-parser check runs against the archived v7 jar (pre-fix
+> parser) — entries=1, jar only, on the published v9 manifest.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"

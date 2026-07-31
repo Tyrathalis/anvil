@@ -245,6 +245,23 @@ polite rate limits, consider contacting them), loop the existing providers
 for bulk import/update; (b) mobile/Android exposure (current UI is
 desktop-chooser-only). Risk is API etiquette, not engineering.
 
+## Queued idea — RestartUtil never relaunches (2026-07-30)
+
+Stock `forge.util.RestartUtil.prepareForRestart` builds one command *string*
+and hands it to `Runtime.exec(String)`, which tokenizes on whitespace and
+honors no quoting: the `"java"` binary is exec'd WITH its quote characters
+(fails outright on Linux), and any install path containing a space splits
+mid-path — the failure is swallowed inside the shutdown hook, so every
+desktop "restart" (both `FControl.restartForge` on the Swing client and the
+mobile-dev adapter's `restart()`) just exits without reopening. Found live
+when our delta updater's res-only apply path called it (install dir
+".../Forge Fork/"). Fix on the playable branch (`57e345f922`): rebuilt on
+`ProcessBuilder` + argument list; jar launches derive the jar path from the
+code source rather than re-splitting `sun.java.command`; trailing program
+args recovered past the jar filename; unreconstructible commands return
+false instead of relaunching garbage. `RestartUtilTest` (4 tests) rides
+along. Clean standalone patch — no fork-specific coupling.
+
 ## Queued idea — mobile Graphics nested-transform composition fix (2026-07-28)
 
 `Graphics.startRotateTransform` (forge-gui-mobile) idt()'s the live transform
