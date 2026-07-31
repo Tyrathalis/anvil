@@ -1216,6 +1216,30 @@ shipping builds to other people's machines.
 > patch). Pre-publish legacy gate note: the user's install is v8 now, so
 > the ≤07.29-parser check runs against the archived v7 jar (pre-fix
 > parser) — entries=1, jar only, on the published v9 manifest.
+>
+> **v10 published 2026-07-30 (`68f48b77f7`): the resize-layer census gains
+> its SIXTH member — HEADERS.** Field report (v9, half-ultrawide tile ≈
+> square window): the New Game screen showed a one-item "Constructed" bar
+> at the top and no other mode was selectable until the window got wider.
+> Root cause: `FScreen.doLayout` picks top-bar vs sidebar from the HOSTED
+> screen's `width > height` (the home sidebar takes a `0.35×height` slice
+> of the window width), while `MenuHeader` re-derived the mode from the
+> global `Forge.isLandscapeMode()` — in the disagreement zone the popup
+> menu was painted as a "sidebar" INTO the top header strip, one item
+> high. Stock never reached the zone (fixed launch size); T1's resizable
+> window made it reachable. Fix: `Header` gains a `sidebarLayout` flag
+> recording which layout FScreen actually chose (set by FScreen's
+> portrait/top-strip branches and by the headers' own
+> `doLandscapeLayout`); `MenuHeader` AND `TabHeader`/`TabPage` key every
+> sidebar branch on it instead of the global — which also covers the same
+> latent defect in Settings (a TabPageScreen hosted over the home
+> backdrop, same window-shape zone, incl. Load Game's menu header) and
+> makes bottom tab strips horizontal by construction. Android unchanged
+> (there the global and the chosen layout always agree). Full publish
+> gates re-run (legacy jar-only parse via archived v7 jar; sha triple
+> match). **Owed: the user's runtime pass at the square tile** — New Game
+> should show the normal top header with a dropdown menu button, and
+> Settings-from-home should lay out sanely at the same width.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
