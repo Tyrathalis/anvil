@@ -245,6 +245,21 @@ polite rate limits, consider contacting them), loop the existing providers
 for bulk import/update; (b) mobile/Android exposure (current UI is
 desktop-chooser-only). Risk is API etiquette, not engineering.
 
+## Queued idea — quest all-colors starting pool is empty (2026-07-30)
+
+`BoosterUtils.populateBalancedFilters` uses the NON-selected colors as the
+repetition multiplier for preferred-color filters, so a new quest created
+with the BALANCED distribution and **every** color selected
+(B/U/G/R/W/colorless) builds zero color filters and `generateCards`
+silently produces an empty starting pool — the quest starts with only the
+snow-basics grant and the deck editor offers no cards. Any five of the six
+colors works. Stock bug, both clients, any world/format. Found live
+(user's Random Commander Commander quest); reproduced headlessly on both
+the current-master playable build and the 5-week-old research pin. Fix on
+the playable branch (`692d166633`): floor the multiplier at one pass;
+`QuestStartingPoolTest` rides `AITest`'s card-DB init (all-colors case
+validated failing first + two controls). Clean standalone patch.
+
 ## Queued idea — RestartUtil never relaunches (2026-07-30)
 
 Stock `forge.util.RestartUtil.prepareForRestart` builds one command *string*

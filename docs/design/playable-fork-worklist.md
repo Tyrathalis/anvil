@@ -1240,6 +1240,31 @@ shipping builds to other people's machines.
 > match). **Owed: the user's runtime pass at the square tile** — New Game
 > should show the normal top header with a dropdown menu button, and
 > Settings-from-home should lay out sanely at the same width.
+>
+> **v10 menu fix USER-VERIFIED same evening; first Quest-mode session then
+> hit a STOCK quest bug — fixed, v11 published (`692d166633`).** Report: a
+> new quest said "make a deck" but the editor offered no cards. The save
+> (`~/.forge/quest/saves/Tyrathalis.dat`) showed the whole card pool was
+> the automatic snow-basics grant — starter generation contributed ZERO.
+> Diagnosis ran the actual generator headlessly (jshell + the desktop jar,
+> `GuiDesktop` + `FModel.initialize`, probes against the research pin, the
+> playable build, AND the live install's res): every standard
+> configuration generates 150–290 cards… until the user supplied their
+> exact settings — **BALANCED distribution with ALL SIX colors selected →
+> 0 cards, silently** (any five → 244). Cause:
+> `BoosterUtils.populateBalancedFilters` uses the NON-selected colors as
+> the repetition multiplier for preferred-color filters; all-colors ⇒
+> `otherColors` empty ⇒ zero filters ⇒ `generateCards` picks nothing and
+> runs out of misses without a word. Stock, both clients, any world; the
+> save also confirmed the (stock) UX trap that a world with its own format
+> (Random Commander) silently overrides the whole starting-pool section.
+> Fix: floor the multiplier at one pass; `QuestStartingPoolTest` rides
+> `AITest`'s card-DB init (all-colors validated failing-first + two
+> controls, 3/3 green post-fix). Upstream candidate queued. Diagnostic
+> lesson banked: the journal's `QuestDataIO` reflective-mutation warning
+> is the LOAD path — it dated the quest to an earlier session and kept the
+> hunt honest. Boosters-count-0 (silent empty pool) noted as an adjacent
+> unguarded input, not yet fixed.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
