@@ -113,6 +113,35 @@ Notes (replay triage, 2026-07-06):
   fold into the consolidation PR. Drill accounting carries the 9 as
   excluded-with-cause meanwhile (1.6% of the map).
 
+## Diagnosed hang class — targeting-retry wedge in drill completions (2026-07-30/31, d6-run10; forensics QUEUED post-run)
+
+- **Signature:** a drill completion loops "Spider-Man 2099 — [Couldn't add
+  to stack, failed to target]" indefinitely, writing ~1 GiB of raw obs
+  before RAW_CAP truncates; the wall-clock burn hard-caps the parent game
+  and abandons its thread (the cascade that killed the d6-run10 driver
+  before the stale-thread guards + ingest quarantine landed, fork
+  `7249a41b60` / Anvil `eb6381f`). A *hang*, not a crash — third failure
+  mode beside the monarch (fixed) and MayPlayPlayer (diagnosed) classes.
+- **Deterministic and policy-independent:** the iteration-9 re-run re-hit
+  the same game (734, `run9-finalarm-s0`) at the same fork point under a
+  DIFFERENT drill checkpoint — the wedge does not depend on the model's
+  action path (heuristic opponent or engine state itself). Recurs every
+  selection-cycle rotation at the same games; cost now bounded (quarantined
+  frame + lost fork point + ~10 min wall per event) but recurring.
+- **Repro recipe:** one-line drillfile at game 734's selected turn, K=1,
+  `-Danvil.crash.trace`, obs on — minutes to the wedge.
+- **Forensics plan (post-run session):** (1) identify the looping actor
+  (heuristic vs model seat) and the exact retry loop; (2) the
+  copy-fidelity differential — does the same cast succeed in the MAINLINE
+  at the same state? loops-only-in-copy ⇒ our GameCopier territory, likely
+  a 4th member of the copy-state family (test alongside the MayPlayPlayer
+  ordering question — same session could resolve both); loops-in-both ⇒
+  stock AI infinite-loop bug, clean upstream filing (bundle with the
+  queued monarch PR); (3) answer why per-completion ROLLOUT_TIMEOUT's
+  `setGameOver` didn't stop the loop before 1 GiB accumulated — either the
+  engine loop never re-checks game-over (upstream-relevant) or our
+  watchdog has a blind spot (ours to fix).
+
 ## Queued follow-up PR — GameCopier → GameSnapshot consolidation (volunteered 2026-07-11, maintainer-blessed at #11203 merge 2026-07-12)
 
 Make the snapshot path own simulation copies and delete GameCopier's
