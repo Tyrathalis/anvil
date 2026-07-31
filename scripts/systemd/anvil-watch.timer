@@ -1,0 +1,10 @@
+[Unit]
+Description=Anvil run watcher (every 10 min; Persistent catches reboots)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

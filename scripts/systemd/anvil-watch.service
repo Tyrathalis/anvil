@@ -1,0 +1,6 @@
+[Unit]
+Description=Anvil run watcher tick (registrations in ~/.local/state/anvil/watch)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/tyrathalis/Everything/Projects/Anvil/scripts/anvil_watchd.py check
