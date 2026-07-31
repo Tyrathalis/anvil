@@ -322,3 +322,29 @@ def test_forks_ingest_flags_label_mismatch(tmp_path, capsys):
     dest = ingest(run_dir, dest=tmp_path / "store-forks", forks=True)
     check = TrajectoryStore(dest).manifest["drill"]["labels_check"]
     assert check == {"fork_points": 1, "mismatched": 1}
+
+
+def test_forks_ingest_quarantines_bad_frames(tmp_path, capsys):
+    """One corrupt completion frame must cost one frame, not the ingest —
+    a failed drill ingest killed the d6-run10 driver (2026-07-30)."""
+    run_dir = _make_run(tmp_path, [[_frame_records(9, 77)]])
+    wdir = run_dir / "workers/inv-0001"
+    _write_fork_worker(wdir, [_fork_frame_records(5, 0, 0, 12, winner=1)],
+                       labels=[_label_row(5, 0, 12, [0, 1])])
+    # Append garbage bytes with a valid-looking idx row (truncated-frame
+    # class) and a clen-0 phantom row (the fd-death class).
+    with open(wdir / "obs-forks.zst", "ab") as f:
+        off = f.tell()
+        f.write(b"\x28\xb5\x2f\xfdgarbage-not-a-frame")
+    with open(wdir / "obs-forks.idx.jsonl", "a") as idx:
+        idx.write(json.dumps({"g": 50001, "off": off, "clen": 23,
+                              "rlen": 130000, "recs": 48, "seed": 2}) + "\n")
+        idx.write(json.dumps({"g": 50002, "off": off + 23, "clen": 0,
+                              "rlen": 130000, "recs": 48, "seed": 3}) + "\n")
+
+    dest = ingest(run_dir, dest=tmp_path / "store-forks", forks=True)
+    store = TrajectoryStore(dest)
+    assert len(store.index) == 1  # the good frame only
+    assert sorted(store.manifest["drill"]["quarantined"]) == [50001, 50002]
+    assert store.winner_seat(50000) == 1
+    assert 50001 not in store.outcomes and 50002 not in store.outcomes

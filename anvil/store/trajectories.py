@@ -305,10 +305,27 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
         for e in index_entries:
             by_file.setdefault(e["file"], []).append(e)
         rows: dict[int, dict] = {}
+        quarantined: list[int] = []
         for fname, entries in sorted(by_file.items()):
             data = (dest / fname).read_bytes()
             for e in entries:
-                header, _, end, _ = decode_frame(data[e["off"]:e["off"] + e["clen"]])
+                try:
+                    if e["clen"] == 0 or e["rlen"] > (1 << 30):
+                        # phantom rows (zero bytes reached the file — the
+                        # fd-death class, 2026-07-30) and RAW_CAP runaways
+                        # (undecodable under the reader's 1 GiB output cap)
+                        raise ValueError("phantom or runaway frame")
+                    header, _, end, _ = decode_frame(
+                        data[e["off"]:e["off"] + e["clen"]])
+                except Exception as ex:  # noqa: BLE001
+                    # One bad completion frame must cost one frame, not the
+                    # ingest (a failed drill ingest killed the d6-run10
+                    # driver). Quarantine loudly: no outcome row -> the game
+                    # never trains; dropped from the index below.
+                    quarantined.append(e["g"])
+                    print(f"[ingest] QUARANTINE fork frame g={e['g']} "
+                          f"({type(ex).__name__}: {ex})", file=sys.stderr)
+                    continue
                 fk = header.get("fork") or {}
                 agg = fork_agg.setdefault(
                     (fk.get("pg", -1), fk.get("fp", -1)),
@@ -334,6 +351,14 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
                 f.write(json.dumps(rows[i]) + "\n")
         print(f"[ingest] {len(rows)} fork-completion outcome rows synthesized "
               f"from end records")
+        if quarantined:
+            bad = set(quarantined)
+            index_entries = [e for e in index_entries if e["g"] not in bad]
+            with open(dest / "index.jsonl", "w") as f:
+                for e in index_entries:
+                    f.write(json.dumps(e) + "\n")
+            print(f"[ingest] WARNING: {len(bad)} fork frame(s) quarantined "
+                  f"and dropped from the index", file=sys.stderr)
     else:
         # merge per-game outcome records (the harness progress logs)
         outcomes: dict[int, dict] = {}
@@ -463,6 +488,7 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
             "drill_file": run_manifest.get("drill_file"),
             "drill_source": run_manifest.get("drill_source"),
             "labels_check": labels_check,
+            "quarantined": quarantined,
         }
     (dest / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
