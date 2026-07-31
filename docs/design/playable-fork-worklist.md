@@ -1012,11 +1012,13 @@ things sit next to it and should not be re-derived from scratch:
    username alone. Both declined patches live on the `playable` distribution
    branch and are ours to keep.
 
-   **Relevant to this list in one concrete way:** those patches are *not* in
-   the published build. `origin/playable` carries none of the 13 security
-   commits, so the next publish is the first release where any of this reaches
-   the friends' builds — and merging current upstream master into it picks up
-   three of the four for free.
+   **Relevant to this list in one concrete way:** those patches were *not* in
+   the published build until v7. `origin/playable` carried none of the 13
+   security commits, so the next publish was the first release where any of
+   this reached the friends' builds — and merging current upstream master into
+   it picked up three of the four for free. **Resolved 2026-07-30: v7 was
+   published from the consolidated branch — the security work is now in every
+   auto-updating client** (see the publish log below).
 
 Not player-facing, checked and excluded: `m3-candidates.md` Track D
 "Infrastructure QoL" is research-side only (VRAM elasticity, monitor/babysit
@@ -1133,6 +1135,24 @@ shipping builds to other people's machines.
 > systemic lesson banked en route: a fix to the updater cannot ship through
 > the updater it fixes — the v2 install's buggy parser rejected v4's
 > manifest identically; one manual jar refresh was the unavoidable bridge.)
+>
+> **v7 published 2026-07-30 — first release from the CONSOLIDATED `playable`**
+> (`origin/playable` @ `2900701083` = QoL/updater work + current upstream
+> master + the security stack: the 3 upstream-merged advisories arrive
+> upstream-side, the #11457 chat limits and both declined patches ride
+> fork-side). Version `2.0.14-SNAPSHOT-07.31` (build stamp is UTC), manifest
+> 54,727 files; jar grew 69→84 MB from the months of upstream master (new
+> editions) the old cherry-pick base didn't carry — clients see the real
+> delta size in the prompt, as designed. The branch-split note above is
+> retired: local `playable` and `origin/playable` reconciled in the 07-30
+> consolidation; `playable-pub` is gone and releases cut from `playable`
+> directly. Post-publish routine run in full: published jar sha256 matches
+> the manifest entry and the local build; **the published manifest parses
+> through the published jar's own `DeltaManifest` via jshell** (54,727
+> entries, correct version/commit, a real `wastetown..tmx` entry resolves —
+> the v4 lesson's check); raw res fetch at the manifest commit hash-matches;
+> `commits/playable.atom` 200s. This publish also ships the multiplayer
+> hardening to friends' builds for the first time.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
