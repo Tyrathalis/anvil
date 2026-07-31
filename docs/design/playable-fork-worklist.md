@@ -1153,6 +1153,42 @@ shipping builds to other people's machines.
 > the v4 lesson's check); raw res fetch at the manifest commit hash-matches;
 > `commits/playable.atom` 200s. This publish also ships the multiplayer
 > hardening to friends' builds for the first time.
+>
+> **v7 was DEAD ON ARRIVAL in the field, same day — v8 published 2026-07-30
+> (`09974ab3ea`) with the fix + an automatic migration for every deployed
+> client.** The first real v7 update attempt (the user's own install)
+> aborted: `HTTP 400 for .../res/adventure/Realm of Legends/decks/...` —
+> the delta URL builder concatenated paths without percent-encoding, and
+> the res tree carries **30K+ paths with spaces** (plus `#` `'` `[` `]`
+> `&` `!` unicode and a literal `%`; the `#` would truncate silently as a
+> fragment). Every v1–v6 delta happened to touch only URL-safe paths; the
+> v7 delta was the first big enough to hit the class. Same shape as the
+> v4 `..`-substring incident: a path property the artifact always had,
+> unexercised until a real plan touched it. Nothing was half-applied
+> anywhere (downloads abort before any apply), so all clients sat safely
+> on ≤07.29. Fixes, each pinned by tests (DeltaUpdateTest 10/10, the new
+> HTTP end-to-end validated failing-first on the exact field path —
+> file:// was too lenient to ever catch this; real HTTP servers reject
+> raw spaces like GitHub does): **(1) segment-wise percent-encoding** in
+> `DeltaUpdater.encodePath`; **(2) the bridge manifest** — a fix to the
+> updater cannot ship through the updater it fixes, so plain entries now
+> list ONLY the jar (release asset, URL-safe; the one plan ≤07.29 clients
+> can always complete) and the full list rides on `#2 ` lines legacy
+> parsers skip as unknown headers while the fixed parser prefers them;
+> **(3) res self-heal** — after the jar-only hop the local build EQUALS
+> the published one, so the strictly-newer gate would never re-open and
+> res/ would silently stay stale under the new jar; on equal builds with
+> no sync stamp a size-only diff (no speculative 2GB hash pass; same-size
+> content changes self-correct at the next release's hash-verified delta)
+> offers to complete the update, and the stamp writes after any
+> successful apply. Migration is fully automatic for every deployed and
+> future straggler client: hop the jar → restart → self-heal completes
+> res with encoded URLs. Pre-publish gate extended: **the bridge manifest
+> was parsed with the user's actual shipped 07.29 jar** (plan = 1 entry,
+> jar only, zero raw fetches) and with the v8 jar (54,727 entries), and
+> the production-built encoded URL for the exact failing path was fetched
+> live and hash-matched. Post-publish routine re-run in full on the
+> published assets.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
