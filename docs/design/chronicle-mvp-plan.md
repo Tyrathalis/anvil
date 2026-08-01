@@ -96,7 +96,21 @@ night, puzzles, prestige, languages: OUT.
 **D0 — promotion paperwork.** This doc + ADR-0029 + sketch header/status
 updates. Done with the commit that lands this file.
 
-**D1 — headless core.** Package skeleton + timeline service (played-day tick
+**D1 — headless core. DONE 2026-07-31 (fork `playable` @ `574abedc08`): all
+modules built, done-when gate GREEN** — simulated fortnight + 27 service unit
+tests (30 total) in the desktop tree; full desktop suite 400 green;
+shared-file footprint 3 additive `ForgeConstants` lines. Records: devlog
+2026-07-31-session4. Addendum to pin 5 (found by the gate suite): the tick
+guard is *strictly monotonic* on the effective calendar day — an equality
+check would let a wound-back device clock re-arm the tick; seeds protected
+pulls from savescum, the tick needed its own monotonicity against clock-scum.
+Implementation notes: boxes materialize at purchase as component boosters,
+each with its own committed seed (box-as-item deferred to stage 2, which the
+acquisition-commitment property already serves); `BoosterSlot.replaceSlot()`
+uses raw `Math.random()` — irrelevant in-window, must be fixed upstream
+before any post-2018 content window; notables are priced by NAME only (ATQ
+prints the same name at split rarities). Original spec:
+Package skeleton + timeline service (played-day tick
 per pin 5, release calendar, shelf windows incl. the deliberately-short
 Alpha/Beta scarcity lesson, event-feed hooks), product/shelf service (MSRP,
 LGS daily stock roll — harvest Adventure `ShopData`/restock-reroll seeding,
