@@ -166,7 +166,24 @@ settings (clock/knobs per the ethics stance), pref-gated home-menu entry
 (default hidden, pin 4). *Done-when:* the full daily session script is
 playable start-to-finish on desktop via `forge-gui-mobile-dev`.
 
-**D3 — the reveal scene.** Bar DEFINED (sketch, "Reveal-UX bar v1" — all four
+**D3 — the reveal scene. v1 BUILT 2026-08-01 (fork `playable` @ `8c2134fdbf`):
+both registers shipped** — ceremony (drag-to-tear wrapper with the set's real
+booster art + shearing strip fly-off, tap-to-flip with back-ease pop,
+best-last staging by rarity-then-buylist-value, commons batch-flip button on
+3+ runs, buildup pulse+shiver on the final card, first-pull glint sweep + NEW
+badge, revealed row, long-press zoom no-peek) and batch (starters + Open All:
+rapid cascade, hard auto-pause on rare+/notable, soft 0.7s hold on new
+uncommons, pack-art interstitials, tap pause/resume). First-pull computed
+from the acquisition log (opening seq vs oldest event; duplicates glint
+once). D2-backlog art preload folded in: bounded 8s blocking preload +
+one-ahead texture pre-touch. Sound pass from stock audio (shuffle/flip_card/
+draw/take_shard/coins_drop) + HapticEngine. Summary spread: grid w/ NEW
+badges, buylist total, Open another/Open all continuation. All pacing
+constants sit in one block atop `ChronicleRevealScene` — the dogfood tuning
+surface. Suite 34 green; mobile-dev jar boots clean. **The done-when stays
+open by design (experiential bar, author-judged; iterate through D5).**
+Residue: gather Pocket reference footage for the side-by-side. Original
+spec: Bar DEFINED (sketch, "Reveal-UX bar v1" — all four
 pins user-taken 2026-07-31): **period-wrapper identity evolving with the
 timeline** (the reveal object is the set's real booster art via
 `ImageKeys.BOOSTER_PREFIX`; foil-era gloss debuts with the 1999 event; Pocket's
@@ -190,6 +207,12 @@ isn't embarrassing; a box/starter batch reveal preserves the jackpot moment in
 on-device. Explicitly out: Android update delivery — manual sideload is fine
 for a two-week dogfood; delta updates on Android fold into the already-queued
 prosocial track. *Done-when:* the daily loop runs on the phone.
+*Scouted 2026-08-01:* the module is `forge-gui-android` (in the reactor),
+built via the `android-debug` profile (`packaging.type=apk`,
+simpligility android-maven-plugin); it expects **Android SDK build-tools
+35.0.0 + platform 35** — no SDK on the box yet, so the spike's first step is
+an SDK install (user decision: several GB + license acceptance), then
+`mvn -P android-debug -pl forge-gui-android -am package` and adb sideload.
 
 **D5 — dogfood + numbers.** Two weeks of real daily use by the author (on the
 phone, per the design's mobile-first lean), plus the tuning pass: ration size
