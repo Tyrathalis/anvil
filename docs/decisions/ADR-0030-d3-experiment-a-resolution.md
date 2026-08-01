@@ -1,4 +1,4 @@
-# ADR-0029: D3 experiment (a) resolution — drill mixing at f=20% is strength-neutral with a diagnosed transfer asymmetry
+# ADR-0030: D3 experiment (a) resolution — drill mixing at f=20% is strength-neutral with a diagnosed transfer asymmetry
 
 Date: 2026-08-01
 Status: accepted
