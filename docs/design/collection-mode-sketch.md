@@ -579,9 +579,12 @@ is res-heavy).
 Scope pins (user): **content window 1993–94, Alpha→Fallen Empires** (~9 booster
 releases + starter decks ≈ 2+ months of daily play at one release per played
 week; Chronicles and its crash deliberately held for the market stage);
-**economy = thin + daily stock roll** (static rarity/era-flat buylist for
-selling dupes, LGS purchases, seeded randomized daily stock — no circulation
-model, no dynamic prices); **kitchen-table play = stretch goal** (build only if
+**economy = thin + daily stock roll** (static buylist for selling dupes, LGS
+purchases, seeded randomized daily stock — no circulation model, no dynamic
+prices; *amended 2026-07-31 session 3:* the buylist is rarity/era-flat PLUS
+the hand-authored **1994-desirability tier table** for notables — still fully
+static; see "Famous-card allowlist v0", whose file this table is the first
+column of); **kitchen-table play = stretch goal** (build only if
 the slice lands early); **identity confirmed = printing × finish** (language a
 dormant schema field; condition never in identity; finish axis ships dormant —
 no foils until 1999). Foils, battler, tournaments, market/circulation, trading
@@ -700,6 +703,53 @@ endpoint only). Acceptance pass: eyeball generated paths for ~20 famous cards
 (duals, Power, Necro, Jace-era staples) + the era gluts (FE, Chronicles crash
 once the event fires). Compute is trivial: one arithmetic pass over
 printings-in-existence per played day (~10² early, ~10⁵ endgame).
+
+### Famous-card allowlist v0 (2026-07-31 session 3 — design shape + pins)
+
+The allowlist thread resolved to a design, not yet a full file. Purpose
+sharpened first: **endpoint-backout already guarantees final prices, the sim
+meta produces results-driven demand, and generic ban/reprint events produce
+the crashes — so the allowlist is path-shaping for stories the generic
+machinery CANNOT produce.** Discipline rule (matching the degeneracy-review
+culture): *an entry must state why generic mechanisms can't produce its
+story.* In scope: cultural fame decoupled from playability (Lotus), format
+births outside the sim (Commander, Old School 93/94, eternal dual demand),
+junk-to-staple rediscoveries the sim AI won't find (LED, Bazaar), and
+list-level speculation waves (Reserved List). Deliberately OUT: gluts,
+ban crashes, meta spikes, printing premiums — all generic.
+
+- **Entry shape:** curated data file beside the release calendar, **one entry
+  per STORY, not per card** — scope = single name | named group | list
+  reference (the real Reserved List file) | printing-scope where the story is
+  printing-level (Old School lifts ABU-era printings); schedule = legs of
+  `(event-id, ramp, peak-mult, settle-mult)` **anchored to event IDs, never
+  raw dates** (alt-history prestige drops the event ⇒ all legs vanish;
+  telegraphing rides the spoiler-season machinery); paper hooks (rumor lead
+  time + headline seeds) per event.
+- **Backout-consistency rule:** endpoint backout's "present-day demand"
+  includes each entry's *terminal settle multiplier* — transient spikes never
+  move endpoints, permanent shifts (Commander lifting Timetwister forever)
+  are endpoint-consistent by construction; the two mechanisms can't fight.
+- **Seed list (~12 entries, ~600+ cards via scopes):** Power Nine group
+  (Lotus w/ an extra fame leg), Juzám Djinn (the MVP window's own celebrity),
+  Shivan Dragon as the *deflation* lesson (hype ≠ hold), Reserved List
+  list-scoped w/ three event legs ('96 origin / ~2010 buyouts / late-2010s
+  wave), LED + Bazaar rediscoveries, Commander-era group, Old School
+  printing-scoped, duals group. Modern fame premiums (Tarmogoyf, Jace TMS)
+  HELD — add only on calibration failure.
+- **Authoring policy (user pin): seed + calibrate.** Author the structural
+  seed now; everything else enters only when the stage-2 calibration eyeball
+  pass fails on a famous card — the acceptance pass and the allowlist
+  co-evolve, and every entry carries a documented reason.
+- **MVP double-duty (user pin): the 1994-desirability tier table.** The MVP
+  buylist amends from pure rarity/era-flat to include a small hand-authored
+  period tier for notables (Power, duals, Juzám, ~dozens at 2–10× buylist —
+  in 1994 a Lotus was worth ~a dozen packs, not 20,000). This table IS the
+  allowlist file's MVP-window column: same file, seeded early, shared work.
+  Rejected alternatives: rarity-flat (the game's best pull sells like bulk
+  during dogfood) and all-prices.txt tiers (anachronistic + the jackpot tail
+  breaks the pack-EV-negative invariant). EV invariant re-checked against
+  the tier table in the D5 numbers pass.
 
 ### MVP-adjacent note (from same session)
 
@@ -871,8 +921,9 @@ Two organizing cuts:
   — the aesthetic call is secretly a cosmetics-budget call.
 - **First award pass = avatars (user pin):** scale Forge's crop derivation —
   set completion unlocks avatars cropped from that set's legends/characters.
-  MVP has no match surface, so the avatar's home is a collector-profile
-  corner on the binder home / the paper byline.
+  MVP has no match surface, so the avatar lives in a **collector-profile
+  corner on the mode's home page** (user-confirmed same session; the paper
+  byline reuses it).
 - **New roster item, adopted as the cheapest and most on-brand: paper
   write-up awards.** Completion achievements arrive as *Chronicle clippings*
   ("Local collector completes Antiquities!"); the trophy room is a

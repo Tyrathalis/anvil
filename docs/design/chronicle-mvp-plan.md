@@ -14,7 +14,8 @@
 
 Exactly the MVP slice spec v0 (sketch, 2026-07-31): content window 1993–94
 Alpha→Fallen Empires (9 booster releases + starters), thin economy (static
-era-flat buylist + LGS + seeded daily stock roll), identity = printing×finish
+buylist — rarity/era-flat + the 1994-desirability tier table — + LGS + seeded
+daily stock roll), identity = printing×finish
 (language dormant, condition never), kitchen-table play = stretch. Foils,
 battler, tournaments, market/circulation, trading sites, bulk lots, trade
 night, puzzles, prestige, languages: OUT.
@@ -101,7 +102,10 @@ Alpha/Beta scarcity lesson, event-feed hooks), product/shelf service (MSRP,
 LGS daily stock roll — harvest Adventure `ShopData`/restock-reroll seeding,
 re-keyed to pin 6 determinism), collection service (printing×finish over
 forge-core `CardPool`/`PaperCard`, artIndex identity now, per-set completion,
-new-card tracking with per-card clear-on-seen), buylist + stipend, pack
+new-card tracking with per-card clear-on-seen), buylist + stipend (buylist =
+rarity/era-flat PLUS the hand-authored **1994-desirability tier table** — the
+famous-card allowlist file's MVP-window column, still fully static; sketch
+"Famous-card allowlist v0"), pack
 generation via `BoosterGenerator`/`UnOpenedProduct` behind the sealed-item
 seed commitment, persistence. Rider: the **Ante pack-EV ledger stub** (static
 prices make EV computable; the ethics identity ships with the MVP).
@@ -161,9 +165,13 @@ tournament board). Build only if the slice lands early.
   D3 above carries the operative form). Residue: gather Pocket reference
   footage at D3 build time.
 - Numbers pass: ration size, MSRP/buylist/stipend, allowance cadence (D5).
-- Stage-2+ design threads in the sketch: implementable market spec,
-  famous-card multiplier allowlist, per-product tier data file (MVP-window
-  rows are trivially D1 work). Completion-award selection ADVANCED 2026-07-31
+- Stage-2+ design threads in the sketch: implementable market spec is now the
+  only remaining design lift. Famous-card allowlist CLOSED to design
+  2026-07-31 (sketch "Famous-card allowlist v0": path-shaping-only purpose,
+  story-per-entry event-anchored schema, backout-consistency rule, ~12-entry
+  seed, seed+calibrate authoring; residue = writing the seed file rows —
+  data work, D1 for the 1994 column / stage 2 for event legs). Per-product
+  tier data file: MVP-window rows are trivially D1 work. Completion-award selection ADVANCED 2026-07-31
   (sketch "Awards round 2"): first pass = avatars (crop derivation) +
   Chronicle-clipping scrapbook; sourcing principles pinned (runtime
   derive-from-card-art, no baked/generated assets in the repo); aesthetic
