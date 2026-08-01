@@ -911,6 +911,43 @@ Design-record deltas from the session:
   packaging spike runs parallel-early; Discord courtesy float timed at the
   visibility flip.
 
+### Reveal-UX bar v1 (same session, user pins — the D3 open item CLOSED)
+
+The bar decomposes into identity × mechanical tier × scale contract; all four
+pins took the recommended option:
+
+- **Identity: period wrapper, evolving with the timeline.** The reveal object
+  is the set's REAL booster art (`ImageKeys.BOOSTER_PREFIX` — already shipped
+  per set, zero new assets); treatment evolves as history does — plain '93–94
+  wrappers, foil-era gloss debuting with the 1999 event (the third instance of
+  the UX-and-timeline-agree pattern), modern treatments late. Borrows Pocket's
+  *interaction grammar* (rip gesture, tap pacing) while rejecting its neon
+  aesthetic — an identity no commercial gacha can copy, because their history
+  is fake.
+- **Mechanical tier for MVP: tier 2** — player-paced: rip/drag gesture on the
+  wrapper to open, tap-to-flip (anticipation under the player's thumb — argued
+  to be the real core of Pocket's feel, more than particles), commons
+  batch-flip fast, rare-slot buildup (delay/glow/sting), NEW glint. Tier 3
+  (tear physics, particle language, original audio identity) = post-dogfood
+  polish, not MVP.
+- **Scale contract: BOTH registers ship day one.** Planning found the sketch's
+  "bulk UX is late-game" placement wrong by one day: the day-one moment is a
+  60-card starter, and the MVP LGS sells 36-pack boxes. So MVP ships the
+  single-pack full ceremony AND a batch mode — the bulk-lot design's machine
+  (rapid scroll, auto-pause on rare/NEW/value) with different pause rules —
+  player-switchable. Starters/boxes route through batch by default.
+- **Sound/haptics: harvest + tiny pass.** Existing Forge/Adventure audio,
+  libGDX vibrate on mobile, and a couple of sourced CC0 sounds permitted
+  (wrapper rip, card flip, rare sting) where the harvest lacks them.
+- Standing properties: player-paced, always skippable, never value-gating (the
+  ethics stance applied to the reveal); best-last staging (Adventure's
+  rarity-ascending sort); mouse parity (tap=click, rip=drag) since dogfood
+  starts on desktop.
+- **The bar statement** (D3's done-when): *the 200th single-pack opening still
+  produces a beat of anticipation before the last card; side-by-side with
+  Pocket reference footage the ritual isn't embarrassing; a box/starter batch
+  reveal preserves the jackpot moment in ~a minute.*
+
 ## Risks / honest caveats
 
 - **Scope:** a whole game mode beside an RL research program, competing for the same

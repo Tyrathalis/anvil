@@ -119,11 +119,23 @@ settings (clock/knobs per the ethics stance), pref-gated home-menu entry
 (default hidden, pin 4). *Done-when:* the full daily session script is
 playable start-to-finish on desktop via `forge-gui-mobile-dev`.
 
-**D3 — the reveal scene.** `RewardActor` 3D flip × `ConquestRewardDialog`
-sequencing + rarity-tiered staging (best-last sort exists). THE quality-bar
-item and the only module with real unknowns — **define the bar with reference
-footage before building** (open item), then iterate. *Done-when:* the bar is
-met by the author's own judgment; expect iteration through D5.
+**D3 — the reveal scene.** Bar DEFINED (sketch, "Reveal-UX bar v1" — all four
+pins user-taken 2026-07-31): **period-wrapper identity evolving with the
+timeline** (the reveal object is the set's real booster art via
+`ImageKeys.BOOSTER_PREFIX`; foil-era gloss debuts with the 1999 event; Pocket's
+interaction grammar without its aesthetic), **tier 2 mechanics** (rip/drag to
+open, tap-to-flip player pacing, commons batch-flip, rare-slot buildup, NEW
+glint; tier-3 polish = post-dogfood), **both registers day one** — single-pack
+ceremony + batch mode (rapid scroll, auto-pause on rare/NEW/value) because the
+day-one starter is 60 cards and the MVP LGS sells boxes; starters/boxes route
+through batch by default — and **harvest + tiny sound pass** (existing audio,
+libGDX haptics, a few CC0 sources permitted). Machinery: `RewardActor` 3D flip
+× `ConquestRewardDialog` sequencing + best-last staging. Gather Pocket
+reference footage at build time for the side-by-side. *Done-when (the bar
+statement):* the 200th single-pack opening still produces a beat of
+anticipation before the last card; side-by-side with Pocket footage the ritual
+isn't embarrassing; a box/starter batch reveal preserves the jackpot moment in
+~a minute. Expect iteration through D5.
 
 **D4 — Android packaging spike** (parallel, any time from D1 on). Build
 `forge-android` from the `playable` branch, sideload the APK, boot Chronicle
@@ -144,7 +156,9 @@ tournament board). Build only if the slice lands early.
 
 ## Open items (tracked, not blocking)
 
-- Reveal-UX bar definition with reference footage (before D3 build).
+- ~~Reveal-UX bar definition~~ CLOSED 2026-07-31 (sketch "Reveal-UX bar v1";
+  D3 above carries the operative form). Residue: gather Pocket reference
+  footage at D3 build time.
 - Numbers pass: ration size, MSRP/buylist/stipend, allowance cadence (D5).
 - Stage-2+ design threads unchanged in the sketch: implementable market spec,
   famous-card multiplier allowlist, per-product tier data file, completion-award
