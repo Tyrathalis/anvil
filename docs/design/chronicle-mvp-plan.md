@@ -129,7 +129,20 @@ rations, LGS purchases, buylist sales, stipend credit, and a mid-fortnight
 save/reload with identical continuation — green in the desktop test tree,
 alongside unit tests per service.
 
-**D2 — screens v1.** Binder shelf→spread (closing the four archaeology gaps:
+**D2 — screens v1. BUILT 2026-07-31 (fork `playable` @ `bb7e670cff`); done-when
+= the interactive daily-session pass, OWED to the author** (XTEST wall — the
+QoL-track pattern: auto-verified boot + 32 tests green, click-through needs a
+human). All four binder archaeology gaps closed (NEW badge + unowned rendering
++ owned pips via generic NEW/OWNED ItemManager column-override plumbs in the
+image view — upstreamable; completion stats via a group-caption composer hook;
+booster-art shelf tiles). Home/LGS/paper/settings + pref-gated New Game entry
+(CHRONICLE_MODE_ENABLED, default off; flip in Settings→General) shipped; the
+opener is a deliberate tap-through placeholder for D3. Notes: unowned cards
+grayscale when the image is on disk, dimmed composed placeholder otherwise (no
+network fetch for unowned); per-cell grayscale flushes the sprite batch —
+batching optimization deferred until a device shows it matters (D4 spike);
+`markSeen` flushes on spread exit, one autosave per batch. Original spec:
+Binder shelf→spread (closing the four archaeology gaps:
 NEW-badge plumb to the image grid, unowned-card rendering via per-page
 `getCardPool` override + grayscale shader, completion stats in group headers,
 booster-art shelf tiles), LGS/shelf screen, paper overlay (templated issues),
