@@ -124,8 +124,9 @@ pins user-taken 2026-07-31): **period-wrapper identity evolving with the
 timeline** (the reveal object is the set's real booster art via
 `ImageKeys.BOOSTER_PREFIX`; foil-era gloss debuts with the 1999 event; Pocket's
 interaction grammar without its aesthetic), **tier 2 mechanics** (rip/drag to
-open, tap-to-flip player pacing, commons batch-flip, rare-slot buildup, NEW
-glint; tier-3 polish = post-dogfood), **both registers day one** — single-pack
+open with a REAL animated wrapper-tear — no 3D pack, user pin, 2.5D
+throughout; tap-to-flip player pacing, commons batch-flip, rare-slot buildup,
+NEW glint; tier-3 polish = post-dogfood), **both registers day one** — single-pack
 ceremony + batch mode (rapid scroll, auto-pause on rare/NEW/value) because the
 day-one starter is 60 cards and the MVP LGS sells boxes; starters/boxes route
 through batch by default — and **harvest + tiny sound pass** (existing audio,
@@ -160,9 +161,13 @@ tournament board). Build only if the slice lands early.
   D3 above carries the operative form). Residue: gather Pocket reference
   footage at D3 build time.
 - Numbers pass: ration size, MSRP/buylist/stipend, allowance cadence (D5).
-- Stage-2+ design threads unchanged in the sketch: implementable market spec,
-  famous-card multiplier allowlist, per-product tier data file, completion-award
-  selection from the cosmetics tiers.
+- Stage-2+ design threads in the sketch: implementable market spec,
+  famous-card multiplier allowlist, per-product tier data file (MVP-window
+  rows are trivially D1 work). Completion-award selection ADVANCED 2026-07-31
+  (sketch "Awards round 2"): first pass = avatars (crop derivation) +
+  Chronicle-clipping scrapbook; sourcing principles pinned (runtime
+  derive-from-card-art, no baked/generated assets in the repo); aesthetic
+  north star noted (purposeful-retro lo-fi), decision deferred.
 
 ## Risks
 

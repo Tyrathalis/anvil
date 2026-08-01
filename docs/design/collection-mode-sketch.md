@@ -847,6 +847,48 @@ Two organizing cuts:
   the existing flip + sequenced-reveal machinery gets most of the tactile
   feel in 2.5D.
 
+### Awards round 2 (2026-07-31 session 3 — first-pass picks + sourcing principles)
+
+- **Standing art-sourcing principle (user + session): reuse-first, then
+  derive-from-card-art the way Forge itself does** (user notes existing player
+  icons are cropped cards — verify the specific claim at build time; the
+  pattern is real regardless). Corollary adopted: **derive cosmetics at
+  RUNTIME from the card images Forge already downloads** (crops, tiles,
+  shader treatments) — never ship baked derived assets. Keeps the repo free
+  of new-provenance art and makes the upstream story identical to Forge's
+  existing one. **Generated art (ComfyUI) = fork-only experimentation at
+  most** (user flags it as less popular for upstreaming — agreed); upscaled
+  *real* card art sits closer to existing practice but any upscale step also
+  stays runtime/user-side, not committed to the repo.
+- **Aesthetic north star noted, decision deferred (user):** purposeful-retro
+  pixel/PS1 chrome in the modern deliberate style (reference: Queen's
+  Domain), not literal old design. Period argument: a 1993–94 mode rendered
+  like era software (the Shandalar generation — hi-res card scans inside
+  lo-fi chrome) extends the period-authenticity principle to the UI itself;
+  in-repo precedent: Adventure's overworld is already pixel art. Strategic
+  note: committing to deliberate lo-fi **collapses cosmetics Tier C into
+  Tier B** (backdrops/display cases/playmat toys become solo-dev-producible)
+  — the aesthetic call is secretly a cosmetics-budget call.
+- **First award pass = avatars (user pin):** scale Forge's crop derivation —
+  set completion unlocks avatars cropped from that set's legends/characters.
+  MVP has no match surface, so the avatar's home is a collector-profile
+  corner on the binder home / the paper byline.
+- **New roster item, adopted as the cheapest and most on-brand: paper
+  write-up awards.** Completion achievements arrive as *Chronicle clippings*
+  ("Local collector completes Antiquities!"); the trophy room is a
+  **scrapbook of clippings** (text + card thumbnails, zero art); masthead
+  titles as prestige labels. Nothing else is this cheap or this un-copyable.
+- **Easy-shelf sequencing:** binder-side + MVP-era-displayable: clippings,
+  binder covers (booster/box art per-set completion), avatars,
+  framed-card/framed-wrapper trophies, foil-shimmer treatments (gated behind
+  1999 with everything foil). Table-side, wait for play surfaces by
+  construction: sleeves (harvest desktop deck-sleeves; card backs + art
+  crops), **battlefield backgrounds from basic-land art (user idea, adopted
+  — abundant, period-spanning; archaeology-check where the match screen
+  draws its background before pricing)**. Ride the aesthetic call:
+  procedural frames/borders/color themes, shelf backdrop progression (milk
+  crate → shelf → glass case — the incremental-genre visual).
+
 ## Upstream strategy (2026-07-31, user decision): fork-first, re-cut later
 
 The maintainers are conservative and favor small, lightweight PRs. Two ways to
@@ -929,7 +971,10 @@ pins took the recommended option:
   to be the real core of Pocket's feel, more than particles), commons
   batch-flip fast, rare-slot buildup (delay/glow/sting), NEW glint. Tier 3
   (tear physics, particle language, original audio identity) = post-dogfood
-  polish, not MVP.
+  polish, not MVP. *(Amended later same session, user: **no 3D pack at first**
+  — but the wrapper open is a REAL animated motion, a tear you watch driven by
+  the drag, not a static wrapper cutting to cards. 2.5D throughout; the 3D
+  ambitions stay far-stretch as recorded.)*
 - **Scale contract: BOTH registers ship day one.** Planning found the sketch's
   "bulk UX is late-game" placement wrong by one day: the day-one moment is a
   60-card starter, and the MVP LGS sells 36-pack boxes. So MVP ships the
