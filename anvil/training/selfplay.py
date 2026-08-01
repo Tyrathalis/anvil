@@ -30,6 +30,8 @@ import time
 from pathlib import Path
 
 from anvil.training.notify import notify as _shared_notify
+from anvil.training.notify import watch_register as _watch_register
+from anvil.training.notify import watch_unregister as _watch_unregister
 
 RUNS_DIR = Path("data/runs")
 TRAJ_DIR = Path("data/trajectories")
@@ -461,10 +463,16 @@ def main() -> None:
     (out / "loop_config.json").write_text(json.dumps(vars(args), indent=2))
     if not args.no_inhibit:
         _sleep_inhibitor(args.name)  # dies with the driver (PDEATHSIG)
+    # Self-registration with the standing watcher: the driver reports its
+    # OWN pid (never pattern-derived — the pgrep self-match class).
+    # Deliberate exits unregister; a crash leaves the registration so the
+    # watcher fires GONE within a tick.
+    _watch_register(args.name, out)
 
     while state["iteration"] < args.iterations:
         if (out / "STOP").exists():
             print("[selfplay] STOP file present — exiting between iterations")
+            _watch_unregister(args.name)
             return
         k = state["iteration"]
         it_dir = out / f"iter-{k:03d}"
@@ -647,6 +655,7 @@ def main() -> None:
                   f"halt — needs a human)")
             _notify(f"anvil {args.name}: GUARD HALT iter {k}",
                     "; ".join(guards))
+            _watch_unregister(args.name)  # deliberate exit — no GONE alert
             sys.exit(3)
 
         if state.get("baseline") is None:
@@ -693,6 +702,7 @@ def main() -> None:
           f"final ckpt {state['ckpt']}")
     _notify(f"anvil {args.name}: COMPLETE",
             f"{state['iteration']} iterations, final ckpt {state['ckpt']}")
+    _watch_unregister(args.name)
 
 
 if __name__ == "__main__":

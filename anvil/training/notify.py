@@ -12,6 +12,36 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
+
+
+def watch_register(name: str, watch_dir, stall_min: int = 75) -> None:
+    """Best-effort self-registration with the standing watcher
+    (scripts/anvil_watchd.py + anvil-watch.timer). The process reports its
+    OWN pid — the 2026-07-31 post-mortem retired every pattern-derived pid
+    acquisition after `pgrep -f` self-matches claimed three babysitters.
+    Clean exits must call watch_unregister; dying without it is the point:
+    the watcher then notifies GONE. Never raises."""
+    try:
+        script = os.path.join(os.path.dirname(__file__), "..", "..",
+                              "scripts", "anvil_watchd.py")
+        subprocess.run([sys.executable, script, "register", "--name", name,
+                        "--pid", str(os.getpid()), "--dir", str(watch_dir),
+                        "--stall-min", str(stall_min)],
+                       timeout=30, check=False)
+    except Exception as e:  # noqa: BLE001
+        print(f"[notify] watch_register failed: {e}", flush=True)
+
+
+def watch_unregister(name: str) -> None:
+    """Clean-shutdown counterpart of watch_register. Never raises."""
+    try:
+        script = os.path.join(os.path.dirname(__file__), "..", "..",
+                              "scripts", "anvil_watchd.py")
+        subprocess.run([sys.executable, script, "unregister", "--name", name],
+                       timeout=30, check=False)
+    except Exception as e:  # noqa: BLE001
+        print(f"[notify] watch_unregister failed: {e}", flush=True)
 
 
 def notify(title: str, msg: str, tag: str = "anvil") -> None:

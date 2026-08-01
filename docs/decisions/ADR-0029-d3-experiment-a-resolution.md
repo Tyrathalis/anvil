@@ -95,6 +95,12 @@ plausibly accelerated by the drill mixture's penalty density.
    baselines is a milestone-direction call — put to the user with this
    ADR. The escalation ladder itself is unchanged.
 
+**RESOLVED 2026-08-01 (user): option A — the bounded rebalanced (a2) run
+is the current plan.** Sequence: evalset re-split (stratified fraction
+per bin, whole bins never again consumed) → `grindstone select` re-run
+with ahead-positions in training → (a2) launch vs the same 0.5121
+baseline. Escalation to (b) stays armed behind an (a2) negative.
+
 ## Consequences
 
 - `drill-evalset-v1` is superseded for training-adjacent use: any

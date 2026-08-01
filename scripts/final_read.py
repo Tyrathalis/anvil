@@ -17,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from anvil.training.notify import notify
+from anvil.training.notify import notify, watch_register, watch_unregister
 from anvil.training.selfplay import RUNS_DIR, _run, _start_server, _stop_server
 
 CRITIC = "data/training/d4-critic-fullvis/last.pt"
@@ -49,6 +49,11 @@ def main() -> None:
                          "and latest_pool_manifest() picks by MTIME, so an "
                          "untouched pin is worth recording explicitly.")
     a = ap.parse_args()
+    # Self-registration with the standing watcher: the read reports its OWN
+    # pid (the 07-31 chain waiter grabbed a pgrep'd pid that was its own
+    # wrapper shell and waited on itself forever). Crash without unregister
+    # -> the watcher fires GONE.
+    watch_register(f"{a.name}-read", RUNS_DIR, stall_min=45)
 
     if a.pool_version is None:
         from anvil.bridge.harness.pairs import latest_pool_manifest
@@ -100,6 +105,7 @@ def main() -> None:
           "--out", str(out)])
     print(f"[final_read] report: {out}")
     notify(f"anvil {a.name}: read complete", str(out), tag="final_read")
+    watch_unregister(f"{a.name}-read")
 
 
 if __name__ == "__main__":

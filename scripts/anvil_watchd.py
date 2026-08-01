@@ -41,8 +41,11 @@ import sys
 import time
 from pathlib import Path
 
-WATCH_DIR = Path.home() / ".local/state/anvil/watch"
-STATE_PATH = Path.home() / ".local/state/anvil/watch-state.json"
+# ANVIL_WATCH_DIR override = test seam; state file lives BESIDE the
+# registration dir, never inside any watched tree.
+WATCH_DIR = Path(os.environ.get("ANVIL_WATCH_DIR")
+                 or Path.home() / ".local/state/anvil/watch")
+STATE_PATH = WATCH_DIR.parent / "watch-state.json"
 
 
 def _notify(title: str, msg: str) -> None:
