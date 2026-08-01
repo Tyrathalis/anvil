@@ -129,10 +129,26 @@ rations, LGS purchases, buylist sales, stipend credit, and a mid-fortnight
 save/reload with identical continuation — green in the desktop test tree,
 alongside unit tests per service.
 
-**D2 — screens v1. BUILT 2026-07-31 (fork `playable` @ `bb7e670cff`); done-when
-= the interactive daily-session pass, OWED to the author** (XTEST wall — the
-QoL-track pattern: auto-verified boot + 32 tests green, click-through needs a
-human). All four binder archaeology gaps closed (NEW badge + unowned rendering
+**D2 — screens v1. DONE — gate PASSED 2026-08-01 (author's interactive pass:
+begin/paper/allowance/opening/binder all work); built at `bb7e670cff`,
+feedback round 1 at `59adfb8707`.** Feedback round landed same day:
+**ChronicleAcquisitionLog** (provenance journal — every opening recorded w/
+per-card first-pull ordinals, persisted; `sourcesFor` = which products yield a
+printing), binder "Sort: New" = true acquisition order, deals section above
+the shelf, reveal long-press → match-inspect CardZoom (oracle flip), pack
+images prefetch at open. **Backlog from the pass (not built):** provenance UI
+(tap a card → openings list / missing card → sources — the log is ready),
+desktop scroll-bar indicator on FScrollPane grids, stronger art preloading
+(block/preload before the D3 reveal scene starts), save-slot browser
+(currently one implicit run: autosave.sav, loaded automatically on entry —
+multiple runs = the slot UI + ChronicleSaveIO's already-built slot files).
+**Fidelity answers recorded:** 15-card ABU boosters accurate; no basics in
+boosters = Forge's era-sheet model (historically ABU commons sheets DID carry
+basics — documented deviation, engine-wide to change, not Chronicle-local);
+random 5-color starters = period-accurate (1993-94 starters were random
+assortments, not preconstructed); collector-number order = the canonical set
+order (retroactive for pre-Exodus sets: WotC's color-then-alphabetical
+convention, which our resolver follows). Original spec: All four binder archaeology gaps closed (NEW badge + unowned rendering
 + owned pips via generic NEW/OWNED ItemManager column-override plumbs in the
 image view — upstreamable; completion stats via a group-caption composer hook;
 booster-art shelf tiles). Home/LGS/paper/settings + pref-gated New Game entry
