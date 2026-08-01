@@ -254,6 +254,8 @@ logs; the trade press of the year you're living in.
 (default ≈ one release cycle per real week; pausable, adjustable — the player owns
 their clock; no engagement traps). Income clock: real time — the idle battler plays
 real games while away. Wall-clock feeds earning; the timeline never punishes absence.
+*(Amended 2026-07-31: the timeline clock is now keyed to played days — see "Daily
+gacha structure v1" below. The two-clock split itself survives unchanged.)*
 
 ### Layer 1 — Collector (the core loop)
 
@@ -310,6 +312,170 @@ real games while away. Wall-clock feeds earning; the timeline never punishes abs
   prices, buylist spread, depth), battler service (venues, era gauntlets,
   results→income), Ante ledger, news generator (everything → Chronicle issues),
   binder-first libGDX screens.
+
+## Daily gacha structure v1 (2026-07-31 — Pocket lens; user decisions pinned)
+
+Design session applying the Pokémon TCG Pocket lens to the sketch. What the lens
+adds is the discipline the sketch was thinnest on: **session shape and pack
+scarcity**. What Chronicle has that Pocket doesn't: the history walk is a
+**pre-authored live-ops calendar** — Pocket pays a design team to manufacture a
+novelty beat every ~6 weeks; Magic's history pre-recorded ~30 years of them.
+Framing (user): looping through the actual release history *as though it had been
+a mobile gacha all along* is itself the alternate way to experience the game.
+
+- **Early Magic sets are Pocket-sized.** Arabian Nights 78 cards, Antiquities
+  ~100, Alpha 295 — Pocket's discovery that small completable sets drive
+  collection satisfaction is built into Magic's deposition order, and set size
+  grows as player capacity grows.
+- **The chase-treatment ladder is historical.** Pocket sustains chase after
+  playset completion via parallel treatments; in Chronicle the treatments get
+  *invented on screen* — foils arrive in 1999 as an in-game event, mythics 2008,
+  masterpieces 2016, showcase frames late-game.
+- **The daily story beat is real.** The Chronicle issue (news, spoiler rumors,
+  price movers, your venue results as the sports section) is a daily narrative no
+  commercial gacha can match, because theirs must be written.
+
+### Pinned decisions (2026-07-31, user)
+
+1. **Timeline clock = one tick per played day.** A day you open your packs is an
+   in-game day; a day you skip simply doesn't happen in 1994. No banking
+   machinery, no binge-forward, no absence punishment — the daily ritual cadence
+   without the FOMO trap. In-game events run mostly on 7- and 30-day schedules
+   (release cycles, tournaments, market arcs). The two-clock split survives: the
+   idle battler stays on wall-clock, income accrues while away.
+2. **Run length ≈ 2–3 years of played days** (~one release cycle per played
+   week, decelerating into the present-day live feed as the endgame).
+3. **Acquisition channels — ration the shelf, randomize the rest:**
+   - *Free daily ration* — a few packs, player's choice among in-print products.
+   - *The LGS* — cheaper packs and boxes, **rotating randomized stock** (the
+     daily stock roll is itself a check-in hook; harvest Adventure's
+     seeded-shop-stock + restock-reroll machinery, already identified in the
+     archaeology).
+   - *Trading sites* — randomized offers: recent product marked up, or
+     older/out-of-print sealed at market price (cracking an out-of-print box =
+     the high-roller jackpot moment, EV ledger visible).
+   - *Tournament prizes in product and cards* — scarce-but-grindable channel
+     that deliberately does NOT flow through the market.
+   - *Singles market* — present but **deliberately slow** (next pin).
+4. **The slow singles market is the load-bearing scarcity lever.** With ~a
+   million printings, even 20 packs/day is a long collection arc — the
+   incremental layer is *allowed* to scale pack throughput for all-in players
+   (good decks → tournament income → more packs), and openings stay exciting
+   because singles are NOT the efficient path around them: cards take
+   unrealistically long to enter the singles market after release
+   (historically grounded — the secondary market really did lag), listings are
+   thin (depth limits already in the market section), and late-game price
+   scaling can stretch further if needed. Packs first, singles as the
+   completion tail — the inverse of real-world TCG economics, on purpose.
+5. **Dupe protection: not needed.** The simulated market IS the dupe value
+   (auto-buylist toggle); a dead pull is impossible because trading is a pillar.
+6. **Pity: deferred, not designed in.** Sell-and-buy-singles already bounds bad
+   luck; if a legible promise turns out to be needed, the elegant skin is
+   **per-product store credit** (opening packs of a product accrues credit
+   redeemable against its singles — pack points mechanically, a vendor
+   relationship economically, so it coexists with the market instead of
+   duplicating it).
+
+### The daily session script (the session contract)
+
+Pocket's real lesson is a *contract* about session length: minutes minimum,
+depth optional. Chronicle's script: read the paper → collect battler income →
+**open the ration** (the centerpiece reveal — Adventure's RewardScene flip is
+the seed, Pocket's rip is the bar) → check LGS stock roll + trading-site offers
++ market tick → optional depth: board puzzles (`res/puzzle` framework exists),
+pilot an individual duel or match, adjust built decks, refresh which decks sit
+in which tournaments.
+
+### The tournament board (constraint ladder, concretized)
+
+Standing surface: **many tournaments open at once, only a couple paying well,
+and the well-paying ones are usually weird gimmick tournaments requiring
+highly-specialized decks** (the sketch's constraint ladder + rotation collapsed
+into one legible UI). The board rotates on the 7/30-day event schedules; prize
+support in product/cards makes gimmick specialization pay in scarcity, not just
+currency. Trade night rides the same cadence: weekly NPC collectors visit with
+generated binders and biased valuations — the wonder-pick analog and the
+theme-collector arbitrage minigame unified.
+
+### Round-2 refinements (same session, user)
+
+- **Pack math & cadence:** an MTG booster is ~15 cards (and the earliest small
+  sets — Arabian Nights, Antiquities, The Dark, Fallen Empires — shipped 8-card
+  boosters: historically authentic AND Pocket-sized, so the early-game ration
+  feels right with zero tuning), so even 2 packs is a big reveal next to
+  Pocket's 5-card packs. **One opening per played day gets full value** —
+  deliberately kinder than Pocket's 12h/24h split timers; no second check-in
+  required or rewarded.
+- **Bulk lots = the late-game bulk UX answer:** unsorted bulk purchases
+  (thousand-card lots, expected mostly bulk) with a collection-diff-aware
+  reveal — rapid scroll that pauses only on cards you don't own or above a
+  value threshold. Lots draw from *circulation* (older cards), packs from
+  *print sheets* — mechanically distinct acquisition distributions; the EV
+  ledger covers lots too (a different gamble shape, shown honestly).
+- **MVP: the idle battler is NOT in the vertical slice.** Opening and
+  collecting must be fun alone; MVP = timeline + in-print shelf + pack ritual
+  + binder + paper stub. Tournaments/battler layer on afterward (staging
+  sketch reordered below).
+- **Normalized release cadence:** real-history ORDERING, not real-history
+  pacing or print windows. Fixed release cadence (~one release event per
+  played week, per the run-length pin); shelf windows normalized to standard
+  durations, with historical *character* kept as deliberately tuned exceptions
+  (Alpha/Beta short and scarce, FE/Chronicles long and glutted) rather than
+  simulated fidelity. The tick→game-time mapping table dissolves; the
+  remaining content task is **curating the master release list** (draftable
+  expansions in order + notable supplemental products as special events).
+- **Circulation-based singles ADOPTED, tuned slower than the player.** The
+  fiction: the late-game player is ahead of the curve — few others crack much
+  product early in a release. Consequences: the newest sets are pack-only in
+  practice (the desired scarcity, with a causal story); the player becomes a
+  *supplier* on recent sets (their sales are a real fraction of circulating
+  supply, so market-making and cornering emerge naturally rather than being
+  scripted); older sets deepen into a genuine singles market over time.
+
+### Collectible identity — "what is a card" (opened 2026-07-31, discussion live)
+
+What one collection entry IS, decided before the MVP inventory schema exists:
+
+- **Working proposal: identity = (oracle name, set, collector number, finish)** —
+  i.e., a Scryfall printing × finish — with **language reserved as a later
+  extension** (the multilingual import is already a queued track; schema leaves
+  the field). Forge's current ownable identity is name+set+artIndex+foil; the
+  proposal is a modest extension of it.
+- **Quality grades / condition: user leans AGAINST as an identity axis; noted
+  for discussion, not closed.** Against: condition is scarce physically because
+  cards degrade — in a digital sim it's a fake axis that multiplies inventory
+  ~6× and prices, not gameplay. For (the honest counter-case): the circulation
+  model could generate the *real* collector dynamic where NM copies of old
+  cards get scarce over time, and grading/slabbing is a plausible late-game
+  minigame. If deferred, the compromise shape is: condition lives on **market
+  listings and bulk-lot contents** (default NM from packs), never on inventory
+  identity — schema keeps that door open without paying the 6×.
+- **Test cards / oddities:** things that ARE real printings in the data
+  (prerelease promos, judge foils, Mystery Booster playtest cards, serialized
+  cards from 2022 on) come along free with the Scryfall import and slot onto
+  their historical dates. True oddities NOT in the data (internal test prints,
+  miscuts, Summer Magic-class stories) should be **scripted trophies and
+  bulk-lot flavor finds, not identity axes** — content, not schema.
+- **Serialized (2022+):** the modern-era endgame chase arrives on schedule via
+  the timeline; identity-wise it's a printing like any other plus a number.
+
+### Consequences / open threads
+
+- Platform lean (libGDX, mobile-first) *strengthens* — a 5-minute daily ritual
+  is a phone gesture.
+- Ethics pitch sharpens: "the daily gacha with no FOMO" — played-day ticks,
+  no banked-reward pressure, visible EV ledger, no wallet.
+- **Bulk-opening UX is a new problem Pocket doesn't have:** at 20 packs/day the
+  one-by-one rip gets old, but the jackpot moment must survive — needs a
+  fast-open/box-crack mode with a highlights reel (design before the reveal UX
+  is built, not after).
+- **Staging order question (open):** the Pocket lens suggests the vertical
+  slice may be timeline + shelf + pack ritual + binder + paper stub
+  (collector-first, matching the user's priority order) rather than the idle
+  battler spike the staging sketch leads with.
+- Tick→game-time mapping needs a real table: release density is wildly uneven
+  (1993–94 sparse, 2020s firehose) and the deceleration curve interacts with
+  the 7/30-day event schedules.
 
 ## Quest/Adventure archaeology + platform verdict (2026-07-18)
 
@@ -404,6 +570,310 @@ mechanism — a manifest/per-file-hash incremental updater would cut typical upd
 to a few MB. Self-contained, user-popular, and Chronicle-relevant (a collection mode
 is res-heavy).
 
+## MVP slice spec v0 (2026-07-31, decisions pinned same session)
+
+Scope pins (user): **content window 1993–94, Alpha→Fallen Empires** (~9 booster
+releases + starter decks ≈ 2+ months of daily play at one release per played
+week; Chronicles and its crash deliberately held for the market stage);
+**economy = thin + daily stock roll** (static rarity/era-flat buylist for
+selling dupes, LGS purchases, seeded randomized daily stock — no circulation
+model, no dynamic prices); **kitchen-table play = stretch goal** (build only if
+the slice lands early); **identity confirmed = printing × finish** (language a
+dormant schema field; condition never in identity; finish axis ships dormant —
+no foils until 1999). Foils, battler, tournaments, market/circulation, trading
+sites, bulk lots, trade night, puzzles, prestige, languages: all explicitly OUT.
+
+Window products in order: Alpha, Beta, Unlimited, Arabian Nights, Antiquities,
+Revised, Legends, The Dark, Fallen Empires — all with confirmed era-authentic
+collation (8-card boosters for ARN/ATQ/DRK/FEM, UncommonRare combined sheets,
+† variant commons) + starters from `blockdata/starters.txt`. Day-one moment:
+you start with a starter deck purchase — historically what starting Magic WAS.
+
+Modules (headless-first per the platform verdict; libGDX screens on top):
+
+1. **Timeline service** — played-day tick, data-driven release calendar,
+   normalized shelf windows (Alpha/Beta deliberately short = the first
+   scarcity lesson), event feed hooks for the paper.
+2. **Product/shelf service** — products per release, MSRP table (currency =
+   period dollars; normalized prices, not historical fidelity), LGS daily
+   stock roll (harvest Adventure `ShopData`/restock-reroll seeding).
+3. **Collection service** — printing×finish inventory over forge-core
+   `CardPool`/`PaperCard` (artIndex identity now; collector-number join
+   arrives with the Scryfall import), per-set completion, new-card tracking.
+4. **Pack ritual** — `BoosterGenerator`/`UnOpenedProduct` for collation; the
+   reveal scene (seed: Adventure `RewardScene` flip; bar: Pocket's rip).
+   THE quality-bar item and the only module with real unknowns.
+5. **Buylist** — static sell prices; closes the dupes→currency→packs loop.
+6. **Paper stub** — templated Chronicle issues: release announcements,
+   last-chance shelf warnings, LGS stock notes, era flavor snippets.
+7. **Persistence** — Adventure `SaveFileData` key-value pattern w/ migration
+   shims from day one.
+8. **Screens** — binder-first home, LGS/shelf, opening scene, paper overlay,
+   settings (clock/knobs exposed per the ethics stance).
+
+Candidate cheap rider: the **Ante pack-EV ledger stub** from day one (static
+buylist prices make EV computable; the ethics identity ships with the MVP).
+
+Stretch (kitchen table): deck editor wiring + ownership-legality only (no
+format resolver needed — 1993–94 casual play predates formats; that resolver
+arrives with the tournament board).
+
+Open tuning items: daily ration size (2–3 packs?), MSRP/buylist number pass,
+reveal-UX bar definition, dogfood exit criterion (proposal: the daily loop
+still feels good after ~2 weeks of real use by the author).
+
+## Circulation/market model v0 (2026-07-31, stage-2 design; user pins recorded)
+
+User pins: **endpoint-backout adopted** (the only alternative is trusting
+someone else's historical price records, which would have large holes);
+**single global popularity curve** as the master demand driver, WITH custom
+secondary multipliers for a small allowlist of famous cards — which is also
+the mechanism for the **Reserved List as an in-game event** (a scripted event
+that applies multipliers; alt-history prestige runs like "no Reserved List"
+just drop the event); **exploit-resistance ranks ABOVE realism**, and
+hand-tuning a small number of specific cards is acceptable in its service.
+
+### State and supply
+
+- Per printing: `printed` (normalized set print run × collation sheet weight),
+  `opened` (monotone circulation), `price`. Everything else derives.
+- **World-opening curve:** one logistic per set — slow at release (the world
+  is slower than the player, per the round-2 pin), ramp through shelf life,
+  long tail, **asymptote < 1**. `printed − opened` IS the sealed supply the
+  trading sites sample from — out-of-print box offers are draws from a tracked
+  quantity, not scripted content. (Alpha: tiny run, high asymptote → sealed
+  Alpha late-game astronomically rare, matching reality unscripted.)
+- Player openings add to `opened` directly: on recent sets the player is a
+  genuine supplier (market-making/cornering emerge, not scripted).
+
+### Prices
+
+- **Endpoint-backout:** per printing, back out an intrinsic-desirability
+  constant such that at full circulation + present-day demand the price lands
+  on the (log-space-stretched) real Scryfall price by construction. Stretch is
+  applied to endpoint targets BEFORE backout; all path arithmetic in stretched
+  space. History then runs forward: early price = intrinsic × era demand ÷ era
+  scarcity. Nobody hand-authors 100K price paths; famous cards end where they
+  should.
+- **Demand per tick (derived, not stored):** global popularity curve (Magic's
+  player-base growth — makes "buy anything in 1994" long-run +EV and is the
+  paper's most legible recurring story) × name-level playability (from
+  backout, modulated by era events: bans, reprints, meta, later the
+  gimmick-tournament rotation) × per-card override multipliers (the famous-
+  card allowlist / Reserved List mechanism). Printings of one name are
+  SUBSTITUTES: name demand allocates across printings inversely to supply,
+  plus scarcity/age premiums — Beta > Unlimited falls out of arithmetic.
+- Price relaxes toward target per tick (rate λ) + small seeded noise; shocks
+  come from causes, never noise (standing principle).
+
+### Player interaction and depth
+
+- Listings = liquidity fraction of circulation, not all of it. Orders execute
+  against depth: buying a large share of listings moves price superlinearly;
+  cornering exhausts listings, then LEAKS — holders list more as price rises
+  above their valuation (supply elasticity = corner-and-it-erodes for free).
+  Selling adds listings and pushes down (the anti-chaff-dump brake).
+
+### Anti-exploit invariants (rank above realism; pin before build)
+
+1. **Buylist keys off a smoothed reference price** with spread widening under
+   volatility — else buy-out-listings → spike → sell-to-buylist is an infinite
+   money loop.
+2. **Cracking packs is instant-EV-negative in currency terms by construction**
+   (expected immediate buylist value of a pack < pack price, enforced in
+   calibration) — profit comes from play, appreciation over time, and chase
+   pulls, never from crack-arbitrage at scale. The Ante EV ledger displays
+   exactly this, so the invariant doubles as the ethics feature.
+3. Degeneracy review is a standing stage-2 gate: enumerate money loops
+   (corner→buylist, stock-roll scumming, lot-resale chains) before tuning
+   numbers; new mechanics must state their loop analysis.
+
+### Calibration gate
+
+Backout guarantees endpoints, not mid-path plausibility (real prices encode
+real-world facts our fiction changes — normalized print runs absorb at the
+endpoint only). Acceptance pass: eyeball generated paths for ~20 famous cards
+(duals, Power, Necro, Jace-era staples) + the era gluts (FE, Chronicles crash
+once the event fires). Compute is trivial: one arithmetic pass over
+printings-in-existence per played day (~10² early, ~10⁵ endgame).
+
+### MVP-adjacent note (from same session)
+
+The MVP dogfood criterion (2 weeks of real daily use) implies **packaging the
+playable branch for Android** — the fork builds forge-android upstream, but
+our release pipeline is desktop-jar-only today; Android packaging joins the
+MVP work implicitly and brings Android testing with it.
+
+## Release-event structure & collectibility scope (2026-07-31)
+
+User direction: include ALL the cards we can as available and collectible;
+edge cases fold in as side-releases alongside a primary. Threshold question
+partially punted — the two decisions below are the policy; per-product tier
+assignment is a curated data file (one line per product) filled in era by era
+as the calendar reaches it.
+
+- **Three kinds, not two: events, riders, streams.**
+  - *Primary release events* (one per played week, the calendar's unit):
+    draftable expansions, core sets, and market-shock compilations (Chronicles,
+    Modern Masters — anything whose story is a market event gets the
+    headline).
+  - *Side-releases (riders)*: precons/Commander decks, Duel Decks,
+    Portal/Starter, promos, un-sets, oversized-format products (Vanguard/
+    Planechase/Archenemy — real Forge play modes) — attached to a nearby
+    primary: shelf space beside it, paper mention, fully collectible, no
+    calendar slot. Deck products sell as sealed products (the product service
+    is generic; Commander-deck-exclusive new cards enter through them).
+  - *Continuous channels (streams)*: Secret Lair (~weekly from 2019) maps onto
+    the trading-sites surface — direct-to-consumer in fiction and reality, a
+    rotating drop stream riding whatever week it lands in.
+- **Emergent deceleration:** cadence fixed at one primary/played week ⇒ era
+  duration ∝ primary-product density — early years compress (~5 primaries in
+  1994), modern years stretch (8–10). "Decelerate into the present" falls out
+  of the normalization; no designed curve needed.
+- **Scope pin: collectibility does NOT require Forge playability.** Un-cards,
+  unscripted obscurities, oversized: binder-only with a not-engine-playable
+  flag (the deckbuilder layer excludes them). Otherwise "include everything"
+  silently shrinks to "everything Forge has scripted."
+- **Excluded outright: digital-only printings** (Alchemy/Arena-only) — never
+  cardboard; at most alt-history prestige material someday. Foreign-exclusive
+  printings (FBB, Renaissance) ride the deferred language axis.
+
+## Binder UX v0 — archaeology + design (2026-07-31)
+
+Two sweeps run this session: a fork codebase dive (worktree `forge-play`) and
+an upstream GitHub scan. **Upstream baseline: the field is clear** — nobody is
+building a collection browser; zero pack-opening/reveal work (RewardScene
+substantive changes all 2022–23). Watch items: PR #10636 (desktop deck-LIST
+browser — conceptual neighbor, possible desktop-editor-structure collision if
+merged), #11399/#11400 (small Adventure reward-overlay tweaks = future
+RewardScene merge surface), #11093 (custom Scryfall-data API, still open,
+relevant to the printing/price import). Repo now has stated UI guidelines
+(#10637, merged May) — read before upstreaming any UI. **iOS support #11190
+MERGED 07-24** — a libGDX binder now implicitly targets iOS too.
+
+### What exists (key findings, paths in the fork)
+
+- Adventure's editor SUBCLASSES the shared `FDeckEditor` (data-driven
+  `DeckEditorConfig`, overridable pages, sanctioned `getColOverrides()` hook)
+  — the extension pattern for a Chronicle screen is established, not invented.
+- `ItemManager` grid (`ImageView`): group-by-SET exists (stats-free headers),
+  pile-by-COLLECTOR_ORDER exists, pinch-zoom column count, persisted per-config
+  prefs. `CardEdition.getObtainableCards()` carries collector number + rarity
+  per set = the binder page spine. Quest has the ONLY completion math
+  (`QuestUtilCards.getCompletionPercent`) — used solely for shop booster rows,
+  never rendered as a grid.
+- Reveal: TWO half-implementations — Adventure `RewardActor` (real 3D flip,
+  sound, NEW/owned badges, rarity-ascending sort so the best card is LAST) and
+  Planar Conquest `ConquestRewardDialog.CardRevealAnimation` (sequenced,
+  skippable, FScreen-native). Neither does flip + sequencing together;
+  combining them = the reveal scene. Desktop has no reveal at all.
+- Affordances present: favorites/stars (grid-rendered), NEW column (list-view
+  text suffix ONLY), Adventure `newCards`/`favoriteCards`/`autoSellCards`
+  persisted in saves, foil rendering (`Graphics.drawFoil`, pref-gated),
+  grayscale shader (`RewardActor` :1177) = ready-made unowned-slot look.
+
+### The four gaps (all small)
+
+1. **NEW badge never renders in the image grid** (~10-line plumb via the
+   existing `fnIsFavorite`/`fnPrice` pattern in `ImageView.setup`/`ItemInfo.draw`).
+2. **Nothing renders unowned cards** — pool == owned everywhere. Binder needs
+   pool = full set, owned-count as decoration (overridable
+   `CatalogPage.getCardPool` makes this per-page, no ItemManager surgery).
+3. **Group headers carry no completion stats** — one `g.drawText` site;
+   denominator = generalize Quest's completion helper onto
+   `CardEdition.getObtainableCards()`.
+4. **No per-set symbol assets** — only rarity sprites + per-set BOOSTER ART
+   (`ImageKeys.BOOSTER_PREFIX`). Proposal: shelf tiles wear booster/box art
+   (charming, zero new assets); Keyrune (OFL font) later if real symbols wanted.
+
+### Design shape v0
+
+- **Two levels: shelf → spread.** Shelf = custom simple screen, one tile per
+  binder/set (booster-art cover, completion bar, NEW-count pip), release
+  order. Spread = ImageView-derived grid: full-set pool in collector-number
+  order, unowned = grayscale silhouette (the gap IS the motivation), owned =
+  art w/ qty pip, NEW glint until viewed. New `ItemManagerConfig.BINDER_*`
+  entry + column factory; group/pile/persistence come free.
+- **New-card lifecycle upgraded:** Adventure clears `newCards` wholesale on
+  editor close; binder wants per-card clear-on-seen (viewed in spread) + per-
+  set rollup on the shelf. Persisted, timestamps optional.
+- **Completion headline = one-of** (pinned earlier): playset a deckbuilder
+  stat, master (× finish/variant) the per-set endgame toggle.
+- **Reveal scene = RewardActor flip × Conquest sequencing** + rarity-tiered
+  staging (best-last sort already exists). MVP window has no foils ⇒ the foil
+  shimmer moment debuts WITH the 1999 event — the UX and the timeline agree.
+- **Performance:** ImageCache LRU (120 textures, 1 new image/frame streaming)
+  + non-virtualized ItemInfo = fine for the MVP window (sets ≤ 295 cards);
+  modern-era 300+ sets stream slowly — placeholder-first draw + (later)
+  virtualization flagged, NOT MVP work. Full-collection views stay
+  list/search-based; the binder is always per-set-bounded.
+
+Aesthetic forks CLOSED (2026-07-31, user): **continuous scroll with
+grayed-out missing cards is the original view** — physical binder covers/pages
+are fun but not first-layer (they return as cosmetics, below). Completion
+rewards deferred from MVP but scoped now (next section).
+
+### Cosmetics & completion rewards — scoped, deferred (2026-07-31)
+
+Not built at first; option space recorded so the completion bars have
+somewhere to point later. Pocket's roster: coins, playmats, sleeves,
+backdrops, binder covers, avatars + non-displayable achievement trophies.
+Two organizing cuts:
+
+- **By asset cost.** Tier A, zero new art: binder covers from existing
+  booster/box art, trophies as framed card art, avatars (Forge already ships
+  avatar sprite sets), sleeve patterns from card backs — note upstream desktop
+  already has a deck-sleeves feature to harvest. Tier B, low/procedural:
+  frame/border styles, color themes, shelf backdrops, foil-shimmer binder
+  treatments. Tier C, original artwork: playmats, display boards, dioramas,
+  playmat toys — expensive, later/maybe.
+- **By surface: binder-side vs table-side.** Binder-side cosmetics (covers,
+  sleeves-as-displayed-in-binder, trophies, shelf backdrop) decorate the
+  surface the MVP actually has — they come first. Table-side cosmetics
+  (playmats, dice, counters, toys) decorate play surfaces that don't exist
+  until the kitchen-table/battler layers — they wait by construction.
+- **MTG-native substitution:** Pocket's coins are load-bearing because Pokémon
+  flips constantly; MTG's equivalent daily-handled objects are DICE and
+  counters (spindowns, d20s, token/counter cosmetics) — the right analog when
+  table-side cosmetics arrive.
+- **3D ambitions (far-stretch, recorded as aspiration):** tactile 3D pack
+  openings, a 3D play mode in the modern-digital-TCG style with rendered
+  counters/playmat toys, 3D display dioramas. All gated on original-art
+  budget the project doesn't have; sights deliberately set lower at first —
+  the existing flip + sequenced-reveal machinery gets most of the tactile
+  feel in 2.5D.
+
+## Upstream strategy (2026-07-31, user decision): fork-first, re-cut later
+
+The maintainers are conservative and favor small, lightweight PRs. Two ways to
+build a whole mode against that: (a) plan in upstream-sized steps from the
+start and submit one at a time, or (b) build freely on the fork, then cut the
+result into synthetic, individually-reviewable commits with trimmed test
+suites when upstreaming. **Decision: (b), fork-first.** More duplicated work,
+but cleaner results with less delay and politics — and the project has direct
+evidence the re-cut workflow works (multiplayer hardening: private-branch
+work re-cut onto clean upstream master, 3 advisories merged byte-identical;
+PR #11203 re-authored the same way; report 1's 14-file→2-file re-cut was
+taken whole).
+
+Riders on the decision:
+
+- **Isolation convention keeps the rebase tax ≈ 0:** Chronicle code lives in
+  its own packages (Adventure precedent: a whole directory + a handful of
+  shared-file hook lines). New-mode code is additive by construction; the
+  playable branch's periodic upstream merges stay conflict-free, and the
+  eventual re-cut is mostly "lift the directory."
+- **Carve-out — the standalone prosocial tracks stay upstream-first-friendly:**
+  the Scryfall printing/multilingual import (coordinate with open PR #11093,
+  not against it), Android asset delta updates, and era rulesets (Premodern /
+  Old School constituency) were always framed as independent contributions
+  and can go upstream on their own schedule regardless of Chronicle.
+- **The "float in Discord before writing code" risk note is softened:**
+  under fork-first the concept float is goodwill and timing, not a gate — we
+  don't need permission to build on our own fork, and the playable branch is
+  already a live distribution channel to real users (friends' auto-updating
+  installs) independent of upstream acceptance.
+
 ## Risks / honest caveats
 
 - **Scope:** a whole game mode beside an RL research program, competing for the same
@@ -423,8 +893,17 @@ is res-heavy).
 
 ## Staging sketch (cheapest-first)
 
-1. **Idle battler spike:** harness → Quest inventory → credits formula. Heuristic AI
-   only, no UI beyond numbers. Proves the loop.
+**Reordered 2026-07-31 (daily-gacha-v1 session): the vertical slice is the
+collector loop, not the battler.** New order: (1) MVP slice — timeline service +
+normalized release calendar + in-print shelf + pack ritual (era collation via
+forge-core) + binder + paper stub; (2) circulation/market model (slow singles,
+LGS stock roll, trading-site offers, bulk lots); (3) battler + tournament board
+(the old item 1 folds in here); remaining items keep their relative order below.
+
+1. ~~**Idle battler spike:** harness → Quest inventory → credits formula. Heuristic AI
+   only, no UI beyond numbers. Proves the loop.~~ *(Demoted to stage 3 — see
+   reorder note above; still the cheapest proof of the battler layer when its
+   turn comes.)*
 2. ~~**Quest-code archaeology**~~ DONE 2026-07-18 (see archaeology section):
    forge-core booster engine headless; harvest Adventure model layer + Quest shop
    machinery; new mode, replace nothing.
