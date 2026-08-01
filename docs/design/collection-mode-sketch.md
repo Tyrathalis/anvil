@@ -1,8 +1,12 @@
 # Collection / Incremental Mode — design sketch
 
-**Status: PARKED CONCEPT (2026-07-18).** Not on any milestone. This file is the simmer
-pot: brainstorm threads captured so design can continue incrementally without living
-only in chat history. Promote to a real plan doc + ADR if/when it gets scheduled.
+**Status: SCHEDULED (2026-07-31,
+[ADR-0029](../decisions/ADR-0029-chronicle-scheduling.md)).** The promotion rule
+fired: implementation plan lives at
+[chronicle-mvp-plan.md](chronicle-mvp-plan.md) (playable-branch side stream;
+M4 keeps the research hours). This file remains the canonical design record —
+design changes still land here or in ADRs, implementation staging lives in the
+plan doc.
 
 **One-line pitch:** a free-and-open-source gacha/incremental mode for Forge — build a
 huge collection by opening tons of packs across Magic's ~million printings, unlock
@@ -873,6 +877,39 @@ Riders on the decision:
   don't need permission to build on our own fork, and the playable branch is
   already a live distribution channel to real users (friends' auto-updating
   installs) independent of upstream acceptance.
+
+## Implementation planning round (2026-07-31 session 3 — promotion; pins recorded)
+
+Chronicle scheduled ([ADR-0029](../decisions/ADR-0029-chronicle-scheduling.md));
+staging and architecture live in [chronicle-mvp-plan.md](chronicle-mvp-plan.md).
+Design-record deltas from the session:
+
+- **"Streaming" clarified = upstreaming.** The long-range goal is Chronicle as
+  an upstream Forge mode; the fork-first/re-cut strategy (previous section) is
+  the vehicle. No architectural addition — but it hardens the Quest-precedent
+  placement, desktop-tree tests, and UI-guidelines adherence chosen in the plan.
+- **MVP income gap found and closed: allowance stipend.** The MVP as previously
+  specced had no income source (battler out; pack-cracking instant-EV-negative
+  by invariant; buylist only recycles) — currency strictly drained and the LGS
+  was unreachable. Fix (user): a small cash allowance on the played-day
+  schedule (lean weekly lump; dogfood decides), kitchen-table-kid period
+  flavor, retiring/reflavoring when tournament income arrives in stage 3.
+- **Day-tick semantics formalized** (derived from the played-day pin): the tick
+  fires on **ration collection**, not app launch; at most one per real calendar
+  day (local time, ~4am grace); all daily channels key off the current day
+  index; pre-collection the player is still living the previous in-game day.
+- **Seed-integrity invariant adopted** (corollary of
+  exploit-resistance-above-realism): all daily randomness deterministic from
+  (run seed, day index, domain); **sealed items commit contents at
+  acquisition**, reveal at opening — restart/reload can never reroll a pull or
+  stock roll. Also pre-builds stage 2's sealed-supply property.
+- **Prestige-proof schema from day one:** run-id on the collection layer +
+  separate meta-progress blob (prestige = "collection resets, meta persists"
+  is a schema property; free now, painful later).
+- **Visibility (user): hidden until the dogfood gate passes** — pref-gated menu
+  entry; friends meet Chronicle when the daily loop is proven. Android
+  packaging spike runs parallel-early; Discord courtesy float timed at the
+  visibility flip.
 
 ## Risks / honest caveats
 
