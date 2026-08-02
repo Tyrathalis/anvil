@@ -1265,6 +1265,30 @@ shipping builds to other people's machines.
 > is the LOAD path — it dated the quest to an earlier session and kept the
 > hunt honest. Boosters-count-0 (silent empty pool) noted as an adjacent
 > unguarded input, not yet fixed.
+>
+> **v12 published 2026-08-01 (`af21a8a423`, version `2.0.14-SNAPSHOT-08.02`):
+> upstream refresh + the ItemManager context-menu embedded-screen offset
+> fix.** Contents: clean merge of 24 upstream commits (HOB/HOC editions,
+> card fixes, an AI Room fix — zero conflicts), the Chronicle provenance
+> UI (`fedfea5126`), and the context-menu fix (`10c22003df`: menus
+> anchored on global screenPos but positioned container-local — off by
+> the nav-sidebar width in mobile-dev's desktop shell; stock latent,
+> identity on phones, upstream candidate; diagnosed by an instrumented
+> second instance on an isolated `-Duser.home` profile driven via
+> xdotool). Gate: full desktop suite 419 green post-merge. Manifest
+> 54,800 files. Post-publish routine run in full: published jar sha256 =
+> local build = manifest entry; manifest parses through the published
+> jar's own `DeltaManifest` via jshell (54,800 entries, correct
+> version/commit, `wastetown..tmx` resolves); spaced-path res fetch at
+> the manifest commit hash-matches; `commits/playable.atom` 200.
+> **Publish incident, harmless but instructive: the first upload went at
+> CARD-FORGE's `daily-snapshots`** — this clone's gh default repo is
+> upstream (for PR work) and upstream uses the same release tag and even
+> the same `build.txt`/`version.txt` asset names; only the account's
+> lack of write access stopped it (asset-delete 404, nothing landed,
+> verified by asset timestamps/uploaders). The release script now prints
+> `-R Tyrathalis/forge` on both publish commands with a warning
+> (`bd6eb87ada`), and the hazard is banked in session memory.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
