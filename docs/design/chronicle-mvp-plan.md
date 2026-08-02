@@ -136,10 +136,14 @@ feedback round 1 at `59adfb8707`.** Feedback round landed same day:
 per-card first-pull ordinals, persisted; `sourcesFor` = which products yield a
 printing), binder "Sort: New" = true acquisition order, deals section above
 the shelf, reveal long-press → match-inspect CardZoom (oracle flip), pack
-images prefetch at open. **Backlog from the pass (not built):** provenance UI
-(tap a card → openings list / missing card → sources — the log is ready),
+images prefetch at open. **Backlog from the pass:** ~~provenance UI~~ BUILT 2026-08-01
+(`fedfea5126`: context menu on the spread grid — owned card → opening
+history with first-pull ordinal + day/product per opening + xN duplicate
+counts, pre-journal acquisitions degrade gracefully; any card → where to
+find via `sourcesFor` + in-print/not-yet-released/out-of-print for today;
+new `copiesIn` log helper, test-covered, suite 35 green),
 desktop scroll-bar indicator on FScrollPane grids, stronger art preloading
-(block/preload before the D3 reveal scene starts), save-slot browser
+(~~block/preload before the D3 reveal scene starts~~ folded into D3), save-slot browser
 (currently one implicit run: autosave.sav, loaded automatically on entry —
 multiple runs = the slot UI + ChronicleSaveIO's already-built slot files).
 **Fidelity answers recorded:** 15-card ABU boosters accurate; no basics in
