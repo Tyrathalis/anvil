@@ -182,7 +182,20 @@ badges, buylist total, Open another/Open all continuation. All pacing
 constants sit in one block atop `ChronicleRevealScene` — the dogfood tuning
 surface. Suite 34 green; mobile-dev jar boots clean. **The done-when stays
 open by design (experiential bar, author-judged; iterate through D5).**
-Residue: gather Pocket reference footage for the side-by-side. Original
+Residue: gather Pocket reference footage for the side-by-side.
+*Live round 1 CLOSED same evening (5 commits → `ba94fc4cfd`; devlog
+2026-08-01-session5):* dev-mode testing actions (home-screen day
+advance via tick-marker rewind — clock-scum guard untouched, seed
+integrity holds by day-index determinism — plus test cash), booster art
+actually fetching (stock `imageKeyFileExists` bug meant it had NEVER
+downloaded — binder tiles included), reveal-NEW cross-checked against
+collection counts, cascade pacing slowed + first-pull soft holds,
+pulsing tap-to-continue pill, row long-press hit-test, EDT-hopped
+fetches. Starter deck-box art blocked upstream: `downloads.cardforge.org`
+has no DNS record and forge-extras mirrors no tournament packs — fetcher
+`o:` support shipped anyway (generalized `fetchProductImage`, upstream
+candidate) and starters draw booster-art fallback that self-upgrades if
+the images are ever rehosted. Original
 spec: Bar DEFINED (sketch, "Reveal-UX bar v1" — all four
 pins user-taken 2026-07-31): **period-wrapper identity evolving with the
 timeline** (the reveal object is the set's real booster art via
