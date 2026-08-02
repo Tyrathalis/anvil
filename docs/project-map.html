@@ -103,7 +103,7 @@ Full closed-track history: <a href="status-archive.md">the status archive</a>.</
       <li>D4 Android spike: needs an SDK install (build-tools 35 + platform 35) — user decision</li>
       <li>Upstream candidates: fetcher o: support, imageKeyFileExists fallthrough, FCollectionTest race fix, dead cardforge.org lists, ItemManager context-menu embedded-screen offset</li>
     </ul></div>
-  <div class="card now"><h3>Playable fork <span class="pill done">v12 live</span></h3>
+  <div class="card now"><h3>Playable fork <span class="pill done">v13 live</span></h3>
     <p>All founding worklist items shipped and user-verified; auto-update pipeline proven end-to-end; security hardening merged upstream. CI on <code>playable</code> green (checkstyle is a hard gate there — <code>mvn -pl &lt;module&gt; -am validate</code> before pushing).</p>
     <p><b>Residue:</b> T2 live-rescale only (workaround: launch at play size).</p></div>
 </div>
@@ -118,7 +118,7 @@ Full closed-track history: <a href="status-archive.md">the status archive</a>.</
   <tr><td>Card pool</td><td><code>cf2ca6ba</code></td><td>1,701 cards from 113/120 competitive DC decklists</td></tr>
   <tr><td>Research fork pin</td><td>rebased on upstream <code>3e3818f1ba</code></td><td>Whole engine delta: <b>14 lines in two files</b>; upgrades are dataset-boundary events</td></tr>
   <tr><td>Drill assets</td><td>584 curated losses → <b>409 training pts + 119 held out</b> (v2)</td><td><code>drill-selection-v2</code> / <code>drill-evalset-v2</code> (ADR-0030 re-split: ⅓ per small bin, 18.8% ahead-positions in training; v1 valid only for run10-era ckpts)</td></tr>
-  <tr><td>Playable release</td><td>v12 (<code>2.0.14-SNAPSHOT-08.02</code>)</td><td><code>af21a8a423</code>: upstream refresh (24 commits, clean) + Chronicle provenance UI + context-menu offset fix; publish pins <code>-R Tyrathalis/forge</code></td></tr>
+  <tr><td>Playable release</td><td>v13 (<code>2.0.14-SNAPSHOT-08.02</code>, build 08-02 03:34Z)</td><td><code>318953018e</code>: v12 (upstream refresh + provenance UI + menu fix) + updater orphan-deletion pass (HOC edition-code collision); publish pins <code>-R Tyrathalis/forge</code></td></tr>
 </table>
 
 <h3>Watch list / open threads</h3>
@@ -474,7 +474,7 @@ eval statistics, info-set enforcement, RL entropy collapse), each with detection
 <p class="foot">Living document — update at milestone boundaries alongside the CLAUDE.md status section;
 the Now panel, state-of-record table, watch list, run ledger and footer stamp are the parts that go stale fastest — sweep them every update.
 Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Full closed-track history: <a href="status-archive.md">status archive</a>.
-Last updated 2026-08-01, session 6 (<b>Chronicle provenance UI + context-menu fix + v12 snapshot published</b>; session 5: tear/flip/batch registers pushed as <code>8c2134fdbf</code>, then dev tools + six play-found fixes through <code>ba94fc4cfd</code> incl. the never-downloading booster art and the FCollectionTest CI flake; d6-run11 generating.
+Last updated 2026-08-01, session 6 (<b>Chronicle provenance UI + context-menu fix + v12/v13 snapshots published (v13 = updater orphan-deletion pass)</b>; session 5: tear/flip/batch registers pushed as <code>8c2134fdbf</code>, then dev tools + six play-found fixes through <code>ba94fc4cfd</code> incl. the never-downloading booster art and the FCollectionTest CI flake; d6-run11 generating.
 Same-day earlier: (a2) prep — evalset v2, selection v2, run11 launch; dashboard restructure; d6-run10 closed by ADR-0030; Chronicle D2 gate passed).</p>
 
 </main>

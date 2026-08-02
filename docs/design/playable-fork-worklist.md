@@ -1289,6 +1289,34 @@ shipping builds to other people's machines.
 > verified by asset timestamps/uploaders). The release script now prints
 > `-R Tyrathalis/forge` on both publish commands with a warning
 > (`bd6eb87ada`), and the hazard is banked in session memory.
+>
+> **v13 published same night (`318953018e`, build 08-02 03:34Z, jar-only
+> delta): the updater gains an ORPHAN-DELETION pass — the leave-extras-
+> alone policy falsified.** Rebuilding the friend zip from the user's
+> field install surfaced three orphans from upstream renames (the
+> updater never deleted), one dangerous: a stale
+> `The Hobbit Commander.txt` still claiming `Code=HOC` against the
+> current `The Hobbit Eternal.txt` — duplicate set codes make edition
+> load a coin flip, and EVERY deployed client that updated across the
+> rename carries it. `DeltaUpdater.deleteOrphanedResFiles` runs after a
+> successful `applyResFiles` (best-effort, logs, never throws); the
+> manifest's complete res list makes absence authoritative. Guards make
+> mass deletion structurally impossible: a manifest without a
+> substantial res list (the legacy jar-only bridge view — driving
+> deletion off it would empty the install) never deletes; orphan counts
+> over 500 delete nothing; case-insensitive matches of manifest entries
+> are skipped (after a case-only rename on a case-insensitive
+> filesystem they ARE the manifest file); emptied dirs pruned up to,
+> never including, res root. Deletion test validated failing-first
+> against a stub; guard tests pin floor/cap/case/missing-root.
+> DeltaUpdateTest 15/15, suite 424 green. Post-publish routine in full.
+> **Deployment mechanics: cleanup runs in the jar APPLYING an update,
+> so clients purge orphans on their first update applied by a v13+ jar
+> — i.e. the next content snapshot.** The user's own install was
+> hand-cleaned during the zip rebuild (folder verified bit-exact vs the
+> v12 manifest via the shipped jar's own diff, then the three orphans
+> removed); the distribution zip ships clean and first-boot self-update
+> keeps it current, so it need not be recut for v13.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
