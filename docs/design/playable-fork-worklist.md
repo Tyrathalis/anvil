@@ -1317,6 +1317,37 @@ shipping builds to other people's machines.
 > v12 manifest via the shipped jar's own diff, then the three orphans
 > removed); the distribution zip ships clean and first-boot self-update
 > keeps it current, so it need not be recut for v13.
+>
+> **v14 published 2026-08-02 (`881207ed27`): net-lobby fixes found live in a
+> four-player game night — per-keystroke CHANGE events and the team-selection
+> echo.** Symptoms: teams unarrangeable (any change cascaded until the lobby
+> converged onto one team), chat split into one message per letter, and
+> reversed text while typing a name. Two independent causes, one release:
+> (1) upstream `76eaaa010e` (iOS fixes, #11190 — arrived via v12's refresh)
+> made `FTextField` fire CHANGE per keystroke for live search filtering;
+> consumers that treat CHANGE as a committed value broke — online chat sends
+> a MessageEvent per event (and clears the field, hence exactly one letter
+> per message), the lobby name field commits + broadcasts full slot state
+> per keystroke, and each echo `setText` resets the caret to 0 (reversed
+> typing). Now gated behind opt-in `setLiveChangeEvents`; no caller opts in,
+> restoring pre-#11190 semantics. (2) STOCK team echo, exposed the first
+> time 2v2 was attempted: `FComboBox` fires its changed handler on
+> programmatic sets, so a broadcast team change re-enters
+> `teamChangedHandler` on every other client for a panel it doesn't own;
+> the wire listener drops the panel index and the hardened server applies
+> client events to the sender's own slot ⇒ the echo rewrites the echoing
+> client's OWN team. Guards: handler ignores `!mayEdit` panels and the
+> network-apply path; `setPlayerName` skips fields mid-edit. Diagnosed from
+> the host journal: chat rate limiter (hardening, #11457) visibly dropping
+> the sender-side flood; single-character events on the wire. Checkstyle
+> validate clean (run post-push — CI would have gated regardless). Upstream
+> candidates queued: the FTextField live-CHANGE regression (upstream chat
+> is per-keystroke broken on master today) and the team-echo guard.
+> Same-day note: the friend zip's `Forge.command` instructions were updated
+> for macOS Sequoia/Tahoe (right-click→Open is gone; Settings→Privacy &
+> Security→Open Anyway, or `xattr -dr com.apple.quarantine`), and the JRE
+> guidance for friends is pinned: Temurin 21 JRE via
+> `api.adoptium.net/v3/installer/latest/21/ga/<os>/<arch>/jre/hotspot/normal/eclipse`.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
