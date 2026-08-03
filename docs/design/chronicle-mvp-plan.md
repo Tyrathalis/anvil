@@ -230,6 +230,33 @@ simpligility android-maven-plugin); it expects **Android SDK build-tools
 35.0.0 + platform 35** — no SDK on the box yet, so the spike's first step is
 an SDK install (user decision: several GB + license acceptance), then
 `mvn -P android-debug -pl forge-gui-android -am package` and adb sideload.
+*BUILD PATH SOLVED 2026-08-02 (fork `6f6273ac3c`, `scripts/build-android.sh`
+= the whole recipe):* SDK installed to `~/Android/Sdk` (user-approved);
+three CI-parity pins discovered the hard way — **Maven 3.8.1** (the plugin
+breaks on 3.9+), **Temurin 17** (proguard 7.6 reads `<java.home>/jmods` as
+library jars and rejects >Java-23 class files), and **android-maven-plugin
+4.6.2 is a Card-Forge custom build** fetched into `~/.m2` from their GitHub
+releases, not Central. In-process jarsigner is dead on JDK 17+
+(`sun.security.pkcs` sealed) — profile flipped to external
+`uber-apk-signer` signing (v2+v3, `~/.android/debug.keystore`; KEEP that
+keystore — update continuity). **Coexistence with stock Forge (user pin):**
+package renamed at aapt time to `forge.app.playable` (own launcher entry
+"Forge Playable", own `Android/obb` data dir; `forge.app` substring
+preserved so `usingAppDirectory` still trips; upstream's `resId()` fallback
+anticipated the rename) + the three FIXED provider authorities
+(`com.mydomain.publicfileprovider`, `.Sentry*Provider`) made unique — any
+second install sharing an authority is REJECTED by Android, so stock's
+presence would have blocked the install outright. **Update delivery
+un-deferred (user request):** the stock in-app updater (AssetsDownloader)
+already targets the fork's `GITHUB_SNAPSHOT_URL` = `daily-snapshots`;
+published the android artifact set there (APK named exactly as the updater
+expects + `assets.zip` 194M incl. `res/chronicle/` + shared
+`version.txt`/`build.txt` stamps — desktop delta updater absorbs the bump
+as a 0-file plan). First boot downloads assets from the same URL. Caveat:
+android update offers gate on **>23h** build.txt delta (upstream rule);
+desktop-style strictly-newer is a 1-line fork change if dogfood cadence
+needs it. APK delivered via Syncthing (`~/Everything/Sync/Other`);
+on-device boot = the remaining done-when.
 
 **D5 — dogfood + numbers.** Two weeks of real daily use by the author (on the
 phone, per the design's mobile-first lean), plus the tuning pass: ration size
