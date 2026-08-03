@@ -70,7 +70,13 @@ license for another mixture-only run now.
    (+1.98pp over 0.5121). Recommended: promote — the ADR-0023
    convention (outside-noise supersession ⇒ new ckpt of record)
    applies; the winnable residual is documented above.
-   **RESOLVED (user, pending): ___**
+   **RESOLVED 2026-08-02 (user): PROMOTED.** `d6-run11/iter-019` is the
+   RL checkpoint of record; the M4 baseline is its standing-seeds read
+   **0.5316 ± 0.0110 corrected** (seeds 20260710 — the comparable
+   protocol; the 20260711 confirmation read stays on file as the
+   replication evidence). Stated posture (user): default to promoting
+   on a cleared gate unless there's reason to think the run itself was
+   mistaken.
 3. Escalation (b) K-rollout advantage baselines: no longer armed by a
    negative — future escalation is opt-in for additional gains, not
    required by the ladder.
