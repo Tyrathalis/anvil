@@ -221,6 +221,35 @@ def _drill_phase(args, state: dict, k: int, drill_dir: Path) -> list[str]:
     return stores
 
 
+def _drill_eval_phase(args, state: dict, k: int, it_dir: Path) -> None:
+    """Mid-run drill-evalset decomposition (M4, post-ADR-0031): run
+    `grindstone eval` on the held-out evalset with the just-accepted
+    ckpt. ADVISORY by design — mechanism-flat is a judgment, not a
+    drift, so this never halts; the operator answers a flat read by
+    touching <out>/STOP. Per-bin paired deltas (vs the evalset's pinned
+    baseline_eval re-measurement, D2.4) land in <iter>/drill-eval.json,
+    stdout, and a notify ping. monitor.jsonl stays one-row-per-iteration."""
+    out = it_dir / "drill-eval.json"
+    if out.exists():
+        print(f"[selfplay] iteration {k}: reusing drill eval")
+        return
+    es = Path(args.drill_eval_set)
+    before = set(es.glob("eval-*.json"))
+    _run([sys.executable, "-m", "anvil.grindstone", "eval",
+          "--evalset", str(es), "--ckpt", state["ckpt"],
+          "--port", str(args.port), "--workers", str(args.workers)])
+    new = sorted(set(es.glob("eval-*.json")) - before)
+    if not new:
+        raise RuntimeError(f"drill eval wrote no report under {es}")
+    rep = json.loads(new[-1].read_text())
+    out.write_text(json.dumps(rep, indent=2) + "\n")
+    deltas = {b: round(v["winrate"] - v["baseline"], 4)
+              for b, v in rep["per_bin"].items()}
+    print(f"[selfplay] iteration {k}: drill-eval paired deltas {deltas} "
+          f"(overall {rep['winrate']} vs baseline {rep['baseline']})")
+    _notify(f"anvil {args.name}: drill-eval iter {k}", json.dumps(deltas))
+
+
 def replay_mixture(groups: list[list[str]], replay: int,
                    fresh_weight: float, replay_weight: float
                    ) -> tuple[list[str], list[float]]:
@@ -433,6 +462,14 @@ def main() -> None:
     ap.add_argument("--drill-replay-ckpt", default=None,
                     help="PINNED mainline replay ckpt (the source games' "
                          "generator; required with --drill-selection)")
+    ap.add_argument("--drill-eval-set", default=None,
+                    help="held-out drill evalset dir (grindstone evalset) for "
+                         "the mid-run decomposition phase — advisory per-bin "
+                         "reads; requires --drill-eval-every")
+    ap.add_argument("--drill-eval-every", type=int, default=0,
+                    help="run the drill-eval phase every N iterations "
+                         "(0 = off; 10 = iters 9 and 19 on a 20-iter run — "
+                         "the halfway kill/continue read + the closing read)")
     ap.add_argument("--reask", action="store_true",
                     help="re-ask-on-veto (d6-vtrace-loop §6b) for generation AND "
                          "arms — an environment change; arms are only comparable "
@@ -443,6 +480,8 @@ def main() -> None:
     if args.drill_selection and not args.drill_replay_ckpt:
         ap.error("--drill-selection requires --drill-replay-ckpt "
                  "(the pinned source-game generator)")
+    if bool(args.drill_eval_set) != bool(args.drill_eval_every):
+        ap.error("--drill-eval-set and --drill-eval-every go together")
 
     # GPU cotenancy insurance (2026-07-16 OOMs beside a resident ComfyUI):
     # reclaims allocator fragmentation for this process and all subprocesses
@@ -697,6 +736,10 @@ def main() -> None:
             _run([sys.executable, "scripts/arms_report.py",
                   "--arm", f"iter{k:03d}={','.join(arm_dirs)}",
                   "--out", str(it_dir / "arms-report.json")])
+
+        # ---- mid-run drill-evalset decomposition (advisory; own server) ----
+        if args.drill_eval_every and (k + 1) % args.drill_eval_every == 0:
+            _drill_eval_phase(args, state, k, it_dir)
 
     print(f"[selfplay] loop complete: {state['iteration']} iterations, "
           f"final ckpt {state['ckpt']}")

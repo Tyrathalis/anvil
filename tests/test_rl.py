@@ -248,3 +248,40 @@ def test_drill_slice_rotates_and_wraps():
     assert all(len({r["g"] for r in s}) == 3 for s in (s0, s1, s2))
     # ppi >= n: one full pass, no duplicates
     assert [r["g"] for r in drill_slice(rows, 4, 10)] == [5, 6, 0, 1, 2, 3, 4][:7]
+
+
+def test_drill_eval_phase_idempotent_and_picks_new_report(tmp_path, monkeypatch):
+    import argparse
+    import json as _json
+
+    from anvil.training import selfplay
+
+    es = tmp_path / "evalset"
+    es.mkdir()
+    it_dir = tmp_path / "iter-009"
+    it_dir.mkdir()
+    # a pre-existing report from an earlier (baseline) eval must NOT be
+    # mistaken for this phase's output
+    (es / "eval-20260101-000000.json").write_text("{}")
+    rep = {"winrate": 0.42, "baseline": 0.36,
+           "per_bin": {"lost": {"winrate": 0.12, "baseline": 0.05}}}
+    calls = []
+
+    def fake_run(cmd):
+        calls.append(cmd)
+        (es / "eval-20260102-000000.json").write_text(_json.dumps(rep))
+
+    monkeypatch.setattr(selfplay, "_run", fake_run)
+    monkeypatch.setattr(selfplay, "_notify", lambda *a, **k: None)
+    args = argparse.Namespace(drill_eval_set=str(es), port=1, workers=2,
+                              name="t")
+    state = {"ckpt": "ckpt.pt"}
+
+    selfplay._drill_eval_phase(args, state, 9, it_dir)
+    assert len(calls) == 1 and "ckpt.pt" in calls[0]
+    saved = _json.loads((it_dir / "drill-eval.json").read_text())
+    assert saved["per_bin"]["lost"]["winrate"] == 0.12
+
+    # resume-idempotent: existing drill-eval.json short-circuits
+    selfplay._drill_eval_phase(args, state, 9, it_dir)
+    assert len(calls) == 1
