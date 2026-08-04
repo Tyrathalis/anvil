@@ -50,6 +50,8 @@ def notify(title: str, msg: str, tag: str = "anvil") -> None:
     the at-desk fallback. Never raises: no notification path may kill the job
     it exists to report on."""
     print(f"[{tag}] NOTIFY: {title} — {msg}", flush=True)
+    if os.environ.get("ANVIL_NOTIFY_SILENT"):
+        return  # test seam — see anvil_watchd._notify
     cmds = []
     if os.environ.get("ANVIL_NOTIFY_CMD"):
         cmds.append([os.environ["ANVIL_NOTIFY_CMD"], title, msg])

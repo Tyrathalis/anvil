@@ -50,6 +50,10 @@ STATE_PATH = WATCH_DIR.parent / "watch-state.json"
 
 def _notify(title: str, msg: str) -> None:
     print(f"[watchd] NOTIFY: {title} — {msg}", flush=True)
+    if os.environ.get("ANVIL_NOTIFY_SILENT"):
+        return  # test seam (sibling of ANVIL_WATCH_DIR): the stdout line is
+        # the assertable event; without this, every suite run popped a real
+        # "anvil t2 GONE" desktop alert from the fabricated-crash test
     cmds = []
     if os.environ.get("ANVIL_NOTIFY_CMD"):
         cmds.append([os.environ["ANVIL_NOTIFY_CMD"], title, msg])

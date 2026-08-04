@@ -14,7 +14,8 @@ SCRIPT = Path(__file__).parents[1] / "scripts" / "anvil_watchd.py"
 
 
 def _run(tmp_path, *args):
-    env = {**os.environ, "ANVIL_WATCH_DIR": str(tmp_path / "watch")}
+    env = {**os.environ, "ANVIL_WATCH_DIR": str(tmp_path / "watch"),
+           "ANVIL_NOTIFY_SILENT": "1"}
     return subprocess.run([sys.executable, str(SCRIPT), *args],
                           env=env, capture_output=True, text=True, timeout=30)
 
