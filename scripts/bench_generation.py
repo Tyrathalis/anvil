@@ -18,6 +18,17 @@ Caveat when reading the result: chunk size CAPS parallelism. With the
 driver's default chunk 30 and 480 games/iteration there are only 16 chunks,
 so a worker count above 16 cannot help no matter what the GPU can serve.
 
+CHUNK-TAIL HAZARD (learned 2026-08-03 the expensive way): if an arm gets
+fewer than 2 chunks per worker there is no refill — elapsed time equals the
+SLOWEST worker's chunk, and chunks are contiguous deck-pair blocks with
+heavily correlated game lengths. A single-arm `--workers 8` invocation used
+to size chunk = games/8 (exactly one round), which measured ~37% slow with
+an 11x worker-finish tail and masqueraded as an environment regression
+(seven exonerated suspects, one kernel swap, two package downgrades). Every
+arm now gets >=2 rounds by construction; the divisibility error tells you a
+valid --games. Cross-era throughput comparisons are only valid at IDENTICAL
+chunking.
+
 Usage: uv run python scripts/bench_generation.py [--games 240] [--workers 8,16]
 """
 from __future__ import annotations
@@ -41,7 +52,7 @@ CKPT = "data/training/d6-run7b/iter-014/train/last.pt"
 
 
 def arm(workers: int, games: int, chunk: int, gpp: int, port: int,
-        seed_base: int) -> dict:
+        seed_base: int, calibrated: bool = False) -> dict:
     purpose = f"genbench-w{workers}"
     before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
     cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
@@ -50,6 +61,8 @@ def arm(workers: int, games: int, chunk: int, gpp: int, port: int,
            "--bridge", f"grpc:localhost:{port}",
            "--obs", "--census", "--reask",
            "--purpose", purpose, "--seed-base", str(seed_base)]
+    if calibrated:
+        cmd.append("--calibrated")
     t0 = time.monotonic()
     p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     elapsed = time.monotonic() - t0
@@ -81,17 +94,38 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=50068)
     ap.add_argument("--seed-base", type=int, default=20260726)
     ap.add_argument("--out", default="data/runs/generation-bench.json")
+    ap.add_argument("--chunk", type=int, default=0,
+                    help="explicit chunk size (0 = auto: >=2 rounds per arm); "
+                         "refuses tail-bound configs (<2 rounds at the widest "
+                         "arm)")
+    ap.add_argument("--calibrated", action="store_true",
+                    help="pass --calibrated to the harness: workers NOT "
+                         "reniced (nice differential measured ~1%% — the "
+                         "2026-08-03 '37%% slow' was the chunk-tail artifact, "
+                         "not nice)")
     a = ap.parse_args()
     sys.stdout.reconfigure(line_buffering=True)
 
     workers = [int(w) for w in a.workers.split(",")]
-    n_chunks = max(workers)  # one round at the widest arm, whole rounds below
-    chunk = a.games // n_chunks
-    if chunk * n_chunks != a.games:
-        sys.exit(f"--games {a.games} must divide by {n_chunks} "
-                 f"(the widest worker count) for whole rounds in every arm")
-    print(f"[genbench] {a.games} games, chunk {chunk} -> {n_chunks} chunks; "
-          f"arms {workers}")
+    if a.chunk:
+        chunk = a.chunk
+        n_chunks = a.games // chunk
+    else:
+        # >=2 rounds for EVERY arm including the widest — a no-refill arm
+        # measures its slowest contiguous pair-block, not throughput
+        n_chunks = 2 * max(workers)
+        chunk = a.games // n_chunks
+    if chunk == 0 or chunk * n_chunks != a.games:
+        lo = (a.games // n_chunks) * n_chunks
+        good = ", ".join(str(g) for g in (lo, lo + n_chunks) if g)
+        sys.exit(f"--games {a.games} must divide into whole chunks "
+                 f"({n_chunks} needed); nearby valid --games: {good}")
+    if n_chunks < 2 * max(workers):
+        sys.exit(f"chunk {chunk} gives {n_chunks} chunks for {max(workers)} "
+                 f"workers (<2 rounds) — the tail-bound regime measures the "
+                 f"slowest worker, not throughput. Use a smaller --chunk.")
+    print(f"[genbench] {a.games} games, chunk {chunk} -> {n_chunks} chunks "
+          f"({n_chunks / max(workers):.0f} rounds at widest); arms {workers}")
 
     server = _start_server(CKPT, a.port, RUNS_DIR / "genbench-server.log",
                            sample=True, mu_out=RUNS_DIR / "genbench-mu.jsonl",
@@ -100,7 +134,8 @@ def main() -> None:
     try:
         for w in workers:
             print(f"[genbench] workers={w} ...")
-            r = arm(w, a.games, chunk, a.games_per_pair, a.port, a.seed_base)
+            r = arm(w, a.games, chunk, a.games_per_pair, a.port, a.seed_base,
+                    calibrated=a.calibrated)
             print(f"           {r}")
             results.append(r)
     finally:
