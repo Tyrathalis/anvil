@@ -10,19 +10,13 @@ game index -> pair via (index // games_per_pair) % n_pairs.
 
 from __future__ import annotations
 
-import json
 import random
 import sys
 from pathlib import Path
 
-from anvil.pool import POOL_DIR
-
-
-def latest_pool_manifest() -> dict:
-    manifests = sorted(POOL_DIR.glob("pool-*.json"), key=lambda p: p.stat().st_mtime)
-    if not manifests:
-        sys.exit("no pool manifest under data/pool/ — run `python -m anvil.pool build` first")
-    return json.loads(manifests[-1].read_text())
+# pinned CURRENT resolver (2026-08-03; was newest-mtime here — the M3
+# standing hazard). Re-exported: harness callers import it from this module.
+from anvil.pool import current_manifest as latest_pool_manifest  # noqa: F401
 
 
 def pair_schedule(deck_files: list[str], n_pairs: int, seed: int) -> list[tuple[str, str]]:

@@ -51,11 +51,16 @@ def main() -> None:
         manifests = sorted(POOL_DIR.glob("pool-*.json"))
         print(f"raw decks: {raws}")
         print(f"banlist snapshots: {len(list(POOL_DIR.glob('raw/banlist-*.json')))}")
-        if manifests:
-            m = json.loads(manifests[-1].read_text())
-            print(f"latest manifest: {manifests[-1].name} — {m['counts']}")
+        print(f"manifests built: {len(manifests)}")
+        current = POOL_DIR / "CURRENT"
+        if current.exists():
+            from anvil.pool import current_manifest
+            m = current_manifest()
+            print(f"ACTIVE (data/pool/CURRENT): pool-{m['pool_version']} "
+                  f"— {m['counts']}")
         else:
-            print("no manifest built yet")
+            print("no CURRENT pin — run `python -m anvil.pool build` or "
+                  "write a version to data/pool/CURRENT")
 
 
 if __name__ == "__main__":

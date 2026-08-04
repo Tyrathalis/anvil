@@ -124,6 +124,9 @@ def build() -> dict:
     manifest["pool_version"] = pool_hash[:8]
     out = POOL_DIR / f"pool-{pool_hash[:8]}.json"
     out.write_text(json.dumps(manifest, indent=2, sort_keys=True))
+    # a fresh build pins itself as the active pool (matches the old
+    # newest-mtime behavior on purpose, minus the accidental-reorder hazard)
+    (POOL_DIR / "CURRENT").write_text(pool_hash[:8] + "\n")
 
     _write_report(manifest, unresolved_freq, flex_unresolved)
     return {"manifest": str(out), "pool_version": pool_hash[:8], **manifest["counts"],

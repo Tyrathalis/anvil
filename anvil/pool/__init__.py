@@ -23,6 +23,34 @@ FLEX_FILE = POOL_DIR / "flex.txt"
 OVERRIDES_FILE = POOL_DIR / "overrides.json"
 
 
+def current_manifest_path() -> Path:
+    """The ACTIVE pool manifest, resolved through the data/pool/CURRENT pin
+    (one line: the pool version; written by `anvil.pool build`).
+
+    Selection was newest-mtime until 2026-08-03 (the M3 standing hazard): a
+    checkout, backup restore, or stray touch could silently repoint game
+    generation at a stale pool and stamp its version into run provenance —
+    final_read included. A dangling or missing pin fails loudly instead.
+    """
+    import sys
+    current = POOL_DIR / "CURRENT"
+    if not current.exists():
+        sys.exit(f"{current} missing — pin the active pool with "
+                 f"`python -m anvil.pool build`, or write its version "
+                 f"(e.g. cf2ca6ba) there by hand")
+    version = current.read_text().strip()
+    manifest = POOL_DIR / f"pool-{version}.json"
+    if not manifest.exists():
+        sys.exit(f"{current} pins {version!r} but {manifest.name} does not "
+                 f"exist under {POOL_DIR}")
+    return manifest
+
+
+def current_manifest() -> dict:
+    import json
+    return json.loads(current_manifest_path().read_text())
+
+
 def verify_installed_decks(deck_files, decks_out_dir=None, installed_dir=None):
     """Hash-compare installed pool decks against their built sources.
 

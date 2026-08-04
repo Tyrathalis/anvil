@@ -37,10 +37,9 @@ FORGE_GUI_DIR = FORGE_DIR / "forge-gui"
 
 
 def latest_manifest() -> dict:
-    manifests = sorted(POOL_DIR.glob("pool-*.json"), key=lambda p: p.stat().st_mtime)
-    if not manifests:
-        sys.exit("no pool manifest — run `python -m anvil.pool build` first")
-    return json.loads(manifests[-1].read_text())
+    # data/pool/CURRENT pin (2026-08-03); was newest-mtime
+    from anvil.pool import current_manifest
+    return current_manifest()
 
 
 def pair_schedule(deck_files: list[str], n_pairs: int, seed: int) -> list[tuple[str, str]]:

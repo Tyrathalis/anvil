@@ -106,6 +106,37 @@ def test_banlist_section_attribution():
     assert "${data.card_name}" not in names
 
 
+def test_current_manifest_pin_beats_mtime(tmp_path, monkeypatch):
+    """The active pool resolves through data/pool/CURRENT, never mtime
+    (M3 standing hazard, retired 2026-08-03): a stale-but-newer manifest
+    must not be picked, and a missing/dangling pin must fail loudly."""
+    import json
+    import os
+    import time
+
+    import anvil.pool as pool_mod
+
+    monkeypatch.setattr(pool_mod, "POOL_DIR", tmp_path)
+    (tmp_path / "pool-aaaa1111.json").write_text(
+        json.dumps({"pool_version": "aaaa1111"}))
+    (tmp_path / "pool-bbbb2222.json").write_text(
+        json.dumps({"pool_version": "bbbb2222"}))
+    # make the WRONG one newest by mtime
+    later = time.time() + 60
+    os.utime(tmp_path / "pool-bbbb2222.json", (later, later))
+
+    import pytest
+    with pytest.raises(SystemExit):  # no pin: loud, never a silent fallback
+        pool_mod.current_manifest_path()
+
+    (tmp_path / "CURRENT").write_text("aaaa1111\n")
+    assert pool_mod.current_manifest()["pool_version"] == "aaaa1111"
+
+    (tmp_path / "CURRENT").write_text("gone9999\n")
+    with pytest.raises(SystemExit):  # dangling pin: loud
+        pool_mod.current_manifest_path()
+
+
 def test_verify_installed_decks(tmp_path):
     from anvil.pool import verify_installed_decks
 

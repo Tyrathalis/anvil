@@ -32,11 +32,9 @@ MODELS = {
 
 
 def _latest_manifest() -> Path:
-    pool_dir = REPO.parent / "data/pool"
-    manifests = sorted(pool_dir.glob("pool-*.json"), key=lambda p: p.stat().st_mtime)
-    if not manifests:
-        sys.exit("no pool manifest — run `python -m anvil.pool build` first")
-    return manifests[-1]
+    # data/pool/CURRENT pin (2026-08-03); was newest-mtime
+    from anvil.pool import current_manifest_path
+    return current_manifest_path()
 
 
 def _load(manifest_path: Path) -> tuple[dict, dict[str, str]]:

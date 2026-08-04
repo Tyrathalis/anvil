@@ -44,10 +44,10 @@ def main() -> None:
     ap.add_argument("--critic", default=CRITIC)
     ap.add_argument("--pool-version", default=None,
                     help="pool manifest version to stamp on the runs. Default "
-                         "resolves the same manifest the harness would use — "
-                         "ingest warns 'provenance is incomplete' without it, "
-                         "and latest_pool_manifest() picks by MTIME, so an "
-                         "untouched pin is worth recording explicitly.")
+                         "resolves the same manifest the harness would use "
+                         "(the data/pool/CURRENT pin since 2026-08-03; the "
+                         "old mtime-selection hazard is retired) — ingest "
+                         "warns 'provenance is incomplete' without it.")
     a = ap.parse_args()
     # Self-registration with the standing watcher: the read reports its OWN
     # pid (the 07-31 chain waiter grabbed a pgrep'd pid that was its own
