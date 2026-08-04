@@ -30,6 +30,54 @@ Substrate: `run11-i019-finalarm-s{0,1}` (2,000 games, standing seeds 20260710, o
 
 Byproduct: the map + sweep labels roughly double the critic calibration set for D3.
 
+#### Migration read — RECORDED 2026-08-04 (before any cycle-2 training)
+
+Curation ran verbatim (decision 4): `early_doom` trace+analyze on
+`run11-i019-finalarm-s{0,1}` with the iter-019 critic
+(`early-doom-run11-i019`) + the d4-critic-fullvis cross-check
+(`early-doom-run11-d4crit`); comparison computed by
+`scripts/migration_read.py` (both critic pairings — the on-policy pair
+is method-verbatim, the d4crit pair is the fixed-instrument control;
+every number below replicates across both).
+
+| Pre-registered quantity | Cycle 1 (run9) | Cycle 2 (run11-i019) |
+|---|---|---|
+| Substrate winrate | 0.5225 (954 losses) | 0.5303 (938 losses) |
+| Addressable losses | 584 (61.2%) | **576 (61.4%)** |
+| Luck-locked sweep (from turn 3, θ .30–.55) | 19.4–46.0% | 18.9–44.9% |
+| Single-step ≥30pp collapses | 208 / 82 model-decks | 215 / 80 model-decks |
+| crash_from_turn quartiles | 10 / 13 / 20 | 9 / 13 / 19 |
+| peak_v mean | 0.723 | 0.726 |
+
+Seed-level migration (substrates share the standing seeds, so games
+match per (seat, seed) — same matchup + opener, different policy): of
+cycle-1's 584 addressable losses, **28.9% converted to wins; 63.5% are
+still addressable losses with the crash turn unmoved (median Δ = 0.0,
+peak_v Δ +0.006)**; 35.6% of cycle-2's stock is new seeds. ≥30pp
+collapse-deck overlap 68/82 (Jaccard 0.72). Same-instrument (d4crit):
+29.3% converted, 66.6% retained, crash-turn Δ +0.04. **Memorization
+check (supplementary, not pre-registered): drilled games converted at
+28.9% vs undrilled 29.1% (z = −0.05)** — the cycle-1 gain was fully
+general; drilling a game's collapse window did not preferentially fix
+that game.
+
+**Verdict against the pre-registered signatures: one-shot-consistent.**
+The ratchet signature required collapse points later/higher-value with
+the stock stable; the stock-stability half holds (576 ≈ 584) but the
+migration half fails cleanly — every distribution (crash turn, peak
+value, luck-locked share, collapse count) is unmoved, and two-thirds of
+the same windows re-surface on the same seeds with the same crash
+turns. The ambiguity risk did not materialize; this is the clean
+one-shot profile. What cycle 1 actually did, per this read: a diffuse
+general improvement that converted ~29% of the addressable stock
+uniformly while the stock replenished at the same level — drainage, not
+up-leveling. Recorded prediction (the read predicts, the run decides):
+favors Δ2 < Δ1 with the binding constraint at transfer/conversion, NOT
+stock (stock is undiminished, so D2's decomposition should not find a
+stock shortfall). Sizing note resolved: 576 points ⇒ no selection-v3
+shortfall vs the ~300-pt floor; the f≈20% rotation sizing carries over
+unchanged.
+
 ### D2 — The cycle-2 run + the compounding read (the spine)
 
 `d6-run12` = run11 recipe **verbatim** except: init + critic + mainline pin `d6-run11/iter-019`, `--drill-selection` v3, `--workers 16` (chunk ceiling 30, per-batch clamp), fresh seed base, `--drill-eval-every 10` (the mid-run kill/continue read, now a standing driver phase). 20 iterations ≈ 12 h at the w=16 rate. Guards + self-registered watcher.
@@ -52,8 +100,8 @@ The banked ground truth (~1,900 labels from the cycle-1 map + sweep, plus D1's n
 
 ## Risks and open questions
 
-- **The migration read may be ambiguous** (profiles partially shifted). Pre-registering the two clean signatures (D1.2) limits post-hoc storytelling; an ambiguous profile is reported as such and the run still decides.
-- **Fewer addressable losses than cycle 1** would shrink the selection below the f≈20% rotation's appetite (409 pts fed ~23 iters at 15/iter). If selection v3 lands under ~300 pts, the rotation shortens or ppi drops — a sizing note, not a blocker; record whichever adjustment is made.
+- ~~**The migration read may be ambiguous**~~ (RESOLVED 2026-08-04: it wasn't — clean one-shot profile, see the D1 migration read section).
+- ~~**Fewer addressable losses than cycle 1**~~ (RESOLVED 2026-08-04: 576 vs 584 — no shortfall; rotation sizing carries over).
 - **Seed reuse in the substrate:** the finalarm reads use standing seeds, so cycle-2 curation games share seeds (not games — the policy differs) with cycle-1's substrate. Drill provenance is per-game replay, so this is sound; noted so nobody "fixes" it.
 - **Winnable residual (−5.1pp) is deliberately untouched in cycle 2.** If Δ2 lands marginal and the decomposition shows the residual widening, the composition levers (ahead-weight, per-bin slices) become cycle 3's first experiment — with the slope question already answered.
 - **Two-front discipline:** serve-path and driver changes land only between runs (no-tree-edits rule); the w=16 adoption is already landed and mini-run-validated.
