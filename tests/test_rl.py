@@ -235,6 +235,19 @@ def test_iteration_batches_and_replay_mixture():
     assert weights2 == [0.33, 0.33, 1.0, 1.0, 1.0]
 
 
+def test_batch_chunk_guarantees_two_rounds():
+    """Chunk-tail hazard (2026-08-03 retraction): a batch with fewer than two
+    chunks per worker is paced by its slowest worker's contiguous block. Each
+    generation batch clamps args.chunk so every worker sees >=2 refills."""
+    from anvil.training.selfplay import batch_chunk
+
+    assert batch_chunk(240, 16, 30) == 7   # w=16 mirror batch at heur_frac .5
+    assert batch_chunk(120, 16, 30) == 3   # w=16 heur seat batch
+    assert batch_chunk(240, 8, 30) == 15   # the standard recipe de-tails too
+    assert batch_chunk(480, 8, 30) == 30   # big pool: the ceiling holds
+    assert batch_chunk(10, 16, 30) == 1    # tiny batch floors at 1, never 0
+
+
 def test_drill_slice_rotates_and_wraps():
     from anvil.training.selfplay import drill_slice
     rows = [{"g": i} for i in range(7)]

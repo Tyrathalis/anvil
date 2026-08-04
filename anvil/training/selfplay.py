@@ -141,13 +141,24 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
 
 
+def batch_chunk(games: int, workers: int, chunk: int) -> int:
+    """Per-batch chunk size: a batch that resolves to fewer than two chunks
+    per worker is tail-bound — elapsed becomes the slowest worker's contiguous
+    deck-pair block (an 11x finish-time spread observed in the wild; see the
+    2026-08-03 bench retraction). args.chunk is a ceiling; each generation
+    batch (mirror / heur splits are separate launches) shrinks it so every
+    worker gets at least two rounds of refill."""
+    return max(1, min(chunk, games // (2 * workers)))
+
+
 def _launch_games(purpose: str, games: int, start_index: int, a,
                   bridge_seats: "int | None" = None) -> Path:
     before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
     cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
            "--games", str(games), "--games-per-pair", str(a.games_per_pair),
            "--start-index", str(start_index), "--workers", str(a.workers),
-           "--chunk", str(a.chunk), "--bridge", f"grpc:localhost:{a.port}",
+           "--chunk", str(batch_chunk(games, a.workers, a.chunk)),
+           "--bridge", f"grpc:localhost:{a.port}",
            "--obs", "--census", "--purpose", purpose,
            "--seed-base", str(a.seed_base)]
     if bridge_seats is not None:
