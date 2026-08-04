@@ -210,7 +210,8 @@ def main() -> None:
                 limit=a.limit))
             gs.generate(argparse.Namespace(
                 manifest=str(arm_dir), ckpt=None, k=None, port=a.port,
-                workers=a.workers, chunk=a.chunk, drill_stop=True))
+                workers=a.workers, chunk=a.chunk, drill_stop=True,
+                fork_obs=False, drill_ckpt=None, sample_forks=False))
             gs.report(argparse.Namespace(manifest=str(arm_dir)))
 
         summary = _summarize(a.out, arms)
