@@ -1,8 +1,9 @@
 # ADR-0034: M5 opening sequence — Grindstone cycle 2, the compounding question
 
 - **Date:** 2026-08-03
-- **Status:** proposed (core direction user-agreed 2026-08-03; structure
-  drafted same session for confirmation at the next working session)
+- **Status:** accepted (core direction user-agreed 2026-08-03; full
+  structure — including proposed decisions 3–5 and the draft done-when —
+  confirmed by user same session)
 - **Design-doc anchor:** §6 (Grindstone); seeds the M5 plan doc per the
   M1–M4 pattern
 - **Inputs:** [ADR-0033](ADR-0033-m4-closeout.md) (closeout + carried
@@ -84,7 +85,7 @@ Two structural facts shape the design:
    every run generates on fork `master` @ the current pin; guards +
    watcher on every run.
 
-## Done-when (draft)
+## Done-when (confirmed with the ADR)
 
 1. **Cycle-2 curation/selection/evalset v3 online** with the
    cycle-over-cycle profile comparison recorded (the collapse-point

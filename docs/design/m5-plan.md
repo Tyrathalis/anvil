@@ -1,6 +1,6 @@
 # M5 plan — Grindstone cycle 2: the compounding question
 
-**Date:** 2026-08-03 (DRAFT — seeded by [ADR-0034](../decisions/ADR-0034-m5-opening-sequence.md); structure pending user confirmation at the next working session).
+**Date:** 2026-08-03 (seeded by [ADR-0034](../decisions/ADR-0034-m5-opening-sequence.md); structure confirmed by user same session — M5 is OPEN).
 **Anchors:** [ADR-0033](../decisions/ADR-0033-m4-closeout.md) (M4 closeout + carried inventory); [ADR-0031](../decisions/ADR-0031-a2-resolution.md) (the cycle-1 win; the curation-staleness rule this milestone obeys); [ADR-0030](../decisions/ADR-0030-d3-experiment-a-resolution.md) (curriculum-composition mechanism); [ADR-0032](../decisions/ADR-0032-d4-serving-path-resolution.md) (w=16 recipe); [m4-plan.md](m4-plan.md) (the pattern this doc follows).
 **Question answered:** does the drill loop compound — and if not, why not, precisely enough to decide what replaces cycling.
 
@@ -8,13 +8,13 @@
 
 M4 proved one full Grindstone cycle produces an outside-noise win (+1.98pp ± 0.71). M5 runs the loop a second time from the promoted checkpoint's own losses and measures the slope: the user's ratchet hypothesis (fixed decisions move collapse points up-level; training on the *new* collapse points narrows toward a higher level of play) against the one-shot alternative (cycle 1 harvested a fixed error stock and a second pass re-finds residue). The design is deliberately near-verbatim — the only deltas from the cycle-1 winning run are the ones forced by promotion (init/pin iter-019), staleness (selection/evalset v3), throughput (w=16, behavior-neutral by construction), and seeds — because every other delta confounds the slope reading. The curation stage itself gives an early, cheap read: cycle-2's loss profile vs cycle-1's 584-loss profile says whether collapse points actually moved before a single training game is played. One promoted secondary that does NOT touch cycle 2: critic calibration against the ~1,900 banked K-rollout ground-truth labels, adopted for cycle-3 use only on measured improvement.
 
-## Settled and proposed decisions (ADR-0034)
+## Settled decisions (user 2026-08-03, recorded in ADR-0034)
 
-1. **(User-agreed)** M5 = cycle 2 now, for cross-pass comparability; headline = Δ2 vs Δ1.
-2. **(User-agreed)** Both slope verdicts are acceptable closes; a flat result must be decomposed (curation profile vs held-out transfer vs conversion trade), not just recorded.
-3. **(Proposed)** Critic calibration = the promoted secondary, cycle-3-facing, Ante correctness riders attached.
-4. **(Proposed)** Curation method verbatim from cycle 1 so the profile comparison is clean.
-5. **(Proposed)** Escalation (b) parked unless flat-AND-signal-indicted.
+1. M5 = cycle 2 now, for cross-pass comparability; headline = Δ2 vs Δ1.
+2. Both slope verdicts are acceptable closes; a flat result must be decomposed (curation profile vs held-out transfer vs conversion trade), not just recorded.
+3. Critic calibration = the promoted secondary, cycle-3-facing, Ante correctness riders attached.
+4. Curation method verbatim from cycle 1 so the profile comparison is clean.
+5. Escalation (b) parked unless flat-AND-signal-indicted.
 6. **(Carried)** w=16 recipe; drill mainlines never ingest; D2.4 pairing protocol; fresh-seed tiebreaker; promotion on cleared gate; guards + watcher.
 
 ## Deliverables
