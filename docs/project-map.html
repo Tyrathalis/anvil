@@ -81,18 +81,18 @@ Non-commercial, GPL-aligned, designed to be contributed back to Forge. Solo nigh
 &nbsp;·&nbsp; <span class="pill done">M0 closed</span> <span class="pill done">M1 closed</span> <span class="pill done">M2 closed</span> <span class="pill done">M3 closed</span> <span class="pill live">M4 open</span></p>
 <p class="sub"><b>Start here:</b> <a href="design/anvil-design-v2.md">the design doc</a> (why and what)
 → <a href="forge-ai-field-guide.md">the field guide</a> (what we learned the hard way)
-→ <a href="design/m4-plan.md">the latest milestone plan</a> (M4 — Grindstone, opened 07-28 by <a href="decisions/ADR-0027-m4-opening-sequence.md">ADR-0027</a>).
+→ <a href="design/m4-plan.md">the latest milestone plan</a> (M4 — Grindstone, closed 08-03 by <a href="decisions/ADR-0033-m4-closeout.md">ADR-0033</a>; M5 scoping in progress).
 Full closed-track history: <a href="status-archive.md">the status archive</a>.</p>
 
 <h2>Now <span style="font-weight:normal;font-size:.8rem;color:var(--muted)">(as of 2026-08-03)</span></h2>
 <div class="cards">
-  <div class="card now"><h3>Research — M4 <span class="pill done">all 4 clauses ✓</span></h3>
-    <p><b>D4 CLOSED (<a href="decisions/ADR-0032-d4-serving-path-resolution.md">ADR-0032</a>, 08-03): the lever was generation shape, not serve-path code.</b> Profile = documented negative (0.05 ms Python-active/request — the ceiling is waiting); the noise floor caught the chunk-tail artifact (false "37% regression", retracted same day) and the §6d batch split made it a live loop defect. Landed: per-batch ≥2-round chunk clamp + <b>standing recipe adopts w=16</b>; mini-run <code>d4-w16val</code> validated <b>~+30% in-loop generation</b> (1589/1183/1291 g/h vs run11 median 1025) ≈ 2 h returned per 20-iter run.</p>
+  <div class="card now"><h3>Research — M5 scoping <span class="pill live">opening</span></h3>
+    <p><b>M4 CLOSED (<a href="decisions/ADR-0033-m4-closeout.md">ADR-0033</a>, 08-03): all four clauses resolved</b> — drill loop online, first outside-noise drill-signal win (+1.98pp t=2.77), baseline 0.5121→<b>0.5316</b>, serve path attributed + generation ~+30% (w=16 recipe). Pool mtime hazard retired at close (<code>data/pool/CURRENT</code> pin).</p>
+    <p><b>M5 = Grindstone cycle 2 — the compounding question (direction agreed with user):</b> re-curate from iter-019's own losses, run the loop again, measure whether the second pass's increment slopes up or down. The bet: fixed decisions move the collapse points up-level; training on the NEW collapse points narrows toward a higher level of play — a ratchet, not a one-shot.</p>
     <ul>
-      <li><b>ALL FOUR M4 done-when clauses now satisfied</b> (#1 ADR-0028, #2 D2.4, #3 ADR-0031, #4 ADR-0032) — <b>milestone-close decision pending user</b></li>
-      <li><b>Ckpt of record: <code>d6-run11/iter-019</code>, baseline 0.5316 ± 0.011</b> (promoted 08-02; winnable −5.1pp residual documented)</li>
-      <li>Before any future drill run: regenerate curation from iter-019's own losses (run9-derived selection is stale vs the new policy)</li>
-      <li>Escalation (b) now opt-in for further gains — no longer ladder-required</li>
+      <li>First: curation regen from iter-019 losses (substrate = the run11 closing-read stores, obs on)</li>
+      <li>Levers on file: critic calibration (~1,900 K-rollout labels), winnable-residual repair, escalation (b) opt-in</li>
+      <li>Ckpt of record: <code>d6-run11/iter-019</code>, baseline 0.5316 ± 0.011</li>
     </ul></div>
   <div class="card now"><h3>Chronicle <span class="pill live">D3 v1 + round 1</span></h3>
     <p>Reveal scene v1 shipped 08-01 (<code>8c2134fdbf</code>) and survived its first live round same evening (5 commits → <code>ba94fc4cfd</code>): dev-mode day-advance/cash tools, booster art actually fetching (stock bug — never downloaded anywhere), NEW = truly-first-copy, pacing retune, visible pause prompt. Done-when stays open (experiential bar — iterate through D5).</p>
@@ -126,7 +126,7 @@ Full closed-track history: <a href="status-archive.md">the status archive</a>.</
   <li><b>Upstream:</b> <a href="https://github.com/Card-Forge/forge/pull/11285">#11285</a> determinism hooks awaiting review (nudge queued via the #11360 complementarity comment); chat rate limiting <a href="https://github.com/Card-Forge/forge/pull/11457">#11457</a> open.</li>
   <li><b>Upstream candidates queued</b> (evidence in hand, not yet filed): monarchy-transfer copy fix · <code>RestartUtil</code> ProcessBuilder fix · quest BALANCED all-colors empty pool · nested-folder storage stub · tap-angle hit-test generalization · stock nested-transform composition.</li>
   <li><b>Deferred fixes:</b> MayPlayPlayer <code>.get(0)</code>-on-empty (deterministic repro; folds into the Copier→Snapshot consolidation PR) · targeting-retry hang class (forensics queued).</li>
-  <li><b>Standing hazards:</b> pool-manifest mtime selection (<code>pairs.py:22</code> — a stale pick stamps wrong provenance in <code>final_read</code>) · playable build shares the user deck store with research (<code>launch --pool</code> hash-gates it).</li>
+  <li><b>Standing hazards:</b> playable build shares the user deck store with research (<code>launch --pool</code> hash-gates it). <span style="color:var(--muted)">Retired 08-03: pool-manifest mtime selection — <code>data/pool/CURRENT</code> pin, loud failure on missing/dangling.</span></li>
 </ul>
 
 <div class="stats">
@@ -158,7 +158,7 @@ Full closed-track history: <a href="status-archive.md">the status archive</a>.</
   <tr><td class="num">d6-run10 <span class="num" style="color:var(--muted)">08-01</span></td><td>Drill mixing, f=20% (experiment (a))</td><td>Guard halt iter 16; +1.4pp t≈1.4 = gate not cleared, dose-response flat — but held-out drill gains (+6.6/+6.7pp) cancelled by winnable −9.7pp: <b>transfer asymmetry from an all-behind training list</b> (<a href="decisions/ADR-0030-d3-experiment-a-resolution.md">ADR-0030</a>)</td><td><span class="verdict tie">DIAGNOSED</span></td></tr>
   <tr><td class="num">d6-run11 <span class="num" style="color:var(--muted)">08-02</span></td><td>Rebalanced drill mixing (experiment (a2)): selection-v2 w/ 18.8% ahead-positions, otherwise run10 verbatim</td><td>Full 20 iters, zero halts; <b>combined paired +1.98pp ± 0.71 vs baseline (t=2.77), replicated on fresh seeds</b>; winnable regression halved, behind-gains held (<a href="decisions/ADR-0031-a2-resolution.md">ADR-0031</a>); <b>iter-019 PROMOTED to ckpt of record</b></td><td><span class="verdict pos">POSITIVE</span></td></tr>
   <tr><td class="num">d4-w16val <span class="num" style="color:var(--muted)">08-03</span></td><td>D4 lever validation: run11 recipe off iter-019, w=16 + per-batch chunk clamp, 3 iters, no drills</td><td>Zero halts; <b>1589/1183/1291 g/h vs run11 median 1025 = ~+30% in-loop generation</b>; chunk-3 recycle overhead harmless; ckpts scratch, stores excluded from future mixtures (<a href="decisions/ADR-0032-d4-serving-path-resolution.md">ADR-0032</a>)</td><td><span class="verdict pos">LEVER ✓</span></td></tr>
-  <tr><td class="num" style="color:var(--live)">next</td><td>M4 close decision, then curation regen from iter-019 losses</td><td>All four done-when clauses satisfied; next drill run needs fresh curation (ADR-0031) and launches at w=16 (ADR-0032)</td><td><span class="verdict tie">PENDING</span></td></tr>
+  <tr><td class="num" style="color:var(--live)">next</td><td>M5 cycle-2 drill run: curation regen from iter-019 losses → selection v3 → (a2)-shape run at w=16</td><td>The compounding read: gate vs 0.5316, decomposition on a cycle-2 evalset; slope across passes is the headline number</td><td><span class="verdict tie">PLANNED</span></td></tr>
 </table>
 
 <h2>The smithy (module map)</h2>
@@ -351,8 +351,8 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
 </ul>
 </details>
 
-<details open>
-<summary>M4 — Grindstone: a different signal source <span class="pill live">opened 07-28</span> (plan: <a href="design/m4-plan.md">m4-plan.md</a>; seeded by <a href="decisions/ADR-0027-m4-opening-sequence.md">ADR-0027</a>)</summary>
+<details>
+<summary>M4 — Grindstone: a different signal source <span class="pill done">closed 08-03</span> (<a href="decisions/ADR-0033-m4-closeout.md">ADR-0033</a>) — drill loop online end-to-end · first outside-noise drill-signal win (+1.98pp t=2.77, iter-019 promoted, baseline 0.5121→0.5316) · serve path = documented negative, generation shape = ~+30% · curriculum composition became a first-class lever</summary>
 <p><b>Split milestone, Grindstone spine + one promoted infra deliverable.</b> The diagnosis M4 answers: the standing recipe is at its ceiling and the residual is <b>absent signal</b> in near-tie windows (ADR-0024) — while ~60% of losses are addressable. The mechanical thesis: K rollouts from one forked crash position give the collapsing decision an advantage estimated from K outcomes instead of 1 — variance collapse exactly where signal is missing.</p>
 <p><b>Done-when:</b> (1) re-baseline ADR + M4 baseline ✓ · (2) Grindstone v0 online end-to-end ✓ · (3) a drill-signal run beats the baseline outside noise (or escalation exhausted, negatives to ADR standard) — open · (4) serving path profiled + measured improvement or documented negative — open.</p>
 <ul>
@@ -449,6 +449,7 @@ with exact SA-level labels accumulating via the <code>oi</code> field from every
   <tr><td><a href="decisions/ADR-0030-d3-experiment-a-resolution.md">0030</a></td><td class="num">08-01</td><td>D3 experiment (a): drill mixing at f=20% strength-neutral with diagnosed transfer asymmetry — held-out hard-position gains (+6.6/+6.7pp) cancelled by winnable regression (−9.7pp); training list was all behind-positions by construction; gate not cleared, ckpt of record unchanged; rebalanced (a2) decided as the current plan, escalation (b) armed behind an (a2) negative</td></tr>
   <tr><td><a href="decisions/ADR-0031-a2-resolution.md">0031</a></td><td class="num">08-02</td><td>D3 experiment (a2): rebalanced drill mixing clears the gate — combined paired +1.98pp ± 0.71 vs baseline (t=2.77) over 3,994 games, replicated on fresh seeds; winnable regression halved with dose; fresh-seed confirmation adopted as the standing marginal-t tiebreaker; run11/iter-019 promoted to ckpt of record (new baseline 0.5316)</td></tr>
   <tr><td><a href="decisions/ADR-0032-d4-serving-path-resolution.md">0032</a></td><td class="num">08-03</td><td>D4 resolution: serve-path code attributed as documented negative (0.05 ms Python-active/request; the ceiling is waiting) while the real lever was generation shape — w=16 + per-batch ≥2-round chunk clamp, mini-run-validated ~+30% in-loop (1589/1183/1291 vs run11 median 1025 g/h); recipe adopts w=16; cross-era gen_s comparisons valid only at identical chunking; all four M4 clauses satisfied</td></tr>
+  <tr><td><a href="decisions/ADR-0033-m4-closeout.md">0033</a></td><td class="num">08-03</td><td>M4 closeout: all four clauses TRUE (ADR-0028 / D2.4 / ADR-0031 / ADR-0032); honest headline = drills confirmed as the answer to absent signal, with curriculum composition the surprise first-class lever (behind-drills generalize, all-behind mixtures buy it with conversion regression); baseline closed at 0.5316; pool mtime hazard retired at close; next = M5 Grindstone cycle 2, the compounding question</td></tr>
 </table>
 
 <h2>For other Forge-AI builders</h2>
@@ -477,7 +478,7 @@ eval statistics, info-set enforcement, RL entropy collapse), each with detection
 <p class="foot">Living document — update at milestone boundaries alongside the CLAUDE.md status section;
 the Now panel, state-of-record table, watch list, run ledger and footer stamp are the parts that go stale fastest — sweep them every update.
 Canonical design: <a href="design/anvil-design-v2.md">anvil-design-v2.md</a>. Full closed-track history: <a href="status-archive.md">status archive</a>.
-Last updated 2026-08-03 (<b>research: D4 CLOSED (ADR-0032) — serve path = documented negative (0.05 ms Python-active/request), real lever = generation shape: w=16 + per-batch chunk clamp, mini-run <code>d4-w16val</code> validated ~+30% in-loop; ALL FOUR M4 done-when clauses satisfied, closure decision pending user</b>. Same-day earlier: the "37% environment regression" retracted as the chunk-tail bench artifact; <code>bench_generation</code> hardened; <code>ANVIL_NOTIFY_SILENT</code> test seam (watchd test popped real desktop alerts every suite run).
+Last updated 2026-08-03 (<b>research: M4 CLOSED (ADR-0033) after D4 resolved same-session (ADR-0032: serve path documented negative, generation-shape lever w=16 + chunk clamp = ~+30% in-loop via mini-run <code>d4-w16val</code>); M4 bullet archived, pool mtime hazard retired (<code>data/pool/CURRENT</code> pin), M5 = Grindstone cycle 2 scoping</b>. Same-day earlier: the "37% environment regression" retracted as the chunk-tail bench artifact; <code>bench_generation</code> hardened; <code>ANVIL_NOTIFY_SILENT</code> test seam (watchd test popped real desktop alerts every suite run).
 Prior 08-02: d6-run11 (a2) RESOLVED POSITIVE — first outside-noise drill-signal win, +1.98pp ± 0.71 combined paired (ADR-0031); iter-019 PROMOTED, new baseline 0.5316; playable v14 net-lobby fixes published live during game night).</p>
 
 </main>
