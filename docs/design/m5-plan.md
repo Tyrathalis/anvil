@@ -78,7 +78,7 @@ stock shortfall). Sizing note resolved: 576 points ⇒ no selection-v3
 shortfall vs the ~300-pt floor; the f≈20% rotation sizing carries over
 unchanged.
 
-### D2 — The cycle-2 run + the compounding read (the spine)
+### D2 — The cycle-2 run + the compounding read (the spine) — RESOLVED 2026-08-05 ([ADR-0035](../decisions/ADR-0035-d2-compounding-read-resolution.md)): **Δ2 = −0.58pp ± 0.73 (t=−0.79, 3,995 paired games) vs Δ1 = +1.98pp ± 0.71 ⇒ ONE-SHOT VERDICT.** Gate not cleared, no promotion (ckpt of record stays run11/iter-019, baseline 0.5316). Decomposition: stock undiminished, held-out transfer flat (drill-eval −0.2pp vs run11's +3.9pp), conversion trade returned — the migration read's pre-registered prediction held end to end. Successor lever = curriculum composition; escalation (b) stays parked (signal quality not indicted).
 
 `d6-run12` = run11 recipe **verbatim** except: init + critic + mainline pin `d6-run11/iter-019`, `--drill-selection` v3, `--workers 16` (chunk ceiling 30, per-batch clamp), fresh seed base, `--drill-eval-every 10` (the mid-run kill/continue read, now a standing driver phase). 20 iterations ≈ 12 h at the w=16 rate. Guards + self-registered watcher.
 
