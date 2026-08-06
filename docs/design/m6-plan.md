@@ -34,6 +34,8 @@ Substrate: the 3,750-label calibration set (`data/runs/critic-calibration-v1/` i
 
 Resolution = an ADR with the path verdict and curve evidence.
 
+**RESOLVED 2026-08-05 ([ADR-0039](../decisions/ADR-0039-d1-frozen-probe-resolution.md)): INTERMEDIATE — rising, sample-limited.** Instrument: `scripts/frozen_probe.py` (features + probe passes); dump + report in `data/runs/frozen-probe-v1/`. Held-out Spearman at full size: policy trunk **0.395 (c1) / 0.455 (c2)**, d4 trunk 0.336/0.356 — every cell beats the reproduced critic floor (0.258–0.295 on this exact split) by +0.08–0.18, none approaches 0.7; curves rising in every policy-trunk cell (c2: 0.403→0.413→0.455), ridge at max alpha everywhere = sample-limited signature. The 2K curve point is unreachable within an era (~1.5K train labels/era) — the realized curve is 500→1K→~1.5K. Supplementary: trunk concat and +`[PLAN]` add nothing (trunks redundant); policy trunk out-ranks the full-vis critic trunk in both eras. Notable: linear probe 0.45 vs trained-head 0.27 on the same `[STATE]` vector — the critic's blindness was partly *head* blindness; probe-on-[STATE] is the standing way to ask "can the model see X?". **Per the pre-registered "between" procedure: D2-A labeling re-price runs first (the sanctioned ordering), then a label-expansion tranche (~5–10K/era) extends the curve where it is still rising; the path commitment waits on that extended curve.** D3 unaffected, can run in parallel.
+
 ### D2 — The chosen path, built and gated (the spine; placeholder until D1 resolves)
 
 **Path A — rollout-label value targets / critic replacement:**
