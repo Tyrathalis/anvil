@@ -64,6 +64,22 @@ Recompose **selection v3** (still valid — M5 promoted nothing, so v3 remains i
 
 **DONE 2026-08-05 (user signed off: delete all nine).** Verification before the list: zero operational references in `docs/decisions/`, `scripts/`, `anvil/` (only `bench_learner.py:146`, which recreates `_bench_scratch`); `critic_calibration.py`/`migration_read.py` read only from `critic-calibration-v1`, `drill-map-*-k8`, `drill-evalset-v2/v3`, `drill-selection-v2`, `drill-sweep-*`, `early-doom-*` — none inside a candidate; no drills.jsonl/ckpt/selection/evalset assets or symlinks inside any candidate; ckpts of record confirmed under the separate `data/training/` tree. Bulk anatomy: each dump's weight was one worker's forensic `census.jsonl` (17–26G). Deleted plain (no cold archive): the seven dumps + `_bench_scratch` + `_contaminated`; `data/runs` 213G → 68G (~145G freed).
 
+### Tranche decisions (user 2026-08-06, post-ADR-0040)
+
+- **c2-only first** (iter-019 era): the era of record, the policy path A would train, and the cheapest position supply (run11 closing + run12 fresh-seed stores are all iter-019-era — no old-ckpt serving). c1 extension only if the extended c2 curve is ambiguous.
+- **Fork-stability pass does NOT gate the tranche** (stays the pre-campaign gate): the measured tax (0.77% completion crashes, ~12% re-launch waste) costs a 5–10K tranche hours, not days; the tranche generates fresh crash repros for the pass for free.
+- **K stays 8** (ceiling/noise constants comparable to the banked set).
+- **Position mix mirrors the existing map+sweep shape** (anchor offsets around loss crashes, same curation filter) so extended curve points are comparable to ADR-0039's.
+
+## Efficiency notes (deferred, measure-first — ADR-0040 riders)
+
+The labeler is engine-bound: label price scales with game length and core count, not model or GPU — serve-side work is measured-closed for labeling. Levers on file for a future efficiency examination, none built now:
+
+1. **Mainline early-stop for the sampling labeler** (cheap, mechanical): drill mode's 2.5× is mostly `-drillstop`; the sampler's targets cap at turn 16 while mainlines play to the end — an analogous stop-after-last-fork-point would close most of the gap if a distribution-matched campaign ever runs.
+2. **Parallel K completions per fork point** (the big lever, needs a determinism proof): completions are independent games with order-independent derived seeds, and RNG routes through the determinism hooks' thread-locals — thread-per-completion could approach K× on fork blocks. Must pass a twin-determinism check; obs/forkobs writers need synchronization; concurrent bridge sessions are already supported.
+3. **Label semantics are a 5–10× price knob**: §4's short-horizon rollout deltas (play N turns, not to game end) vs terminal outcomes — if path A lands, choose label semantics as part of the intervention design *with* its price, not after.
+4. **Cheap headroom probes**: ~40% CPU idle at w=16 on 32 cores (workers capped at 2 procs each) — a w=24 labeling arm is one bench invocation; JVM boot amortization is minor.
+
 ## Riders and watches
 
 - **Upstream watches unchanged:** #11285 (+ queued #11360 nudge); consolidation follow-up only on maintainer engagement; connive-lines conflict expected at next rebase (drop ours).
