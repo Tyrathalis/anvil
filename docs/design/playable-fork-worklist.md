@@ -1349,8 +1349,12 @@ shipping builds to other people's machines.
 > guidance for friends is pinned: Temurin 21 JRE via
 > `api.adoptium.net/v3/installer/latest/21/ga/<os>/<arch>/jre/hotspot/normal/eclipse`.
 >
-> **Whose-action tracking BUILT 2026-08-06 (`e9e0830993`, pushed, unreleased —
-> next release carries it): AwaitingInput trackable + avatar indicator rework.**
+> **Whose-action tracking BUILT 2026-08-06, PUBLISHED as v15 2026-08-07
+> (`e9e0830993`, version `2.0.14-SNAPSHOT-08.07`; post-publish routine in
+> full: published jar sha256 = local, stamps match, published manifest
+> parses through the shipped jar's own `DeltaManifest.parse` — 54,800
+> files, commit resolves on the fork): AwaitingInput trackable + avatar
+> indicator rework.** Interactive pass still owed (user, next game night).
 > Game-night complaints: turn/priority avatar outline unclear, and the
 > "Waiting for X" prompt named the wrong player and never updated on
 > handoffs. Diagnosis: both keyed on `HasPriority`, which `PhaseHandler`
