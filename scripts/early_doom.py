@@ -143,6 +143,27 @@ def analyze(args: argparse.Namespace) -> None:
     out_dir = Path(args.out)
     rows = [json.loads(line)
             for line in (out_dir / "traces.jsonl").read_text().splitlines()]
+    # Isotonic remap (M6 D4, ADR-0036 adoption): doom thresholds and the
+    # peak>=0.5 curation filter are ABSOLUTE-calibration reads, so they
+    # consume the era-scoped remap when given one. Traces stay raw on disk
+    # (the instrument reading); the map is an era-scoped lens applied here.
+    isotonic_meta = None
+    if getattr(args, "isotonic", None):
+        if not args.isotonic_key:
+            raise SystemExit("--isotonic requires --isotonic-key (era/critic "
+                             "— era-scoped by ADR-0036, never guessed)")
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from critic_calibration import pav_apply
+        from isotonic_maps import load_map
+        lo, vals = load_map(args.isotonic, args.isotonic_key)
+        for r in rows:
+            vv = pav_apply(np.array([v for _, v in r["vals"]]), lo, vals)
+            r["vals"] = [[t, round(float(v), 4)]
+                         for (t, _), v in zip(r["vals"], vv)]
+        isotonic_meta = {"maps": str(args.isotonic), "key": args.isotonic_key}
+        print(f"[analyze] isotonic remap applied: {args.isotonic_key} "
+              f"({len(vals)} steps) from {args.isotonic}")
     losses = [r for r in rows if not r["won"]]
     wins = [r for r in rows if r["won"]]
     n = len(rows)
@@ -226,6 +247,7 @@ def analyze(args: argparse.Namespace) -> None:
         "addressable_loss_frac": round(len(curation) / len(losses), 4),
         "reliability": reliability,
         "auc_by_turn": auc_by_turn,
+        "isotonic": isotonic_meta,
     }
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary, indent=2))
@@ -243,6 +265,12 @@ def main() -> None:
     t.set_defaults(fn=trace)
     a = sub.add_parser("analyze")
     a.add_argument("--out", required=True)
+    a.add_argument("--isotonic", default=None,
+                   help="isotonic-maps.json (scripts/isotonic_maps.py "
+                        "export); values remapped before all analysis")
+    a.add_argument("--isotonic-key", default=None,
+                   help="era/critic key, e.g. c2/v_era — must match the "
+                        "trace ckpt's era (era-scoped, ADR-0036)")
     a.set_defaults(fn=analyze)
     args = ap.parse_args()
     args.fn(args)
