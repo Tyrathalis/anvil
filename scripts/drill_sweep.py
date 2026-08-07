@@ -52,15 +52,25 @@ def _parse_arms(spec: str) -> list[dict]:
     return arms
 
 
-def _subset_curation(map_dir: Path, bins: set[str], out: Path) -> Path:
+def _subset_curation(map_dir: Path, bins: set[str], out: Path,
+                     filter_holdout: bool = False) -> Path:
     """Filter the map's source curation to the games whose K-rollout
-    ground truth fell in the requested bins."""
+    ground truth fell in the requested bins. filter_holdout (M6 tranche,
+    label_merge freeze protocol): additionally drop games hashing into
+    the frozen benchmark holdout BEFORE any rollout is spent — new labels
+    are train-side only."""
     manifest = json.loads((map_dir / "manifest.json").read_text())
     keep = set()
     for line in (map_dir / "drills.jsonl").open():
         r = json.loads(line)
         if r["n"] > 0 and gs._bin_of(r["model_wins"], r["n"]) in bins:
             keep.add((r["store"], r["g"]))
+    dropped_ho = 0
+    if filter_holdout:
+        from label_merge import held_out
+        ho = {k for k in keep if held_out(*k)}
+        dropped_ho = len(ho)
+        keep -= ho
     subset = out / "subset-curation.jsonl"
     n = 0
     with subset.open("w") as f:
@@ -72,7 +82,9 @@ def _subset_curation(map_dir: Path, bins: set[str], out: Path) -> Path:
     if n != len(keep):
         raise SystemExit(f"FATAL: {len(keep)} mapped games but {n} curation "
                          f"rows — map/curation mismatch")
-    print(f"[sweep] subset: {n} games in bins {sorted(bins)}")
+    print(f"[sweep] subset: {n} games in bins {sorted(bins)}"
+          + (f" (holdout-hash pre-filter dropped {dropped_ho})"
+             if filter_holdout else ""))
     return subset
 
 
@@ -169,13 +181,17 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0,
                     help="first N subset rows only (smokes)")
     ap.add_argument("--stall-min", type=int, default=75)
+    ap.add_argument("--filter-holdout", action="store_true",
+                    help="drop games hashing into the frozen benchmark "
+                         "holdout pre-spend (label_merge freeze protocol)")
     a = ap.parse_args()
 
     arms = _parse_arms(a.arms)
     map_manifest = json.loads((a.map / "manifest.json").read_text())
     k = a.k or map_manifest["k"]
     a.out.mkdir(parents=True, exist_ok=True)
-    subset = _subset_curation(a.map, set(a.bins.split(",")), a.out)
+    subset = _subset_curation(a.map, set(a.bins.split(",")), a.out,
+                              filter_holdout=a.filter_holdout)
 
     (a.out / "meta.json").write_text(json.dumps({
         "map": str(a.map),

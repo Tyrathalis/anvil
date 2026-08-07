@@ -59,16 +59,25 @@ def _load(path: str | Path) -> list[dict]:
     return [json.loads(line) for line in Path(path).open()]
 
 
-def _load_traces(path: str) -> dict[tuple, dict[int, float]]:
+def _load_traces(paths: list[str]) -> dict[tuple, dict[int, float]]:
+    """Union of trace dirs (a campaign's labels may span several
+    early-doom trace runs); duplicate (store, g) keys must agree —
+    conflicting traces mean mixed critic eras, refuse."""
     out: dict[tuple, dict[int, float]] = {}
-    for line in Path(path, "traces.jsonl").open():
-        r = json.loads(line)
-        out[(r["store"], r["g"])] = {t: v for t, v in r["vals"]}
+    for path in paths:
+        for line in Path(path, "traces.jsonl").open():
+            r = json.loads(line)
+            key = (r["store"], r["g"])
+            vals = {t: v for t, v in r["vals"]}
+            if key in out and out[key] != vals:
+                raise SystemExit(f"[merge] trace conflict for {key} across "
+                                 f"trace dirs — mixed critic eras, refusing")
+            out[key] = vals
     return out
 
 
-def build_rows(era: str, label_dirs: list[str], trace_era: str,
-               trace_d4: str) -> tuple[list[dict], dict]:
+def build_rows(era: str, label_dirs: list[str], trace_era: list[str],
+               trace_d4: list[str]) -> tuple[list[dict], dict]:
     """critic_calibration.build_dataset's join, plus per-source crash-dupe
     dedup; returns (rows, stats)."""
     tr = {"era": _load_traces(trace_era), "d4": _load_traces(trace_d4)}
@@ -166,8 +175,8 @@ def main() -> None:
     p.add_argument("--base", required=True)
     p.add_argument("--era", required=True)
     p.add_argument("--labels", action="append", required=True)
-    p.add_argument("--trace-era", required=True)
-    p.add_argument("--trace-d4", required=True)
+    p.add_argument("--trace-era", action="append", required=True)
+    p.add_argument("--trace-d4", action="append", required=True)
     p.add_argument("--out", required=True)
     p.set_defaults(fn=merge)
     p = sub.add_parser("check")
