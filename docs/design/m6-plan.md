@@ -71,6 +71,8 @@ Recompose **selection v3** (still valid — M5 promoted nothing, so v3 remains i
 - **K stays 8** (ceiling/noise constants comparable to the banked set).
 - **Position mix mirrors the existing map+sweep shape** (anchor offsets around loss crashes, same curation filter) so extended curve points are comparable to ADR-0039's.
 
+**Tranche status (2026-08-06):** Component A DONE — `drill-tranche-c2-offsets-20260806` (arms o1/o3/o5/o6 over the full-bin map curation, 556/559 each, 2,224 labels, ~9.6h at w=16; bins spread cleanly with anchor depth: wr 0.30→0.45 as mean fired turn 13.4→8.7). Extended c2 set = 4,082 labels (`frozen-probe-ext-c2/`, zero trace-join misses — the early-doom traces cover every turn). **Extended curve verdict-shaped but confounded: c2/policy ridge 0.378 → 0.443 → 0.437 → 0.449 → 0.465 → 0.456 → 0.457 (500→3.2K train labels) — FLAT from ~2K on, in the 0.4–0.5 band ADR-0039 pre-registered as path-B evidence — but the offset labels re-use the same ~550 games, so game-saturation isn't excluded.** Component B (the disambiguator) LAUNCHED same day: `scripts/tranche_b.py` — fresh iter-019 mainlines (2×800 eval-style arms, seed base 20260806) → ingest → early-doom traces (both critics) → fresh curation → crash map + o2/o4 arms (`drill-map-r11i019ext-k8` + `drill-tranche-c2-fresh`); smoke-validated end-to-end before launch. If the curve stays flat with fresh-game diversity added, the path-B verdict is clean; the path ADR waits on that read.
+
 ## Efficiency notes (deferred, measure-first — ADR-0040 riders)
 
 The labeler is engine-bound: label price scales with game length and core count, not model or GPU — serve-side work is measured-closed for labeling. Levers on file for a future efficiency examination, none built now:

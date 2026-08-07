@@ -58,7 +58,7 @@ TRUNKS = {
     "policy-i019": "data/training/d6-run11/iter-019/train/last.pt",
     "d4-critic-fullvis": "data/training/d4-critic-fullvis/last.pt",
 }
-CURVE_SIZES = [500, 1000, 2000, None]  # None = all training labels
+CURVE_SIZES = [500, 1000, 2000, None]  # None = all; override via --curve-sizes
 RIDGE_ALPHAS = [0.1, 1.0, 10.0, 100.0, 1000.0]
 KNN_KS = [5, 10, 25, 50]
 CV_FOLDS = 5
@@ -302,6 +302,10 @@ def _curve_subset(games_tr: np.ndarray, size: int | None) -> np.ndarray:
 
 
 def probe(args: argparse.Namespace) -> None:
+    global CURVE_SIZES
+    if args.curve_sizes:
+        CURVE_SIZES = [int(s) if s != "all" else None
+                       for s in args.curve_sizes.split(",")]
     out_dir = Path(args.out)
     rows = load_rows(args.dataset)
     feats = {t: np.load(out_dir / f"features-{t}.npz") for t in TRUNKS}
@@ -374,6 +378,9 @@ def main() -> None:
         p = sub.add_parser(name)
         p.add_argument("--out", required=True)
         p.add_argument("--dataset", default=DATASET)
+        p.add_argument("--curve-sizes", default=None,
+                       help="probe only: comma list, 'all' = full train split "
+                            "(default: 500,1000,2000,all)")
         p.set_defaults(fn=fn)
     args = ap.parse_args()
     args.fn(args)
