@@ -1348,6 +1348,33 @@ shipping builds to other people's machines.
 > Security→Open Anyway, or `xattr -dr com.apple.quarantine`), and the JRE
 > guidance for friends is pinned: Temurin 21 JRE via
 > `api.adoptium.net/v3/installer/latest/21/ga/<os>/<arch>/jre/hotspot/normal/eclipse`.
+>
+> **Whose-action tracking BUILT 2026-08-06 (`e9e0830993`, pushed, unreleased —
+> next release carries it): AwaitingInput trackable + avatar indicator rework.**
+> Game-night complaints: turn/priority avatar outline unclear, and the
+> "Waiting for X" prompt named the wrong player and never updated on
+> handoffs. Diagnosis: both keyed on `HasPriority`, which `PhaseHandler`
+> writes once at the END of each main-loop step — combat declarations and
+> resolution-time choices run before that write (declare blockers showed
+> "Waiting for [attacker]"), `GameEventPlayerPriority` fires before it too
+> (so every net flush carried one-step-stale flags), and the waiting timer
+> captured the name once at await time, re-rendering it forever. Fix at the
+> source: `AwaitingInput` trackable stamped by `InputQueue` when the game
+> actually blocks on a player's input; `GameEventAwaitingInput` fires after
+> the stamp and `IGuiGame.flushGameView` (no-op locally, delta flush in
+> `RemoteClientGuiGame` over the existing `setGameView` wire method — no
+> protocol change) pushes it to every client mid-wait. Prompt prefers the
+> new flag and recomputes the name every timer tick. VAvatar: gold outer
+> ring = turn, green inset ring = waiting-on-you (was cyan+lime overdrawn
+> at the same rect), keyed on the new flag — correct in combat, shown for
+> yourself, works in AI games (flag is human-only so no AI flicker), with a
+> ~3-cycle ForgeAnimation pulse on arrival (continuous rendering
+> self-releases). Residue: dialog-based choices (SGuiChoose lists — mode
+> picks etc.) don't stamp the flag and fall back to the priority heuristic;
+> desktop client visuals untouched (text fix is client-agnostic). Suite 424
+> green, mobile-dev boots clean; interactive pass pending (desktop-control
+> grant declined — verify at next game night). Upstream candidate: the
+> whole mechanism, plus the stale-name recompute.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
