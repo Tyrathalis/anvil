@@ -60,25 +60,15 @@ def _inner_val(game: str) -> bool:
 # ---------------------------------------------------------------- prep
 
 
-def prep(args: argparse.Namespace) -> None:
-    import torch
-
-    from anvil.ante.ledger import ValueEvaluator
+def collect_examples(positions: list[tuple[str, int, int]], ev
+                     ) -> tuple[list[str], list[dict]]:
+    """(store, g, t) positions -> aligned (keys, masked-path value windows),
+    via the exact frozen-probe turn-join convention. Loud on any miss."""
     from anvil.store.trajectories import TrajectoryStore
 
-    out_dir = Path(args.out)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    rows = fp.load_rows(args.dataset)
-    positions = sorted({(r["store"], r["g"], r["t"]) for r in rows})
     by_store: dict[str, list[tuple[int, int]]] = defaultdict(list)
     for store, g, t in positions:
         by_store[store].append((g, t))
-    print(f"[prep] {len(rows)} labels -> {len(positions)} positions "
-          f"in {len(by_store)} stores")
-
-    ev = ValueEvaluator(CKPT)
-    assert not ev.full_vis, "B-2 fine-tunes the masked policy-side path"
-    t0 = time.time()
     keys, exs, missed = [], [], []
     for store, wants in sorted(by_store.items()):
         ts = TrajectoryStore(Path("data/trajectories") / store)
@@ -107,8 +97,27 @@ def prep(args: argparse.Namespace) -> None:
                 exs.append(ev.example(traj.decisions[i], traj.header, seat,
                                       traj.decisions[:i]))
     if missed:
-        raise SystemExit(f"[prep] {len(missed)} positions missed the turn "
-                         f"join — convention drift, refusing partial dump")
+        raise SystemExit(f"[collect] {len(missed)} positions missed the "
+                         f"turn join, e.g. {missed[:3]} — convention drift, "
+                         "refusing a partial bank")
+    return keys, exs
+
+
+def prep(args: argparse.Namespace) -> None:
+    import torch
+
+    from anvil.ante.ledger import ValueEvaluator
+
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rows = fp.load_rows(args.dataset)
+    positions = sorted({(r["store"], r["g"], r["t"]) for r in rows})
+    print(f"[prep] {len(rows)} labels -> {len(positions)} positions")
+
+    ev = ValueEvaluator(CKPT)
+    assert not ev.full_vis, "B-2 fine-tunes the masked policy-side path"
+    t0 = time.time()
+    keys, exs = collect_examples(positions, ev)
     torch.save({"keys": keys, "examples": exs, "ckpt": CKPT,
                 "dataset": args.dataset}, out_dir / "examples.pt")
     print(f"[prep] {len(keys)} examples banked in {time.time() - t0:.0f}s "
