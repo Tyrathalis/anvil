@@ -273,11 +273,19 @@ def sweep(args: argparse.Namespace) -> None:
     rows = [r for r in fp.load_rows(args.dataset) if r["era"] == args.era]
     args.inner_pool = None
     if args.inner_pool_dataset:
-        args.inner_pool = {f"{r['store']}:{r['g']}"
-                           for r in fp.load_rows(args.inner_pool_dataset)
-                           if r["era"] == args.era}
-        print(f"[sweep] inner-val pool restricted to "
-              f"{len(args.inner_pool)} games from {args.inner_pool_dataset}")
+        pool_rows = [r for r in fp.load_rows(args.inner_pool_dataset)
+                     if r["era"] == args.era]
+        pool_keys = {(r["store"], r["g"], r["t"], r["src"])
+                     for r in pool_rows}
+        # a game that gained extension labels moves wholly to train —
+        # else it spans train and inner-val (game-grouping violation)
+        ext_games = {f"{r['store']}:{r['g']}" for r in rows
+                     if (r["store"], r["g"], r["t"], r["src"])
+                     not in pool_keys}
+        args.inner_pool = ({f"{r['store']}:{r['g']}" for r in pool_rows}
+                           - ext_games)
+        print(f"[sweep] inner-val pool: {len(args.inner_pool)} "
+              f"extension-free base games (from {args.inner_pool_dataset})")
     row_idx = np.array([key_idx[f"{r['store']}:{r['g']}:{r['t']}"]
                         for r in rows])
     y = np.array([r["wr"] for r in rows])

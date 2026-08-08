@@ -127,10 +127,14 @@ def main() -> None:
     ho = np.array([fp._held_out(r["store"], r["g"]) for r in rows])
     assert not any(ho[len(base):]), "fresh rows must be train-side only"
 
-    # inner-val eligibility = base games only (the ck1 early-stop-drift
-    # lesson: offset-heavy fresh games in the inner split stop training
-    # tuned for the wrong mix — phantom holdout regression)
-    inner_pool = {f"{r['store']}:{r['g']}" for r in base}
+    # inner-val eligibility = base games WITHOUT extension labels (ck1
+    # lesson, both rounds: offset-heavy fresh rows drifted the inner
+    # split — and fresh labels land on EXISTING games, so a game-level
+    # base filter alone is a no-op; a game that gains extension labels
+    # moves wholly to train, else it would span both sides and break
+    # game-grouping)
+    fresh_games = {f"{r['store']}:{r['g']}" for r in fresh}
+    inner_pool = {f"{r['store']}:{r['g']}" for r in base} - fresh_games
     cells = []
     for seed in [int(s) for s in a.seeds.split(",")]:
         cell_args = SimpleNamespace(seed=seed, batch=192, max_epochs=200,
