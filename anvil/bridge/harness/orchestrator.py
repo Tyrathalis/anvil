@@ -313,14 +313,19 @@ def launch(a) -> Path:
 
         shutil.copy(a.drill_file, run_dir / "drillfile.txt")
     elif a.pool:
-        from anvil.bridge.harness.pairs import latest_pool_manifest, pair_schedule, write_pairs_file
+        from anvil.bridge.harness.pairs import (
+            latest_pool_manifest,
+            pair_schedule,
+            write_pairs_file,
+        )
 
-        pool = latest_pool_manifest()
+        pool_format = getattr(a, "pool_format", "dc")
+        pool = latest_pool_manifest(pool_format)
         # the playable build's GUI shares this deck store (worklist "shared user
         # store"): a GUI edit would silently change generation, so gate on content
         from anvil.pool import verify_installed_decks
 
-        problems = verify_installed_decks([d["file"] for d in pool["decks"]])
+        problems = verify_installed_decks([d["file"] for d in pool["decks"]], format=pool_format)
         if problems:
             for p in problems[:10]:
                 print(f"[harness] deck store: {p}", file=sys.stderr)
@@ -337,6 +342,7 @@ def launch(a) -> Path:
         pairs = pair_schedule([d["file"] for d in pool["decks"]], n_pairs, a.seed_base)
         write_pairs_file(run_dir / "pairs.txt", pairs)
         pool_fields = {
+            "pool_format": pool_format,
             "pool_version": pool["pool_version"],
             "pairs_file": "pairs.txt",
             "pairs_sha256": _sha256(run_dir / "pairs.txt"),
@@ -344,7 +350,7 @@ def launch(a) -> Path:
             "games_per_pair": a.games_per_pair,
         }
         print(
-            f"[harness] pool {pool['pool_version']}: {len(pool['decks'])} decks -> "
+            f"[harness] pool {pool_format}/{pool['pool_version']}: {len(pool['decks'])} decks -> "
             f"{n_pairs} pairs x {a.games_per_pair} games"
         )
 

@@ -13,9 +13,13 @@ import datetime as _dt
 import json
 import re
 import time
+import urllib.error
 import urllib.request
 
-from anvil.pool import RAW_DECKS_DIR, RAW_DIR
+from anvil.pool import pool_dir
+
+RAW_DIR = pool_dir("dc") / "raw"
+RAW_DECKS_DIR = RAW_DIR / "decks"
 
 MTGTOP8 = "https://mtgtop8.com"
 FORMAT_URL = f"{MTGTOP8}/format?f=EDH"
@@ -25,19 +29,28 @@ REQUEST_GAP_S = 2.0
 _last_request = 0.0
 
 
-def _get(url: str) -> str:
+def _get(url: str, retries: int = 3) -> str:
     global _last_request
-    wait = _last_request + REQUEST_GAP_S - time.monotonic()
-    if wait > 0:
-        time.sleep(wait)
-    req = urllib.request.Request(
-        url, headers={"User-Agent": "Mozilla/5.0 (anvil pool pipeline; non-commercial research)"}
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        # mtgtop8 declares iso-8859-1; trust the header, don't assume utf-8
-        body = resp.read().decode(resp.headers.get_content_charset() or "utf-8", "replace")
-    _last_request = time.monotonic()
-    return body
+    for attempt in range(retries):
+        wait = _last_request + REQUEST_GAP_S - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (anvil pool pipeline; non-commercial research)"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                # mtgtop8 declares iso-8859-1; trust the header, don't assume utf-8
+                body = resp.read().decode(resp.headers.get_content_charset() or "utf-8", "replace")
+            _last_request = time.monotonic()
+            return body
+        except (TimeoutError, urllib.error.URLError):
+            _last_request = time.monotonic()
+            if attempt == retries - 1:
+                raise
+            time.sleep(REQUEST_GAP_S * 2**attempt)
+    raise RuntimeError("unreachable")  # pragma: no cover
 
 
 def _today() -> str:

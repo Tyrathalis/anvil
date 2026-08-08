@@ -35,7 +35,19 @@ def main() -> None:
         help="first game index (extend a prior run's seed stream: same "
         "--seed-base + disjoint range = one deterministic corpus)",
     )
-    la.add_argument("--format", default="Commander")
+    la.add_argument(
+        "--format",
+        default="Commander",
+        help="Forge GameType passed to -f (e.g. Commander, Constructed)",
+    )
+    la.add_argument(
+        "--pool-format",
+        choices=["dc", "pauper"],
+        default="dc",
+        help="which pool (--pool mode) to schedule pairs from; "
+        "dc -> Commander decks, pauper -> Constructed decks "
+        "(pair with --format Constructed)",
+    )
     la.add_argument("--workers", type=int, default=16)
     la.add_argument("--colocated", action="store_true")
     la.add_argument("--bridge", default="local-random")

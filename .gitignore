@@ -24,6 +24,10 @@ data/*
 data/pool/*
 !data/pool/flex.txt
 !data/pool/overrides.json
+!data/pool/pauper/
+data/pool/pauper/*
+!data/pool/pauper/flex.txt
+!data/pool/pauper/overrides.json
 checkpoints/
 *.ckpt
 *.pt

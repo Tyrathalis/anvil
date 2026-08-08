@@ -1,11 +1,15 @@
 """Offline tests for the DC pool pipeline: parsing, shape gates, name
-resolution, .dck emission, banlist section mapping. No network."""
+resolution, .dck emission, banlist section mapping. No network.
+
+Format-agnostic pieces (forge_db resolution, the CURRENT-pin mechanics,
+install verification) are shared with anvil.pool.pauper — see
+test_pool_pauper.py for the Pauper-specific decklist/banlist tests."""
 
 import pytest
 
 from anvil.pool import forge_db
-from anvil.pool.decklist import ShapeError, deck_from_export, parse_mtgo, to_dck
-from anvil.pool.fetch import parse_banlist
+from anvil.pool.dc.decklist import ShapeError, deck_from_export, parse_mtgo, to_dck
+from anvil.pool.dc.fetch import parse_banlist
 
 EXPORT = (
     "\n".join(

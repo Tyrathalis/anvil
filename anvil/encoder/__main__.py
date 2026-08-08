@@ -1,8 +1,11 @@
 """CLI: uv run python -m anvil.encoder texts|embed ...
 
-  texts [--manifest PATH]            # dump {name: embedding text} JSON (debug artifact)
-  embed --model qwen3|bge-m3 [--manifest PATH] [--batch 32]
+  texts [--manifest PATH] [--format dc]            # dump {name: embedding text} JSON (debug artifact)
+  embed --model qwen3|bge-m3 [--manifest PATH] [--format dc] [--batch 32]
         # -> data/embeddings/<pool_version>-<key>.safetensors (+ .json manifest)
+
+--format selects which pool's CURRENT pin to resolve when --manifest is
+omitted (dc, pauper, allcards, ...); ignored if --manifest is given.
 
 The cache is fp16, keyed by canonical pool name, pinned to (pool_version,
 fork_commit, HF model revision, text content hash) — ADR-0004's "exact HF
@@ -30,11 +33,11 @@ MODELS = {
 }
 
 
-def _latest_manifest() -> Path:
-    # data/pool/CURRENT pin (2026-08-03); was newest-mtime
+def _latest_manifest(format: str = "dc") -> Path:
+    # data/pool/<format>/CURRENT pin (2026-08-03 for dc; was newest-mtime)
     from anvil.pool import current_manifest_path
 
-    return current_manifest_path()
+    return current_manifest_path(format)
 
 
 def _load(manifest_path: Path) -> tuple[dict, dict[str, str]]:
@@ -43,7 +46,7 @@ def _load(manifest_path: Path) -> tuple[dict, dict[str, str]]:
 
 
 def cmd_texts(a) -> None:
-    manifest, texts = _load(a.manifest or _latest_manifest())
+    manifest, texts = _load(a.manifest or _latest_manifest(a.format))
     out = EMBED_DIR / f"{manifest['pool_version']}-texts.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(texts, indent=1, ensure_ascii=False) + "\n")
@@ -55,7 +58,7 @@ def cmd_embed(a) -> None:
     from safetensors.torch import save_file
     from sentence_transformers import SentenceTransformer
 
-    manifest, texts = _load(a.manifest or _latest_manifest())
+    manifest, texts = _load(a.manifest or _latest_manifest(a.format))
     names = sorted(texts)
     corpus = [texts[n] for n in names]
     text_hash = hashlib.sha256("\x00".join(corpus).encode()).hexdigest()
@@ -109,10 +112,21 @@ def main() -> None:
     sub = ap.add_subparsers(dest="verb", required=True)
     t = sub.add_parser("texts")
     t.add_argument("--manifest", type=Path, default=None)
+    t.add_argument(
+        "--format",
+        default="dc",
+        help="pool format if --manifest omitted (dc, pauper, allcards, ...)",
+    )
     e = sub.add_parser("embed")
     e.add_argument("--model", choices=sorted(MODELS), required=True)
     e.add_argument("--manifest", type=Path, default=None)
+    e.add_argument(
+        "--format",
+        default="dc",
+        help="pool format if --manifest omitted (dc, pauper, allcards, ...)",
+    )
     e.add_argument("--batch", type=int, default=32)
+
     a = ap.parse_args()
     if a.verb == "texts":
         cmd_texts(a)

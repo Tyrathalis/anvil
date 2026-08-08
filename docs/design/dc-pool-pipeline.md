@@ -38,6 +38,8 @@ This mirrors the harness's pinning discipline: raw acquisition is the messy boun
 
 `uv run python -m anvil.pool fetch [--since YYYY-MM] [--limit-decks N]` · `banlist` · `build` · `install` · `status`
 
+**Sibling formats (2026-08-08):** the pipeline generalized to `anvil/pool/dc/` (this doc's pipeline, unmigrated at `data/pool/`) + `anvil/pool/pauper/` (mtgtop8 `f=PAU` + the Wizards official Pauper banlist, `data/pool/pauper/`), sharing `anvil/pool/forge_db.py` name resolution and the CURRENT-pin/manifest/install-verification surface in `anvil/pool/__init__.py`. Every CLI verb takes `--format dc|pauper` (default `dc`); each format has its own CURRENT pin and Forge deck-store subdir (`decks/commander/` vs `decks/constructed/`) so both can be fetched/built/installed side by side. Pauper's pool boundary follows the same meta-decklist-union pattern as DC (no independent rarity/common-only filter); its decklist exports carry a real sideboard (no command-zone hijack), so shape validation is a plain 60-main/≤15-side/4-of-limit check instead of DC's commander-zone rules.
+
 ## Known v0 limitations
 
 - The mtgtop8 fetcher walks only the format landing page's event list (~30 most recent events + featured); the year archives ("All 2025 Decks" etc.) paginate through separate meta pages the fetcher doesn't crawl yet. Fine for a meta-current pool; extend before building a historical corpus.
