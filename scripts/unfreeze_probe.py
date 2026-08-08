@@ -251,6 +251,9 @@ def _cell(n_unfreeze: int, lr: float, examples: list, row_idx: np.ndarray,
         net.load_state_dict(best_state, strict=False)
     ho_s = fp.spearman(_scores(net, examples, row_idx[te], device,
                                args.batch), y[te])
+    captured = None
+    if getattr(args, "capture_state", False):
+        captured = {k: v.detach().cpu() for k, v in net.state_dict().items()}
     res = {"n_unfreeze": n_unfreeze, "lr": lr,
            "trainable_params": n_train_p, "epochs": epoch,
            "baseline_holdout": round(base, 4),
@@ -261,6 +264,8 @@ def _cell(n_unfreeze: int, lr: float, examples: list, row_idx: np.ndarray,
     print(f"[cell N={n_unfreeze} lr={lr:g}] DONE holdout {ho_s:.4f} "
           f"(trained-head baseline {base:.4f}, plateau {RIDGE_PLATEAU}) "
           f"in {res['wall_min']}min", flush=True)
+    if captured is not None:
+        res["_state"] = captured
     del net, ev, opt
     import torch as _t
     _t.cuda.empty_cache()
@@ -331,6 +336,78 @@ def sweep(args: argparse.Namespace) -> None:
         pass
 
 
+def build(args: argparse.Namespace) -> None:
+    """The graduated critic asset (ADR-0046 decision 1 / user-approved
+    value-tower path): train N=4 ranking fine-tunes across seeds on the
+    full train split, select by INNER-VAL (never by holdout — the frozen
+    benchmark stays a pure reporting read), save a loadable checkpoint in
+    the finetune_value.py format. The saved net is a CRITIC: its policy
+    heads sit on a ranking-fine-tuned trunk — never serve policy from it
+    (d4-critic-fullvis precedent). Era-scoped by construction; consumers
+    are curation/doom/eval instruments."""
+    import datetime as _dt
+
+    import torch
+
+    out_dir = Path(args.out)
+    bank = torch.load(Path(args.bank) / "examples.pt", weights_only=False)
+    keys, examples = list(bank["keys"]), list(bank["examples"])
+    assert not bank.get("full_vis"), "the critic asset is the MASKED path"
+    key_idx = {k: i for i, k in enumerate(keys)}
+    rows = [r for r in fp.load_rows(args.dataset) if r["era"] == args.era]
+    args.inner_pool = None
+    if args.inner_pool_dataset:
+        pool_rows = [r for r in fp.load_rows(args.inner_pool_dataset)
+                     if r["era"] == args.era]
+        pool_keys = {(r["store"], r["g"], r["t"], r["src"])
+                     for r in pool_rows}
+        ext_games = {f"{r['store']}:{r['g']}" for r in rows
+                     if (r["store"], r["g"], r["t"], r["src"])
+                     not in pool_keys}
+        args.inner_pool = ({f"{r['store']}:{r['g']}" for r in pool_rows}
+                           - ext_games)
+    row_idx = np.array([key_idx[f"{r['store']}:{r['g']}:{r['t']}"]
+                        for r in rows])
+    y = np.array([r["wr"] for r in rows])
+    games = np.array([f"{r['store']}:{r['g']}" for r in rows])
+    ho = np.array([fp._held_out(r["store"], r["g"]) for r in rows])
+
+    args.capture_state = True
+    best, cells = None, []
+    for seed in [int(s) for s in args.seeds.split(",")]:
+        args.seed = seed
+        res = _cell(args.n, args.lr, examples, row_idx, y, games, ho, args)
+        state = res.pop("_state")
+        cells.append({**res, "seed": seed})
+        if best is None or res["best_inner_val"] > best[1]["best_inner_val"]:
+            best = (state, {**res, "seed": seed})
+    state, chosen = best
+
+    base = torch.load(CKPT, map_location="cpu", weights_only=False)
+    config = {**base["config"], "value_finetune": {
+        "mode": "ranking-unfreeze", "base_ckpt": CKPT,
+        "base_step": base.get("step"), "n_unfreeze": args.n, "lr": args.lr,
+        "labelset": args.dataset, "era": args.era,
+        "loss": f"RankNet pairwise, |dwr|-weighted, gate {PAIR_GATE}",
+        "selection": "best inner-val across seeds (holdout untouched)",
+        "chosen_seed": chosen["seed"],
+        "inner_val": chosen["best_inner_val"],
+        "holdout_spearman_report": chosen["holdout_spearman"],
+        "created": _dt.date.today().isoformat(),
+        "note": "CRITIC ckpt — ranking-fine-tuned trunk top-N; never "
+                "serve policy from it (value-tower discipline, "
+                "ADR-0046/user 2026-08-08)"}}
+    out_dir.mkdir(parents=True, exist_ok=True)
+    torch.save({"step": base.get("step"), "model": state, "config": config},
+               out_dir / "last.pt")
+    (out_dir / "build-report.json").write_text(json.dumps(
+        {"cells": cells, "chosen_seed": chosen["seed"],
+         "config_stamp": config["value_finetune"]}, indent=2) + "\n")
+    print(f"[build] chosen seed {chosen['seed']} (inner-val "
+          f"{chosen['best_inner_val']}, holdout report "
+          f"{chosen['holdout_spearman']}) -> {out_dir}/last.pt")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -365,6 +442,22 @@ def main() -> None:
     p.add_argument("--report", default=None,
                    help="report filename (default unfreeze-probe-report.json)")
     p.set_defaults(fn=sweep)
+    p = sub.add_parser("build")
+    p.add_argument("--out", required=True, help="critic ckpt output dir")
+    p.add_argument("--bank", required=True,
+                   help="dir holding the masked examples.pt for --dataset")
+    p.add_argument("--dataset", default=DATASET)
+    p.add_argument("--era", default=ERA)
+    p.add_argument("--n", type=int, default=4)
+    p.add_argument("--lr", type=float, default=3e-5)
+    p.add_argument("--seeds", default="0,1,2")
+    p.add_argument("--batch", type=int, default=192)
+    p.add_argument("--max-epochs", type=int, default=200)
+    p.add_argument("--patience", type=int, default=15)
+    p.add_argument("--train-size", type=int, default=None)
+    p.add_argument("--inner-pool-dataset",
+                   default="data/runs/frozen-probe-ext2-c2/dataset.jsonl")
+    p.set_defaults(fn=build)
     args = ap.parse_args()
     args.fn(args)
 
