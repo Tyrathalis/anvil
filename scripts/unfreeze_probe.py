@@ -114,12 +114,17 @@ def prep(args: argparse.Namespace) -> None:
     positions = sorted({(r["store"], r["g"], r["t"]) for r in rows})
     print(f"[prep] {len(rows)} labels -> {len(positions)} positions")
 
-    ev = ValueEvaluator(CKPT)
-    assert not ev.full_vis, "B-2 fine-tunes the masked policy-side path"
+    # --full-vis (hidden-info probe): omniscient windows over the policy
+    # ckpt — the masked-vs-full-vis delta under identical training prices
+    # the belief head / omniscient-critic headroom. Value instrument only.
+    ev = ValueEvaluator(CKPT, full_vis=True if args.full_vis else None)
+    assert ev.full_vis == bool(args.full_vis), \
+        "B-2's default is the masked policy-side path"
     t0 = time.time()
     keys, exs = collect_examples(positions, ev)
     torch.save({"keys": keys, "examples": exs, "ckpt": CKPT,
-                "dataset": args.dataset}, out_dir / "examples.pt")
+                "dataset": args.dataset, "full_vis": bool(args.full_vis)},
+               out_dir / "examples.pt")
     print(f"[prep] {len(keys)} examples banked in {time.time() - t0:.0f}s "
           f"-> {out_dir}/examples.pt")
 
@@ -332,6 +337,9 @@ def main() -> None:
     p = sub.add_parser("prep")
     p.add_argument("--out", required=True)
     p.add_argument("--dataset", default=DATASET)
+    p.add_argument("--full-vis", action="store_true",
+                   help="omniscient windows (hidden-info probe; value "
+                        "instrument only)")
     p.set_defaults(fn=prep)
     p = sub.add_parser("sweep")
     p.add_argument("--out", required=True)

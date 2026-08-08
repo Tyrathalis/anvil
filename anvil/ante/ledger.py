@@ -252,7 +252,8 @@ class ValueEvaluator:
     from an arbitrary perspective. Trunk state ignores candidate rows, so
     windows carry a PASS-only candidate pad."""
 
-    def __init__(self, ckpt: str, device: str | None = None, batch: int = 256):
+    def __init__(self, ckpt: str, device: str | None = None, batch: int = 256,
+                 full_vis: bool | None = None):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         ck = torch.load(ckpt, map_location=self.device, weights_only=False)
         cfg = ck["config"]
@@ -262,10 +263,14 @@ class ValueEvaluator:
         self.net.load_compat(ck["model"])
         self.net.eval()
         # full-vis critics (M2 D4) evaluate on full-vis windows — §7's
-        # omniscient-critic tier; detected from the ckpt's fine-tune stamp
-        self.full_vis = bool((cfg.get("value_finetune") or {}).get("full_vis"))
+        # omniscient-critic tier; detected from the ckpt's fine-tune stamp.
+        # full_vis=... overrides (M6 hidden-info probe: omniscient windows
+        # over the policy ckpt — a VALUE instrument only, never policy).
+        self.full_vis = (bool((cfg.get("value_finetune") or {}).get("full_vis"))
+                         if full_vis is None else full_vis)
         if self.full_vis:
-            print("[ante] full-visibility critic checkpoint — omniscient windows")
+            print("[ante] full-visibility windows"
+                  + ("" if full_vis is None else " (caller override)"))
         self.embed = EmbeddingCache(Path(cfg["embed"]))
         self.methods = MethodVocab(methods)
         self.batch = batch
