@@ -148,16 +148,20 @@ def probe(args: argparse.Namespace) -> None:
     out_dir = Path(args.out)
     rows = fp.load_rows(args.dataset)
     state_npz = np.load(out_dir / f"features-{TRUNK}.npz")
-    drv = np.load(out_dir / "derived-features.npz")
+    # --features-npz: any keys/feats/feature_names/family bundle probes
+    # through the identical machinery (otag probe etc.); default = B-1
+    drv = np.load(args.features_npz or (out_dir / "derived-features.npz"))
     state_idx = {k: i for i, k in enumerate(state_npz["keys"].tolist())}
     drv_idx = {k: i for i, k in enumerate(drv["keys"].tolist())}
     fam = drv["family"]
-    fam_cols = {f: np.where(fam == f)[0] for f in FAMILIES}
+    families = sorted(set(fam.tolist()))
+    fam_cols = {f: np.where(fam == f)[0] for f in families}
 
     report: dict = {"constants": {
         "gate": "beat the 0.455 ridge / ~0.46 plateau on c2 (ADR-0041 "
                 "standing gate) — identical split, banked [STATE] dump",
-        "trunk": TRUNK, "derived_version": DERIVED_VERSION,
+        "trunk": TRUNK,
+        "features_npz": str(args.features_npz or "derived-features.npz"),
         "families": {f: int(len(c)) for f, c in fam_cols.items()}}}
 
     for era in ("c1", "c2"):
@@ -176,7 +180,7 @@ def probe(args: argparse.Namespace) -> None:
             "feats": x_drv,
             "state+all": np.hstack([x_state, x_drv]),
         }
-        for f in FAMILIES:
+        for f in families:
             cols = fam_cols[f]
             rest = np.setdiff1d(np.arange(x_drv.shape[1]), cols)
             cfgs[f"state+{f}"] = np.hstack([x_state, x_drv[:, cols]])
@@ -207,9 +211,9 @@ def probe(args: argparse.Namespace) -> None:
             print(f"[probe] {era} curve {cfg}: {curve}", flush=True)
         report[era] = res
 
-    (out_dir / "feature-probe-report.json").write_text(
-        json.dumps(report, indent=2) + "\n")
-    print(f"[probe] -> {out_dir}/feature-probe-report.json")
+    name = args.report or "feature-probe-report.json"
+    (out_dir / name).write_text(json.dumps(report, indent=2) + "\n")
+    print(f"[probe] -> {out_dir}/{name}")
 
 
 def main() -> None:
@@ -219,6 +223,12 @@ def main() -> None:
         p = sub.add_parser(name)
         p.add_argument("--out", required=True)
         p.add_argument("--dataset", default=DATASET)
+        if name == "probe":
+            p.add_argument("--features-npz", default=None,
+                           help="probe an alternative feature bundle "
+                                "(keys/feats/feature_names/family npz)")
+            p.add_argument("--report", default=None,
+                           help="report filename in --out")
         p.set_defaults(fn=fn)
     args = ap.parse_args()
     args.fn(args)
