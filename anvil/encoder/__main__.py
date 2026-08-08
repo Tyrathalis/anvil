@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 from anvil.encoder.cardtext import pool_texts
+from anvil.encoder.otags import build_otag_index
 from anvil.pool.forge_db import fork_commit
 
 REPO = Path(__file__).parents[1]
@@ -55,14 +56,25 @@ def cmd_embed(a) -> None:
     from safetensors.torch import save_file
     from sentence_transformers import SentenceTransformer
 
-    manifest, texts = _load(a.manifest or _latest_manifest())
+    manifest = json.loads((a.manifest or _latest_manifest()).read_text())
+    otag_index = None
+    if a.otags:
+        otag_index = build_otag_index(manifest, min_cards=a.otag_min_cards,
+                                       top_k=a.otag_top_k, verbose=True)
+    texts = pool_texts(manifest, otag_index=otag_index)
     names = sorted(texts)
     corpus = [texts[n] for n in names]
     text_hash = hashlib.sha256("\x00".join(corpus).encode()).hexdigest()
 
     model_id = MODELS[a.model]
     kwargs = {"torch_dtype": torch.float16} if a.model == "qwen3" else {}
-    model = SentenceTransformer(model_id, device="cuda", model_kwargs=kwargs)
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    model = SentenceTransformer(model_id, device=device, model_kwargs=kwargs)
     revision = getattr(getattr(model[0], "auto_model", None), "config", None)
     revision = getattr(revision, "_commit_hash", None) or "unknown"
     # Cards are documents: no instruction prefix (Qwen3-Embedding applies
@@ -72,7 +84,8 @@ def cmd_embed(a) -> None:
     emb = vecs.to(torch.float16).cpu().contiguous()
 
     EMBED_DIR.mkdir(parents=True, exist_ok=True)
-    stem = f"{manifest['pool_version']}-{a.model}"
+    suffix = "-otags" if a.otags else ""
+    stem = f"{manifest['pool_version']}-{a.model}{suffix}"
     save_file({"embeddings": emb}, EMBED_DIR / f"{stem}.safetensors")
     (EMBED_DIR / f"{stem}.json").write_text(json.dumps({
         "pool_version": manifest["pool_version"],
@@ -100,6 +113,12 @@ def main() -> None:
     e.add_argument("--model", choices=sorted(MODELS), required=True)
     e.add_argument("--manifest", type=Path, default=None)
     e.add_argument("--batch", type=int, default=32)
+    e.add_argument("--otags", action="store_true",
+                   help="append Scryfall Tagger functional tags to embedding text")
+    e.add_argument("--otag-min-cards", type=int, default=5,
+                   help="minimum pool hits to keep a tag (frequency clearing)")
+    e.add_argument("--otag-top-k", type=int, default=64,
+                   help="cap tag vocabulary to top-K most frequent tags")
     a = ap.parse_args()
     if a.verb == "texts":
         cmd_texts(a)
