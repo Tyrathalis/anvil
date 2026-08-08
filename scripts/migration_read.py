@@ -116,8 +116,13 @@ def main() -> None:
         print("--- drilled vs undrilled conversion (memorization check)")
         print(f"  drilled   {dw}/{dn} = {dw/dn*100:.1f}%")
         print(f"  undrilled {uw}/{un} = {uw/un*100:.1f}%")
-        print(f"  diff {100*(dw/dn - uw/un):+.1f}pp,"
-              f" z = {(dw/dn - uw/un)/se:.2f}")
+        if se > 0:
+            print(f"  diff {100*(dw/dn - uw/un):+.1f}pp,"
+                  f" z = {(dw/dn - uw/un)/se:.2f}")
+        else:
+            # zero conversions both sides — definitional in a same-game
+            # method-change read (same policy, same trajectories)
+            print("  diff n/a (zero conversions both sides)")
 
 
 if __name__ == "__main__":
