@@ -127,10 +127,15 @@ def main() -> None:
     ho = np.array([fp._held_out(r["store"], r["g"]) for r in rows])
     assert not any(ho[len(base):]), "fresh rows must be train-side only"
 
+    # inner-val eligibility = base games only (the ck1 early-stop-drift
+    # lesson: offset-heavy fresh games in the inner split stop training
+    # tuned for the wrong mix — phantom holdout regression)
+    inner_pool = {f"{r['store']}:{r['g']}" for r in base}
     cells = []
     for seed in [int(s) for s in a.seeds.split(",")]:
         cell_args = SimpleNamespace(seed=seed, batch=192, max_epochs=200,
-                                    patience=15, train_size=None)
+                                    patience=15, train_size=None,
+                                    inner_pool=inner_pool)
         cells.append({**up._cell(2, 3e-5, examples, row_idx, y, games, ho,
                                  cell_args), "seed": seed})
     mean_s = float(np.mean([c["holdout_spearman"] for c in cells]))

@@ -183,7 +183,15 @@ def _cell(n_unfreeze: int, lr: float, examples: list, row_idx: np.ndarray,
     opt = torch.optim.AdamW([p for p in net.parameters() if p.requires_grad],
                             lr=lr, weight_decay=0.01)
 
-    inner = np.array([_inner_val(g) for g in games])
+    # inner_pool (ck1 lesson, 2026-08-08): early stopping must target the
+    # FROZEN holdout's distribution. When train labels grow beyond the
+    # base population (offset-heavy tranche labels), an all-games inner
+    # split drifts and stops training tuned for the wrong mix — measured
+    # as a phantom -0.023 holdout regression. Restrict inner-val
+    # eligibility to the base population; extension labels are train-only.
+    pool = getattr(args, "inner_pool", None)
+    inner = np.array([_inner_val(g) and (pool is None or g in pool)
+                      for g in games])
     tr = np.where(~ho & ~inner)[0]
     if args.train_size:  # label-scaling curve: game-grouped subsample
         tr = tr[fp._curve_subset(games[tr], args.train_size)]
@@ -263,6 +271,13 @@ def sweep(args: argparse.Namespace) -> None:
     key_idx = {k: i for i, k in enumerate(keys)}
 
     rows = [r for r in fp.load_rows(args.dataset) if r["era"] == args.era]
+    args.inner_pool = None
+    if args.inner_pool_dataset:
+        args.inner_pool = {f"{r['store']}:{r['g']}"
+                           for r in fp.load_rows(args.inner_pool_dataset)
+                           if r["era"] == args.era}
+        print(f"[sweep] inner-val pool restricted to "
+              f"{len(args.inner_pool)} games from {args.inner_pool_dataset}")
     row_idx = np.array([key_idx[f"{r['store']}:{r['g']}:{r['t']}"]
                         for r in rows])
     y = np.array([r["wr"] for r in rows])
@@ -321,6 +336,11 @@ def main() -> None:
     p.add_argument("--batch", type=int, default=192)
     p.add_argument("--max-epochs", type=int, default=200)
     p.add_argument("--patience", type=int, default=15)
+    p.add_argument("--inner-pool-dataset", default=None,
+                   help="restrict inner-val (early-stop) games to this "
+                        "dataset's population — REQUIRED for comparable "
+                        "reads when --dataset extends the base labels "
+                        "(the ck1 early-stop-drift lesson)")
     p.add_argument("--train-size", type=int, default=None,
                    help="cap train rows (game-grouped subsample) for the "
                         "label-scaling curve")

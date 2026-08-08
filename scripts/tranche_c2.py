@@ -347,7 +347,9 @@ def main() -> None:
             _run([sys.executable, "scripts/unfreeze_probe.py", "prep",
                   "--dataset", MERGED, "--out", FINAL_PROBE])
             _run([sys.executable, "scripts/unfreeze_probe.py", "sweep",
-                  "--dataset", MERGED, "--out", FINAL_PROBE]
+                  "--dataset", MERGED, "--out", FINAL_PROBE,
+                  "--inner-pool-dataset",
+                  "data/runs/frozen-probe-ext2-c2/dataset.jsonl"]
                  + (["--ns", "2", "--lrs", "3e-5", "--seeds", "0",
                      "--max-epochs", "3", "--patience", "2"] if a.smoke
                     else ["--ns", "0,1,2,4", "--lrs", "3e-5",
