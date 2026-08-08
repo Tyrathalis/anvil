@@ -14,6 +14,7 @@ this and does the GPU pass.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from anvil.pool import CACHE_DIR, CARDSFOLDER
 from anvil.pool.forge_db import fork_commit, normalize
@@ -42,8 +43,14 @@ def _brace_cost(cost: str) -> str:
     return "".join(f"{{{tok}}}" for tok in cost.split())
 
 
-def render(faces: list[dict]) -> str:
-    """The exact text the embedding model sees for one card."""
+def render(faces: list[dict], otags: list[str] | None = None) -> str:
+    """The exact text the embedding model sees for one card.
+
+    If `otags` is provided, the tag list is appended once to the rendered
+    object so the embedding model can attend to functional taxonomy alongside
+    oracle text. Multi-face cards keep tags at the object level (they describe
+    the whole card, not a single face).
+    """
     parts = []
     for f in faces:
         lines = [f"Name: {f['name']}"]
@@ -59,7 +66,11 @@ def render(faces: list[dict]) -> str:
         if oracle:
             lines.append(f"Text: {oracle}")
         parts.append("\n".join(lines))
-    return "\n--- other face ---\n".join(parts)
+    text = "\n--- other face ---\n".join(parts)
+    if otags:
+        from anvil.encoder.otags import tag_text_for_card
+        text += tag_text_for_card(otags)
+    return text
 
 
 def _scan_files() -> dict[str, str]:
@@ -80,18 +91,23 @@ def _scan_files() -> dict[str, str]:
     return index
 
 
-def pool_texts(manifest: dict) -> dict[str, str]:
-    """pool manifest -> {canonical pool name: embedding text}, loud on gaps."""
+def pool_texts(manifest: dict, otag_index: dict[str, Any] | None = None) -> dict[str, str]:
+    """pool manifest -> {canonical pool name: embedding text}, loud on gaps.
+
+    If `otag_index` is provided (from anvil.encoder.otags.build_otag_index),
+    each card's functional tags are appended to its embedding text.
+    """
     files = _scan_files()
     out: dict[str, str] = {}
     missing = []
+    card_tags = (otag_index or {}).get("card_tags", {})
     for name in sorted(manifest["pool"]):
         path = files.get(normalize(name))
         if path is None:
             missing.append(name)
             continue
         with open(path, encoding="utf-8", errors="replace") as f:
-            out[name] = render(parse_faces(f.read()))
+            out[name] = render(parse_faces(f.read()), otags=card_tags.get(name))
     if missing:
         raise RuntimeError(f"{len(missing)} pool cards have no cardsfolder script "
                            f"(pool/fork mismatch?): {missing[:5]}")
