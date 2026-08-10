@@ -39,9 +39,7 @@ from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 
 PROTOCOL_VERSION = 0
-DEFAULT_TAGS = (
-    "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
-)
+DEFAULT_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
 MODEL_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number"
 # advertised only when the checkpoint carries TRAINED combat heads —
 # load_compat fresh-inits them for pre-D5 checkpoints, which must never serve
@@ -58,10 +56,18 @@ class _Batcher:
     per item as a (B,1) tensor (mixed priority/other batches). The batcher
     thread is the sole GPU user; the old per-request lock is gone."""
 
-    def __init__(self, net, torch_mod, device: str, counts: Counter,
-                 max_batch: int = 16, window_ms: float = 3.0,
-                 temperature: float = 1.0):
+    def __init__(
+        self,
+        net,
+        torch_mod,
+        device: str,
+        counts: Counter,
+        max_batch: int = 16,
+        window_ms: float = 3.0,
+        temperature: float = 1.0,
+    ):
         import queue
+
         self.net = net
         self.torch = torch_mod
         self.device = device
@@ -69,12 +75,11 @@ class _Batcher:
         self.max_batch = max_batch
         self.window_ms = window_ms
         self.temperature = temperature
-        self.q: "queue.Queue[dict]" = queue.Queue()
+        self.q: queue.Queue[dict] = queue.Queue()
         self._queue_mod = queue
         threading.Thread(target=self._loop, daemon=True, name="gpu-batcher").start()
 
-    def submit(self, ex: dict, pass_delta: float,
-               noise: "dict | None" = None) -> dict:
+    def submit(self, ex: dict, pass_delta: float, noise: dict | None = None) -> dict:
         slot = {"ex": ex, "pd": pass_delta, "nz": noise, "ev": threading.Event()}
         self.q.put(slot)
         slot["ev"].wait()
@@ -85,6 +90,7 @@ class _Batcher:
     def _loop(self) -> None:
         from anvil.policy.sampling import pad_noise
         from anvil.training.dataset import collate
+
         queue = self._queue_mod
         while True:
             slots = [self.q.get()]
@@ -99,22 +105,25 @@ class _Batcher:
                     break
             self.counts[f"gpu_batch_{min(len(slots), 16)}"] += 1
             try:
-                batch = {k: v.to(self.device) for k, v in
-                         collate([s["ex"] for s in slots]).items()}
-                pd = self.torch.tensor([[s["pd"]] for s in slots],
-                                       device=self.device, dtype=self.torch.float32)
+                batch = {k: v.to(self.device) for k, v in collate([s["ex"] for s in slots]).items()}
+                pd = self.torch.tensor(
+                    [[s["pd"]] for s in slots], device=self.device, dtype=self.torch.float32
+                )
                 # sampling is server-wide: slots carry noise all-or-none
-                nz = (pad_noise([s["nz"] for s in slots], batch, self.device)
-                      if slots[0]["nz"] is not None else None)
+                nz = (
+                    pad_noise([s["nz"] for s in slots], batch, self.device)
+                    if slots[0]["nz"] is not None
+                    else None
+                )
                 with self.torch.autocast(self.device, dtype=self.torch.bfloat16):
-                    out = self.net.act(batch, pass_delta=pd, noise=nz,
-                                       temperature=self.temperature)
+                    out = self.net.act(batch, pass_delta=pd, noise=nz, temperature=self.temperature)
                 for i, s in enumerate(slots):
                     # per-item views keep the batch dim; scalars are shared
                     # (n_ent/stop_idx are batch-padded dims by construction)
-                    s["out"] = {k: (v[i:i + 1] if self.torch.is_tensor(v) else v)
-                                for k, v in out.items()}
-            except Exception as e:
+                    s["out"] = {
+                        k: (v[i : i + 1] if self.torch.is_tensor(v) else v) for k, v in out.items()
+                    }
+            except Exception as e:  # noqa: BLE001 -- batch inference: per-slot error, never crash the server
                 for s in slots:
                     s["err"] = e
             finally:
@@ -126,9 +135,15 @@ class ModelBackend:
     """Loads a D7 checkpoint and answers decisions. Import of torch/model
     machinery is deferred to here so echo/random sessions stay lightweight."""
 
-    def __init__(self, ckpt_path: str, pass_delta: float, device: str = "cuda",
-                 sample: bool = False, temperature: float = 1.0,
-                 mu_path: "str | None" = None):
+    def __init__(
+        self,
+        ckpt_path: str,
+        pass_delta: float,
+        device: str = "cuda",
+        sample: bool = False,
+        temperature: float = 1.0,
+        mu_path: str | None = None,
+    ):
         import torch
 
         from anvil.bridge.featurize import Featurizer
@@ -144,22 +159,22 @@ class ModelBackend:
         self.n_sa = cfg.get("sa_vocab_size", 0)
         # trained combat heads present? (D5 checkpoints; pre-D5 ones get
         # fresh-init heads from load_compat and must not serve combat tags)
-        self.has_combat = any(k.startswith(("atk_", "blk_", "cmb_"))
-                              for k in ckpt["model"])
-        self.net = build_net(cfg["embed"], cfg["pool_manifest"],
-                             len(default_methods()), n_sa=self.n_sa).to(device)
+        self.has_combat = any(k.startswith(("atk_", "blk_", "cmb_")) for k in ckpt["model"])
+        self.net = build_net(
+            cfg["embed"], cfg["pool_manifest"], len(default_methods()), n_sa=self.n_sa
+        ).to(device)
         self.net.load_compat(ckpt["model"])
         self.net.eval()
         self.feat = Featurizer(cfg["embed"], default_methods())
         if self.n_sa and self.n_sa != len(self.feat.sa_vocab):
             raise ValueError(
                 f"checkpoint sa_vocab_size {self.n_sa} != pinned sa_vocab "
-                f"{len(self.feat.sa_vocab)} — serve/train vocab skew")
+                f"{len(self.feat.sa_vocab)} — serve/train vocab skew"
+            )
         self.pass_delta = pass_delta
         self.device = device
         self.counts: Counter[str] = Counter()
-        self.batcher = _Batcher(self.net, torch, device, self.counts,
-                                temperature=temperature)
+        self.batcher = _Batcher(self.net, torch, device, self.counts, temperature=temperature)
         # sampling mode (M2 D6): Gumbel-max instead of argmax, behavior-policy
         # record per answered decision -> mu.jsonl, joined at ingest on (g, s)
         self.sample = sample
@@ -169,17 +184,29 @@ class ModelBackend:
         if sample:
             if not mu_path:
                 raise ValueError("--sample requires --mu-out")
-            self.mu_file = open(mu_path, "a", buffering=1)
-            self.mu_file.write(json.dumps(
-                {"k": "meta", "ckpt": str(ckpt_path), "step": ckpt.get("step"),
-                 "pass_delta": pass_delta, "temperature": temperature}) + "\n")
-        print(f"[server] model {ckpt_path} step={ckpt.get('step')} "
-              f"pass_delta={pass_delta} device={device} "
-              f"sample={sample} temperature={temperature} "
-              f"micro-batch<= {self.batcher.max_batch} window {self.batcher.window_ms}ms")
+            self.mu_file = open(mu_path, "a", buffering=1)  # noqa: SIM115 -- server holds a long-lived line-buffered append handle
+            self.mu_file.write(
+                json.dumps(
+                    {
+                        "k": "meta",
+                        "ckpt": str(ckpt_path),
+                        "step": ckpt.get("step"),
+                        "pass_delta": pass_delta,
+                        "temperature": temperature,
+                    }
+                )
+                + "\n"
+            )
+        print(
+            f"[server] model {ckpt_path} step={ckpt.get('step')} "
+            f"pass_delta={pass_delta} device={device} "
+            f"sample={sample} temperature={temperature} "
+            f"micro-batch<= {self.batcher.max_batch} window {self.batcher.window_ms}ms"
+        )
 
-    def answer(self, req: pb.DecisionRequest, header: dict | None,
-               game_seed: int | None = None) -> pb.DecisionResponse | None:
+    def answer(
+        self, req: pb.DecisionRequest, header: dict | None, game_seed: int | None = None
+    ) -> pb.DecisionResponse | None:
         """None = decline (worker falls back, tagged). Any exception is the
         caller's to turn into a loud decline — silence would poison an arm."""
         from anvil.bridge.featurize import TAG_TASK
@@ -203,11 +230,14 @@ class ModelBackend:
                 # serving requires -forkobs (synthetic unique g, per-completion
                 # announced seed). Raising -> loud decline -> heuristic
                 # fallback with NO mu record, so nothing poisoned can train.
-                raise ValueError("sampled serving needs a store-indexed header "
-                                 "(fork sessions require -forkobs)")
+                raise ValueError(
+                    "sampled serving needs a store-indexed header (fork sessions require -forkobs)"
+                )
             from anvil.policy.sampling import make_noise, noise_seed
-            noise = make_noise(ex, task, self.temperature,
-                               seed=noise_seed(game_seed or 0, dec["s"]))
+
+            noise = make_noise(
+                ex, task, self.temperature, seed=noise_seed(game_seed or 0, dec["s"])
+            )
         out = self.batcher.submit(ex, delta, noise)
         if self.sample:
             self._write_mu(header["g"], dec, task, ex, aux, out)
@@ -237,11 +267,11 @@ class ModelBackend:
                 resp.value = v
         return resp
 
-    def _write_mu(self, g: int, dec: dict, task: str, ex: dict, aux: dict,
-                  out: dict) -> None:
+    def _write_mu(self, g: int, dec: dict, task: str, ex: dict, aux: dict, out: dict) -> None:
         """One behavior-policy record (M2 D6) -> mu.jsonl, joined at ingest
         on (g, s). Record construction lives in sampling.mu_record."""
         from anvil.policy.sampling import mu_record
+
         rec = mu_record(g, dec["s"], task, ex, aux, out)
         with self.mu_lock:
             self.mu_file.write(json.dumps(rec) + "\n")
@@ -280,8 +310,7 @@ class ModelBackend:
         self.counts["cast"] += 1
         return cp
 
-
-    def _attackmap(self, out: dict, aux: dict) -> "pb.AttackMap":
+    def _attackmap(self, out: dict, aux: dict) -> pb.AttackMap:
         """Per-row picks -> entity-ref assignments. Dedup rows expand to the
         count head's k first-fit members; player positions (self-first, the
         combat-head convention) map back to registered indices via seats."""
@@ -305,7 +334,7 @@ class ModelBackend:
             self.counts["attack_empty"] += 1
         return am
 
-    def _blockmap(self, out: dict, aux: dict) -> "pb.BlockMap":
+    def _blockmap(self, out: dict, aux: dict) -> pb.BlockMap:
         """blk_pick slot M (the batch none column) = no block; otherwise the
         slot names an attacker row — first-fit member is the engine-side tie
         (multiset semantics, same as the labels). Group blocks expand to the
@@ -329,9 +358,14 @@ class ModelBackend:
 
 
 class DecisionServicer(pb_grpc.DecisionBridgeServicer):
-    def __init__(self, mode: str, bridged_tags: list[str], deadline_ms: int = 5000,
-                 backend: ModelBackend | None = None,
-                 drill_backend: ModelBackend | None = None):
+    def __init__(
+        self,
+        mode: str,
+        bridged_tags: list[str],
+        deadline_ms: int = 5000,
+        backend: ModelBackend | None = None,
+        drill_backend: ModelBackend | None = None,
+    ):
         self.mode = mode
         self.bridged_tags = bridged_tags
         self.deadline_ms = deadline_ms
@@ -383,20 +417,21 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             kind = msg.WhichOneof("msg")
             if kind == "hello":
                 worker = msg.hello.worker_id
-                yield pb.ServerMsg(hello=pb.ServerHello(
-                    protocol_version=PROTOCOL_VERSION,
-                    bridged_tags=self.bridged_tags,
-                    default_deadline_ms=self.deadline_ms,
-                    one_shot_cast=self.mode == "model",
-                ))
+                yield pb.ServerMsg(
+                    hello=pb.ServerHello(
+                        protocol_version=PROTOCOL_VERSION,
+                        bridged_tags=self.bridged_tags,
+                        default_deadline_ms=self.deadline_ms,
+                        one_shot_cast=self.mode == "model",
+                    )
+                )
             elif kind == "game_start":
                 self.games += 1
                 game_seed = msg.game_start.seed
                 rng = random.Random(game_seed)
                 # Requests belong to the stream's last-announced game; the
                 # worker re-announces the mainline after each fork block.
-                use_drill = (self.drill_backend is not None
-                             and ".f" in msg.game_start.game_id)
+                use_drill = self.drill_backend is not None and ".f" in msg.game_start.game_id
                 header = None
                 if msg.game_start.header:
                     try:
@@ -408,9 +443,14 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 if use_drill:
                     self.drill_requests += 1
                 if self.mode == "model":
-                    yield pb.ServerMsg(response=self._model_answer(
-                        msg.request, header, game_seed,
-                        self.drill_backend if use_drill else self.backend))
+                    yield pb.ServerMsg(
+                        response=self._model_answer(
+                            msg.request,
+                            header,
+                            game_seed,
+                            self.drill_backend if use_drill else self.backend,
+                        )
+                    )
                 else:
                     yield pb.ServerMsg(response=self._answer(msg.request, rng))
             elif kind == "game_end":
@@ -419,14 +459,18 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 yield pb.ServerMsg(ping=msg.ping)
         print(f"[server] stream closed: worker={worker}")
 
-    def _model_answer(self, req: pb.DecisionRequest, header: dict | None,
-                      game_seed: int = 0,
-                      backend: ModelBackend | None = None) -> pb.DecisionResponse:
+    def _model_answer(
+        self,
+        req: pb.DecisionRequest,
+        header: dict | None,
+        game_seed: int = 0,
+        backend: ModelBackend | None = None,
+    ) -> pb.DecisionResponse:
         if backend is None:
             backend = self.backend
         try:
             resp = backend.answer(req, header, game_seed)
-        except Exception as e:  # loud decline; a silent wrong answer poisons the arm
+        except Exception as e:  # noqa: BLE001 -- model serving: decline loudly rather than crash the worker
             print(f"[server] MODEL ERROR on {req.decision_tag} seq={req.decision_seq}: {e!r}")
             resp = None
         if resp is None:
@@ -452,51 +496,87 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=50051)
     ap.add_argument("--mode", choices=["echo", "random", "model"], default="echo")
-    ap.add_argument("--tags", default=None,
-                    help=f"default: {DEFAULT_TAGS} (echo/random) or {MODEL_TAGS} (model)")
+    ap.add_argument(
+        "--tags",
+        default=None,
+        help=f"default: {DEFAULT_TAGS} (echo/random) or {MODEL_TAGS} (model)",
+    )
     ap.add_argument("--ckpt", default="data/training/d7-ep3/last.pt")
-    ap.add_argument("--pass-delta", type=float, default=0.0,
-                    help="PASS-logit offset (pass_calibration.json delta; arm knob)")
+    ap.add_argument(
+        "--pass-delta",
+        type=float,
+        default=0.0,
+        help="PASS-logit offset (pass_calibration.json delta; arm knob)",
+    )
     ap.add_argument("--device", default="cuda")
-    ap.add_argument("--sample", action="store_true",
-                    help="Gumbel-max sampling instead of argmax (D6 actors); "
-                         "writes behavior-policy records to --mu-out")
-    ap.add_argument("--temperature", type=float, default=1.0,
-                    help="sampling temperature (with --sample)")
-    ap.add_argument("--mu-out", default=None,
-                    help="behavior-policy mu.jsonl path (required with --sample)")
-    ap.add_argument("--drill-ckpt", default=None,
-                    help="dual-policy drill serving (M4 D2.4): fork wire "
-                         "sessions (wid contains '.f') are answered by this "
-                         "checkpoint; the mainline replay stays on --ckpt. "
-                         "Model mode only. Argmax unless --drill-sample.")
-    ap.add_argument("--drill-sample", action="store_true",
-                    help="sample the drill backend (M4 D3 training "
-                         "generation: fork completions sampled with mu "
-                         "records at --temperature, mainline stays argmax); "
-                         "requires --drill-ckpt and --drill-mu-out, and the "
-                         "run must use -forkobs")
-    ap.add_argument("--drill-mu-out", default=None,
-                    help="drill backend's behavior-policy mu.jsonl (required "
-                         "with --drill-sample)")
+    ap.add_argument(
+        "--sample",
+        action="store_true",
+        help="Gumbel-max sampling instead of argmax (D6 actors); "
+        "writes behavior-policy records to --mu-out",
+    )
+    ap.add_argument(
+        "--temperature", type=float, default=1.0, help="sampling temperature (with --sample)"
+    )
+    ap.add_argument(
+        "--mu-out", default=None, help="behavior-policy mu.jsonl path (required with --sample)"
+    )
+    ap.add_argument(
+        "--drill-ckpt",
+        default=None,
+        help="dual-policy drill serving (M4 D2.4): fork wire "
+        "sessions (wid contains '.f') are answered by this "
+        "checkpoint; the mainline replay stays on --ckpt. "
+        "Model mode only. Argmax unless --drill-sample.",
+    )
+    ap.add_argument(
+        "--drill-sample",
+        action="store_true",
+        help="sample the drill backend (M4 D3 training "
+        "generation: fork completions sampled with mu "
+        "records at --temperature, mainline stays argmax); "
+        "requires --drill-ckpt and --drill-mu-out, and the "
+        "run must use -forkobs",
+    )
+    ap.add_argument(
+        "--drill-mu-out",
+        default=None,
+        help="drill backend's behavior-policy mu.jsonl (required with --drill-sample)",
+    )
     args = ap.parse_args()
 
     backend = None
     drill_backend = None
     if args.mode == "model":
-        backend = ModelBackend(args.ckpt, args.pass_delta, args.device,
-                               sample=args.sample, temperature=args.temperature,
-                               mu_path=args.mu_out)
+        backend = ModelBackend(
+            args.ckpt,
+            args.pass_delta,
+            args.device,
+            sample=args.sample,
+            temperature=args.temperature,
+            mu_path=args.mu_out,
+        )
         if args.drill_ckpt:
-            drill_backend = ModelBackend(args.drill_ckpt, args.pass_delta,
-                                         args.device, sample=args.drill_sample,
-                                         temperature=args.temperature,
-                                         mu_path=args.drill_mu_out)
-    tags = args.tags if args.tags is not None else (
-        (MODEL_TAGS + ("," + COMBAT_TAGS if backend.has_combat else ""))
-        if args.mode == "model" else DEFAULT_TAGS)
-    servicer = DecisionServicer(args.mode, tags.split(","), backend=backend,
-                                drill_backend=drill_backend)
+            drill_backend = ModelBackend(
+                args.drill_ckpt,
+                args.pass_delta,
+                args.device,
+                sample=args.drill_sample,
+                temperature=args.temperature,
+                mu_path=args.drill_mu_out,
+            )
+    tags = (
+        args.tags
+        if args.tags is not None
+        else (
+            (MODEL_TAGS + ("," + COMBAT_TAGS if backend.has_combat else ""))
+            if args.mode == "model"
+            else DEFAULT_TAGS
+        )
+    )
+    servicer = DecisionServicer(
+        args.mode, tags.split(","), backend=backend, drill_backend=drill_backend
+    )
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=32))
     pb_grpc.add_DecisionBridgeServicer_to_server(servicer, server)
     server.add_insecure_port(f"127.0.0.1:{args.port}")

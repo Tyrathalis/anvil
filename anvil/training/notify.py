@@ -23,12 +23,24 @@ def watch_register(name: str, watch_dir, stall_min: int = 75) -> None:
     Clean exits must call watch_unregister; dying without it is the point:
     the watcher then notifies GONE. Never raises."""
     try:
-        script = os.path.join(os.path.dirname(__file__), "..", "..",
-                              "scripts", "anvil_watchd.py")
-        subprocess.run([sys.executable, script, "register", "--name", name,
-                        "--pid", str(os.getpid()), "--dir", str(watch_dir),
-                        "--stall-min", str(stall_min)],
-                       timeout=30, check=False)
+        script = os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "anvil_watchd.py")
+        subprocess.run(
+            [
+                sys.executable,
+                script,
+                "register",
+                "--name",
+                name,
+                "--pid",
+                str(os.getpid()),
+                "--dir",
+                str(watch_dir),
+                "--stall-min",
+                str(stall_min),
+            ],
+            timeout=30,
+            check=False,
+        )
     except Exception as e:  # noqa: BLE001
         print(f"[notify] watch_register failed: {e}", flush=True)
 
@@ -36,10 +48,10 @@ def watch_register(name: str, watch_dir, stall_min: int = 75) -> None:
 def watch_unregister(name: str) -> None:
     """Clean-shutdown counterpart of watch_register. Never raises."""
     try:
-        script = os.path.join(os.path.dirname(__file__), "..", "..",
-                              "scripts", "anvil_watchd.py")
-        subprocess.run([sys.executable, script, "unregister", "--name", name],
-                       timeout=30, check=False)
+        script = os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "anvil_watchd.py")
+        subprocess.run(
+            [sys.executable, script, "unregister", "--name", name], timeout=30, check=False
+        )
     except Exception as e:  # noqa: BLE001
         print(f"[notify] watch_unregister failed: {e}", flush=True)
 
@@ -55,13 +67,13 @@ def notify(title: str, msg: str, tag: str = "anvil") -> None:
     cmds = []
     if os.environ.get("ANVIL_NOTIFY_CMD"):
         cmds.append([os.environ["ANVIL_NOTIFY_CMD"], title, msg])
-    cmds.append(["notify-send", "--urgency=critical", "--app-name=anvil",
-                 title, msg])
+    cmds.append(["notify-send", "--urgency=critical", "--app-name=anvil", title, msg])
     for cmd in cmds:
         if shutil.which(cmd[0]) is None:
             continue
         try:
-            subprocess.run(cmd, timeout=30, check=False,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(
+                cmd, timeout=30, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
         except Exception as e:  # noqa: BLE001
             print(f"[{tag}] notify via {cmd[0]} failed: {e}", flush=True)

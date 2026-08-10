@@ -15,11 +15,13 @@ CKPT = Path("data/training/d5-combat/last.pt")
 
 pytestmark = pytest.mark.skipif(
     not (STORE.exists() and EMBED.exists() and CKPT.exists()),
-    reason="local run-6 store not present")
+    reason="local run-6 store not present",
+)
 
 
 def _arrays_equal(a, b) -> bool:
     import torch
+
     if isinstance(a, torch.Tensor):
         return isinstance(b, torch.Tensor) and a.shape == b.shape and bool(torch.equal(a, b))
     if isinstance(a, np.ndarray):
@@ -53,6 +55,7 @@ def test_fv_stream_alignment(feat_and_game):
 
 def test_fv_off_is_v0_shape(feat_and_game):
     from anvil.training.rl import game_trajectories
+
     store, feat, g, _ = feat_and_game
     trajs, skip = game_trajectories(store, feat, g)  # default off
     assert skip is None
@@ -67,8 +70,10 @@ def test_fv_reveals_hidden(feat_and_game):
     differs = 0
     for seat, exs, reward, rej, exs_fv in trajs:
         for (ex, _), fv in zip(exs, exs_fv):
-            if not _arrays_equal(ex["ent_emb"], fv["ent_emb"]) \
-                    or ex["entities"].shape != fv["entities"].shape:
+            if (
+                not _arrays_equal(ex["ent_emb"], fv["ent_emb"])
+                or ex["entities"].shape != fv["entities"].shape
+            ):
                 differs += 1
     assert differs > 0, "full_vis windows identical to masked everywhere"
 
@@ -77,6 +82,7 @@ def test_masked_stream_unperturbed(feat_and_game):
     """The policy stream with full_vis=True must be byte-identical to the
     full_vis=False path — §6f must not touch what the policy trains on."""
     from anvil.training.rl import game_trajectories
+
     store, feat, g, trajs_fv = feat_and_game
     trajs_off, skip = game_trajectories(store, feat, g)
     assert skip is None
@@ -95,7 +101,6 @@ def test_fv_labels_stay_padded(feat_and_game):
     """mu labels are applied to the masked stream ONLY — a labeled fv window
     would mean the policy-gradient term could silently consume full-vis
     input (the §6f leak boundary)."""
-    import torch
     _, _, _, trajs = feat_and_game
     checked = 0
     for seat, exs, reward, rej, exs_fv in trajs:
@@ -118,9 +123,12 @@ def test_critic_value_forward_on_fv(feat_and_game):
     _, _, _, trajs = feat_and_game
     exs_fv = trajs[0][4][:8]
     ckpt = torch.load(CKPT, map_location="cpu", weights_only=False)
-    net = build_net(str(EMBED).removesuffix(".safetensors"),
-                    ckpt["config"]["pool_manifest"], len(default_methods()),
-                    n_sa=ckpt["config"].get("sa_vocab_size", 0))
+    net = build_net(
+        str(EMBED).removesuffix(".safetensors"),
+        ckpt["config"]["pool_manifest"],
+        len(default_methods()),
+        n_sa=ckpt["config"].get("sa_vocab_size", 0),
+    )
     net.load_compat(ckpt["model"])
     net.eval()
     with torch.no_grad():

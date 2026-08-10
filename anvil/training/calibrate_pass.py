@@ -84,13 +84,20 @@ def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ckpt = torch.load(a.ckpt, map_location=device, weights_only=False)
     cfg = ckpt["config"]
-    net = build_net(cfg["embed"], cfg["pool_manifest"], len(default_methods()),
-                    n_sa=cfg.get("sa_vocab_size", 0)).to(device)
+    net = build_net(
+        cfg["embed"], cfg["pool_manifest"], len(default_methods()), n_sa=cfg.get("sa_vocab_size", 0)
+    ).to(device)
     net.load_compat(ckpt["model"])
     net.eval()
 
-    ds = PriorityWindows(cfg["store"], cfg["embed"], default_methods(), split="val",
-                         shuffle_games=False, tasks={"priority"})
+    ds = PriorityWindows(
+        cfg["store"],
+        cfg["embed"],
+        default_methods(),
+        split="val",
+        shuffle_games=False,
+        tasks={"priority"},
+    )
     loader = DataLoader(ds, batch_size=a.batch, collate_fn=collate, num_workers=a.workers)
     c = collect(net, loader, device, a.batches)
 
@@ -98,16 +105,24 @@ def main() -> None:
     delta = fit_delta(c)
     before, after = metrics_at(c, 0.0), metrics_at(c, delta)
     n = int(c["multi"].sum())
-    report = {"ckpt": a.ckpt, "delta": delta, "expert_pass_rate": expert_rate,
-              "n_multi": n, "n_windows": int(c["multi"].numel()),
-              "before": before, "after": after,
-              "pass_weight": cfg.get("pass_weight")}
+    report = {
+        "ckpt": a.ckpt,
+        "delta": delta,
+        "expert_pass_rate": expert_rate,
+        "n_multi": n,
+        "n_windows": int(c["multi"].numel()),
+        "before": before,
+        "after": after,
+        "pass_weight": cfg.get("pass_weight"),
+    }
     out = Path(a.ckpt).parent / "pass_calibration.json"
     out.write_text(json.dumps(report, indent=1) + "\n")
     print(f"[calibrate] expert pass rate {expert_rate:.4f} on {n} multi windows")
     for tag, r in (("delta=0", before), (f"delta={delta:.3f}", after)):
-        print(f"[calibrate] {tag}: pass {r['pass_rate']:.4f} honest {r['agree_honest']:.4f} "
-              f"nonpass {r['agree_nonpass']:.4f} raw {r['agree_raw']:.4f}")
+        print(
+            f"[calibrate] {tag}: pass {r['pass_rate']:.4f} honest {r['agree_honest']:.4f} "
+            f"nonpass {r['agree_nonpass']:.4f} raw {r['agree_raw']:.4f}"
+        )
     print(f"[calibrate] wrote {out}")
 
 

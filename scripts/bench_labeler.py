@@ -35,28 +35,49 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from anvil.training.notify import notify  # noqa: E402
-from anvil.training.selfplay import (RUNS_DIR, _start_server,  # noqa: E402
-                                     _stop_server, batch_chunk)
+from anvil.training.notify import notify
+from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server, batch_chunk
 
 CKPT = "data/training/d6-run11/iter-019/train/last.pt"
-ADR_0015 = {"pos_per_h_per_worker": 17.0, "server_rps": 59,
-            "note": "batch-1 server, turn-stratified points, K=8 (2026-07-13)"}
+ADR_0015 = {
+    "pos_per_h_per_worker": 17.0,
+    "server_rps": 59,
+    "note": "batch-1 server, turn-stratified points, K=8 (2026-07-13)",
+}
 
 
-def run_arm(a, purpose: str, games: int, workers: int, points: int,
-            k: int) -> dict:
+def run_arm(a, purpose: str, games: int, workers: int, points: int, k: int) -> dict:
     before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
     chunk = batch_chunk(games, workers, a.chunk)
-    cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
-           "--games", str(games), "--games-per-pair", str(a.games_per_pair),
-           "--workers", str(workers), "--chunk", str(chunk),
-           "--bridge", f"grpc:localhost:{a.port}",
-           "--obs", "--reask",
-           "--rollout-k", str(k), "--rollout-points", str(points),
-           "--purpose", purpose, "--seed-base", str(a.seed_base)]
+    cmd = [
+        sys.executable,
+        "-m",
+        "anvil.bridge.harness",
+        "launch",
+        "--pool",
+        "--games",
+        str(games),
+        "--games-per-pair",
+        str(a.games_per_pair),
+        "--workers",
+        str(workers),
+        "--chunk",
+        str(chunk),
+        "--bridge",
+        f"grpc:localhost:{a.port}",
+        "--obs",
+        "--reask",
+        "--rollout-k",
+        str(k),
+        "--rollout-points",
+        str(points),
+        "--purpose",
+        purpose,
+        "--seed-base",
+        str(a.seed_base),
+    ]
     t0 = time.monotonic()
-    p = subprocess.run(cmd, cwd=ROOT)
+    p = subprocess.run(cmd, cwd=ROOT, check=False)
     elapsed = time.monotonic() - t0
     if p.returncode != 0:
         return {"ok": False, "elapsed_s": round(elapsed, 1)}
@@ -77,26 +98,34 @@ def run_arm(a, purpose: str, games: int, workers: int, points: int,
     rows = list(uniq.values())
     decisive = 0
     if rd is not None and (rd / "games.jsonl").exists():
-        decisive = sum(1 for line in open(rd / "games.jsonl")
-                       if json.loads(line).get("status") == "won")
+        with open(rd / "games.jsonl") as f:
+            decisive = sum(1 for line in f if json.loads(line).get("status") == "won")
     n_ok = sum(1 for r in rows if sum(r["w"]) + r["draw"] > 0)
     ms = sorted(r["ms"] for r in rows)
     copy_ms = sorted(r["copy_ms"] for r in rows)
     h = elapsed / 3600
     res = {
-        "ok": True, "run_dir": str(rd), "elapsed_s": round(elapsed, 1),
-        "games": games, "workers": workers, "chunk": chunk,
-        "rollout_k": k, "points": points,
+        "ok": True,
+        "run_dir": str(rd),
+        "elapsed_s": round(elapsed, 1),
+        "games": games,
+        "workers": workers,
+        "chunk": chunk,
+        "rollout_k": k,
+        "points": points,
         "decisive_mainlines": decisive,
-        "labels": len(rows), "labels_scored": n_ok,
+        "labels": len(rows),
+        "labels_scored": n_ok,
         "completion_crashes": sum(r["crash"] for r in rows),
         "draws": sum(r["draw"] for r in rows),
         "pos_per_h": round(len(rows) / h, 1),
         "pos_per_h_per_worker": round(len(rows) / h / workers, 2),
         "mainline_games_per_h": round(games / h, 1),
-        "fork_block_ms": {"p50": ms[len(ms) // 2] if ms else None,
-                          "p90": ms[int(len(ms) * .9)] if ms else None,
-                          "max": ms[-1] if ms else None},
+        "fork_block_ms": {
+            "p50": ms[len(ms) // 2] if ms else None,
+            "p90": ms[int(len(ms) * 0.9)] if ms else None,
+            "max": ms[-1] if ms else None,
+        },
         "copy_ms_p50": copy_ms[len(copy_ms) // 2] if copy_ms else None,
     }
     return res
@@ -114,9 +143,11 @@ def main() -> None:
     ap.add_argument("--ckpt", default=CKPT)
     ap.add_argument("--seed-base", type=int, default=20260805)
     ap.add_argument("--out", default="data/runs/labeler-bench.json")
-    ap.add_argument("--smoke", action="store_true",
-                    help="tiny plumbing run (8 games, w=8, K=4, 2 points); "
-                         "timing not meaningful")
+    ap.add_argument(
+        "--smoke",
+        action="store_true",
+        help="tiny plumbing run (8 games, w=8, K=4, 2 points); timing not meaningful",
+    )
     a = ap.parse_args()
     sys.stdout.reconfigure(line_buffering=True)
 
@@ -147,9 +178,10 @@ def main() -> None:
     Path(a.out).write_text(json.dumps(res, indent=2) + "\n")
     print(json.dumps(res, indent=2))
     if not a.smoke:
-        notify("labeler re-price bench done",
-               f"{res.get('pos_per_h_per_worker')} pos/h/worker "
-               f"(ADR-0015: 17) -> {a.out}")
+        notify(
+            "labeler re-price bench done",
+            f"{res.get('pos_per_h_per_worker')} pos/h/worker (ADR-0015: 17) -> {a.out}",
+        )
 
 
 if __name__ == "__main__":

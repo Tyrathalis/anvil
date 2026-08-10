@@ -42,12 +42,19 @@ def norm(sa: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--store", required=True)
-    ap.add_argument("--sample", type=int, default=None,
-                    help="uniform-stride sample of this many games (default: all)")
+    ap.add_argument(
+        "--sample",
+        type=int,
+        default=None,
+        help="uniform-stride sample of this many games (default: all)",
+    )
     ap.add_argument("--json", default=None)
-    ap.add_argument("--vocab-out", default=None,
-                    help="write the pinned SA-string vocab (normalized, sorted by "
-                         "count desc then lexicographic) — the D2 sa_vocab file")
+    ap.add_argument(
+        "--vocab-out",
+        default=None,
+        help="write the pinned SA-string vocab (normalized, sorted by "
+        "count desc then lexicographic) — the D2 sa_vocab file",
+    )
     args = ap.parse_args()
 
     store = open_store(args.store)
@@ -69,7 +76,7 @@ def main() -> None:
             print(f"  ... {gi}/{len(games)} games, windows={c['windows']}")
         try:
             traj = store.game(g)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- undecodable frame: count and keep going
             c["undecodable_games"] += 1
             continue
         split = _split_of(g)
@@ -115,9 +122,12 @@ def main() -> None:
             if exact:
                 outcome = "resolved_exact"
             else:
-                pref = [s for s in distinct
-                        if min(len(s), len(psa)) > 0
-                        and s[:min(len(s), len(psa))] == psa[:min(len(s), len(psa))]]
+                pref = [
+                    s
+                    for s in distinct
+                    if min(len(s), len(psa)) > 0
+                    and s[: min(len(s), len(psa))] == psa[: min(len(s), len(psa))]
+                ]
                 if len(pref) == 1:
                     outcome = "resolved_prefix"
                 elif len(pref) >= 2:
@@ -129,7 +139,8 @@ def main() -> None:
                 nomatch_examples.append(
                     f"g={g} s={dec.get('s')} [{outcome}]\n"
                     f"    plan={plan.get('sa', '')!r}\n"
-                    f"    keys={sorted(distinct)!r}")
+                    f"    keys={sorted(distinct)!r}"
+                )
             if len(distinct) >= 2:
                 c[f"multi_{outcome}"] += 1
 
@@ -139,27 +150,39 @@ def main() -> None:
         if s not in train_vocab:
             oov[f"{split}_oov"] += 1
 
-    print(f"\n=== {len(games)} games sampled, {c['windows']} priority windows "
-          f"({c['pass']} pass / {c['casts']} casts) ===")
-    print(f"multi-SA hosts among casts: {c['multi_sa_host']} "
-          f"({100 * c['multi_sa_host'] / max(c['casts'], 1):.1f}%)")
+    print(
+        f"\n=== {len(games)} games sampled, {c['windows']} priority windows "
+        f"({c['pass']} pass / {c['casts']} casts) ==="
+    )
+    print(
+        f"multi-SA hosts among casts: {c['multi_sa_host']} "
+        f"({100 * c['multi_sa_host'] / max(c['casts'], 1):.1f}%)"
+    )
     n = max(c["casts"], 1)
     for k in ("resolved_exact", "resolved_prefix", "masked_prefix_ambiguous", "masked_nomatch"):
         print(f"  {k}: {c[k]} ({100 * c[k] / n:.2f}%)")
     if c["multi_sa_host"]:
         m = c["multi_sa_host"]
-        print("  within multi-SA hosts: "
-              + " / ".join(f"{k.removeprefix('multi_')} {100 * c[k] / m:.2f}%"
-                           for k in ("multi_resolved_exact", "multi_resolved_prefix",
-                                     "multi_masked_prefix_ambiguous", "multi_masked_nomatch")))
+        print(
+            "  within multi-SA hosts: "
+            + " / ".join(
+                f"{k.removeprefix('multi_')} {100 * c[k] / m:.2f}%"
+                for k in (
+                    "multi_resolved_exact",
+                    "multi_resolved_prefix",
+                    "multi_masked_prefix_ambiguous",
+                    "multi_masked_nomatch",
+                )
+            )
+        )
     print(f"vocab: raw {len(vocab_raw)} / normalized {len(vocab_norm)} distinct sa strings")
-    print("kind histogram (normalized vocab): "
-          + json.dumps(Counter(kind_of.values()).most_common()))
+    print(
+        "kind histogram (normalized vocab): " + json.dumps(Counter(kind_of.values()).most_common())
+    )
     for split in ("val", "valpair"):
         t, o = oov[f"{split}_total"], oov[f"{split}_oov"]
         if t:
-            print(f"OOV vs train vocab, {split}: {o}/{t} option mentions "
-                  f"({100 * o / t:.2f}%)")
+            print(f"OOV vs train vocab, {split}: {o}/{t} option mentions ({100 * o / t:.2f}%)")
     if c["host_not_in_opts"]:
         print(f"WARNING: {c['host_not_in_opts']} chosen hosts not in opts")
     if nomatch_examples:
@@ -170,17 +193,33 @@ def main() -> None:
     if args.vocab_out:
         ordered = sorted(vocab_norm, key=lambda s: (-vocab_norm[s], s))
         with open(args.vocab_out, "w") as f:
-            json.dump({"source": args.store, "games": len(games),
-                       "normalization": "strip ' (X=n)' suffixes",
-                       "sa_strings": ordered,
-                       "counts": {s: vocab_norm[s] for s in ordered}}, f, indent=1)
+            json.dump(
+                {
+                    "source": args.store,
+                    "games": len(games),
+                    "normalization": "strip ' (X=n)' suffixes",
+                    "sa_strings": ordered,
+                    "counts": {s: vocab_norm[s] for s in ordered},
+                },
+                f,
+                indent=1,
+            )
         print(f"wrote {args.vocab_out} ({len(ordered)} strings)")
 
     if args.json:
         with open(args.json, "w") as f:
-            json.dump({"games": len(games), "counts": dict(c), "oov": dict(oov),
-                       "vocab_raw": len(vocab_raw), "vocab_norm": len(vocab_norm),
-                       "top_sa": vocab_norm.most_common(30)}, f, indent=2)
+            json.dump(
+                {
+                    "games": len(games),
+                    "counts": dict(c),
+                    "oov": dict(oov),
+                    "vocab_raw": len(vocab_raw),
+                    "vocab_norm": len(vocab_norm),
+                    "top_sa": vocab_norm.most_common(30),
+                },
+                f,
+                indent=2,
+            )
         print(f"\nwrote {args.json}")
 
 

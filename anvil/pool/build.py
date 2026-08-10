@@ -14,8 +14,15 @@ from __future__ import annotations
 import hashlib
 import json
 
-from anvil.pool import DECKS_OUT_DIR, FLEX_FILE, OVERRIDES_FILE, POOL_DIR, RAW_DECKS_DIR
-from anvil.pool import decklist, forge_db
+from anvil.pool import (
+    DECKS_OUT_DIR,
+    FLEX_FILE,
+    OVERRIDES_FILE,
+    POOL_DIR,
+    RAW_DECKS_DIR,
+    decklist,
+    forge_db,
+)
 from anvil.pool.decklist import ShapeError, deck_from_export
 from anvil.pool.fetch import latest_banlist
 
@@ -23,8 +30,11 @@ from anvil.pool.fetch import latest_banlist
 def _load_flex() -> list[str]:
     if not FLEX_FILE.exists():
         return []
-    return [ln.strip() for ln in FLEX_FILE.read_text().splitlines()
-            if ln.strip() and not ln.startswith("#")]
+    return [
+        ln.strip()
+        for ln in FLEX_FILE.read_text().splitlines()
+        if ln.strip() and not ln.startswith("#")
+    ]
 
 
 def _load_overrides() -> dict[str, str]:
@@ -38,8 +48,11 @@ def build() -> dict:
     if banlist is None:
         raise SystemExit("no banlist snapshot — run `python -m anvil.pool banlist` first")
     banned = {forge_db.normalize(c["name"]) for c in banlist["cards"] if c["kind"] == "banned"}
-    banned_cmdr = {forge_db.normalize(c["name"]) for c in banlist["cards"]
-                   if c["kind"] in ("banned", "banned_commander")}
+    banned_cmdr = {
+        forge_db.normalize(c["name"])
+        for c in banlist["cards"]
+        if c["kind"] in ("banned", "banned_commander")
+    }
 
     decks_out, excluded, unresolved_freq = [], [], {}
     pool: dict[str, dict] = {}  # forge name -> {sources, first_seen}
@@ -48,7 +61,7 @@ def build() -> dict:
         deck_id = int(path.stem)
         meta = json.loads(path.with_suffix(".json").read_text())
 
-        def exclude(reason: str) -> None:
+        def exclude(reason: str, deck_id=deck_id, meta=meta) -> None:
             excluded.append({"deck_id": deck_id, "reason": reason, "url": meta.get("source_url")})
 
         try:
@@ -69,28 +82,35 @@ def build() -> dict:
             exclude(f"unresolved in Forge: {missing}")
             continue
 
-        hit_banned = sorted({resolved[n] for _, n in deck.main
-                             if forge_db.normalize(resolved[n]) in banned})
+        hit_banned = sorted(
+            {resolved[n] for _, n in deck.main if forge_db.normalize(resolved[n]) in banned}
+        )
         if hit_banned:
             exclude(f"banned: {hit_banned}")
             continue
-        banned_as_cmdr = sorted(resolved[c] for c in deck.commanders
-                                if forge_db.normalize(resolved[c]) in banned_cmdr)
+        banned_as_cmdr = sorted(
+            resolved[c] for c in deck.commanders if forge_db.normalize(resolved[c]) in banned_cmdr
+        )
         if banned_as_cmdr:
             exclude(f"banned as commander: {banned_as_cmdr}")
             continue
 
         cmdrs = [resolved[c] for c in deck.commanders]
         main = [(c, resolved[n]) for c, n in deck.main]
-        decks_out.append({
-            "deck_id": deck_id, "commanders": cmdrs,
-            "file": f"dc-{deck_id}.dck",
-            "event_title": meta.get("event_title"), "event_date": meta.get("event_date"),
-            "source_url": meta.get("source_url"),
-        })
+        decks_out.append(
+            {
+                "deck_id": deck_id,
+                "commanders": cmdrs,
+                "file": f"dc-{deck_id}.dck",
+                "event_title": meta.get("event_title"),
+                "event_date": meta.get("event_date"),
+                "source_url": meta.get("source_url"),
+            }
+        )
         DECKS_OUT_DIR.mkdir(parents=True, exist_ok=True)
         (DECKS_OUT_DIR / f"dc-{deck_id}.dck").write_text(
-            decklist.to_dck(f"dc-{deck_id}", cmdrs, main))
+            decklist.to_dck(f"dc-{deck_id}", cmdrs, main)
+        )
         for name in {*cmdrs, *(n for _, n in main)}:
             entry = pool.setdefault(name, {"sources": [], "first_seen": None})
             entry["sources"].append(deck_id)
@@ -110,13 +130,18 @@ def build() -> dict:
 
     manifest = {
         "format": "duel-commander",
-        "banlist": {"fetched": banlist["fetched"],
-                    "sha256": hashlib.sha256(json.dumps(banlist, sort_keys=True).encode()).hexdigest()},
+        "banlist": {
+            "fetched": banlist["fetched"],
+            "sha256": hashlib.sha256(json.dumps(banlist, sort_keys=True).encode()).hexdigest(),
+        },
         "fork_commit": forge_db.fork_commit(),
         "decks": decks_out,
         "pool": {name: pool[name] for name in sorted(pool)},
-        "counts": {"decks_included": len(decks_out), "decks_excluded": len(excluded),
-                   "pool_cards": len(pool)},
+        "counts": {
+            "decks_included": len(decks_out),
+            "decks_excluded": len(excluded),
+            "pool_cards": len(pool),
+        },
         "excluded": excluded,
     }
     blob = json.dumps(manifest, sort_keys=True).encode()
@@ -129,17 +154,26 @@ def build() -> dict:
     (POOL_DIR / "CURRENT").write_text(pool_hash[:8] + "\n")
 
     _write_report(manifest, unresolved_freq, flex_unresolved)
-    return {"manifest": str(out), "pool_version": pool_hash[:8], **manifest["counts"],
-            "unresolved_names": len(unresolved_freq)}
+    return {
+        "manifest": str(out),
+        "pool_version": pool_hash[:8],
+        **manifest["counts"],
+        "unresolved_names": len(unresolved_freq),
+    }
 
 
-def _write_report(manifest: dict, unresolved_freq: dict[str, int], flex_unresolved: list[str]) -> None:
+def _write_report(
+    manifest: dict, unresolved_freq: dict[str, int], flex_unresolved: list[str]
+) -> None:
     lines = [f"# Pool build report — version {manifest['pool_version']}", ""]
     c = manifest["counts"]
-    lines += [f"- decks: {c['decks_included']} included, {c['decks_excluded']} excluded",
-              f"- pool: {c['pool_cards']} cards",
-              f"- banlist snapshot: {manifest['banlist']['fetched']}",
-              f"- fork commit: {manifest['fork_commit'][:12]}", ""]
+    lines += [
+        f"- decks: {c['decks_included']} included, {c['decks_excluded']} excluded",
+        f"- pool: {c['pool_cards']} cards",
+        f"- banlist snapshot: {manifest['banlist']['fetched']}",
+        f"- fork commit: {manifest['fork_commit'][:12]}",
+        "",
+    ]
     if unresolved_freq:
         lines += ["## Unresolved names (override/upstream-gap worklist, by frequency)", ""]
         for name, n in sorted(unresolved_freq.items(), key=lambda kv: -kv[1]):

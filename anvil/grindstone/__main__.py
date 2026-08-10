@@ -26,7 +26,6 @@ import argparse
 import glob
 import hashlib
 import json
-import subprocess
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -37,8 +36,7 @@ RUNS_DIR = Path("data/runs")
 # critic still liked the position (peak), or a per-game selected turn
 # (the `select` verb — D3's rule; the sweep proved no global offset
 # wins: o4/peak recover different games, 65 vs 56 exclusive).
-ANCHOR_FIELD = {"crash": "crash_from_turn", "peak": "peak_turn",
-                "selected": "drill_turn"}
+ANCHOR_FIELD = {"crash": "crash_from_turn", "peak": "peak_turn", "selected": "drill_turn"}
 
 
 def _load_curation(path: Path, limit: int = 0) -> list[dict]:
@@ -50,8 +48,10 @@ def _load_curation(path: Path, limit: int = 0) -> list[dict]:
 
 def plan(a: argparse.Namespace) -> None:
     if a.tag and not a.tag.isalnum():
-        sys.exit(f"FATAL: --tag must be alphanumeric (got {a.tag!r}) — it "
-                 f"lands in run-dir names and the report glob")
+        sys.exit(
+            f"FATAL: --tag must be alphanumeric (got {a.tag!r}) — it "
+            f"lands in run-dir names and the report glob"
+        )
     rows = _load_curation(a.curation, a.limit)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -64,8 +64,7 @@ def plan(a: argparse.Namespace) -> None:
         run_dir = RUNS_DIR / store
         run_json = run_dir / "run.json"
         if not run_json.exists():
-            sys.exit(f"FATAL: source run dir not found for store {store!r} "
-                     f"(expected {run_json})")
+            sys.exit(f"FATAL: source run dir not found for store {store!r} (expected {run_json})")
         cfg = json.loads(run_json.read_text())
         pairs = run_dir / cfg["pairs_file"]
         if not pairs.exists():
@@ -85,29 +84,30 @@ def plan(a: argparse.Namespace) -> None:
                 f.write(f"{g} {ts}\n")
 
         idxs = sorted(turns)
-        arms.append({
-            "store": store,
-            "source_run": str(run_dir),
-            "drillfile": str(drillfile),
-            "pairs_file": str(pairs),
-            "pairs_sha256": cfg["pairs_sha256"],
-            "seed_base": cfg["seed_base"],
-            "games_per_pair": cfg["games_per_pair"],
-            "bridge_seats": cfg["bridge_seats"],
-            "reask": cfg["reask"],
-            "fork_commit": cfg["fork_commit"],
-            "jar_sha256": cfg["jar_sha256"],
-            "pool_version": cfg["pool_version"],
-            "n_drills": len(srows),
-            "n_games": len(idxs),
-            "index_min": idxs[0],
-            "index_span": idxs[-1] - idxs[0] + 1,
-        })
+        arms.append(
+            {
+                "store": store,
+                "source_run": str(run_dir),
+                "drillfile": str(drillfile),
+                "pairs_file": str(pairs),
+                "pairs_sha256": cfg["pairs_sha256"],
+                "seed_base": cfg["seed_base"],
+                "games_per_pair": cfg["games_per_pair"],
+                "bridge_seats": cfg["bridge_seats"],
+                "reask": cfg["reask"],
+                "fork_commit": cfg["fork_commit"],
+                "jar_sha256": cfg["jar_sha256"],
+                "pool_version": cfg["pool_version"],
+                "n_drills": len(srows),
+                "n_games": len(idxs),
+                "index_min": idxs[0],
+                "index_span": idxs[-1] - idxs[0] + 1,
+            }
+        )
 
     manifest = {
         "curation": str(a.curation),
-        "curation_sha256": hashlib.sha256(
-            a.curation.read_bytes()).hexdigest(),
+        "curation_sha256": hashlib.sha256(a.curation.read_bytes()).hexdigest(),
         "ckpt": a.ckpt,
         "k": a.k,
         "anchor": a.anchor,
@@ -118,30 +118,55 @@ def plan(a: argparse.Namespace) -> None:
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     total = sum(x["n_drills"] for x in arms)
-    print(f"[plan] {total} drills in {sum(x['n_games'] for x in arms)} games "
-          f"across {len(arms)} arms -> {out / 'manifest.json'}")
+    print(
+        f"[plan] {total} drills in {sum(x['n_games'] for x in arms)} games "
+        f"across {len(arms)} arms -> {out / 'manifest.json'}"
+    )
 
 
-def _launch_arms(manifest: dict, port: int, workers: int, chunk: int,
-                 k: int, drill_stop: bool, purpose_prefix: str,
-                 fork_obs: bool = False) -> None:
+def _launch_arms(
+    manifest: dict,
+    port: int,
+    workers: int,
+    chunk: int,
+    k: int,
+    drill_stop: bool,
+    purpose_prefix: str,
+    fork_obs: bool = False,
+) -> None:
     from anvil.training.selfplay import _run
 
     for arm in manifest["arms"]:
         purpose = f"{purpose_prefix}-{arm['store']}"
-        cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch",
-               "--pairs-file", arm["pairs_file"],
-               "--games-per-pair", str(arm["games_per_pair"]),
-               "--seed-base", str(arm["seed_base"]),
-               "--start-index", str(arm["index_min"]),
-               "--games", str(arm["index_span"]),
-               "--workers", str(workers),
-               "--chunk", str(chunk),
-               "--bridge", f"grpc:localhost:{port}",
-               "--purpose", purpose,
-               "--obs",
-               "--rollout-k", str(k),
-               "--drill-file", arm["drillfile"]]
+        cmd = [
+            sys.executable,
+            "-m",
+            "anvil.bridge.harness",
+            "launch",
+            "--pairs-file",
+            arm["pairs_file"],
+            "--games-per-pair",
+            str(arm["games_per_pair"]),
+            "--seed-base",
+            str(arm["seed_base"]),
+            "--start-index",
+            str(arm["index_min"]),
+            "--games",
+            str(arm["index_span"]),
+            "--workers",
+            str(workers),
+            "--chunk",
+            str(chunk),
+            "--bridge",
+            f"grpc:localhost:{port}",
+            "--purpose",
+            purpose,
+            "--obs",
+            "--rollout-k",
+            str(k),
+            "--drill-file",
+            arm["drillfile"],
+        ]
         if arm["bridge_seats"] is not None:
             cmd += ["--bridge-seats", str(arm["bridge_seats"])]
         if arm["reask"]:
@@ -150,8 +175,10 @@ def _launch_arms(manifest: dict, port: int, workers: int, chunk: int,
             cmd += ["--drill-stop"]
         if fork_obs:
             cmd += ["--fork-obs"]
-        print(f"[launch] {purpose}: {arm['n_drills']} drills / "
-              f"{arm['n_games']} games (span {arm['index_span']})")
+        print(
+            f"[launch] {purpose}: {arm['n_drills']} drills / "
+            f"{arm['n_games']} games (span {arm['index_span']})"
+        )
         _run(cmd)
 
 
@@ -165,9 +192,11 @@ def generate(a: argparse.Namespace) -> None:
     prefix = "drill" + manifest.get("tag", "")
     if a.sample_forks:
         if not (a.drill_ckpt and a.fork_obs):
-            sys.exit("FATAL: --sample-forks requires --drill-ckpt and "
-                     "--fork-obs (mu joins need synthetic ids + "
-                     "per-completion seeds)")
+            sys.exit(
+                "FATAL: --sample-forks requires --drill-ckpt and "
+                "--fork-obs (mu joins need synthetic ids + "
+                "per-completion seeds)"
+            )
         # Training generation (M4 D3): mainline replay argmax on the pinned
         # manifest ckpt, fork completions SAMPLED by --drill-ckpt with mu
         # records. One server (and one mu file) PER ARM: mu is keyed by the
@@ -177,14 +206,26 @@ def generate(a: argparse.Namespace) -> None:
             sub = dict(manifest, arms=[arm])
             mu_path = out / f"mu-{arm['store']}.jsonl"
             mu_path.unlink(missing_ok=True)
-            server = _start_server(a.ckpt or manifest["ckpt"], a.port,
-                                   out / f"drill-server-{i}.log", sample=False,
-                                   drill_ckpt=a.drill_ckpt, drill_sample=True,
-                                   drill_mu_out=mu_path)
+            server = _start_server(
+                a.ckpt or manifest["ckpt"],
+                a.port,
+                out / f"drill-server-{i}.log",
+                sample=False,
+                drill_ckpt=a.drill_ckpt,
+                drill_sample=True,
+                drill_mu_out=mu_path,
+            )
             try:
-                _launch_arms(sub, a.port, a.workers, a.chunk,
-                             a.k or manifest["k"], a.drill_stop, prefix,
-                             fork_obs=True)
+                _launch_arms(
+                    sub,
+                    a.port,
+                    a.workers,
+                    a.chunk,
+                    a.k or manifest["k"],
+                    a.drill_stop,
+                    prefix,
+                    fork_obs=True,
+                )
             finally:
                 _stop_server(server)
             run_dirs = sorted(glob.glob(str(RUNS_DIR / f"{prefix}-{arm['store']}-*")))
@@ -193,13 +234,24 @@ def generate(a: argparse.Namespace) -> None:
             shutil.copy(mu_path, Path(run_dirs[-1]) / "mu.jsonl")
             print(f"[generate] mu -> {run_dirs[-1]}/mu.jsonl")
     else:
-        server = _start_server(a.ckpt or manifest["ckpt"], a.port,
-                               out / "drill-server.log", sample=False,
-                               drill_ckpt=a.drill_ckpt)
+        server = _start_server(
+            a.ckpt or manifest["ckpt"],
+            a.port,
+            out / "drill-server.log",
+            sample=False,
+            drill_ckpt=a.drill_ckpt,
+        )
         try:
-            _launch_arms(manifest, a.port, a.workers, a.chunk,
-                         a.k or manifest["k"], a.drill_stop, prefix,
-                         fork_obs=a.fork_obs)
+            _launch_arms(
+                manifest,
+                a.port,
+                a.workers,
+                a.chunk,
+                a.k or manifest["k"],
+                a.drill_stop,
+                prefix,
+                fork_obs=a.fork_obs,
+            )
         finally:
             _stop_server(server)
     print(f"[generate] done; labels under data/runs/{prefix}-*/workers/")
@@ -210,9 +262,10 @@ def report(a: argparse.Namespace) -> None:
     out = Path(a.manifest)
     manifest = json.loads((out / "manifest.json").read_text())
     cur = {}
-    for line in Path(manifest["curation"]).open():
-        r = json.loads(line)
-        cur[(r["store"], r["g"])] = r
+    with Path(manifest["curation"]).open() as f:
+        for line in f:
+            r = json.loads(line)
+            cur[(r["store"], r["g"])] = r
 
     prefix = "drill" + manifest.get("tag", "")
     joined, missed = [], []
@@ -228,34 +281,45 @@ def report(a: argparse.Namespace) -> None:
         by_game: dict[int, dict] = {}
         for run_dir in run_dirs:
             for lf in glob.glob(f"{run_dir}/workers/*/labels.jsonl"):
-                for line in open(lf):
-                    r = json.loads(line)
-                    c = cur.get((arm["store"], r["i"]))
+                with open(lf) as fh:
+                    for line in fh:
+                        r = json.loads(line)
+                        c = cur.get((arm["store"], r["i"]))
                     if c is None:
                         continue
                     by_game[r["i"]] = {
-                        "store": arm["store"], "g": r["i"], "tt": r["tt"],
-                        "fired_t": r["t"], "k": r["k"],
+                        "store": arm["store"],
+                        "g": r["i"],
+                        "tt": r["tt"],
+                        "fired_t": r["t"],
+                        "k": r["k"],
                         "model_wins": r["w"][seat],
                         "n": sum(r["w"]) + r["draw"],
                         "engine_crashes": r["crash"],
-                        "v_before": c["v_before"], "drop": c["drop"],
+                        "v_before": c["v_before"],
+                        "drop": c["drop"],
                         "crash_from_turn": c["crash_from_turn"],
                         "peak_turn": c["peak_turn"],
                         "deck": c["decks"][c["model_seat"]],
                     }
         joined += by_game.values()
         planned = {g for (s, g) in cur if s == arm["store"]}
-        missed += [{"store": arm["store"], "g": g}
-                   for g in planned - set(by_game)]
+        missed += [{"store": arm["store"], "g": g} for g in planned - set(by_game)]
 
     ok = [r for r in joined if r["n"] > 0]
     zero = [r for r in joined if r["n"] == 0]
 
     def bin_of(r):
         wr = r["model_wins"] / r["n"]
-        return ("lost" if wr <= 0.2 else "long_shot" if wr <= 0.45
-                else "coin" if wr <= 0.7 else "winnable")
+        return (
+            "lost"
+            if wr <= 0.2
+            else "long_shot"
+            if wr <= 0.45
+            else "coin"
+            if wr <= 0.7
+            else "winnable"
+        )
 
     bins = Counter(bin_of(r) for r in ok)
     tot_w = sum(r["model_wins"] for r in ok)
@@ -269,27 +333,24 @@ def report(a: argparse.Namespace) -> None:
         "completions": tot_n,
         "model_wins": tot_w,
         "rollout_winrate": round(tot_w / tot_n, 4) if tot_n else None,
-        "mean_v_before": round(sum(r["v_before"] for r in ok) / len(ok), 4)
-                         if ok else None,
+        "mean_v_before": round(sum(r["v_before"] for r in ok) / len(ok), 4) if ok else None,
         "bins": dict(bins),
-        "zero_completion_decks":
-            Counter(r["deck"] for r in zero).most_common(6),
+        "zero_completion_decks": Counter(r["deck"] for r in zero).most_common(6),
         "missed": missed,
     }
     (out / "report.json").write_text(json.dumps(summary, indent=2) + "\n")
     with (out / "drills.jsonl").open("w") as f:
         for r in sorted(joined, key=lambda x: (x["store"], x["g"])):
             f.write(json.dumps(r) + "\n")
-    print(json.dumps({k: v for k, v in summary.items() if k != "missed"},
-                     indent=2))
-    print(f"[report] -> {out / 'report.json'} + drills.jsonl "
-          f"({len(missed)} replay-missed)")
+    print(json.dumps({k: v for k, v in summary.items() if k != "missed"}, indent=2))
+    print(f"[report] -> {out / 'report.json'} + drills.jsonl ({len(missed)} replay-missed)")
 
 
 def _bin_of(model_wins: int, n: int) -> str:
     wr = model_wins / n
-    return ("lost" if wr <= 0.2 else "long_shot" if wr <= 0.45
-            else "coin" if wr <= 0.7 else "winnable")
+    return (
+        "lost" if wr <= 0.2 else "long_shot" if wr <= 0.45 else "coin" if wr <= 0.7 else "winnable"
+    )
 
 
 def select(a: argparse.Namespace) -> None:
@@ -323,8 +384,7 @@ def select(a: argparse.Namespace) -> None:
         for line in (Path(src) / "drills.jsonl").open():
             r = json.loads(line)
             if r["n"] > 0:
-                cands[(r["store"], r["g"])][r["fired_t"]] = (
-                    r["model_wins"], r["n"])
+                cands[(r["store"], r["g"])][r["fired_t"]] = (r["model_wins"], r["n"])
 
     holdout = set()
     if a.holdout:
@@ -353,14 +413,12 @@ def select(a: argparse.Namespace) -> None:
             continue
         stats[rule] += 1
         w, n = by_t[t]
-        picked.append(dict(cur[key], drill_turn=t, sel_rule=rule,
-                           sel_wr=round(w / n, 4), sel_n=n))
+        picked.append(dict(cur[key], drill_turn=t, sel_rule=rule, sel_wr=round(w / n, 4), sel_n=n))
 
     with (out / "selection.jsonl").open("w") as f:
         for r in picked:
             f.write(json.dumps(r) + "\n")
-    offsets = Counter(min(r["drill_turn"] - r["crash_from_turn"], 0)
-                      for r in picked)
+    offsets = Counter(min(r["drill_turn"] - r["crash_from_turn"], 0) for r in picked)
     meta = {
         "curation": str(a.curation),
         "labels": a.labels.split(","),
@@ -368,8 +426,7 @@ def select(a: argparse.Namespace) -> None:
         "band": [lo, hi],
         "selected": len(picked),
         "stats": dict(stats),
-        "mean_sel_wr": round(sum(r["sel_wr"] for r in picked)
-                             / len(picked), 4) if picked else None,
+        "mean_sel_wr": round(sum(r["sel_wr"] for r in picked) / len(picked), 4) if picked else None,
         "offset_vs_crash": {str(k): v for k, v in sorted(offsets.items())},
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
@@ -387,14 +444,12 @@ def evalset(a: argparse.Namespace) -> None:
     map_dir = Path(a.map)
     manifest = json.loads((map_dir / "manifest.json").read_text())
     drills = [json.loads(line) for line in (map_dir / "drills.jsonl").open()]
-    ok = sorted((r for r in drills if r["n"] > 0),
-                key=lambda r: (r["store"], r["g"]))
+    ok = sorted((r for r in drills if r["n"] > 0), key=lambda r: (r["store"], r["g"]))
     by_bin: dict[str, list[dict]] = defaultdict(list)
     for r in ok:
         by_bin[_bin_of(r["model_wins"], r["n"])].append(r)
 
-    takes = {"winnable": a.winnable, "coin": a.coin,
-             "long_shot": a.long_shot, "lost": a.lost}
+    takes = {"winnable": a.winnable, "coin": a.coin, "long_shot": a.long_shot, "lost": a.lost}
     picked = []
     for b in ("winnable", "coin", "long_shot", "lost"):
         rows, t = by_bin.get(b, []), takes[b]
@@ -408,9 +463,10 @@ def evalset(a: argparse.Namespace) -> None:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     cur_by_key = {}
-    for line in Path(manifest["curation"]).open():
-        c = json.loads(line)
-        cur_by_key[(c["store"], c["g"])] = c
+    with Path(manifest["curation"]).open() as f:
+        for line in f:
+            c = json.loads(line)
+            cur_by_key[(c["store"], c["g"])] = c
     subset = out / "evalset-curation.jsonl"
     with subset.open("w") as f:
         for r in picked:
@@ -419,11 +475,18 @@ def evalset(a: argparse.Namespace) -> None:
         for r in picked:
             f.write(json.dumps(r) + "\n")
 
-    plan(argparse.Namespace(curation=subset, out=str(out / "plan"),
-                            ckpt=manifest["ckpt"], k=manifest["k"],
-                            anchor=manifest.get("anchor", "crash"),
-                            turn_offset=manifest.get("turn_offset", 0),
-                            tag="", limit=0))
+    plan(
+        argparse.Namespace(
+            curation=subset,
+            out=str(out / "plan"),
+            ckpt=manifest["ckpt"],
+            k=manifest["k"],
+            anchor=manifest.get("anchor", "crash"),
+            turn_offset=manifest.get("turn_offset", 0),
+            tag="",
+            limit=0,
+        )
+    )
     meta = {
         "map": str(map_dir),
         "pinned_ckpt": manifest["ckpt"],
@@ -456,40 +519,49 @@ def eval_ckpt(a: argparse.Namespace) -> None:
         # Never pair against the map's selection-time labels: bins were
         # selected on those, so they regress on re-measure (winnable
         # 0.865->0.794 with zero policy change).
-        baseline = {(r["store"], r["g"]): r for r in json.loads(
-            (es / meta["baseline_eval"]).read_text())["rows"]}
+        baseline = {
+            (r["store"], r["g"]): r
+            for r in json.loads((es / meta["baseline_eval"]).read_text())["rows"]
+        }
     else:
-        baseline = {(r["store"], r["g"]): r
-                    for r in map(json.loads, (es / "baseline.jsonl").open())}
+        baseline = {
+            (r["store"], r["g"]): r for r in map(json.loads, (es / "baseline.jsonl").open())
+        }
     t0 = _time.strftime("%Y%m%d-%H%M%S")
 
-    server = _start_server(meta["pinned_ckpt"], a.port, es / "eval-server.log",
-                           sample=False, drill_ckpt=a.ckpt)
+    server = _start_server(
+        meta["pinned_ckpt"], a.port, es / "eval-server.log", sample=False, drill_ckpt=a.ckpt
+    )
     try:
-        _launch_arms(plan_manifest, a.port, a.workers, a.chunk,
-                     meta["k"], True, "drilleval")
+        _launch_arms(plan_manifest, a.port, a.workers, a.chunk, meta["k"], True, "drilleval")
     finally:
         _stop_server(server)
 
     rows = []
     for arm in plan_manifest["arms"]:
         seat = int(str(arm["bridge_seats"]))
-        for run_dir in sorted(glob.glob(
-                str(RUNS_DIR / f"drilleval-{arm['store']}-*"))):
+        for run_dir in sorted(glob.glob(str(RUNS_DIR / f"drilleval-{arm['store']}-*"))):
             if run_dir.rsplit("-", 2)[-2] + "-" + run_dir.rsplit("-", 1)[-1] < t0:
                 continue
             for lf in glob.glob(f"{run_dir}/workers/*/labels.jsonl"):
-                for line in open(lf):
-                    r = json.loads(line)
-                    b = baseline.get((arm["store"], r["i"]))
+                with open(lf) as fh:
+                    for line in fh:
+                        r = json.loads(line)
+                        b = baseline.get((arm["store"], r["i"]))
                     if b is None:
                         continue
                     n = sum(r["w"]) + r["draw"]
-                    rows.append({
-                        "store": arm["store"], "g": r["i"], "bin": b["bin"],
-                        "model_wins": r["w"][seat], "n": n,
-                        "base_wins": b["model_wins"], "base_n": b["n"],
-                    })
+                    rows.append(
+                        {
+                            "store": arm["store"],
+                            "g": r["i"],
+                            "bin": b["bin"],
+                            "model_wins": r["w"][seat],
+                            "n": n,
+                            "base_wins": b["model_wins"],
+                            "base_n": b["n"],
+                        }
+                    )
 
     per_bin: dict[str, dict] = {}
     for b in ("winnable", "coin", "long_shot", "lost"):
@@ -500,23 +572,25 @@ def eval_ckpt(a: argparse.Namespace) -> None:
         n = sum(r["n"] for r in sub)
         bw = sum(r["base_wins"] for r in sub)
         bn = sum(r["base_n"] for r in sub)
-        per_bin[b] = {"drills": len(sub), "winrate": round(w / n, 4),
-                      "baseline": round(bw / bn, 4)}
+        per_bin[b] = {"drills": len(sub), "winrate": round(w / n, 4), "baseline": round(bw / bn, 4)}
     tot_w = sum(r["model_wins"] for r in rows)
     tot_n = sum(r["n"] for r in rows)
     result = {
-        "evalset": str(es), "ckpt": a.ckpt, "at": t0,
-        "drills": len(rows), "planned": meta["n"],
+        "evalset": str(es),
+        "ckpt": a.ckpt,
+        "at": t0,
+        "drills": len(rows),
+        "planned": meta["n"],
         "winrate": round(tot_w / tot_n, 4) if tot_n else None,
-        "baseline": round(sum(r["base_wins"] for r in rows)
-                          / sum(r["base_n"] for r in rows), 4) if rows else None,
+        "baseline": round(sum(r["base_wins"] for r in rows) / sum(r["base_n"] for r in rows), 4)
+        if rows
+        else None,
         "per_bin": per_bin,
         "rows": rows,
     }
     rep = es / f"eval-{t0}.json"
     rep.write_text(json.dumps(result, indent=2) + "\n")
-    print(json.dumps({k: v for k, v in result.items() if k != "rows"},
-                     indent=2))
+    print(json.dumps({k: v for k, v in result.items() if k != "rows"}, indent=2))
     print(f"[eval] -> {rep}")
 
 
@@ -528,79 +602,108 @@ def main() -> None:
     p = sub.add_parser("plan")
     p.add_argument("--curation", type=Path, required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--ckpt", required=True,
-                   help="checkpoint that generated the source games "
-                        "(mainline replay policy; served argmax)")
-    p.add_argument("--k", type=int, default=16,
-                   help="completions per fork point")
-    p.add_argument("--anchor", choices=sorted(ANCHOR_FIELD), default="crash",
-                   help="fork-turn anchor: the value-crash window or the "
-                        "pre-crash value peak (default: crash)")
-    p.add_argument("--turn-offset", type=int, default=0,
-                   help="fork this many turns before (+after) the anchor "
-                        "(default: at the anchor turn)")
-    p.add_argument("--tag", default="",
-                   help="alphanumeric run-dir tag: generate launches as "
-                        "drill<tag>-* and report aggregates only drill<tag>-* "
-                        "dirs — REQUIRED to keep concurrent sweep arms from "
-                        "superseding each other's labels")
-    p.add_argument("--limit", type=int, default=0,
-                   help="first N curation rows only (smokes)")
+    p.add_argument(
+        "--ckpt",
+        required=True,
+        help="checkpoint that generated the source games (mainline replay policy; served argmax)",
+    )
+    p.add_argument("--k", type=int, default=16, help="completions per fork point")
+    p.add_argument(
+        "--anchor",
+        choices=sorted(ANCHOR_FIELD),
+        default="crash",
+        help="fork-turn anchor: the value-crash window or the "
+        "pre-crash value peak (default: crash)",
+    )
+    p.add_argument(
+        "--turn-offset",
+        type=int,
+        default=0,
+        help="fork this many turns before (+after) the anchor (default: at the anchor turn)",
+    )
+    p.add_argument(
+        "--tag",
+        default="",
+        help="alphanumeric run-dir tag: generate launches as "
+        "drill<tag>-* and report aggregates only drill<tag>-* "
+        "dirs — REQUIRED to keep concurrent sweep arms from "
+        "superseding each other's labels",
+    )
+    p.add_argument("--limit", type=int, default=0, help="first N curation rows only (smokes)")
     p.set_defaults(fn=plan)
 
     g = sub.add_parser("generate")
-    g.add_argument("--manifest", required=True,
-                   help="directory written by plan")
-    g.add_argument("--ckpt", default=None,
-                   help="override the manifest checkpoint")
-    g.add_argument("--k", type=int, default=None,
-                   help="override the manifest K")
+    g.add_argument("--manifest", required=True, help="directory written by plan")
+    g.add_argument("--ckpt", default=None, help="override the manifest checkpoint")
+    g.add_argument("--k", type=int, default=None, help="override the manifest K")
     g.add_argument("--port", type=int, default=50067)
     g.add_argument("--workers", type=int, default=8)
     g.add_argument("--chunk", type=int, default=50)
-    g.add_argument("--drill-stop", action=argparse.BooleanOptionalAction,
-                   default=True,
-                   help="end mainlines after their last fork point "
-                        "(--no-drill-stop = full replay, the determinism "
-                        "gate)")
-    g.add_argument("--fork-obs", action="store_true",
-                   help="training generation (M4 D3): completions written "
-                        "as store frames (obs-forks.zst, per-completion "
-                        "seeds) for `anvil.store ingest --forks`")
-    g.add_argument("--drill-ckpt", default=None,
-                   help="dual-policy serving: fork completions answered by "
-                        "this checkpoint, mainline replay stays on the "
-                        "manifest ckpt")
-    g.add_argument("--sample-forks", action="store_true",
-                   help="sample the drill backend with mu records (per-arm "
-                        "server + mu file; requires --drill-ckpt and "
-                        "--fork-obs) — the drill TRAINING generation mode")
+    g.add_argument(
+        "--drill-stop",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="end mainlines after their last fork point "
+        "(--no-drill-stop = full replay, the determinism "
+        "gate)",
+    )
+    g.add_argument(
+        "--fork-obs",
+        action="store_true",
+        help="training generation (M4 D3): completions written "
+        "as store frames (obs-forks.zst, per-completion "
+        "seeds) for `anvil.store ingest --forks`",
+    )
+    g.add_argument(
+        "--drill-ckpt",
+        default=None,
+        help="dual-policy serving: fork completions answered by "
+        "this checkpoint, mainline replay stays on the "
+        "manifest ckpt",
+    )
+    g.add_argument(
+        "--sample-forks",
+        action="store_true",
+        help="sample the drill backend with mu records (per-arm "
+        "server + mu file; requires --drill-ckpt and "
+        "--fork-obs) — the drill TRAINING generation mode",
+    )
     g.set_defaults(fn=generate)
 
     r = sub.add_parser("report")
-    r.add_argument("--manifest", required=True,
-                   help="directory written by plan (aggregates every drill "
-                        "run dir for its arms; later runs supersede per game)")
+    r.add_argument(
+        "--manifest",
+        required=True,
+        help="directory written by plan (aggregates every drill "
+        "run dir for its arms; later runs supersede per game)",
+    )
     r.set_defaults(fn=report)
 
     s = sub.add_parser("select")
-    s.add_argument("--curation", type=Path, required=True,
-                   help="full curation rows (payload for the output)")
-    s.add_argument("--labels", required=True,
-                   help="comma-joined dirs each holding drills.jsonl "
-                        "(map, sweep arms); later supersedes at the same "
-                        "fork turn — list re-measures last")
-    s.add_argument("--holdout", default=None,
-                   help="evalset dir whose meta.json held_out games are "
-                        "subtracted (training lists MUST pass this)")
-    s.add_argument("--band", default="0.25:0.75",
-                   help="trainable winrate band lo:hi")
+    s.add_argument(
+        "--curation", type=Path, required=True, help="full curation rows (payload for the output)"
+    )
+    s.add_argument(
+        "--labels",
+        required=True,
+        help="comma-joined dirs each holding drills.jsonl "
+        "(map, sweep arms); later supersedes at the same "
+        "fork turn — list re-measures last",
+    )
+    s.add_argument(
+        "--holdout",
+        default=None,
+        help="evalset dir whose meta.json held_out games are "
+        "subtracted (training lists MUST pass this)",
+    )
+    s.add_argument("--band", default="0.25:0.75", help="trainable winrate band lo:hi")
     s.add_argument("--out", required=True)
     s.set_defaults(fn=select)
 
     e = sub.add_parser("evalset")
-    e.add_argument("--map", required=True,
-                   help="mapped manifest dir (plan + generate + report done)")
+    e.add_argument(
+        "--map", required=True, help="mapped manifest dir (plan + generate + report done)"
+    )
     e.add_argument("--out", required=True)
     e.add_argument("--winnable", type=int, default=-1, help="-1 = all")
     e.add_argument("--coin", type=int, default=-1)
@@ -609,10 +712,10 @@ def main() -> None:
     e.set_defaults(fn=evalset)
 
     v = sub.add_parser("eval")
-    v.add_argument("--evalset", required=True,
-                   help="directory written by evalset")
-    v.add_argument("--ckpt", required=True,
-                   help="checkpoint under evaluation (plays the completions)")
+    v.add_argument("--evalset", required=True, help="directory written by evalset")
+    v.add_argument(
+        "--ckpt", required=True, help="checkpoint under evaluation (plays the completions)"
+    )
     v.add_argument("--port", type=int, default=50067)
     v.add_argument("--workers", type=int, default=8)
     v.add_argument("--chunk", type=int, default=50)

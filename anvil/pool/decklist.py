@@ -10,9 +10,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-BASICS = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes",
-          "Snow-Covered Plains", "Snow-Covered Island", "Snow-Covered Swamp",
-          "Snow-Covered Mountain", "Snow-Covered Forest", "Snow-Covered Wastes"}
+BASICS = {
+    "Plains",
+    "Island",
+    "Swamp",
+    "Mountain",
+    "Forest",
+    "Wastes",
+    "Snow-Covered Plains",
+    "Snow-Covered Island",
+    "Snow-Covered Swamp",
+    "Snow-Covered Mountain",
+    "Snow-Covered Forest",
+    "Snow-Covered Wastes",
+}
 
 
 class ShapeError(ValueError):

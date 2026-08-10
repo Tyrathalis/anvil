@@ -86,22 +86,28 @@ def trace(args: argparse.Namespace) -> None:
                     if turn < 1 or turn == seen_turn:
                         continue
                     seen_turn = turn
-                    exs.append(ev.example(dec, traj.header, model_seat,
-                                          traj.decisions[:i]))
+                    exs.append(ev.example(dec, traj.header, model_seat, traj.decisions[:i]))
                     turns.append(turn)
                 if not exs:
                     census["skip_no_windows"] += 1
                     continue
                 v = ev.win_probs(exs)
                 end = traj.end or {}
-                f.write(json.dumps({
-                    "store": Path(root).name, "g": traj.game_index,
-                    "seed": traj.header["seed"], "model_seat": model_seat,
-                    "won": int(winner == model_seat),
-                    "turns": end.get("turns"),
-                    "decks": [pl["deck"] for pl in traj.header["players"]],
-                    "vals": [[t, round(float(x), 4)] for t, x in zip(turns, v)],
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "store": Path(root).name,
+                            "g": traj.game_index,
+                            "seed": traj.header["seed"],
+                            "model_seat": model_seat,
+                            "won": int(winner == model_seat),
+                            "turns": end.get("turns"),
+                            "decks": [pl["deck"] for pl in traj.header["players"]],
+                            "vals": [[t, round(float(x), 4)] for t, x in zip(turns, v)],
+                        }
+                    )
+                    + "\n"
+                )
                 n_rows += 1
                 census["games"] += 1
                 census["windows"] += len(exs)
@@ -109,10 +115,14 @@ def trace(args: argparse.Namespace) -> None:
                     rate = n_rows / (time.time() - t0)
                     print(f"[trace] {n_rows} games ({rate:.1f}/s)", flush=True)
 
-    meta = {"ckpt": ev.ckpt, "ckpt_step": ev.step, "arms": args.arm,
-            "census": dict(census),
-            "emb_misses": dict(ev.emb_misses.most_common(10)),
-            "wall_s": round(time.time() - t0, 1)}
+    meta = {
+        "ckpt": ev.ckpt,
+        "ckpt_step": ev.step,
+        "arms": args.arm,
+        "census": dict(census),
+        "emb_misses": dict(ev.emb_misses.most_common(10)),
+        "wall_s": round(time.time() - t0, 1),
+    }
     (out_dir / "trace-meta.json").write_text(json.dumps(meta, indent=2) + "\n")
     print(f"[trace] done: {dict(census)} in {meta['wall_s']}s -> {out_dir}")
 
@@ -132,7 +142,7 @@ def _auc(v: np.ndarray, y: np.ndarray) -> float:
         while j + 1 < len(sv) and sv[j + 1] == sv[i]:
             j += 1
         if j > i:
-            ranks[order[i:j + 1]] = (i + j + 2) / 2
+            ranks[order[i : j + 1]] = (i + j + 2) / 2
         i = j + 1
     n1 = int(y.sum())
     n0 = len(y) - n1
@@ -141,8 +151,7 @@ def _auc(v: np.ndarray, y: np.ndarray) -> float:
 
 def analyze(args: argparse.Namespace) -> None:
     out_dir = Path(args.out)
-    rows = [json.loads(line)
-            for line in (out_dir / "traces.jsonl").read_text().splitlines()]
+    rows = [json.loads(line) for line in (out_dir / "traces.jsonl").read_text().splitlines()]
     # Isotonic remap (M6 D4, ADR-0036 adoption): doom thresholds and the
     # peak>=0.5 curation filter are ABSOLUTE-calibration reads, so they
     # consume the era-scoped remap when given one. Traces stay raw on disk
@@ -150,20 +159,25 @@ def analyze(args: argparse.Namespace) -> None:
     isotonic_meta = None
     if getattr(args, "isotonic", None):
         if not args.isotonic_key:
-            raise SystemExit("--isotonic requires --isotonic-key (era/critic "
-                             "— era-scoped by ADR-0036, never guessed)")
+            raise SystemExit(
+                "--isotonic requires --isotonic-key (era/critic "
+                "— era-scoped by ADR-0036, never guessed)"
+            )
         import sys
+
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         from critic_calibration import pav_apply
         from isotonic_maps import load_map
+
         lo, vals = load_map(args.isotonic, args.isotonic_key)
         for r in rows:
             vv = pav_apply(np.array([v for _, v in r["vals"]]), lo, vals)
-            r["vals"] = [[t, round(float(v), 4)]
-                         for (t, _), v in zip(r["vals"], vv)]
+            r["vals"] = [[t, round(float(v), 4)] for (t, _), v in zip(r["vals"], vv)]
         isotonic_meta = {"maps": str(args.isotonic), "key": args.isotonic_key}
-        print(f"[analyze] isotonic remap applied: {args.isotonic_key} "
-              f"({len(vals)} steps) from {args.isotonic}")
+        print(
+            f"[analyze] isotonic remap applied: {args.isotonic_key} "
+            f"({len(vals)} steps) from {args.isotonic}"
+        )
     losses = [r for r in rows if not r["won"]]
     wins = [r for r in rows if r["won"]]
     n = len(rows)
@@ -182,19 +196,25 @@ def analyze(args: argparse.Namespace) -> None:
                 "loss_doom_frac": round(float((ml < th).mean()), 4),
                 "win_false_doom_frac": round(float((mw < th).mean()), 4),
                 # ceiling on THIS eval if every non-doomed loss were converted
-                "ceiling": round((len(wins) + int(((ml >= th)).sum())) / n, 4),
-            } for th in THETAS
+                "ceiling": round((len(wins) + int((ml >= th).sum())) / n, 4),
+            }
+            for th in THETAS
         }
 
     # ---- reliability: does v mean P(win)? (doom labels need calibration) ----
     v_all = np.array([v for r in rows for _, v in r["vals"]])
     y_all = np.array([r["won"] for r in rows for _ in r["vals"]])
     bins = np.clip((v_all * 10).astype(int), 0, 9)
-    reliability = [{"bin": f"[{b/10:.1f},{(b+1)/10:.1f})",
-                    "n": int((bins == b).sum()),
-                    "v_mean": round(float(v_all[bins == b].mean()), 4),
-                    "win_rate": round(float(y_all[bins == b].mean()), 4)}
-                   for b in range(10) if (bins == b).any()]
+    reliability = [
+        {
+            "bin": f"[{b / 10:.1f},{(b + 1) / 10:.1f})",
+            "n": int((bins == b).sum()),
+            "v_mean": round(float(v_all[bins == b].mean()), 4),
+            "win_rate": round(float(y_all[bins == b].mean()), 4),
+        }
+        for b in range(10)
+        if (bins == b).any()
+    ]
 
     # turn-bucketed AUC (absolute turn, not turns-from-end: what the doom
     # criterion actually conditions on)
@@ -203,12 +223,13 @@ def analyze(args: argparse.Namespace) -> None:
     for lo, hi in [(1, 3), (4, 6), (7, 10), (11, 16), (17, 99)]:
         m = (t_all >= lo) & (t_all <= hi)
         if m.sum() > 100:
-            auc_by_turn[f"t{lo}-{hi}"] = {"n": int(m.sum()),
-                                          "auc": round(_auc(v_all[m], y_all[m]), 4)}
+            auc_by_turn[f"t{lo}-{hi}"] = {
+                "n": int(m.sum()),
+                "auc": round(_auc(v_all[m], y_all[m]), 4),
+            }
 
     # ---- symmetric luck read: wins the model never trailed in ----
-    always_ahead_wins = sum(1 for r in wins
-                            if min(v for _, v in r["vals"]) >= 0.5)
+    always_ahead_wins = sum(1 for r in wins if min(v for _, v in r["vals"]) >= 0.5)
 
     # ---- curation: addressable losses ranked by value crash ----
     curation = []
@@ -218,28 +239,37 @@ def analyze(args: argparse.Namespace) -> None:
         peak_t, peak_v = vals[peak_i]
         if peak_v < 0.5:
             continue  # never ahead — luck-locked, nothing to drill
-        drops = [(vals[i][1] - vals[i + 1][1], i)
-                 for i in range(peak_i, len(vals) - 1)]
+        drops = [(vals[i][1] - vals[i + 1][1], i) for i in range(peak_i, len(vals) - 1)]
         if not drops:
             continue
         drop, i = max(drops)
-        curation.append({
-            "store": r["store"], "g": r["g"], "seed": r["seed"],
-            "model_seat": r["model_seat"], "decks": r["decks"],
-            "peak_turn": peak_t, "peak_v": peak_v,
-            "crash_from_turn": vals[i][0], "crash_to_turn": vals[i + 1][0],
-            "v_before": vals[i][1], "v_after": vals[i + 1][1],
-            "drop": round(drop, 4), "game_turns": r["turns"],
-        })
+        curation.append(
+            {
+                "store": r["store"],
+                "g": r["g"],
+                "seed": r["seed"],
+                "model_seat": r["model_seat"],
+                "decks": r["decks"],
+                "peak_turn": peak_t,
+                "peak_v": peak_v,
+                "crash_from_turn": vals[i][0],
+                "crash_to_turn": vals[i + 1][0],
+                "v_before": vals[i][1],
+                "v_after": vals[i + 1][1],
+                "drop": round(drop, 4),
+                "game_turns": r["turns"],
+            }
+        )
     curation.sort(key=lambda c: -c["drop"])
     with open(out_dir / "curation.jsonl", "w") as f:
-        for c in curation:
-            f.write(json.dumps(c) + "\n")
+        f.writelines(json.dumps(c) + "\n" for c in curation)
 
     summary = {
         "traces": str(out_dir / "traces.jsonl"),
         "ckpt": json.loads((out_dir / "trace-meta.json").read_text())["ckpt"],
-        "games": n, "wins": len(wins), "losses": len(losses),
+        "games": n,
+        "wins": len(wins),
+        "losses": len(losses),
         "winrate": round(len(wins) / n, 4),
         "doom": doom,
         "always_ahead_win_frac": round(always_ahead_wins / len(wins), 4),
@@ -257,20 +287,27 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     t = sub.add_parser("trace")
-    t.add_argument("--arm", action="append", required=True,
-                   help="store_dir:model_seat (repeatable)")
+    t.add_argument(
+        "--arm", action="append", required=True, help="store_dir:model_seat (repeatable)"
+    )
     t.add_argument("--ckpt", required=True, help="full-vis critic checkpoint")
     t.add_argument("--out", required=True)
     t.add_argument("--limit", type=int, default=0, help="games per arm (smoke)")
     t.set_defaults(fn=trace)
     a = sub.add_parser("analyze")
     a.add_argument("--out", required=True)
-    a.add_argument("--isotonic", default=None,
-                   help="isotonic-maps.json (scripts/isotonic_maps.py "
-                        "export); values remapped before all analysis")
-    a.add_argument("--isotonic-key", default=None,
-                   help="era/critic key, e.g. c2/v_era — must match the "
-                        "trace ckpt's era (era-scoped, ADR-0036)")
+    a.add_argument(
+        "--isotonic",
+        default=None,
+        help="isotonic-maps.json (scripts/isotonic_maps.py "
+        "export); values remapped before all analysis",
+    )
+    a.add_argument(
+        "--isotonic-key",
+        default=None,
+        help="era/critic key, e.g. c2/v_era — must match the "
+        "trace ckpt's era (era-scoped, ADR-0036)",
+    )
     a.set_defaults(fn=analyze)
     args = ap.parse_args()
     args.fn(args)

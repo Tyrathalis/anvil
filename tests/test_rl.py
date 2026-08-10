@@ -131,17 +131,18 @@ def test_census_first_attempt_veto_basis(tmp_path):
 
     c = _census_tallies(tmp_path)
     assert c["veto"] == 2 and c["cast"] == 2 and c["reask_rescued"] == 1
-    assert c["veto_rate"] == 0.5           # chain-inflated: 2/(2+2)
+    assert c["veto_rate"] == 0.5  # chain-inflated: 2/(2+2)
     assert c["first_veto"] == 1 and c["first_cast"] == 1
-    assert c["first_veto_rate"] == 0.5     # here equal by construction...
+    assert c["first_veto_rate"] == 0.5  # here equal by construction...
 
     # ...but a longer re-veto chain moves ONLY the chain-inflated rate
-    lines += [{"by": "bridge", "m": m, "pick": "X", "veto": "no-fit", "reask": k}
-              for k in range(1, 5)]
+    lines += [
+        {"by": "bridge", "m": m, "pick": "X", "veto": "no-fit", "reask": k} for k in range(1, 5)
+    ]
     (wd / "census.jsonl").write_text("\n".join(_json.dumps(r) for r in lines) + "\n")
     c2 = _census_tallies(tmp_path)
-    assert c2["veto_rate"] == 0.75         # 6/(6+2)
-    assert c2["first_veto_rate"] == 0.5    # unchanged
+    assert c2["veto_rate"] == 0.75  # 6/(6+2)
+    assert c2["first_veto_rate"] == 0.5  # unchanged
 
 
 def test_vtrace_step_rewards_shift_targets():
@@ -152,8 +153,7 @@ def test_vtrace_step_rewards_shift_targets():
     z = torch.zeros(3)
     lam = 0.02
     step_r = torch.tensor([-lam, 0.0, 0.0])
-    vs, pg_adv, _ = vtrace_targets(z.clone(), z.clone(), z.clone(),
-                                   reward=1.0, step_r=step_r)
+    vs, _pg_adv, _ = vtrace_targets(z.clone(), z.clone(), z.clone(), reward=1.0, step_r=step_r)
     assert vs.tolist() == pytest.approx([1.0 - lam, 1.0, 1.0])
     # without step_r: unchanged legacy behavior
     vs0, _, _ = vtrace_targets(z.clone(), z.clone(), z.clone(), reward=1.0)
@@ -171,38 +171,51 @@ def test_rejected_events_priority_and_combat():
     assert rejected_events([], 0, dec_ok, {"task": "priority", "c": 3}, {}) == 0
 
     # attack: declared 2 attackers, engine realized 1 -> 1 dropped
-    ents = [{"e": 1, "n": "A", "z": "battlefield", "c": 0, "pt": [2, 2]},
-            {"e": 2, "n": "B", "z": "battlefield", "c": 0, "pt": [3, 3]}]
-    dec_a = {"m": "declareAttackers", "p": 0,
-             "obs": {"glob": {"turn": 5}, "ents": ents}}
-    later = {"m": "x", "obs": {"glob": {"turn": 5}, "ents": [
-        {"e": 1, "n": "A", "z": "battlefield", "c": 0, "pt": [2, 2],
-         "atk": {"pi": 1}}]}}
-    aux = {"cmb_rows": [0, 1], "cmb_members": {0: [1], 1: [2]},
-           "blk_atk_rows": []}
+    ents = [
+        {"e": 1, "n": "A", "z": "battlefield", "c": 0, "pt": [2, 2]},
+        {"e": 2, "n": "B", "z": "battlefield", "c": 0, "pt": [3, 3]},
+    ]
+    dec_a = {"m": "declareAttackers", "p": 0, "obs": {"glob": {"turn": 5}, "ents": ents}}
+    later = {
+        "m": "x",
+        "obs": {
+            "glob": {"turn": 5},
+            "ents": [
+                {"e": 1, "n": "A", "z": "battlefield", "c": 0, "pt": [2, 2], "atk": {"pi": 1}}
+            ],
+        },
+    }
+    aux = {"cmb_rows": [0, 1], "cmb_members": {0: [1], 1: [2]}, "blk_atk_rows": []}
     rec = {"task": "attack", "atk": [1, 1], "cnt": [1, 1], "atgt": [0, 0]}
     assert rejected_events([dec_a, later], 0, dec_a, rec, aux) == 1
     # both realized -> 0
-    later2 = {"m": "x", "obs": {"glob": {"turn": 5}, "ents": [
-        dict(later["obs"]["ents"][0]),
-        {"e": 2, "n": "B", "z": "battlefield", "c": 0, "pt": [3, 3],
-         "atk": {"pi": 1}}]}}
+    later2 = {
+        "m": "x",
+        "obs": {
+            "glob": {"turn": 5},
+            "ents": [
+                dict(later["obs"]["ents"][0]),
+                {"e": 2, "n": "B", "z": "battlefield", "c": 0, "pt": [3, 3], "atk": {"pi": 1}},
+            ],
+        },
+    }
     assert rejected_events([dec_a, later2], 0, dec_a, rec, aux) == 0
 
     # block: declared a block that got dropped + a forced block appears
-    atk_ent = {"e": 9, "n": "Foe", "z": "battlefield", "c": 1, "pt": [4, 4],
-               "atk": {"pi": 0}}
+    atk_ent = {"e": 9, "n": "Foe", "z": "battlefield", "c": 1, "pt": [4, 4], "atk": {"pi": 0}}
     bents = ents + [atk_ent]
-    dec_b = {"m": "declareBlockers", "p": 0,
-             "obs": {"glob": {"turn": 5}, "ents": bents}}
+    dec_b = {"m": "declareBlockers", "p": 0, "obs": {"glob": {"turn": 5}, "ents": bents}}
     # answered: row0 blocks attacker slot 0, row1 answers none (class = 1 atk row -> none = 1)
     rec_b = {"task": "block", "blk": [0, 1], "cnt": [1, 1]}
-    exb = {"cmb_rows": [0, 1], "cmb_members": {0: [1], 1: [2]},
-           "blk_atk_rows": [2]}
+    exb = {"cmb_rows": [0, 1], "cmb_members": {0: [1], 1: [2]}, "blk_atk_rows": [2]}
     # realized: e1's block dropped; e2 force-added
-    later_b = {"m": "x", "obs": {"glob": {"turn": 5}, "ents": [
-        {"e": 2, "n": "B", "z": "battlefield", "c": 0, "pt": [3, 3],
-         "blk": [9]}]}}
+    later_b = {
+        "m": "x",
+        "obs": {
+            "glob": {"turn": 5},
+            "ents": [{"e": 2, "n": "B", "z": "battlefield", "c": 0, "pt": [3, 3], "blk": [9]}],
+        },
+    }
     assert rejected_events([dec_b, later_b], 0, dec_b, rec_b, exb) == 2
 
 
@@ -213,24 +226,30 @@ def test_iteration_batches_and_replay_mixture():
 
     b = iteration_batches("r6", 3, 480, 0.5)
     assert [(p, n, off) for p, n, off, _ in b] == [
-        ("r6-i003", 240, 0), ("r6-i003h0", 120, 240), ("r6-i003h1", 120, 360)]
+        ("r6-i003", 240, 0),
+        ("r6-i003h0", 120, 240),
+        ("r6-i003h1", 120, 360),
+    ]
     assert [seats for *_, seats in b] == [None, 0, 1]
     assert sum(n for _, n, _, _ in b) == 480
     # pure mirror: single batch, unchanged semantics
     assert iteration_batches("r6", 0, 480, 0.0) == [("r6-i000", 480, 0, None)]
 
-    groups = [["a1", "a2", "a3"], ["b1", "b2", "b3"], ["c1", "c2", "c3"],
-              ["d1", "d2", "d3"], ["e1", "e2", "e3"]]
-    stores, weights = replay_mixture(groups, replay=4, fresh_weight=1.0,
-                                     replay_weight=0.33)
-    assert stores == ["b1", "b2", "b3", "c1", "c2", "c3",
-                      "d1", "d2", "d3", "e1", "e2", "e3"]
+    groups = [
+        ["a1", "a2", "a3"],
+        ["b1", "b2", "b3"],
+        ["c1", "c2", "c3"],
+        ["d1", "d2", "d3"],
+        ["e1", "e2", "e3"],
+    ]
+    stores, weights = replay_mixture(groups, replay=4, fresh_weight=1.0, replay_weight=0.33)
+    assert stores == ["b1", "b2", "b3", "c1", "c2", "c3", "d1", "d2", "d3", "e1", "e2", "e3"]
     assert weights == [0.33] * 9 + [1.0] * 3
     # legacy flat chains load as singleton groups upstream; a mixed history
     # (old flat run resumed with heur-frac on) still weights by group
-    stores2, weights2 = replay_mixture([["x"], ["y"], ["z1", "z2", "z3"]],
-                                       replay=4, fresh_weight=1.0,
-                                       replay_weight=0.33)
+    stores2, weights2 = replay_mixture(
+        [["x"], ["y"], ["z1", "z2", "z3"]], replay=4, fresh_weight=1.0, replay_weight=0.33
+    )
     assert stores2 == ["x", "y", "z1", "z2", "z3"]
     assert weights2 == [0.33, 0.33, 1.0, 1.0, 1.0]
 
@@ -241,15 +260,16 @@ def test_batch_chunk_guarantees_two_rounds():
     generation batch clamps args.chunk so every worker sees >=2 refills."""
     from anvil.training.selfplay import batch_chunk
 
-    assert batch_chunk(240, 16, 30) == 7   # w=16 mirror batch at heur_frac .5
-    assert batch_chunk(120, 16, 30) == 3   # w=16 heur seat batch
-    assert batch_chunk(240, 8, 30) == 15   # the standard recipe de-tails too
-    assert batch_chunk(480, 8, 30) == 30   # big pool: the ceiling holds
-    assert batch_chunk(10, 16, 30) == 1    # tiny batch floors at 1, never 0
+    assert batch_chunk(240, 16, 30) == 7  # w=16 mirror batch at heur_frac .5
+    assert batch_chunk(120, 16, 30) == 3  # w=16 heur seat batch
+    assert batch_chunk(240, 8, 30) == 15  # the standard recipe de-tails too
+    assert batch_chunk(480, 8, 30) == 30  # big pool: the ceiling holds
+    assert batch_chunk(10, 16, 30) == 1  # tiny batch floors at 1, never 0
 
 
 def test_drill_slice_rotates_and_wraps():
     from anvil.training.selfplay import drill_slice
+
     rows = [{"g": i} for i in range(7)]
     # ppi 3 over 7 rows: iterations tile the list, wrapping without dupes
     s0 = drill_slice(rows, 0, 3)
@@ -276,8 +296,11 @@ def test_drill_eval_phase_idempotent_and_picks_new_report(tmp_path, monkeypatch)
     # a pre-existing report from an earlier (baseline) eval must NOT be
     # mistaken for this phase's output
     (es / "eval-20260101-000000.json").write_text("{}")
-    rep = {"winrate": 0.42, "baseline": 0.36,
-           "per_bin": {"lost": {"winrate": 0.12, "baseline": 0.05}}}
+    rep = {
+        "winrate": 0.42,
+        "baseline": 0.36,
+        "per_bin": {"lost": {"winrate": 0.12, "baseline": 0.05}},
+    }
     calls = []
 
     def fake_run(cmd):
@@ -286,8 +309,7 @@ def test_drill_eval_phase_idempotent_and_picks_new_report(tmp_path, monkeypatch)
 
     monkeypatch.setattr(selfplay, "_run", fake_run)
     monkeypatch.setattr(selfplay, "_notify", lambda *a, **k: None)
-    args = argparse.Namespace(drill_eval_set=str(es), port=1, workers=2,
-                              name="t")
+    args = argparse.Namespace(drill_eval_set=str(es), port=1, workers=2, name="t")
     state = {"ckpt": "ckpt.pt"}
 
     selfplay._drill_eval_phase(args, state, 9, it_dir)

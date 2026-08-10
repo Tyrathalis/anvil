@@ -41,7 +41,7 @@ def derived_counts(store_path: str, stem: str) -> dict:
             continue
         try:
             traj = store.game(g)
-        except Exception as e:  # undecodable frame: census still counted it
+        except Exception as e:  # noqa: BLE001 -- undecodable frame: census still counted it
             out["skipped"] += 1
             out.setdefault("undecodable", []).append((g, str(e)[:60]))
             continue
@@ -63,11 +63,12 @@ def derived_counts(store_path: str, stem: str) -> dict:
 def census_counts(run_dir: str) -> dict:
     out = {"priority": 0, "attack": 0, "block": 0}
     for f in glob.glob(f"{run_dir}/workers/inv-*/census.jsonl"):
-        for line in open(f):
-            try:
-                r = json.loads(line)
-            except json.JSONDecodeError:
-                continue
+        with open(f) as fh:
+            for line in fh:
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
             if r.get("by") != "bridge":
                 continue
             m = r.get("m")
@@ -84,25 +85,23 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--store", required=True)
     ap.add_argument("--run", required=True)
-    ap.add_argument("--strict", action="store_true",
-                    help="exit nonzero on any mismatch (gate mode)")
+    ap.add_argument(
+        "--strict", action="store_true", help="exit nonzero on any mismatch (gate mode)"
+    )
     ap.add_argument("--stem", default="data/embeddings/cf2ca6ba-qwen3")
     args = ap.parse_args()
 
     d = derived_counts(args.store, args.stem)
     c = census_counts(args.run)
-    print(f"store: {args.store} ({d['games']} mu-covered games, "
-          f"{d['skipped']} skipped)")
+    print(f"store: {args.store} ({d['games']} mu-covered games, {d['skipped']} skipped)")
     ok = True
     for k in ("priority", "attack", "block"):
         match = d[k] == c[k]
         ok = ok and match
-        print(f"  {k:9} derived {d[k]:7}  census {c[k]:7}  "
-              f"{'OK' if match else 'MISMATCH'}")
+        print(f"  {k:9} derived {d[k]:7}  census {c[k]:7}  {'OK' if match else 'MISMATCH'}")
     if args.strict and not ok:
         raise SystemExit(1)
-    report = {"store": args.store, "run": args.run,
-              "derived": d, "census": c, "match": ok}
+    report = {"store": args.store, "run": args.run, "derived": d, "census": c, "match": ok}
     out = Path(args.store) / "rejected_intent_validation.json"
     out.write_text(json.dumps(report, indent=1) + "\n")
     print(f"report: {out}")

@@ -16,7 +16,6 @@ import argparse
 import datetime as _dt
 import hashlib
 import json
-import sys
 from pathlib import Path
 
 from anvil.encoder.cardtext import pool_texts
@@ -34,6 +33,7 @@ MODELS = {
 def _latest_manifest() -> Path:
     # data/pool/CURRENT pin (2026-08-03); was newest-mtime
     from anvil.pool import current_manifest_path
+
     return current_manifest_path()
 
 
@@ -67,28 +67,41 @@ def cmd_embed(a) -> None:
     revision = getattr(revision, "_commit_hash", None) or "unknown"
     # Cards are documents: no instruction prefix (Qwen3-Embedding applies
     # instructions on the query side; symmetric use here).
-    vecs = model.encode(corpus, batch_size=a.batch, show_progress_bar=True,
-                        convert_to_tensor=True, normalize_embeddings=True)
+    vecs = model.encode(
+        corpus,
+        batch_size=a.batch,
+        show_progress_bar=True,
+        convert_to_tensor=True,
+        normalize_embeddings=True,
+    )
     emb = vecs.to(torch.float16).cpu().contiguous()
 
     EMBED_DIR.mkdir(parents=True, exist_ok=True)
     stem = f"{manifest['pool_version']}-{a.model}"
     save_file({"embeddings": emb}, EMBED_DIR / f"{stem}.safetensors")
-    (EMBED_DIR / f"{stem}.json").write_text(json.dumps({
-        "pool_version": manifest["pool_version"],
-        "fork_commit": fork_commit(),
-        "model": model_id,
-        "model_revision": revision,
-        "created": _dt.datetime.now().isoformat(timespec="seconds"),
-        "dim": emb.shape[1],
-        "count": emb.shape[0],
-        "dtype": "float16",
-        "normalized": True,
-        "text_sha256": text_hash,
-        "names": names,
-    }, indent=1) + "\n")
-    print(f"[encoder] {emb.shape[0]} cards x {emb.shape[1]}d ({a.model}, rev {revision[:12]}) "
-          f"-> {EMBED_DIR / (stem + '.safetensors')}")
+    (EMBED_DIR / f"{stem}.json").write_text(
+        json.dumps(
+            {
+                "pool_version": manifest["pool_version"],
+                "fork_commit": fork_commit(),
+                "model": model_id,
+                "model_revision": revision,
+                "created": _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds"),
+                "dim": emb.shape[1],
+                "count": emb.shape[0],
+                "dtype": "float16",
+                "normalized": True,
+                "text_sha256": text_hash,
+                "names": names,
+            },
+            indent=1,
+        )
+        + "\n"
+    )
+    print(
+        f"[encoder] {emb.shape[0]} cards x {emb.shape[1]}d ({a.model}, rev {revision[:12]}) "
+        f"-> {EMBED_DIR / (stem + '.safetensors')}"
+    )
 
 
 def main() -> None:

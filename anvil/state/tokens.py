@@ -17,9 +17,17 @@ from torch import nn
 
 
 class StateAssembler(nn.Module):
-    def __init__(self, d_model: int, d_card: int, n_entity_features: int,
-                 n_global: int, n_players: int, n_player_features: int,
-                 n_methods: int, history_k: int):
+    def __init__(
+        self,
+        d_model: int,
+        d_card: int,
+        n_entity_features: int,
+        n_global: int,
+        n_players: int,
+        n_player_features: int,
+        n_methods: int,
+        history_k: int,
+    ):
         super().__init__()
         self.ent_proj = nn.Linear(d_card + n_entity_features, d_model)
         self.state_proj = nn.Linear(n_global + n_players * n_player_features, d_model)
@@ -34,19 +42,24 @@ class StateAssembler(nn.Module):
         b = card_vecs.shape[0]
         ent = self.ent_proj(torch.cat([card_vecs, batch["entities"]], dim=-1))
         state = self.state_proj(
-            torch.cat([batch["globals"], batch["players"].flatten(1)], dim=-1)).unsqueeze(1)
+            torch.cat([batch["globals"], batch["players"].flatten(1)], dim=-1)
+        ).unsqueeze(1)
 
         hist = batch["history"]  # (B, K, 3): method, self, host-row(-1 ok, unused v0)
-        method = self.method_emb(hist[..., 0].clamp(min=0)
-                                 + (hist[..., 0] < 0).long() * 0)  # pad -> id 0, masked below
+        method = self.method_emb(
+            hist[..., 0].clamp(min=0) + (hist[..., 0] < 0).long() * 0
+        )  # pad -> id 0, masked below
         selfsame = self.self_emb(hist[..., 1].clamp(min=0))
         htok = self.hist_proj(torch.cat([method, selfsame], dim=-1)) + self.hist_pos
 
         plan = self.plan_tok.expand(b, 1, -1)
         tokens = torch.cat([state, plan, ent, htok], dim=1)
-        pad = torch.cat([
-            torch.zeros(b, 2, dtype=torch.bool, device=ent.device),   # [STATE],[PLAN]
-            ~batch["ent_mask"],
-            hist[..., 0] < 0,                                          # unused history slots
-        ], dim=1)
+        pad = torch.cat(
+            [
+                torch.zeros(b, 2, dtype=torch.bool, device=ent.device),  # [STATE],[PLAN]
+                ~batch["ent_mask"],
+                hist[..., 0] < 0,  # unused history slots
+            ],
+            dim=1,
+        )
         return tokens, pad

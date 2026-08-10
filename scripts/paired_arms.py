@@ -49,8 +49,10 @@ def main() -> None:
         sb = json.loads((bd / "run.json").read_text())
         for key in ("seed_base", "pairs_sha256", "n_pairs", "games_per_pair"):
             if sa.get(key) != sb.get(key):
-                raise SystemExit(f"{ad.name} vs {bd.name}: {key} mismatch "
-                                 f"({sa.get(key)} != {sb.get(key)}) — not paired")
+                raise SystemExit(
+                    f"{ad.name} vs {bd.name}: {key} mismatch "
+                    f"({sa.get(key)} != {sb.get(key)}) — not paired"
+                )
         common = sorted(set(aw) & set(bw))
         diffs += [aw[i] - bw[i] for i in common]
 
@@ -61,8 +63,10 @@ def main() -> None:
     up = sum(1 for d in diffs if d > 0)
     down = sum(1 for d in diffs if d < 0)
     print(f"paired games: {n}")
-    print(f"A - B: {mean * 100:+.2f}pp ± {se * 100:.2f} "
-          f"(t={mean / se if se else float('inf'):.2f}, {up} up / {down} down)")
+    print(
+        f"A - B: {mean * 100:+.2f}pp ± {se * 100:.2f} "
+        f"(t={mean / se if se else float('inf'):.2f}, {up} up / {down} down)"
+    )
 
 
 if __name__ == "__main__":

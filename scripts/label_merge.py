@@ -65,45 +65,57 @@ def _load_traces(paths: list[str]) -> dict[tuple, dict[int, float]]:
     conflicting traces mean mixed critic eras, refuse."""
     out: dict[tuple, dict[int, float]] = {}
     for path in paths:
-        for line in Path(path, "traces.jsonl").open():
-            r = json.loads(line)
-            key = (r["store"], r["g"])
-            vals = {t: v for t, v in r["vals"]}
+        with Path(path, "traces.jsonl").open() as f:
+            for line in f:
+                r = json.loads(line)
+                key = (r["store"], r["g"])
+                vals = {t: v for t, v in r["vals"]}
             if key in out and out[key] != vals:
-                raise SystemExit(f"[merge] trace conflict for {key} across "
-                                 f"trace dirs — mixed critic eras, refusing")
+                raise SystemExit(
+                    f"[merge] trace conflict for {key} across "
+                    f"trace dirs — mixed critic eras, refusing"
+                )
             out[key] = vals
     return out
 
 
-def build_rows(era: str, label_dirs: list[str], trace_era: list[str],
-               trace_d4: list[str]) -> tuple[list[dict], dict]:
+def build_rows(
+    era: str, label_dirs: list[str], trace_era: list[str], trace_d4: list[str]
+) -> tuple[list[dict], dict]:
     """critic_calibration.build_dataset's join, plus per-source crash-dupe
     dedup; returns (rows, stats)."""
     tr = {"era": _load_traces(trace_era), "d4": _load_traces(trace_d4)}
     rows, miss, dupes = [], 0, 0
     for src in label_dirs:
         seen: set = set()
-        for line in Path(src, "drills.jsonl").open():
-            r = json.loads(line)
-            if r["n"] <= 0:
-                continue
-            key = (r["store"], r["g"], r["fired_t"])
-            if key in seen:
-                dupes += 1
-                continue
-            seen.add(key)
-            vals = {k: tr[k].get((r["store"], r["g"]), {}).get(r["fired_t"])
-                    for k in tr}
-            if any(v is None for v in vals.values()):
-                miss += 1
-                continue
-            rows.append({
-                "era": era, "src": Path(src).name,
-                "store": r["store"], "g": r["g"], "t": r["fired_t"],
-                "wr": r["model_wins"] / r["n"], "n": r["n"],
-                "v_era": vals["era"], "v_d4": vals["d4"],
-                "deck": r["deck"]})
+        with Path(src, "drills.jsonl").open() as f:
+            for line in f:
+                r = json.loads(line)
+                if r["n"] <= 0:
+                    continue
+                key = (r["store"], r["g"], r["fired_t"])
+                if key in seen:
+                    dupes += 1
+                    continue
+                seen.add(key)
+                vals = {k: tr[k].get((r["store"], r["g"]), {}).get(r["fired_t"]) for k in tr}
+                if any(v is None for v in vals.values()):
+                    miss += 1
+                    continue
+                rows.append(
+                    {
+                        "era": era,
+                        "src": Path(src).name,
+                        "store": r["store"],
+                        "g": r["g"],
+                        "t": r["fired_t"],
+                        "wr": r["model_wins"] / r["n"],
+                        "n": r["n"],
+                        "v_era": vals["era"],
+                        "v_d4": vals["d4"],
+                        "deck": r["deck"],
+                    }
+                )
     return rows, {"trace_join_misses": miss, "crash_dupes_dropped": dupes}
 
 
@@ -112,8 +124,7 @@ def merge(args: argparse.Namespace) -> None:
     base_keys = {_row_key(r) for r in base}
     base_holdout = {_row_key(r) for r in base if held_out(r["store"], r["g"])}
 
-    new_rows, stats = build_rows(args.era, args.labels, args.trace_era,
-                                 args.trace_d4)
+    new_rows, stats = build_rows(args.era, args.labels, args.trace_era, args.trace_d4)
     refused = [r for r in new_rows if held_out(r["store"], r["g"])]
     kept = [r for r in new_rows if not held_out(r["store"], r["g"])]
     collide = [r for r in kept if _row_key(r) in base_keys]
@@ -121,36 +132,44 @@ def merge(args: argparse.Namespace) -> None:
 
     merged = base + kept
     # the freeze proof: identical holdout row set, before anything is written
-    merged_holdout = {_row_key(r) for r in merged
-                      if held_out(r["store"], r["g"])}
+    merged_holdout = {_row_key(r) for r in merged if held_out(r["store"], r["g"])}
     if merged_holdout != base_holdout:
-        raise SystemExit("[merge] FREEZE VIOLATION: merged holdout differs "
-                         "from base holdout — refusing to write")
+        raise SystemExit(
+            "[merge] FREEZE VIOLATION: merged holdout differs from base holdout — refusing to write"
+        )
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w") as f:
         for r in merged:
             f.write(json.dumps(r) + "\n")
-    meta = {"base": str(args.base), "n_base": len(base),
-            "labels": args.labels,
-            "traces": {"era": args.trace_era, "d4": args.trace_d4},
-            "created": _dt.date.today().isoformat(),
-            "n_new_built": len(new_rows), "n_new_kept": len(kept),
-            "n_refused_holdout_hash": len(refused),
-            "n_base_key_collisions": len(collide), **stats,
-            "n_merged": len(merged),
-            "holdout_rows_unchanged": len(base_holdout),
-            "train_rows": len(merged) - len(base_holdout)}
-    Path(str(out) + ".merge-meta.json").write_text(
-        json.dumps(meta, indent=2) + "\n")
+    meta = {
+        "base": str(args.base),
+        "n_base": len(base),
+        "labels": args.labels,
+        "traces": {"era": args.trace_era, "d4": args.trace_d4},
+        "created": _dt.datetime.now(_dt.UTC).date().isoformat(),
+        "n_new_built": len(new_rows),
+        "n_new_kept": len(kept),
+        "n_refused_holdout_hash": len(refused),
+        "n_base_key_collisions": len(collide),
+        **stats,
+        "n_merged": len(merged),
+        "holdout_rows_unchanged": len(base_holdout),
+        "train_rows": len(merged) - len(base_holdout),
+    }
+    Path(str(out) + ".merge-meta.json").write_text(json.dumps(meta, indent=2) + "\n")
     print(json.dumps(meta, indent=2))
     if refused:
-        print(f"[merge] WARNING {len(refused)} rows refused by the freeze "
-              "guard — the campaign's plan-time filter leaked; rollouts "
-              "were wasted on holdout-hashing games")
-    print(f"[merge] holdout PROVEN unchanged ({len(base_holdout)} rows); "
-          f"train {meta['train_rows']} (+{len(kept)}) -> {out}")
+        print(
+            f"[merge] WARNING {len(refused)} rows refused by the freeze "
+            "guard — the campaign's plan-time filter leaked; rollouts "
+            "were wasted on holdout-hashing games"
+        )
+    print(
+        f"[merge] holdout PROVEN unchanged ({len(base_holdout)} rows); "
+        f"train {meta['train_rows']} (+{len(kept)}) -> {out}"
+    )
 
 
 def check(args: argparse.Namespace) -> None:
@@ -159,12 +178,13 @@ def check(args: argparse.Namespace) -> None:
     bh = {_row_key(r) for r in base if held_out(r["store"], r["g"])}
     dh = {_row_key(r) for r in ds if held_out(r["store"], r["g"])}
     ok = bh == dh
-    print(f"[check] base holdout {len(bh)} rows; dataset holdout {len(dh)} "
-          f"rows; identical: {ok}")
+    print(f"[check] base holdout {len(bh)} rows; dataset holdout {len(dh)} rows; identical: {ok}")
     if not ok:
         extra, missing = dh - bh, bh - dh
-        print(f"[check] extra {len(extra)} e.g. {sorted(extra)[:3]}; "
-              f"missing {len(missing)} e.g. {sorted(missing)[:3]}")
+        print(
+            f"[check] extra {len(extra)} e.g. {sorted(extra)[:3]}; "
+            f"missing {len(missing)} e.g. {sorted(missing)[:3]}"
+        )
         raise SystemExit(1)
 
 

@@ -24,8 +24,9 @@ import torch.nn.functional as F
 from anvil.training.dataset import TASKS, collate, default_methods
 
 
-def _gather_lp(logits: torch.Tensor, labels: torch.Tensor,
-               temperature: float = 1.0) -> torch.Tensor:
+def _gather_lp(
+    logits: torch.Tensor, labels: torch.Tensor, temperature: float = 1.0
+) -> torch.Tensor:
     """log_softmax over the last dim gathered at labels; -1 labels -> 0."""
     ok = labels >= 0
     lp = torch.log_softmax(logits.float() / temperature, dim=-1)
@@ -59,17 +60,23 @@ def composite_logp(fwd: dict, batch: dict, temperature: float = 1.0) -> dict:
     a_ok = batch["atk_label"] >= 0
     a_sign = torch.where(batch["atk_label"].clamp(min=0) > 0, a, -a)
     lp_atk = (F.logsigmoid(a_sign) * a_ok.float()).sum(-1)
-    lp_cnt = _gather_lp(fwd["cmb_count_logits"], batch["cmb_count_label"],
-                        temperature).sum(-1)
-    lp_atgt = _gather_lp(fwd["atk_tgt_logits"], batch["atk_tgt_labels"],
-                         temperature).sum(-1)
+    lp_cnt = _gather_lp(fwd["cmb_count_logits"], batch["cmb_count_label"], temperature).sum(-1)
+    lp_atgt = _gather_lp(fwd["atk_tgt_logits"], batch["atk_tgt_labels"], temperature).sum(-1)
     lp_blk = _gather_lp(fwd["blk_logits"], batch["blk_label"], temperature).sum(-1)
 
-    total = lp_choice + lp_tgt + lp_x + lp_bool + lp_num + lp_atk + lp_cnt \
-        + lp_atgt + lp_blk
-    return {"logp": total, "choice": lp_choice, "tgt": lp_tgt, "x": lp_x,
-            "bool": lp_bool, "num": lp_num, "atk": lp_atk, "cnt": lp_cnt,
-            "atgt": lp_atgt, "blk": lp_blk}
+    total = lp_choice + lp_tgt + lp_x + lp_bool + lp_num + lp_atk + lp_cnt + lp_atgt + lp_blk
+    return {
+        "logp": total,
+        "choice": lp_choice,
+        "tgt": lp_tgt,
+        "x": lp_x,
+        "bool": lp_bool,
+        "num": lp_num,
+        "atk": lp_atk,
+        "cnt": lp_cnt,
+        "atgt": lp_atgt,
+        "blk": lp_blk,
+    }
 
 
 def apply_mu_labels(ex: dict, rec: dict) -> dict:
@@ -78,6 +85,7 @@ def apply_mu_labels(ex: dict, rec: dict) -> dict:
     contributes nothing to composite_logp). Inverse of sampling.mu_record;
     the two must stay in lockstep."""
     from anvil.training.dataset import T_MAX
+
     n_i = ex["entities"].shape[0]
     task = rec["task"]
     if task == "priority":
@@ -127,6 +135,7 @@ def composite_entropy(fwd: dict, batch: dict) -> torch.Tensor:
     """Per-window summed entropy over the LABELED factor heads (the sampled
     action's factors) — the exploration-collapse monitor and bonus term.
     Masked logits carry -1e9, so exp() underflows to exact 0 there."""
+
     def cat_ent(logits, ok):
         lp = torch.log_softmax(logits.float(), dim=-1)
         return (-(lp.exp() * lp).sum(-1)) * ok.float()
@@ -152,11 +161,16 @@ def composite_entropy(fwd: dict, batch: dict) -> torch.Tensor:
     return ent
 
 
-def vtrace_targets(values: torch.Tensor, logp_pi: torch.Tensor,
-                   logp_mu: torch.Tensor, reward: float, gamma: float = 1.0,
-                   rho_bar: float = 1.0, c_bar: float = 1.0,
-                   step_r: "torch.Tensor | None" = None
-                   ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def vtrace_targets(
+    values: torch.Tensor,
+    logp_pi: torch.Tensor,
+    logp_mu: torch.Tensor,
+    reward: float,
+    gamma: float = 1.0,
+    rho_bar: float = 1.0,
+    c_bar: float = 1.0,
+    step_r: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """V-trace value targets + policy-gradient advantages for ONE trajectory
     (one seat's decision sequence in one game, time-ordered).
 
@@ -196,6 +210,7 @@ def mu_matches(ex: dict, rec: dict) -> bool:
     would crash the gather kernels mid-training; a mismatch means the record
     does not belong to this window, so the caller drops the whole game."""
     from anvil.training.dataset import COMBAT_COUNT_MAX, T_MAX, X_CLASSES
+
     n_i = ex["entities"].shape[0]
     p = ex["players"].shape[0]
     task = rec["task"]
@@ -213,19 +228,16 @@ def mu_matches(ex: dict, rec: dict) -> bool:
             return False
     elif task in ("attack", "block"):
         a_i = ex["cmb_rows"].shape[0]
-        if len(rec["cnt"]) != a_i or not all(
-                1 <= k <= COMBAT_COUNT_MAX for k in rec["cnt"]):
+        if len(rec["cnt"]) != a_i or not all(1 <= k <= COMBAT_COUNT_MAX for k in rec["cnt"]):
             return False
         if task == "attack":
             if len(rec["atk"]) != a_i or len(rec["atgt"]) != a_i:
                 return False
-            if not all(0 <= t < n_i + p
-                       for y, t in zip(rec["atk"], rec["atgt"]) if y):
+            if not all(0 <= t < n_i + p for y, t in zip(rec["atk"], rec["atgt"]) if y):
                 return False
         else:
             m_i = ex["blk_atk_rows"].shape[0]
-            if len(rec["blk"]) != a_i or not all(
-                    0 <= b <= m_i for b in rec["blk"]):
+            if len(rec["blk"]) != a_i or not all(0 <= b <= m_i for b in rec["blk"]):
                 return False
     return True
 
@@ -252,6 +264,7 @@ def rejected_events(decs: list, i: int, dec: dict, rec: dict, aux: dict) -> int:
     if task not in ("attack", "block"):
         return 0
     from anvil.training.dataset import _combat_label_window
+
     obs = dec["obs"]
     p = dec["p"]
     rows = aux.get("cmb_rows") or []
@@ -261,8 +274,9 @@ def rejected_events(decs: list, i: int, dec: dict, rec: dict, aux: dict) -> int:
     turn = obs["glob"].get("turn")
     lw = _combat_label_window(decs, i, turn, "atk" if task == "attack" else "blk")
     flag = "atk" if task == "attack" else "blk"
-    realized = set() if lw is None else {
-        e["e"] for e in lw["ents"] if flag in e and e.get("c") == p}
+    realized = (
+        set() if lw is None else {e["e"] for e in lw["ents"] if flag in e and e.get("c") == p}
+    )
     if task == "attack":
         n = 0
         for j, r in enumerate(rows):
@@ -322,26 +336,33 @@ def game_trajectories(store, feat, g: int, full_vis: bool = False):
                 return [], "mu_mismatch"
             rej = rejected_events(traj.decisions, len(prior), dec, rec, aux)
             apply_mu_labels(ex, rec)
-            ex_fv = (feat.example(wire, traj.header, rec["task"],
-                                  full_vis=True)[0] if full_vis else None)
+            ex_fv = (
+                feat.example(wire, traj.header, rec["task"], full_vis=True)[0] if full_vis else None
+            )
             by_seat.setdefault(dec["p"], []).append((ex, rec, rej, ex_fv))
         prior.append(dec)
-    return [(p, [(e, r) for e, r, _, _ in items], 1.0 if winner == p else 0.0,
-             [rj for _, _, rj, _ in items],
-             [fv for _, _, _, fv in items] if full_vis else [])
-            for p, items in sorted(by_seat.items())], None
+    return [
+        (
+            p,
+            [(e, r) for e, r, _, _ in items],
+            1.0 if winner == p else 0.0,
+            [rj for _, _, rj, _ in items],
+            [fv for _, _, _, fv in items] if full_vis else [],
+        )
+        for p, items in sorted(by_seat.items())
+    ], None
 
 
-def entropy_hinge(ent: "torch.Tensor", floor: float, b: int, t_len: int):
+def entropy_hinge(ent: torch.Tensor, floor: float, b: int, t_len: int):
     """ADR-0017 hinge floor: a penalty (ADDED to the loss) only when the
     segment's mean composite entropy sinks below `floor`; identically zero —
     zero gradient — above it. Replaces the always-on bonus, which was the
     sole persistent gradient under mirror-self-play ~zero advantages and ran
     away with lr (run-2). Weighted by the segment's share of the trajectory
     so multi-segment trajectories aggregate to a trajectory-level hinge."""
-    return torch.relu(
-        torch.as_tensor(floor, device=ent.device, dtype=ent.dtype)
-        - ent.mean()) * (b / t_len)
+    return torch.relu(torch.as_tensor(floor, device=ent.device, dtype=ent.dtype) - ent.mean()) * (
+        b / t_len
+    )
 
 
 def _identity(x):
@@ -359,9 +380,17 @@ class RlTrajectories(torch.utils.data.IterableDataset):
     three old stores at 0.33 ≈ one extra store-scan, 50% fresh samples.
     Worker-sharded by game; schedule reshuffled per epoch from the seed."""
 
-    def __init__(self, stores: list[str], weights: list[float], stem: str,
-                 methods: list[str], seed: int = 0, epochs: int = 1,
-                 full_vis: bool = False, seg: int = 256):
+    def __init__(
+        self,
+        stores: list[str],
+        weights: list[float],
+        stem: str,
+        methods: list[str],
+        seed: int = 0,
+        epochs: int = 1,
+        full_vis: bool = False,
+        seg: int = 256,
+    ):
         self.stores = stores
         self.weights = weights
         self.stem = stem
@@ -401,8 +430,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
             for si, g in schedule:
                 if (g * 2654435761 + si) % nw != wid:
                     continue
-                trajs, skip = game_trajectories(opened[si], feat, g,
-                                                full_vis=self.full_vis)
+                trajs, skip = game_trajectories(opened[si], feat, g, full_vis=self.full_vis)
                 if skip is not None:
                     yield {"skip": skip, "g": g}
                     continue
@@ -418,20 +446,22 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                 for seat, exs, reward, rej, exs_fv in trajs:
                     plain = [e for e, _ in exs]
                     n = max(1, self.seg)
-                    yield {"g": g, "seat": seat, "reward": reward,
-                           "t_len": len(plain),
-                           "segs": [collate(plain[i:i + n])
-                                    for i in range(0, len(plain), n)],
-                           "segs_fv": [collate(exs_fv[i:i + n])
-                                       for i in range(0, len(exs_fv), n)],
-                           # mu_step: which checkpoint generated these mu
-                           # records — the recompute tripwire only applies
-                           # when it matches the ref net (replay stores were
-                           # sampled under older checkpoints)
-                           "mu_step": mu_step, "mu_tau": mu_tau,
-                           "rej": torch.tensor(rej, dtype=torch.float32),
-                           "mu_logp": torch.tensor([r["logp"] for _, r in exs],
-                                                   dtype=torch.float32)}
+                    yield {
+                        "g": g,
+                        "seat": seat,
+                        "reward": reward,
+                        "t_len": len(plain),
+                        "segs": [collate(plain[i : i + n]) for i in range(0, len(plain), n)],
+                        "segs_fv": [collate(exs_fv[i : i + n]) for i in range(0, len(exs_fv), n)],
+                        # mu_step: which checkpoint generated these mu
+                        # records — the recompute tripwire only applies
+                        # when it matches the ref net (replay stores were
+                        # sampled under older checkpoints)
+                        "mu_step": mu_step,
+                        "mu_tau": mu_tau,
+                        "rej": torch.tensor(rej, dtype=torch.float32),
+                        "mu_logp": torch.tensor([r["logp"] for _, r in exs], dtype=torch.float32),
+                    }
 
 
 def make_forward_segments(dev: str, seg: int):
@@ -467,8 +497,7 @@ def make_forward_segments(dev: str, seg: int):
             while i < b:
                 n = min(seg_size["n"], b - i)
                 try:
-                    seg = {k: (v if n == b else v[i:i + n]).to(dev)
-                           for k, v in s.items()}
+                    seg = {k: (v if n == b else v[i : i + n]).to(dev) for k, v in s.items()}
                     ctx = torch.enable_grad() if grad else torch.no_grad()
                     with ctx, torch.autocast(dev, dtype=torch.bfloat16):
                         fwd = model(seg)
@@ -477,8 +506,10 @@ def make_forward_segments(dev: str, seg: int):
                         raise  # not a batching problem at this size
                     seg_size["n"] //= 2
                     torch.cuda.empty_cache()
-                    print(f"[rl] OOM at seg {n} -> retrying at {seg_size['n']} "
-                          f"(sticks for the rest of the run)")
+                    print(
+                        f"[rl] OOM at seg {n} -> retrying at {seg_size['n']} "
+                        f"(sticks for the rest of the run)"
+                    )
                     continue
                 yield seg, fwd
                 i += n
@@ -496,18 +527,24 @@ def main() -> None:
 
     ap = argparse.ArgumentParser(description="V-trace self-play learner (M2 D6)")
     ap.add_argument("--store", required=True, help="csv of iteration store dirs")
-    ap.add_argument("--weights", default=None,
-                    help="csv of expected passes per store (replay mixing; "
-                         "fractions subsample); default all 1")
+    ap.add_argument(
+        "--weights",
+        default=None,
+        help="csv of expected passes per store (replay mixing; fractions subsample); default all 1",
+    )
     ap.add_argument("--ckpt", required=True, help="init/pi checkpoint (last.pt)")
-    ap.add_argument("--ref-ckpt", default=None,
-                    help="mu-recompute tripwire checkpoint (default: --ckpt)")
-    ap.add_argument("--critic-ckpt", default=None,
-                    help="full-vis critic checkpoint (d6-vtrace-loop §6f): "
-                         "pass-A values (baseline + bootstrap) come from this "
-                         "frozen net on full-vis windows; the policy's own "
-                         "masked value head keeps training on the same vs "
-                         "targets. Off = v0 behavior (masked head values).")
+    ap.add_argument(
+        "--ref-ckpt", default=None, help="mu-recompute tripwire checkpoint (default: --ckpt)"
+    )
+    ap.add_argument(
+        "--critic-ckpt",
+        default=None,
+        help="full-vis critic checkpoint (d6-vtrace-loop §6f): "
+        "pass-A values (baseline + bootstrap) come from this "
+        "frozen net on full-vis windows; the policy's own "
+        "masked value head keeps training on the same vs "
+        "targets. Off = v0 behavior (masked head values).",
+    )
     ap.add_argument("--out", required=True)
     ap.add_argument("--lr", type=float, default=1e-5)
     ap.add_argument("--wd", type=float, default=0.0)
@@ -517,43 +554,63 @@ def main() -> None:
     ap.add_argument("--rho-bar", type=float, default=1.0)
     ap.add_argument("--c-bar", type=float, default=1.0)
     ap.add_argument("--value-weight", type=float, default=0.5)
-    ap.add_argument("--ent-weight", type=float, default=3e-3,
-                    help="weight on the hinge entropy-floor penalty (ADR-0017: "
-                         "the always-on bonus had no equilibrium and ran away)")
-    ap.add_argument("--ent-floor", type=float, default=0.08,
-                    help="hinge target: penalize segments whose MEAN composite "
-                         "entropy falls below this; zero gradient above. Default "
-                         "~half the BC-init mean (~0.15) — a collapse guard, not "
-                         "a pin (pinning at init would forbid legitimate "
-                         "sharpening)")
+    ap.add_argument(
+        "--ent-weight",
+        type=float,
+        default=3e-3,
+        help="weight on the hinge entropy-floor penalty (ADR-0017: "
+        "the always-on bonus had no equilibrium and ran away)",
+    )
+    ap.add_argument(
+        "--ent-floor",
+        type=float,
+        default=0.08,
+        help="hinge target: penalize segments whose MEAN composite "
+        "entropy falls below this; zero gradient above. Default "
+        "~half the BC-init mean (~0.15) — a collapse guard, not "
+        "a pin (pinning at init would forbid legitimate "
+        "sharpening)",
+    )
     ap.add_argument("--epochs", type=int, default=1)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--tripwire-every", type=int, default=25,
-                    help="mu-recompute check every Nth trajectory")
-    ap.add_argument("--penalty", type=float, default=0.0,
-                    help="rejected-intent penalty lambda (d6-vtrace-loop §6c): "
-                         "per-event negative reward on vetoed cast attempts "
-                         "and dropped/repaired combat declarations; 0 = off. "
-                         "A reward change is an RL-chain boundary — never mix "
-                         "replay stores across different lambda values.")
-    ap.add_argument("--tripwire-tol", type=float, default=0.2,
-                    help="per-decision |recomputed - recorded| logp tolerance. "
-                         "bf16 serve-vs-recompute noise reaches ~0.075 on "
-                         "soft heads (measured, d6 smoke); real skew shows "
-                         "pick mismatches or O(1)+ deviations")
-    ap.add_argument("--max-traj", type=int, default=0,
-                    help="stop after N trajectories (0 = whole store). "
-                         "Profiling/smoke only — a capped run's checkpoint is "
-                         "trained on a store prefix, never promote one")
+    ap.add_argument(
+        "--tripwire-every", type=int, default=25, help="mu-recompute check every Nth trajectory"
+    )
+    ap.add_argument(
+        "--penalty",
+        type=float,
+        default=0.0,
+        help="rejected-intent penalty lambda (d6-vtrace-loop §6c): "
+        "per-event negative reward on vetoed cast attempts "
+        "and dropped/repaired combat declarations; 0 = off. "
+        "A reward change is an RL-chain boundary — never mix "
+        "replay stores across different lambda values.",
+    )
+    ap.add_argument(
+        "--tripwire-tol",
+        type=float,
+        default=0.2,
+        help="per-decision |recomputed - recorded| logp tolerance. "
+        "bf16 serve-vs-recompute noise reaches ~0.075 on "
+        "soft heads (measured, d6 smoke); real skew shows "
+        "pick mismatches or O(1)+ deviations",
+    )
+    ap.add_argument(
+        "--max-traj",
+        type=int,
+        default=0,
+        help="stop after N trajectories (0 = whole store). "
+        "Profiling/smoke only — a capped run's checkpoint is "
+        "trained on a store prefix, never promote one",
+    )
     ap.add_argument("--clip", type=float, default=1.0)
     ap.add_argument("--log-every", type=int, default=20)
     ap.add_argument("--device", default="cuda")
     args = ap.parse_args()
 
     stores = args.store.split(",")
-    weights = ([float(w) for w in args.weights.split(",")] if args.weights
-               else [1.0] * len(stores))
+    weights = [float(w) for w in args.weights.split(",")] if args.weights else [1.0] * len(stores)
     assert len(weights) == len(stores)
 
     dev = args.device
@@ -565,16 +622,15 @@ def main() -> None:
     net.load_compat(ckpt["model"])
     net.train()
     ref = build_net(cfg["embed"], cfg["pool_manifest"], len(methods), n_sa=n_sa).to(dev)
-    ref_ckpt = (torch.load(args.ref_ckpt, map_location="cpu", weights_only=False)
-                if args.ref_ckpt else ckpt)
+    ref_ckpt = (
+        torch.load(args.ref_ckpt, map_location="cpu", weights_only=False) if args.ref_ckpt else ckpt
+    )
     ref.load_compat(ref_ckpt["model"])
     ref.eval()
     critic = None
     if args.critic_ckpt:
-        critic_ck = torch.load(args.critic_ckpt, map_location="cpu",
-                               weights_only=False)
-        critic = build_net(cfg["embed"], cfg["pool_manifest"], len(methods),
-                           n_sa=n_sa).to(dev)
+        critic_ck = torch.load(args.critic_ckpt, map_location="cpu", weights_only=False)
+        critic = build_net(cfg["embed"], cfg["pool_manifest"], len(methods), n_sa=n_sa).to(dev)
         critic.load_compat(critic_ck["model"])
         critic.eval()
         critic.requires_grad_(False)
@@ -582,22 +638,50 @@ def main() -> None:
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd)
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    rl_cfg = {**cfg, "rl": {k: getattr(args, k.replace("-", "_")) for k in
-                            ("store", "weights", "ckpt", "critic_ckpt",
-                             "lr", "traj_per_step",
-                             "gamma", "rho_bar", "c_bar", "value_weight",
-                             "ent_weight", "ent_floor", "epochs", "seed",
-                             "tripwire_tol")},
-              "init_step": ckpt.get("step")}
+    rl_cfg = {
+        **cfg,
+        "rl": {
+            k: getattr(args, k.replace("-", "_"))
+            for k in (
+                "store",
+                "weights",
+                "ckpt",
+                "critic_ckpt",
+                "lr",
+                "traj_per_step",
+                "gamma",
+                "rho_bar",
+                "c_bar",
+                "value_weight",
+                "ent_weight",
+                "ent_floor",
+                "epochs",
+                "seed",
+                "tripwire_tol",
+            )
+        },
+        "init_step": ckpt.get("step"),
+    }
     (out_dir / "config.json").write_text(json.dumps(rl_cfg, indent=2, default=str))
-    metrics = open(out_dir / "metrics.jsonl", "a", buffering=1)
+    metrics = open(out_dir / "metrics.jsonl", "a", buffering=1)  # noqa: SIM115 -- long-lived metrics append handle
 
-    ds = RlTrajectories(stores, weights, cfg["embed"], methods,
-                        seed=args.seed, epochs=args.epochs,
-                        full_vis=critic is not None, seg=args.seg)
+    ds = RlTrajectories(
+        stores,
+        weights,
+        cfg["embed"],
+        methods,
+        seed=args.seed,
+        epochs=args.epochs,
+        full_vis=critic is not None,
+        seg=args.seg,
+    )
     loader = torch.utils.data.DataLoader(
-        ds, batch_size=None, num_workers=args.workers,
-        collate_fn=_identity, persistent_workers=False)
+        ds,
+        batch_size=None,
+        num_workers=args.workers,
+        collate_fn=_identity,
+        persistent_workers=False,
+    )
 
     forward_segments = make_forward_segments(dev, args.seg)
 
@@ -614,8 +698,9 @@ def main() -> None:
     win_count = 0
 
     def save(tag="last"):
-        torch.save({"step": step, "model": net.state_dict(), "config": rl_cfg},
-                   out_dir / f"{tag}.pt")
+        torch.save(
+            {"step": step, "model": net.state_dict(), "config": rl_cfg}, out_dir / f"{tag}.pt"
+        )
 
     # Per-phase wall clock (bench 2026-07-25: the GPU sits ~90% idle through
     # the train phase and throughput is flat in both --seg and --workers, so
@@ -678,46 +763,59 @@ def main() -> None:
         if len(values) != len(logp_pi):
             raise RuntimeError(
                 f"game {item['g']} seat {item['seat']}: fv window count "
-                f"{len(values)} != masked {len(logp_pi)} — loader misalignment")
+                f"{len(values)} != masked {len(logp_pi)} — loader misalignment"
+            )
 
         # ---- mu recompute tripwire (sampled): serve/loader drift detector ----
-        if (n_traj % args.tripwire_every == 1
-                and item.get("mu_step") == ref_ckpt.get("step")):
+        if n_traj % args.tripwire_every == 1 and item.get("mu_step") == ref_ckpt.get("step"):
             head = segs[:1]  # the first pre-collated segment
             n_head = head[0]["label"].shape[0]
-            (seg, fwd), = forward_segments(ref, head, grad=False)
-            lp_ref = composite_logp(
-                fwd, seg, temperature=float(item.get("mu_tau", 1.0)))["logp"].cpu()
+            ((seg, fwd),) = forward_segments(ref, head, grad=False)
+            lp_ref = composite_logp(fwd, seg, temperature=float(item.get("mu_tau", 1.0)))[
+                "logp"
+            ].cpu()
             bad = (lp_ref - mu_logp[:n_head]).abs() > args.tripwire_tol
             if bad.any():
                 tripwire_viol += int(bad.sum())
-                print(f"[rl] TRIPWIRE: game {item['g']} seat {item['seat']}: "
-                      f"{int(bad.sum())}/{n_head} decisions off by "
-                      f"{float((lp_ref - mu_logp[:n_head]).abs().max()):.4f} "
-                      "— trajectory dropped")
+                print(
+                    f"[rl] TRIPWIRE: game {item['g']} seat {item['seat']}: "
+                    f"{int(bad.sum())}/{n_head} decisions off by "
+                    f"{float((lp_ref - mu_logp[:n_head]).abs().max()):.4f} "
+                    "— trajectory dropped"
+                )
                 continue
 
         tphase = tick("tripwire", tphase)
         step_r = (-args.penalty) * item["rej"] if args.penalty else None
-        vs, pg_adv, rho = vtrace_targets(values, logp_pi, mu_logp, reward,
-                                         gamma=args.gamma, rho_bar=args.rho_bar,
-                                         c_bar=args.c_bar, step_r=step_r)
+        vs, pg_adv, rho = vtrace_targets(
+            values,
+            logp_pi,
+            mu_logp,
+            reward,
+            gamma=args.gamma,
+            rho_bar=args.rho_bar,
+            c_bar=args.c_bar,
+            step_r=step_r,
+        )
 
         # ---- pass B (grad): policy gradient + value + entropy ----
         off = 0
         for seg, fwd in forward_segments(net, segs, grad=True):
             b = seg["label"].shape[0]
-            adv = pg_adv[off:off + b].to(dev)
-            tgt = vs[off:off + b].clamp(0.0, 1.0).to(dev)
+            adv = pg_adv[off : off + b].to(dev)
+            tgt = vs[off : off + b].clamp(0.0, 1.0).to(dev)
             lp = composite_logp(fwd, seg)["logp"]
             ent = composite_entropy(fwd, seg)
             pg_loss = -(adv * lp).sum() / t_len
-            v_loss = F.binary_cross_entropy_with_logits(
-                fwd["value_logit"].float(), tgt, reduction="sum") / t_len
+            v_loss = (
+                F.binary_cross_entropy_with_logits(fwd["value_logit"].float(), tgt, reduction="sum")
+                / t_len
+            )
             ent_mean = ent.sum() / t_len  # also the monitor's ent metric
             ent_pen = entropy_hinge(ent, args.ent_floor, b, t_len)
-            loss = (pg_loss + args.value_weight * v_loss
-                    + args.ent_weight * ent_pen) / args.traj_per_step
+            loss = (
+                pg_loss + args.value_weight * v_loss + args.ent_weight * ent_pen
+            ) / args.traj_per_step
             loss.backward()
             acc["pg"] = acc.get("pg", 0.0) + float(pg_loss)
             acc["v"] = acc.get("v", 0.0) + float(v_loss)
@@ -748,15 +846,18 @@ def main() -> None:
                 n = max(n_traj - last_flush_traj, 1)
                 last_flush_traj = n_traj
                 wall = time.monotonic() - t0
-                row = {"step": step, "traj": n_traj,
-                       **{k: round(v / n, 5) for k, v in acc.items()},
-                       "skips": dict(skips), "tripwire_viol": tripwire_viol,
-                       "win_per_s": round(win_count / wall, 1),
-                       # cumulative share of wall clock per phase; `load` is
-                       # loader-handoff wait, so a high share means the
-                       # learner is data-starved, not compute-bound
-                       "phase": {k: round(v / wall, 3)
-                                 for k, v in sorted(tprof.items())}}
+                row = {
+                    "step": step,
+                    "traj": n_traj,
+                    **{k: round(v / n, 5) for k, v in acc.items()},
+                    "skips": dict(skips),
+                    "tripwire_viol": tripwire_viol,
+                    "win_per_s": round(win_count / wall, 1),
+                    # cumulative share of wall clock per phase; `load` is
+                    # loader-handoff wait, so a high share means the
+                    # learner is data-starved, not compute-bound
+                    "phase": {k: round(v / wall, 3) for k, v in sorted(tprof.items())},
+                }
                 metrics.write(json.dumps(row) + "\n")
                 print(f"[rl] {row}")
                 acc = {}
@@ -768,10 +869,14 @@ def main() -> None:
     # the train phase on resume iff this exists (last.pt alone is ambiguous
     # — periodic saves leave one behind mid-run)
     wall = time.monotonic() - t0
-    print(f"[rl] done: {step} steps, {n_traj} trajectories, skips={skips}, "
-          f"tripwire_viol={tripwire_viol}")
-    print(f"[rl] wall {wall:.0f}s; phase shares "
-          + ", ".join(f"{k} {v / wall:.1%}" for k, v in sorted(tprof.items())))
+    print(
+        f"[rl] done: {step} steps, {n_traj} trajectories, skips={skips}, "
+        f"tripwire_viol={tripwire_viol}"
+    )
+    print(
+        f"[rl] wall {wall:.0f}s; phase shares "
+        + ", ".join(f"{k} {v / wall:.1%}" for k, v in sorted(tprof.items()))
+    )
 
 
 if __name__ == "__main__":

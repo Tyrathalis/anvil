@@ -15,7 +15,7 @@ import re
 import time
 import urllib.request
 
-from anvil.pool import RAW_DIR, RAW_DECKS_DIR
+from anvil.pool import RAW_DECKS_DIR, RAW_DIR
 
 MTGTOP8 = "https://mtgtop8.com"
 FORMAT_URL = f"{MTGTOP8}/format?f=EDH"
@@ -30,7 +30,9 @@ def _get(url: str) -> str:
     wait = _last_request + REQUEST_GAP_S - time.monotonic()
     if wait > 0:
         time.sleep(wait)
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (anvil pool pipeline; non-commercial research)"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "Mozilla/5.0 (anvil pool pipeline; non-commercial research)"}
+    )
     with urllib.request.urlopen(req, timeout=30) as resp:
         # mtgtop8 declares iso-8859-1; trust the header, don't assume utf-8
         body = resp.read().decode(resp.headers.get_content_charset() or "utf-8", "replace")
@@ -39,10 +41,11 @@ def _get(url: str) -> str:
 
 
 def _today() -> str:
-    return _dt.date.today().isoformat()
+    return _dt.datetime.now(_dt.UTC).date().isoformat()
 
 
 # --- mtgtop8 ---
+
 
 def _event_ids(format_html: str) -> list[int]:
     return sorted({int(e) for e in re.findall(r"event\?e=(\d+)&f=EDH", format_html)}, reverse=True)
@@ -80,12 +83,19 @@ def fetch_decks(since: str | None = None, limit_decks: int | None = None) -> dic
                 continue
             export = _get(f"{MTGTOP8}/mtgo?d={deck_id}")
             (RAW_DECKS_DIR / f"{deck_id}.txt").write_text(export)
-            (RAW_DECKS_DIR / f"{deck_id}.json").write_text(json.dumps({
-                "deck_id": deck_id,
-                "source_url": f"{MTGTOP8}/event?e={event_id}&d={deck_id}&f=EDH",
-                "event_id": event_id, "event_title": meta["title"],
-                "event_date": meta["date"], "fetched": _today(),
-            }, indent=2))
+            (RAW_DECKS_DIR / f"{deck_id}.json").write_text(
+                json.dumps(
+                    {
+                        "deck_id": deck_id,
+                        "source_url": f"{MTGTOP8}/event?e={event_id}&d={deck_id}&f=EDH",
+                        "event_id": event_id,
+                        "event_title": meta["title"],
+                        "event_date": meta["date"],
+                        "fetched": _today(),
+                    },
+                    indent=2,
+                )
+            )
             stats["decks_new"] += 1
             if limit_decks and stats["decks_new"] >= limit_decks:
                 return stats
@@ -106,7 +116,7 @@ SECTION_KIND = {
 def parse_banlist(html: str) -> list[dict]:
     """data-card-name attrs attributed to the nearest preceding header."""
     events: list[tuple[int, str, str]] = []
-    for m in re.finditer(r"<h([1-4])[^>]*>(.*?)</h\1>", html, re.S):
+    for m in re.finditer(r"<h([1-4])[^>]*>(.*?)</h\1>", html, re.DOTALL):
         header = re.sub(r"<[^>]+>", "", m.group(2)).strip()
         header = re.sub(r"^[^A-Za-z]+", "", header)  # strip emoji prefixes
         events.append((m.start(), "header", header))
@@ -126,7 +136,9 @@ def fetch_banlist() -> dict:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     cards = parse_banlist(_get(BANLIST_URL))
     if len(cards) < 50:  # the list is ~100+; a thin parse means the page changed
-        raise RuntimeError(f"banlist parse looks broken: only {len(cards)} cards — page layout changed?")
+        raise RuntimeError(
+            f"banlist parse looks broken: only {len(cards)} cards — page layout changed?"
+        )
     snapshot = {"source_url": BANLIST_URL, "fetched": _today(), "cards": cards}
     path = RAW_DIR / f"banlist-{_today()}.json"
     path.write_text(json.dumps(snapshot, indent=2))

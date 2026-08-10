@@ -10,33 +10,53 @@ reordering of hidden entities.
 import numpy as np
 import pytest
 
-from anvil.encoder.transform import (ENTITY_FEATURES, ENTITY_SCALE, VocabError,
-                                     assemble, visible_to)
+from anvil.encoder.transform import ENTITY_FEATURES, ENTITY_SCALE, VocabError, assemble, visible_to
 
 
 def _header():
-    return {"k": "game", "sv": 1, "g": 0, "seed": 1, "fmt": "Commander",
-            "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}]}
+    return {
+        "k": "game",
+        "sv": 1,
+        "g": 0,
+        "seed": 1,
+        "fmt": "Commander",
+        "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}],
+    }
 
 
 def _dec(ents, stack=None, p=0):
-    return {"k": "dec", "s": 0, "t": 3, "ph": "MAIN1", "p": p, "m": "chooseSpellAbilityToPlay",
-            "obs": {"glob": {"turn": 3, "ph": "MAIN1", "ap": 0},
-                    "players": [{"life": 38, "hand": 5, "lib": 90},
-                                {"life": 40, "hand": 4, "lib": 88}],
-                    "ents": ents, **({"stack": stack} if stack else {})}}
+    return {
+        "k": "dec",
+        "s": 0,
+        "t": 3,
+        "ph": "MAIN1",
+        "p": p,
+        "m": "chooseSpellAbilityToPlay",
+        "obs": {
+            "glob": {"turn": 3, "ph": "MAIN1", "ap": 0},
+            "players": [{"life": 38, "hand": 5, "lib": 90}, {"life": 40, "hand": 4, "lib": 88}],
+            "ents": ents,
+            **({"stack": stack} if stack else {}),
+        },
+    }
 
 
 def test_leak_invariance():
     """Perspective-0 output must not change when hidden identities change."""
-    opp_hand_a = [{"e": 10, "n": "Lightning Bolt", "z": "hand", "c": 1},
-                  {"e": 11, "n": "Counterspell", "z": "hand", "c": 1},
-                  {"e": 12, "n": "Swords to Plowshares", "z": "hand", "c": 1}]
-    opp_hand_b = [{"e": 12, "n": "Black Lotus", "z": "hand", "c": 1},
-                  {"e": 10, "n": "Ancestral Recall", "z": "hand", "c": 1},
-                  {"e": 11, "n": "Time Walk", "z": "hand", "c": 1}]
-    own = [{"e": 1, "n": "Sol Ring", "z": "battlefield", "c": 0, "tap": 1},
-           {"e": 2, "n": "Brainstorm", "z": "hand", "c": 0}]
+    opp_hand_a = [
+        {"e": 10, "n": "Lightning Bolt", "z": "hand", "c": 1},
+        {"e": 11, "n": "Counterspell", "z": "hand", "c": 1},
+        {"e": 12, "n": "Swords to Plowshares", "z": "hand", "c": 1},
+    ]
+    opp_hand_b = [
+        {"e": 12, "n": "Black Lotus", "z": "hand", "c": 1},
+        {"e": 10, "n": "Ancestral Recall", "z": "hand", "c": 1},
+        {"e": 11, "n": "Time Walk", "z": "hand", "c": 1},
+    ]
+    own = [
+        {"e": 1, "n": "Sol Ring", "z": "battlefield", "c": 0, "tap": 1},
+        {"e": 2, "n": "Brainstorm", "z": "hand", "c": 0},
+    ]
 
     out_a = assemble(_dec(own + opp_hand_a), _header())
     out_b = assemble(_dec(opp_hand_b + own), _header())  # reordered AND renamed
@@ -46,15 +66,23 @@ def test_leak_invariance():
     np.testing.assert_array_equal(out_a["entity_counts"], out_b["entity_counts"])
     # and the hidden cards never leak a name
     hid = ENTITY_FEATURES.index("hidden")
-    hidden_rows = [n for n, row in zip(out_a["entity_names"], out_a["entities"])
-                   if row[hid] == 1.0]
+    hidden_rows = [n for n, row in zip(out_a["entity_names"], out_a["entities"]) if row[hid] == 1.0]
     assert hidden_rows == [None]
 
 
 def test_facedown_battlefield_hidden_from_opponent():
-    ents = [{"e": 5, "n": "Hypnotic Specter", "z": "battlefield", "c": 1, "fd": 1,
-             "pt": [2, 2], "vis": "c"}]
-    mine = assemble(_dec(ents, p=0), _header())          # I am player 0: hidden
+    ents = [
+        {
+            "e": 5,
+            "n": "Hypnotic Specter",
+            "z": "battlefield",
+            "c": 1,
+            "fd": 1,
+            "pt": [2, 2],
+            "vis": "c",
+        }
+    ]
+    mine = assemble(_dec(ents, p=0), _header())  # I am player 0: hidden
     theirs = assemble(_dec(ents, p=1), _header(), perspective=1)  # controller: visible
     assert mine["entity_names"] == [None]
     assert theirs["entity_names"] == ["Hypnotic Specter"]
@@ -69,8 +97,9 @@ def test_revealed_hand_visible():
 
 
 def test_multiset_dedup():
-    ents = [{"e": i, "n": "Rat Colony", "z": "battlefield", "c": 0, "pt": [1, 1]}
-            for i in range(30, 36)]
+    ents = [
+        {"e": i, "n": "Rat Colony", "z": "battlefield", "c": 0, "pt": [1, 1]} for i in range(30, 36)
+    ]
     out = assemble(_dec(ents), _header())
     assert out["entities"].shape[0] == 1
     assert out["entity_counts"].tolist() == [6]
@@ -91,7 +120,7 @@ def test_unknown_vocab_is_loud():
 
 def test_globals_and_players_perspective():
     out0 = assemble(_dec([]), _header())
-    assert out0["globals"][2] == 1.0          # active player is self
+    assert out0["globals"][2] == 1.0  # active player is self
     assert out0["players"][0][0] == pytest.approx(38.0 / 40)  # self first, v2 scale
     out1 = assemble(_dec([], p=1), _header())
     assert out1["globals"][2] == 0.0
@@ -107,7 +136,8 @@ def test_library_top_visibility():
 
     assert assemble(_dec(forge, p=0), _header())["entity_names"] == [None]
     assert assemble(_dec(forge, p=1), _header(), perspective=1)["entity_names"] == [
-        "Mystic Forge Top"]
+        "Mystic Forge Top"
+    ]
     assert assemble(_dec(courser, p=0), _header())["entity_names"] == ["Courser Top"]
     assert not visible_to(bare[0], 0) and not visible_to(bare[0], 1)
 
@@ -133,15 +163,16 @@ def test_cmd_tax_on_command_zone_commander():
     """v4: command-zone commander rows carry the recast surcharge (2*cmdcast),
     scaled; everything else reads 0 — including the commander once cast."""
     col = ENTITY_FEATURES.index("cmd_tax")
-    ents = [{"e": 1, "n": "Ertai, the Corrupted", "z": "command", "c": 0},
-            {"e": 2, "n": "Winota, Joiner of Forces", "z": "battlefield", "c": 1},
-            {"e": 3, "n": "Sol Ring", "z": "battlefield", "c": 0}]
+    ents = [
+        {"e": 1, "n": "Ertai, the Corrupted", "z": "command", "c": 0},
+        {"e": 2, "n": "Winota, Joiner of Forces", "z": "battlefield", "c": 1},
+        {"e": 3, "n": "Sol Ring", "z": "battlefield", "c": 0},
+    ]
     dec = _dec(ents)
     dec["obs"]["players"][0]["cmdcast"] = [2]
     dec["obs"]["players"][1]["cmdcast"] = [1]
     out = assemble(dec, _cmd_header())
-    by_name = dict(zip(out["entity_names"],
-                       out["entities"][:, col] / ENTITY_SCALE[col]))
+    by_name = dict(zip(out["entity_names"], out["entities"][:, col] / ENTITY_SCALE[col]))
     assert by_name["Ertai, the Corrupted"] == pytest.approx(4.0)  # 2 casts -> +4
     assert by_name["Winota, Joiner of Forces"] == 0.0  # on battlefield, no row tax
     assert by_name["Sol Ring"] == 0.0
@@ -154,8 +185,10 @@ def test_cmd_tax_mirror_and_missing_fields():
     h = _header()
     h["players"][0]["cmd"] = ["Atraxa, Praetors' Voice"]
     h["players"][1]["cmd"] = ["Atraxa, Praetors' Voice"]
-    ents = [{"e": 1, "n": "Atraxa, Praetors' Voice", "z": "command", "c": 0},
-            {"e": 2, "n": "Atraxa, Praetors' Voice", "z": "command", "c": 1}]
+    ents = [
+        {"e": 1, "n": "Atraxa, Praetors' Voice", "z": "command", "c": 0},
+        {"e": 2, "n": "Atraxa, Praetors' Voice", "z": "command", "c": 1},
+    ]
     dec = _dec(ents)
     dec["obs"]["players"][0]["cmdcast"] = [3]
     dec["obs"]["players"][1]["cmdcast"] = [0]
@@ -163,7 +196,7 @@ def test_cmd_tax_mirror_and_missing_fields():
     ctl = ENTITY_FEATURES.index("controller_is_self")
     taxes = {row[ctl]: row[col] / ENTITY_SCALE[col] for row in out["entities"]}
     assert taxes[1.0] == pytest.approx(6.0)  # self (p0): 3 casts
-    assert taxes[0.0] == 0.0                 # opponent: uncast
+    assert taxes[0.0] == 0.0  # opponent: uncast
 
     # no cmd/cmdcast anywhere: column is all zeros, assemble doesn't raise
     out2 = assemble(_dec(ents), _header())

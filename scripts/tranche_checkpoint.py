@@ -40,9 +40,9 @@ from types import SimpleNamespace
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import frozen_probe as fp  # noqa: E402
-import unfreeze_probe as up  # noqa: E402
-from label_merge import held_out  # noqa: E402
+import frozen_probe as fp
+import unfreeze_probe as up
+from label_merge import held_out
 
 BASE_DATASET = "data/runs/frozen-probe-ext2-c2/dataset.jsonl"
 CONTINUE_AT = 0.478  # 3.6K point 0.4769 + ~2 seed-sds (ADR-0044)
@@ -68,9 +68,17 @@ def interim_rows(label_dirs: list[str], era: str) -> tuple[list[dict], dict]:
             if held_out(r["store"], r["g"]):
                 dropped_ho += 1
                 continue
-            rows.append({"era": era, "src": Path(src).name,
-                         "store": r["store"], "g": r["g"], "t": r["fired_t"],
-                         "wr": r["model_wins"] / r["n"], "n": r["n"]})
+            rows.append(
+                {
+                    "era": era,
+                    "src": Path(src).name,
+                    "store": r["store"],
+                    "g": r["g"],
+                    "t": r["fired_t"],
+                    "wr": r["model_wins"] / r["n"],
+                    "n": r["n"],
+                }
+            )
     return rows, {"holdout_hash_dropped": dropped_ho, "crash_dupes": dupes}
 
 
@@ -94,38 +102,43 @@ def main() -> None:
     base = [r for r in fp.load_rows(a.base) if r["era"] == a.era]
     fresh, stats = interim_rows(a.labels, a.era)
     base_keys = {(r["store"], r["g"], r["t"], r["src"]) for r in base}
-    fresh = [r for r in fresh
-             if (r["store"], r["g"], r["t"], r["src"]) not in base_keys]
+    fresh = [r for r in fresh if (r["store"], r["g"], r["t"], r["src"]) not in base_keys]
     rows = base + fresh
-    print(f"[ckpt] {len(base)} base + {len(fresh)} fresh train labels "
-          f"({stats}); running the N=2 cell at seeds {a.seeds}")
+    print(
+        f"[ckpt] {len(base)} base + {len(fresh)} fresh train labels "
+        f"({stats}); running the N=2 cell at seeds {a.seeds}"
+    )
 
     bank = torch.load(a.bank, weights_only=False)
     keys, examples = list(bank["keys"]), list(bank["examples"])
     have = set(keys)
-    need = sorted({(r["store"], r["g"], r["t"]) for r in fresh
-                   if f"{r['store']}:{r['g']}:{r['t']}" not in have})
+    need = sorted(
+        {
+            (r["store"], r["g"], r["t"])
+            for r in fresh
+            if f"{r['store']}:{r['g']}:{r['t']}" not in have
+        }
+    )
     if need:
         t0 = time.time()
         ev = ValueEvaluator(up.CKPT)
         nk, nx = up.collect_examples(need, ev)
         keys += nk
         examples += nx
-        torch.save({"keys": keys, "examples": examples, "ckpt": up.CKPT,
-                    "dataset": f"{a.base}+interim"},
-                   out_dir / "examples-interim.pt")
-        print(f"[ckpt] banked {len(nk)} new examples in "
-              f"{time.time() - t0:.0f}s")
+        torch.save(
+            {"keys": keys, "examples": examples, "ckpt": up.CKPT, "dataset": f"{a.base}+interim"},
+            out_dir / "examples-interim.pt",
+        )
+        print(f"[ckpt] banked {len(nk)} new examples in {time.time() - t0:.0f}s")
         del ev
         torch.cuda.empty_cache()
 
     key_idx = {k: i for i, k in enumerate(keys)}
-    row_idx = np.array([key_idx[f"{r['store']}:{r['g']}:{r['t']}"]
-                        for r in rows])
+    row_idx = np.array([key_idx[f"{r['store']}:{r['g']}:{r['t']}"] for r in rows])
     y = np.array([r["wr"] for r in rows])
     games = np.array([f"{r['store']}:{r['g']}" for r in rows])
     ho = np.array([fp._held_out(r["store"], r["g"]) for r in rows])
-    assert not any(ho[len(base):]), "fresh rows must be train-side only"
+    assert not any(ho[len(base) :]), "fresh rows must be train-side only"
 
     # inner-val eligibility = base games WITHOUT extension labels (ck1
     # lesson, both rounds: offset-heavy fresh rows drifted the inner
@@ -137,31 +150,47 @@ def main() -> None:
     inner_pool = {f"{r['store']}:{r['g']}" for r in base} - fresh_games
     cells = []
     for seed in [int(s) for s in a.seeds.split(",")]:
-        cell_args = SimpleNamespace(seed=seed, batch=192, max_epochs=200,
-                                    patience=15, train_size=None,
-                                    inner_pool=inner_pool)
-        cells.append({**up._cell(2, 3e-5, examples, row_idx, y, games, ho,
-                                 cell_args), "seed": seed})
+        cell_args = SimpleNamespace(
+            seed=seed,
+            batch=192,
+            max_epochs=200,
+            patience=15,
+            train_size=None,
+            inner_pool=inner_pool,
+        )
+        cells.append(
+            {**up._cell(2, 3e-5, examples, row_idx, y, games, ho, cell_args), "seed": seed}
+        )
     mean_s = float(np.mean([c["holdout_spearman"] for c in cells]))
     go = mean_s >= a.continue_at
     report = {
-        "n_train_labels": int((~ho).sum()), "n_fresh": len(fresh),
-        "n_holdout": int(ho.sum()), "interim_stats": stats,
-        "cells": cells, "mean_holdout_spearman": round(mean_s, 4),
-        "reference_3k6_point": POINT_3K6, "continue_at": a.continue_at,
-        "verdict": "CONTINUE (curve rising)" if go
-                   else "PAUSE (curve flat/regressing — user decides)"}
-    (out_dir / "checkpoint-report.json").write_text(
-        json.dumps(report, indent=2) + "\n")
-    print(f"[ckpt] curve point: {int((~ho).sum())} train labels -> "
-          f"{mean_s:.4f} (3.6K point {POINT_3K6}, continue-at "
-          f"{a.continue_at}) => {report['verdict']}")
+        "n_train_labels": int((~ho).sum()),
+        "n_fresh": len(fresh),
+        "n_holdout": int(ho.sum()),
+        "interim_stats": stats,
+        "cells": cells,
+        "mean_holdout_spearman": round(mean_s, 4),
+        "reference_3k6_point": POINT_3K6,
+        "continue_at": a.continue_at,
+        "verdict": "CONTINUE (curve rising)"
+        if go
+        else "PAUSE (curve flat/regressing — user decides)",
+    }
+    (out_dir / "checkpoint-report.json").write_text(json.dumps(report, indent=2) + "\n")
+    print(
+        f"[ckpt] curve point: {int((~ho).sum())} train labels -> "
+        f"{mean_s:.4f} (3.6K point {POINT_3K6}, continue-at "
+        f"{a.continue_at}) => {report['verdict']}"
+    )
     try:
         from anvil.training.notify import notify
-        notify("tranche checkpoint",
-               f"{int((~ho).sum())} labels -> {mean_s:.4f} "
-               f"(vs {POINT_3K6} @3.6K) => {report['verdict']}")
-    except Exception:
+
+        notify(
+            "tranche checkpoint",
+            f"{int((~ho).sum())} labels -> {mean_s:.4f} "
+            f"(vs {POINT_3K6} @3.6K) => {report['verdict']}",
+        )
+    except Exception:  # noqa: BLE001,S110 -- notification failure must not mask checkpoint exit code
         pass
     sys.exit(0 if go else 2)
 

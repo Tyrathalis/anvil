@@ -37,12 +37,10 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--chunk", type=int, default=50)
     ap.add_argument("--port", type=int, default=50064)
-    ap.add_argument("--pairs-file",
-                    default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
+    ap.add_argument("--pairs-file", default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
     ap.add_argument("--seed-base", type=int, default=20260710)
     ap.add_argument("--reask", action="store_true", default=True)
-    ap.add_argument("--out", required=True,
-                    help="output stem: <out>-report.json + per-τ logs/mu")
+    ap.add_argument("--out", required=True, help="output stem: <out>-report.json + per-τ logs/mu")
     a = ap.parse_args()
 
     out_stem = Path(a.out)
@@ -53,20 +51,43 @@ def main() -> None:
         tau = float(tau_s)
         tag = tau_s.replace(".", "")
         mu_out = Path(f"{a.out}-mu-t{tag}.jsonl")
-        server = _start_server(a.ckpt, a.port, Path(f"{a.out}-server-t{tag}.log"),
-                               sample=True, mu_out=mu_out, temperature=tau)
+        server = _start_server(
+            a.ckpt,
+            a.port,
+            Path(f"{a.out}-server-t{tag}.log"),
+            sample=True,
+            mu_out=mu_out,
+            temperature=tau,
+        )
         arm_dirs: list[str] = []
         try:
             for seat in (0, 1):
                 purpose = f"taucurve-t{tag}-s{seat}"
                 before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-                cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch",
-                       "--pairs-file", a.pairs_file, "--games", str(a.games),
-                       "--workers", str(a.workers), "--chunk", str(a.chunk),
-                       "--bridge", f"grpc:localhost:{a.port}",
-                       "--census", "--obs", "--purpose", purpose,
-                       "--seed-base", str(a.seed_base),
-                       "--bridge-seats", str(seat)]
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "anvil.bridge.harness",
+                    "launch",
+                    "--pairs-file",
+                    a.pairs_file,
+                    "--games",
+                    str(a.games),
+                    "--workers",
+                    str(a.workers),
+                    "--chunk",
+                    str(a.chunk),
+                    "--bridge",
+                    f"grpc:localhost:{a.port}",
+                    "--census",
+                    "--obs",
+                    "--purpose",
+                    purpose,
+                    "--seed-base",
+                    str(a.seed_base),
+                    "--bridge-seats",
+                    str(seat),
+                ]
                 if a.reask:
                     cmd.append("--reask")
                 _run(cmd)
@@ -88,9 +109,11 @@ def main() -> None:
     rep = json.loads(Path(f"{a.out}-report.json").read_text())
     for name, arm in rep.items():
         if isinstance(arm, dict) and "winrate" in arm:
-            print(f"[tau_curve] {name}: winrate {arm['winrate']:.4f} "
-                  f"± {arm['se']:.4f} veto {arm.get('veto_rate', 0):.3f} "
-                  f"first_veto {arm.get('first_veto_rate', 0):.3f}")
+            print(
+                f"[tau_curve] {name}: winrate {arm['winrate']:.4f} "
+                f"± {arm['se']:.4f} veto {arm.get('veto_rate', 0):.3f} "
+                f"first_veto {arm.get('first_veto_rate', 0):.3f}"
+            )
 
 
 if __name__ == "__main__":

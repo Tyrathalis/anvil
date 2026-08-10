@@ -79,8 +79,9 @@ from __future__ import annotations
 import json
 import random
 import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 import torch
@@ -90,7 +91,7 @@ from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
 from anvil.store.trajectories import open_store
 
 PRIORITY = "chooseSpellAbilityToPlay"
-T_MAX = 4       # target slots (100% coverage measured on the pilot; +1 STOP slot)
+T_MAX = 4  # target slots (100% coverage measured on the pilot; +1 STOP slot)
 X_CLASSES = 18  # X = 0..16 + overflow bucket (3 casts past 16 in a 106K sample)
 
 # one-field tasks (rung-1 committed scope beside priority; m1-bc-plan D4).
@@ -104,15 +105,29 @@ X_CLASSES = 18  # X = 0..16 + overflow bucket (3 casts past 16 in a 106K sample)
 # _combat_label_window). Corpus measure (d5-combat-label-measure-full):
 # 1.41M attack windows / 382K block windows; derived candidate basis is a
 # certified label superset (0 violations / 2.23M attackers).
-TASKS = {"priority": 0, "mull_keep": 1, "mull_tuck": 2, "trigger": 3,
-         "binary": 4, "number": 5, "attack": 6, "block": 7}
-TASK_OF_METHOD = {PRIORITY: "priority", "mulliganKeepHand": "mull_keep",
-                  "tuckCardsViaMulligan": "mull_tuck", "playTrigger": "trigger",
-                  "chooseBinary": "binary", "chooseNumber": "number",
-                  "declareAttackers": "attack", "declareBlockers": "block"}
+TASKS = {
+    "priority": 0,
+    "mull_keep": 1,
+    "mull_tuck": 2,
+    "trigger": 3,
+    "binary": 4,
+    "number": 5,
+    "attack": 6,
+    "block": 7,
+}
+TASK_OF_METHOD = {
+    PRIORITY: "priority",
+    "mulliganKeepHand": "mull_keep",
+    "tuckCardsViaMulligan": "mull_tuck",
+    "playTrigger": "trigger",
+    "chooseBinary": "binary",
+    "chooseNumber": "number",
+    "declareAttackers": "attack",
+    "declareBlockers": "block",
+}
 COMBAT_COUNT_MAX = 12  # count-head classes k=1..12; per-group k beyond 12 is
-                       # a handful corpus-wide (label clamps, serve un-clamps
-                       # to "all" only via the executor's group size)
+# a handful corpus-wide (label clamps, serve un-clamps
+# to "all" only via the executor's group size)
 _HOST_ID = re.compile(r"\((\d+)\)$")  # "Spider-Man 2099 (100)" -> entity id 100
 
 # SA candidate descriptors (M2 D2): option "kind" vocabulary + string
@@ -167,6 +182,7 @@ class EmbeddingCache:
 
     def __init__(self, stem: Path):
         from safetensors.torch import load_file
+
         meta = json.loads(Path(f"{stem}.json").read_text())
         self.vectors = load_file(f"{stem}.safetensors")["embeddings"]
         self.row_of = {n: i for i, n in enumerate(meta["names"])}
@@ -202,7 +218,7 @@ def _combat_label_window(decs: list[dict], i: int, turn: int, flag: str) -> dict
     re-enter declare, and a turn-only bound let a no-block combat inherit a
     later combat's map (all 145 corpus block violations were this overshoot;
     classified 2026-07-13, scripts/d5/classify_block_violations.py)."""
-    for d in decs[i + 1:]:
+    for d in decs[i + 1 :]:
         if d.get("m") == "declareAttackers":
             return None
         obs = d.get("obs")
@@ -215,8 +231,9 @@ def _combat_label_window(decs: list[dict], i: int, turn: int, flag: str) -> dict
     return None
 
 
-def _eligible_rows(obs: dict, p: int, row_of: dict[int, int],
-                   need_unsick: bool) -> tuple[list[int], dict[int, list[int]]]:
+def _eligible_rows(
+    obs: dict, p: int, row_of: dict[int, int], need_unsick: bool
+) -> tuple[list[int], dict[int, list[int]]]:
     """Decider's battlefield creature dedup rows, untapped (+unsick for
     attacks; sickness does not bar blocking) — the derived candidate basis.
     A timing superset by design (walls/Pacifism'd creatures stay candidates
@@ -233,8 +250,9 @@ def _eligible_rows(obs: dict, p: int, row_of: dict[int, int],
     return sorted(members), members
 
 
-def attack_fields(decs: list[dict], i: int, dec: dict, row_of: dict[int, int],
-                  n_players: int, g: int) -> dict | None:
+def attack_fields(
+    decs: list[dict], i: int, dec: dict, row_of: dict[int, int], n_players: int, g: int
+) -> dict | None:
     """Per-candidate-row attack labels for a declareAttackers window: 1/0
     attack, dedup count class (k-1, multi-groups with k>=1 only), and target
     ref (player position or entity row; a group whose members attack MIXED
@@ -246,25 +264,36 @@ def attack_fields(decs: list[dict], i: int, dec: dict, row_of: dict[int, int],
     if not rows:
         return None
     lw = _combat_label_window(decs, i, obs["glob"].get("turn"), "atk")
-    attackers = {} if lw is None else {
-        e["e"]: e["atk"] for e in lw["ents"] if "atk" in e and e.get("c") == p}
+    attackers = (
+        {}
+        if lw is None
+        else {e["e"]: e["atk"] for e in lw["ents"] if "atk" in e and e.get("c") == p}
+    )
     member_row = {eid: r for r, ids in members.items() for eid in ids}
     for eid in attackers:
         if eid not in member_row:
             raise ValueError(
                 f"game {g} s={dec.get('s')}: label attacker {eid} outside the "
                 "derived candidate basis — superset violated (measured 0/2.23M; "
-                "run scripts/d5/measure_combat_labels.py)")
+                "run scripts/d5/measure_combat_labels.py)"
+            )
     seats = [p] + [q for q in range(n_players) if q != p]
-    out = {"cmb_rows": rows, "cmb_count": [], "atk_label": [],
-           "cmb_count_label": [], "atk_tgt_kind": [], "atk_tgt_idx": []}
+    out = {
+        "cmb_rows": rows,
+        "cmb_count": [],
+        "atk_label": [],
+        "cmb_count_label": [],
+        "atk_tgt_kind": [],
+        "atk_tgt_idx": [],
+    }
     for r in rows:
         ids = members[r]
         out["cmb_count"].append(min(len(ids), COMBAT_COUNT_MAX))
         ks = [eid for eid in ids if eid in attackers]
         out["atk_label"].append(1 if ks else 0)
         out["cmb_count_label"].append(
-            min(len(ks), COMBAT_COUNT_MAX) - 1 if ks and len(ids) > 1 else -1)
+            min(len(ks), COMBAT_COUNT_MAX) - 1 if ks and len(ids) > 1 else -1
+        )
         tk = ti = -1
         if ks:
             refs = {json.dumps(attackers[eid], sort_keys=True) for eid in ks}
@@ -279,8 +308,9 @@ def attack_fields(decs: list[dict], i: int, dec: dict, row_of: dict[int, int],
     return out
 
 
-def block_fields(decs: list[dict], i: int, dec: dict, row_of: dict[int, int],
-                 g: int) -> dict | None:
+def block_fields(
+    decs: list[dict], i: int, dec: dict, row_of: dict[int, int], g: int
+) -> dict | None:
     """Per-candidate-row block labels: index into the window's attacker-row
     list, or the none class (= len(blk_atk_rows), remapped to the batch none
     slot in collate). Multi-blocks (measured 0 corpus-wide) and groups whose
@@ -294,23 +324,33 @@ def block_fields(decs: list[dict], i: int, dec: dict, row_of: dict[int, int],
         return None
     slot = {r: j for j, r in enumerate(atk_rows)}
     lw = _combat_label_window(decs, i, obs["glob"].get("turn"), "blk")
-    blockers = {} if lw is None else {
-        e["e"]: e["blk"] for e in lw["ents"] if "blk" in e and e.get("c") == p}
+    blockers = (
+        {}
+        if lw is None
+        else {e["e"]: e["blk"] for e in lw["ents"] if "blk" in e and e.get("c") == p}
+    )
     member_row = {eid: r for r, ids in members.items() for eid in ids}
     for eid, blocked in blockers.items():
         if eid not in member_row:
             raise ValueError(
                 f"game {g} s={dec.get('s')}: label blocker {eid} outside the "
-                "derived candidate basis — superset violated")
+                "derived candidate basis — superset violated"
+            )
         for aid in blocked:
             if row_of.get(aid) not in slot:
                 raise ValueError(
                     f"game {g} s={dec.get('s')}: blocked target {aid} is not an "
                     "attacker in the dec obs — the combat-bounded join should "
-                    "make this impossible (classified 2026-07-13)")
+                    "make this impossible (classified 2026-07-13)"
+                )
     none = len(atk_rows)
-    out = {"cmb_rows": rows, "cmb_count": [], "blk_label": [],
-           "cmb_count_label": [], "blk_atk_rows": atk_rows}
+    out = {
+        "cmb_rows": rows,
+        "cmb_count": [],
+        "blk_label": [],
+        "cmb_count_label": [],
+        "blk_atk_rows": atk_rows,
+    }
     for r in rows:
         ids = members[r]
         out["cmb_count"].append(min(len(ids), COMBAT_COUNT_MAX))
@@ -319,24 +359,31 @@ def block_fields(decs: list[dict], i: int, dec: dict, row_of: dict[int, int],
             out["blk_label"].append(none)
             out["cmb_count_label"].append(-1)
             continue
-        arows = {slot[row_of[blockers[eid][0]]] for eid in bs
-                 if len(blockers[eid]) == 1}
+        arows = {slot[row_of[blockers[eid][0]]] for eid in bs if len(blockers[eid]) == 1}
         if len(arows) == 1 and all(len(blockers[eid]) == 1 for eid in bs):
             out["blk_label"].append(arows.pop())
         else:
             out["blk_label"].append(-1)
-        out["cmb_count_label"].append(
-            min(len(bs), COMBAT_COUNT_MAX) - 1 if len(ids) > 1 else -1)
+        out["cmb_count_label"].append(min(len(bs), COMBAT_COUNT_MAX) - 1 if len(ids) > 1 else -1)
     return out
 
 
 class PriorityWindows(IterableDataset):
-    def __init__(self, store_dir: str | Path | list, embedding_stem: str | Path,
-                 methods: list[str] | None = None, shuffle_games: bool = True,
-                 seed: int = 0, history_k: int = HISTORY_K,
-                 split: str | None = None, games_per_pair: int = 5,
-                 max_games: int | None = None, tasks: set[str] | None = None,
-                 sa_vocab: list[str] | None = None, full_vis: bool = False):
+    def __init__(
+        self,
+        store_dir: str | Path | list,
+        embedding_stem: str | Path,
+        methods: list[str] | None = None,
+        shuffle_games: bool = True,
+        seed: int = 0,
+        history_k: int = HISTORY_K,
+        split: str | None = None,
+        games_per_pair: int = 5,
+        max_games: int | None = None,
+        tasks: set[str] | None = None,
+        sa_vocab: list[str] | None = None,
+        full_vis: bool = False,
+    ):
         super().__init__()
         # full_vis: asymmetric-critic windows (design §4) — identities of all
         # entities visible. Critic training/eval only; never the policy input.
@@ -370,8 +417,13 @@ class PriorityWindows(IterableDataset):
             task = TASK_OF_METHOD.get(dec.get("m"))
             # combat rets are null by construction (labels come from the
             # obs-side join), so the ret-None skip exempts attack/block
-            if task is None or task not in self.tasks or dec.get("obs") is None \
-                    or dec.get("ret") is None and task not in ("priority", "attack", "block"):
+            if (
+                task is None
+                or task not in self.tasks
+                or dec.get("obs") is None
+                or dec.get("ret") is None
+                and task not in ("priority", "attack", "block")
+            ):
                 prior.append(dec)
                 continue
             if task == "trigger" and (dec.get("args") or {}).get("isMandatory"):
@@ -386,12 +438,11 @@ class PriorityWindows(IterableDataset):
                 # the first windows' history includes parent-game entries a
                 # reconstruction from this frame's records could never see.
                 from anvil.bridge.featurize import wire_history
+
                 hist = wire_history(dec["hist"], p, self.history_k)
             else:
-                hist = history_tokens(prior, p, self.history_k,
-                                      now_pos=dec.get("_pos"))
-            out = assemble(dec, traj.header, perspective=p, history=hist,
-                           full_vis=self.full_vis)
+                hist = history_tokens(prior, p, self.history_k, now_pos=dec.get("_pos"))
+            out = assemble(dec, traj.header, perspective=p, history=hist, full_vis=self.full_vis)
             row_of = out["entity_row_of"]
 
             # ---- shared pad values; each task fills its own labels ----
@@ -407,9 +458,16 @@ class PriorityWindows(IterableDataset):
             num_label, num_lo, num_hi = -1, 0, X_CLASSES - 1
             ctx_row = -1
             forced = 0
-            cmb = {"cmb_rows": [], "cmb_count": [], "atk_label": [],
-                   "cmb_count_label": [], "atk_tgt_kind": [], "atk_tgt_idx": [],
-                   "blk_label": [], "blk_atk_rows": []}
+            cmb = {
+                "cmb_rows": [],
+                "cmb_count": [],
+                "atk_label": [],
+                "cmb_count_label": [],
+                "atk_tgt_kind": [],
+                "atk_tgt_idx": [],
+                "blk_label": [],
+                "blk_atk_rows": [],
+            }
             ret = dec.get("ret")
             args = dec.get("args") or {}
 
@@ -436,7 +494,8 @@ class PriorityWindows(IterableDataset):
                     if r is None or all(k[0] != r for k in key_of):
                         raise ValueError(
                             f"game {g} s={dec['s']}: chosen host {host} not among candidate "
-                            "rows — ADR-0005 superset violated; run `anvil.store validate`")
+                            "rows — ADR-0005 superset violated; run `anvil.store validate`"
+                        )
                     label_row = r
                     # SA-level label: exact oi -> exact string -> prefix-min -> masked
                     label = -1
@@ -444,7 +503,8 @@ class PriorityWindows(IterableDataset):
                     if oi is not None and 0 <= oi < len(opts):
                         o = opts[oi]
                         label = key_of.get(
-                            (row_of.get(o.get("e"), -1), norm_sa(o.get("sa", ""))), -1)
+                            (row_of.get(o.get("e"), -1), norm_sa(o.get("sa", ""))), -1
+                        )
                     if label < 0:
                         psa = norm_sa(plan.get("sa", ""))
                         keys = [k for k in key_of if k[0] == r]
@@ -492,23 +552,25 @@ class PriorityWindows(IterableDataset):
                 num_label = max(num_lo, min(int(ret), num_hi))
                 forced = 1 if num_lo == num_hi else 0
             elif task in ("attack", "block"):
-                f = (attack_fields(decs, i, dec, row_of,
-                                   len(traj.header["players"]), g)
-                     if task == "attack" else
-                     block_fields(decs, i, dec, row_of, g))
+                f = (
+                    attack_fields(decs, i, dec, row_of, len(traj.header["players"]), g)
+                    if task == "attack"
+                    else block_fields(decs, i, dec, row_of, g)
+                )
                 if f is None:  # forced-empty window (no candidates/attackers)
                     prior.append(dec)
                     continue
                 cmb.update(f)
 
             hist = np.full((self.history_k, 3), -1, dtype=np.int64)
-            for i, h in enumerate(out["history"][-self.history_k:]):
+            for i, h in enumerate(out["history"][-self.history_k :]):
                 hist[i] = (self.methods.id(h["m"]), h["self"], row_of.get(h["e"], -1))
 
             yield {
                 "entities": torch.from_numpy(out["entities"]),
-                "ent_emb": torch.tensor([self.embed.row(n) for n in out["entity_names"]],
-                                        dtype=torch.int64),
+                "ent_emb": torch.tensor(
+                    [self.embed.row(n) for n in out["entity_names"]], dtype=torch.int64
+                ),
                 "globals": torch.from_numpy(out["globals"]),
                 "players": torch.from_numpy(out["players"]),
                 "history": torch.from_numpy(hist),
@@ -543,10 +605,10 @@ class PriorityWindows(IterableDataset):
         if self.split is not None:
             games = [g for g in games if _split_of(g, self.games_per_pair) == self.split]
         if self.max_games is not None:
-            games = games[:self.max_games]
+            games = games[: self.max_games]
         info = get_worker_info()
         if info is not None:
-            games = games[info.id::info.num_workers]
+            games = games[info.id :: info.num_workers]
         epoch, self._epoch = self._epoch, self._epoch + 1
         if self.shuffle_games:
             random.Random(self.seed + 100003 * epoch + (info.id if info else 0)).shuffle(games)
@@ -585,8 +647,10 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         "x_val": torch.stack([x["x_val"] for x in batch]),
         "has_outcome": torch.stack([x["has_outcome"] for x in batch]),
         "won": torch.stack([x["won"] for x in batch]),
-        **{k: torch.stack([x[k] for x in batch]) for k in
-           ("task", "bool_label", "num_label", "num_lo", "num_hi", "ctx_row", "forced")},
+        **{
+            k: torch.stack([x[k] for x in batch])
+            for k in ("task", "bool_label", "num_label", "num_lo", "num_hi", "ctx_row", "forced")
+        },
     }
     # target labels -> class ids over the padded batch: [0,n) entity rows,
     # [n, n+p) players, n+p = STOP; -1 stays "no slot" (loss ignore_index)
@@ -636,8 +700,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             out["atk_tgt_labels"][i, :ai] = cls
         if x["blk_label"].shape[0]:  # block windows only
             lab = x["blk_label"]
-            out["blk_label"][i, :ai] = torch.where(lab == mi,
-                                                   torch.full_like(lab, M), lab)
+            out["blk_label"][i, :ai] = torch.where(lab == mi, torch.full_like(lab, M), lab)
         if mi:
             out["blk_atk_rows"][i, :mi] = x["blk_atk_rows"]
             out["blk_atk_mask"][i, :mi] = True

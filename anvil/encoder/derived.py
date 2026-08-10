@@ -36,7 +36,8 @@ no blockers).
 
 from __future__ import annotations
 
-from typing import Any, Mapping, NamedTuple
+from collections.abc import Mapping
+from typing import Any, NamedTuple
 
 import numpy as np
 
@@ -49,7 +50,7 @@ TTD_CAP = 20.0  # turns-to-death clip; also the "no clock on board" value
 # infinite-combo boards log six-digit power and drain kills six-digit-negative
 # life; unclipped they own the feature std and standardization crushes the
 # normal-game range to ~0). Lethality semantics saturate far below the caps.
-PT_CAP = 50.0        # per-entity power/toughness contribution, [0, cap]
+PT_CAP = 50.0  # per-entity power/toughness contribution, [0, cap]
 LIFE_LO, LIFE_HI = -10.0, 150.0
 
 
@@ -62,24 +63,48 @@ class CardStatic(NamedTuple):
 # fixed feature order; family tags drive the probe's per-family attribution
 FEATURE_NAMES = [
     # race/lethality: on-board damage vs life
-    "race_power_ready_self", "race_power_ready_opp",
-    "race_power_total_self", "race_power_total_opp",
-    "race_lethal_margin_vs_self", "race_lethal_margin_vs_opp",
-    "race_lethal_now_vs_self", "race_lethal_now_vs_opp",
+    "race_power_ready_self",
+    "race_power_ready_opp",
+    "race_power_total_self",
+    "race_power_total_opp",
+    "race_lethal_margin_vs_self",
+    "race_lethal_margin_vs_opp",
+    "race_lethal_now_vs_self",
+    "race_lethal_now_vs_opp",
     "race_life_diff",
     # turns-to-death clock
-    "clock_ttd_self", "clock_ttd_opp", "clock_diff", "clock_ahead",
+    "clock_ttd_self",
+    "clock_ttd_opp",
+    "clock_diff",
+    "clock_ahead",
     # castability vs mana development
-    "cast_mana_avail_self", "cast_mana_avail_opp",
-    "cast_now", "cast_next", "cast_hand_lands", "cast_hand_nonland",
-    "cast_hand_min_cmc", "cast_hand_mean_cmc", "cast_curve_gap",
+    "cast_mana_avail_self",
+    "cast_mana_avail_opp",
+    "cast_now",
+    "cast_next",
+    "cast_hand_lands",
+    "cast_hand_nonland",
+    "cast_hand_min_cmc",
+    "cast_hand_mean_cmc",
+    "cast_curve_gap",
     # material / card advantage differentials (self minus opponent)
-    "mat_creatures_diff", "mat_permanents_diff", "mat_lands_diff",
-    "mat_hand_diff", "mat_grave_diff", "mat_lib_diff",
-    "mat_toughness_diff", "mat_card_adv",
+    "mat_creatures_diff",
+    "mat_permanents_diff",
+    "mat_lands_diff",
+    "mat_hand_diff",
+    "mat_grave_diff",
+    "mat_lib_diff",
+    "mat_toughness_diff",
+    "mat_card_adv",
     # commander zone / tax
-    "cmd_tax_self", "cmd_tax_opp", "cmd_zone_self", "cmd_zone_opp",
-    "cmd_bf_self", "cmd_bf_opp", "cmd_cast_gap", "cmd_castable",
+    "cmd_tax_self",
+    "cmd_tax_opp",
+    "cmd_zone_self",
+    "cmd_zone_opp",
+    "cmd_bf_self",
+    "cmd_bf_opp",
+    "cmd_cast_gap",
+    "cmd_castable",
 ]
 
 FAMILIES = ["race", "clock", "cast", "mat", "cmd"]
@@ -87,13 +112,11 @@ FAMILY_OF = {n: n.split("_", 1)[0] for n in FEATURE_NAMES}
 assert set(FAMILY_OF.values()) == set(FAMILIES)
 
 
-def collect_names(dec: dict[str, Any], header: dict[str, Any],
-                  perspective: int) -> set[str]:
+def collect_names(dec: dict[str, Any], header: dict[str, Any], perspective: int) -> set[str]:
     """Every card name derived_features would look up in statics for this
     record — visible entity names + header commander names. For prefetch."""
     obs = dec["obs"]
-    names = {ent["n"] for ent in obs.get("ents", [])
-             if visible_to(ent, perspective)}
+    names = {ent["n"] for ent in obs.get("ents", []) if visible_to(ent, perspective)}
     for p in header["players"]:
         names.update(p.get("cmd") or [])
     return names
@@ -103,8 +126,7 @@ def load_statics(names: set[str]) -> dict[str, CardStatic]:
     """name -> CardStatic from the pinned fork's cardsfolder; silent on
     misses (tokens/emblems have no script) — callers diff against `names`
     for diagnostics."""
-    from anvil.encoder.cardtext import (CARD_FEATURES, face_features,
-                                        parse_faces, _scan_files)
+    from anvil.encoder.cardtext import CARD_FEATURES, _scan_files, face_features, parse_faces
     from anvil.pool.forge_db import normalize
 
     files = _scan_files()
@@ -118,14 +140,15 @@ def load_statics(names: set[str]) -> dict[str, CardStatic]:
             continue
         with open(path, encoding="utf-8", errors="replace") as f:
             feats = face_features(parse_faces(f.read()))
-        out[name] = CardStatic(cmc=feats[i_cmc], is_land=bool(feats[i_land]),
-                               has_x=bool(feats[i_x]))
+        out[name] = CardStatic(
+            cmc=feats[i_cmc], is_land=bool(feats[i_land]), has_x=bool(feats[i_x])
+        )
     return out
 
 
-def derived_features(dec: dict[str, Any], header: dict[str, Any],
-                     perspective: int,
-                     statics: Mapping[str, CardStatic]) -> np.ndarray:
+def derived_features(
+    dec: dict[str, Any], header: dict[str, Any], perspective: int, statics: Mapping[str, CardStatic]
+) -> np.ndarray:
     """One decision record -> (len(FEATURE_NAMES),) float32, raw scale
     (the probe standardizes; a model-boundary scale vector comes with the
     graduated build, same pattern as transform.ENTITY_SCALE)."""
@@ -134,8 +157,7 @@ def derived_features(dec: dict[str, Any], header: dict[str, Any],
         raise ValueError(f"decision s={dec.get('s')} has no observation")
     players = obs["players"]
     n = len(header["players"])
-    opps = [i for i in range(n)
-            if i != perspective and not players[i].get("lost")]
+    opps = [i for i in range(n) if i != perspective and not players[i].get("lost")]
     if not opps:  # terminal-ish record: everyone else eliminated
         opps = [i for i in range(n) if i != perspective]
 
@@ -153,7 +175,7 @@ def derived_features(dec: dict[str, Any], header: dict[str, Any],
     grave = [0, 0]
     cmd_zone = [0, 0]
     cmd_bf = [0, 0]
-    hand_cmcs: list[float] = []       # own non-land hand cards with known cmc
+    hand_cmcs: list[float] = []  # own non-land hand cards with known cmc
     hand_lands = 0
     hand_nonland = 0
     cmd_zone_names_self: list[str] = []
@@ -186,8 +208,7 @@ def derived_features(dec: dict[str, Any], header: dict[str, Any],
         elif z == "graveyard":
             grave[s] += 1
         elif z == "command":
-            if not ent.get("tok") and name is not None \
-                    and name in hdr_cmd[ent["c"]]:
+            if not ent.get("tok") and name is not None and name in hdr_cmd[ent["c"]]:
                 cmd_zone[s] += 1
                 if s == 0:
                     cmd_zone_names_self.append(name)
@@ -205,24 +226,21 @@ def derived_features(dec: dict[str, Any], header: dict[str, Any],
 
     life_self = _life(perspective)
     life_opp = min(_life(i) for i in opps)
-    pool = [float(sum((players[perspective].get("mana") or {}).values())),
-            float(sum(sum((players[i].get("mana") or {}).values())
-                      for i in opps))]
+    pool = [
+        float(sum((players[perspective].get("mana") or {}).values())),
+        float(sum(sum((players[i].get("mana") or {}).values()) for i in opps)),
+    ]
     mana_avail = [lands_untapped[0] + pool[0], lands_untapped[1] + pool[1]]
-    hand_ct = [float(players[perspective]["hand"]),
-               float(sum(players[i]["hand"] for i in opps))]
-    lib_ct = [float(players[perspective]["lib"]),
-              float(sum(players[i]["lib"] for i in opps))]
+    hand_ct = [float(players[perspective]["hand"]), float(sum(players[i]["hand"] for i in opps))]
+    lib_ct = [float(players[perspective]["lib"]), float(sum(players[i]["lib"] for i in opps))]
 
     # --- race / lethality ---
     lethal_vs_self = power_ready[1] - life_self
     lethal_vs_opp = power_ready[0] - life_opp
 
     # --- clock ---
-    ttd_self = (TTD_CAP if power_total[1] <= 0
-                else min(TTD_CAP, life_self / power_total[1]))
-    ttd_opp = (TTD_CAP if power_total[0] <= 0
-               else min(TTD_CAP, life_opp / power_total[0]))
+    ttd_self = TTD_CAP if power_total[1] <= 0 else min(TTD_CAP, life_self / power_total[1])
+    ttd_opp = TTD_CAP if power_total[0] <= 0 else min(TTD_CAP, life_opp / power_total[0])
 
     # --- castability ---
     cast_now = sum(1 for c in hand_cmcs if c <= mana_avail[0])
@@ -242,35 +260,52 @@ def derived_features(dec: dict[str, Any], header: dict[str, Any],
         if st is None:
             continue
         idx = hdr_cmd[perspective].index(name)
-        tax_i = 2.0 * (casts[perspective][idx]
-                       if idx < len(casts[perspective]) else 0)
+        tax_i = 2.0 * (casts[perspective][idx] if idx < len(casts[perspective]) else 0)
         gaps.append(st.cmc + tax_i - mana_avail[0])
     if gaps:
         cmd_gap = min(gaps)
         cmd_castable = 1.0 if cmd_gap <= 0 else 0.0
 
-    return np.array([
-        power_ready[0], power_ready[1], power_total[0], power_total[1],
-        lethal_vs_self, lethal_vs_opp,
-        1.0 if power_ready[1] >= life_self else 0.0,
-        1.0 if power_ready[0] >= life_opp else 0.0,
-        life_self - life_opp,
-        ttd_self, ttd_opp, ttd_self - ttd_opp,
-        1.0 if ttd_self > ttd_opp else 0.0,
-        mana_avail[0], mana_avail[1],
-        float(cast_now), float(cast_next),
-        float(hand_lands), float(hand_nonland),
-        hand_min, hand_mean, curve_gap,
-        float(creatures[0] - creatures[1]),
-        float(permanents[0] - permanents[1]),
-        float(lands_bf[0] - lands_bf[1]),
-        hand_ct[0] - hand_ct[1],
-        float(grave[0] - grave[1]),
-        lib_ct[0] - lib_ct[1],
-        tough_total[0] - tough_total[1],
-        (hand_ct[0] + permanents[0]) - (hand_ct[1] + permanents[1]),
-        tax_self, tax_opp,
-        float(cmd_zone[0]), float(cmd_zone[1]),
-        float(cmd_bf[0]), float(cmd_bf[1]),
-        cmd_gap, cmd_castable,
-    ], dtype=np.float32)
+    return np.array(
+        [
+            power_ready[0],
+            power_ready[1],
+            power_total[0],
+            power_total[1],
+            lethal_vs_self,
+            lethal_vs_opp,
+            1.0 if power_ready[1] >= life_self else 0.0,
+            1.0 if power_ready[0] >= life_opp else 0.0,
+            life_self - life_opp,
+            ttd_self,
+            ttd_opp,
+            ttd_self - ttd_opp,
+            1.0 if ttd_self > ttd_opp else 0.0,
+            mana_avail[0],
+            mana_avail[1],
+            float(cast_now),
+            float(cast_next),
+            float(hand_lands),
+            float(hand_nonland),
+            hand_min,
+            hand_mean,
+            curve_gap,
+            float(creatures[0] - creatures[1]),
+            float(permanents[0] - permanents[1]),
+            float(lands_bf[0] - lands_bf[1]),
+            hand_ct[0] - hand_ct[1],
+            float(grave[0] - grave[1]),
+            lib_ct[0] - lib_ct[1],
+            tough_total[0] - tough_total[1],
+            (hand_ct[0] + permanents[0]) - (hand_ct[1] + permanents[1]),
+            tax_self,
+            tax_opp,
+            float(cmd_zone[0]),
+            float(cmd_zone[1]),
+            float(cmd_bf[0]),
+            float(cmd_bf[1]),
+            cmd_gap,
+            cmd_castable,
+        ],
+        dtype=np.float32,
+    )

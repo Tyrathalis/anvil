@@ -21,8 +21,9 @@ import json
 import re
 import shutil
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import zstandard
 
@@ -51,8 +52,12 @@ class GameTrajectory:
 
 def decode_frame(data: bytes) -> tuple[dict, list[dict], dict | None, list[dict]]:
     """Decode one game frame -> (header, decisions-with-ret-joined, end, marks)."""
-    records = [json.loads(line) for line in
-               zstandard.ZstdDecompressor().decompress(data, max_output_size=1 << 30).splitlines()]
+    records = [
+        json.loads(line)
+        for line in zstandard.ZstdDecompressor()
+        .decompress(data, max_output_size=1 << 30)
+        .splitlines()
+    ]
     if not records or records[0].get("k") != "game":
         raise ValueError("frame does not start with a game header record")
     header = records[0]
@@ -166,8 +171,9 @@ class TrajectoryStore:
                 if not skip_undecodable:
                     raise
 
-    def iter_decisions(self, method: str | None = None,
-                       by: str | None = None) -> Iterator[tuple[dict, dict]]:
+    def iter_decisions(
+        self, method: str | None = None, by: str | None = None
+    ) -> Iterator[tuple[dict, dict]]:
         """Yield (game_header, dec_record) across the store, streaming."""
         for traj in self.games(skip_undecodable=True):
             for dec in traj.decisions:
@@ -193,7 +199,8 @@ class MultiStore:
                 if g in self._store_of:
                     raise ValueError(
                         f"game {g} present in both {self._store_of[g].root} and "
-                        f"{s.root} — extension runs must use disjoint index ranges")
+                        f"{s.root} — extension runs must use disjoint index ranges"
+                    )
                 self._store_of[g] = s
 
     def __len__(self) -> int:
@@ -229,9 +236,13 @@ def open_store(spec) -> TrajectoryStore | MultiStore:
     return TrajectoryStore(spec)
 
 
-def ingest(run_dir: Path | str, dest: Path | str | None = None,
-           pool_version: str | None = None, verify: bool = False,
-           forks: bool = False) -> Path:
+def ingest(
+    run_dir: Path | str,
+    dest: Path | str | None = None,
+    pool_version: str | None = None,
+    verify: bool = False,
+    forks: bool = False,
+) -> Path:
     """Consolidate a harness run's worker observation files into the store.
 
     forks=True (M4 D3): ingest the FORK-SESSION frames (obs-forks.zst,
@@ -268,8 +279,10 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
         for line in idx_path.read_text().splitlines():
             e = json.loads(line)
             if e["off"] + e["clen"] > size:
-                print(f"[ingest] WARNING: game {e['g']} frame extends past EOF in {src}, dropped",
-                      file=sys.stderr)
+                print(
+                    f"[ingest] WARNING: game {e['g']} frame extends past EOF in {src}, dropped",
+                    file=sys.stderr,
+                )
                 continue
             if e["g"] in seen_games:
                 # a re-issued game (worker crash path); first complete frame wins
@@ -284,9 +297,11 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
             n_files += 1
 
     if not index_entries:
-        sys.exit(f"no {'fork ' if forks else ''}observation frames found under "
-                 f"{run_dir}/workers/ — was the run launched with "
-                 f"{'--fork-obs' if forks else '--obs'}?")
+        sys.exit(
+            f"no {'fork ' if forks else ''}observation frames found under "
+            f"{run_dir}/workers/ — was the run launched with "
+            f"{'--fork-obs' if forks else '--obs'}?"
+        )
 
     index_entries.sort(key=lambda e: e["g"])
     with open(dest / "index.jsonl", "w") as f:
@@ -315,25 +330,29 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
                         # fd-death class, 2026-07-30) and RAW_CAP runaways
                         # (undecodable under the reader's 1 GiB output cap)
                         raise ValueError("phantom or runaway frame")
-                    header, _, end, _ = decode_frame(
-                        data[e["off"]:e["off"] + e["clen"]])
+                    header, _, end, _ = decode_frame(data[e["off"] : e["off"] + e["clen"]])
                 except Exception as ex:  # noqa: BLE001
                     # One bad completion frame must cost one frame, not the
                     # ingest (a failed drill ingest killed the d6-run10
                     # driver). Quarantine loudly: no outcome row -> the game
                     # never trains; dropped from the index below.
                     quarantined.append(e["g"])
-                    print(f"[ingest] QUARANTINE fork frame g={e['g']} "
-                          f"({type(ex).__name__}: {ex})", file=sys.stderr)
+                    print(
+                        f"[ingest] QUARANTINE fork frame g={e['g']} ({type(ex).__name__}: {ex})",
+                        file=sys.stderr,
+                    )
                     continue
                 fk = header.get("fork") or {}
                 agg = fork_agg.setdefault(
                     (fk.get("pg", -1), fk.get("fp", -1)),
-                    {"w": [0] * len(header["players"]), "draw": 0, "crash": 0})
+                    {"w": [0] * len(header["players"]), "draw": 0, "crash": 0},
+                )
                 if end is None:
-                    print(f"[ingest] WARNING: fork game {e['g']} has no end "
-                          f"record (killed worker?); no outcome row",
-                          file=sys.stderr)
+                    print(
+                        f"[ingest] WARNING: fork game {e['g']} has no end "
+                        f"record (killed worker?); no outcome row",
+                        file=sys.stderr,
+                    )
                     continue
                 winner = None
                 if end["status"] == "won" and 0 <= end["winner"] < len(header["players"]):
@@ -343,22 +362,27 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
                     agg["crash"] += 1
                 else:
                     agg["draw"] += 1
-                rows[e["g"]] = {"i": e["g"], "status": end["status"],
-                                "winner": winner, "turns": end["turns"],
-                                "fork": fk}
+                rows[e["g"]] = {
+                    "i": e["g"],
+                    "status": end["status"],
+                    "winner": winner,
+                    "turns": end["turns"],
+                    "fork": fk,
+                }
         with open(dest / "games.jsonl", "w") as f:
-            for i in sorted(rows):
-                f.write(json.dumps(rows[i]) + "\n")
-        print(f"[ingest] {len(rows)} fork-completion outcome rows synthesized "
-              f"from end records")
+            f.writelines(json.dumps(rows[i]) + "\n" for i in sorted(rows))
+        print(f"[ingest] {len(rows)} fork-completion outcome rows synthesized from end records")
         if quarantined:
             bad = set(quarantined)
             index_entries = [e for e in index_entries if e["g"] not in bad]
             with open(dest / "index.jsonl", "w") as f:
                 for e in index_entries:
                     f.write(json.dumps(e) + "\n")
-            print(f"[ingest] WARNING: {len(bad)} fork frame(s) quarantined "
-                  f"and dropped from the index", file=sys.stderr)
+            print(
+                f"[ingest] WARNING: {len(bad)} fork frame(s) quarantined "
+                f"and dropped from the index",
+                file=sys.stderr,
+            )
     else:
         # merge per-game outcome records (the harness progress logs)
         outcomes: dict[int, dict] = {}
@@ -370,8 +394,7 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
                 except (json.JSONDecodeError, KeyError):
                     continue
         with open(dest / "games.jsonl", "w") as f:
-            for i in sorted(outcomes):
-                f.write(json.dumps(outcomes[i]) + "\n")
+            f.writelines(json.dumps(outcomes[i]) + "\n" for i in sorted(outcomes))
 
     # merge rollout-label records (M2 D4 labeler runs); keyed (i, fp),
     # first record wins on chunk re-issue like the frame rule above
@@ -385,8 +408,7 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
                 continue
     if label_rows:
         with open(dest / "labels.jsonl", "w") as f:
-            for key in sorted(label_rows):
-                f.write(json.dumps(label_rows[key]) + "\n")
+            f.writelines(json.dumps(label_rows[key]) + "\n" for key in sorted(label_rows))
         print(f"[ingest] {len(label_rows)} rollout-label records -> labels.jsonl")
 
     labels_check = None
@@ -404,19 +426,27 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
             if lab is None:
                 mismatched.append({"pg": pg, "fp": fp, "why": "no labels row"})
                 continue
-            if agg["w"] != lab["w"] or agg["draw"] != lab["draw"] \
-                    or agg["crash"] > lab["crash"]:
-                mismatched.append({"pg": pg, "fp": fp, "frames": agg,
-                                   "labels": {"w": lab["w"], "draw": lab["draw"],
-                                              "crash": lab["crash"]}})
+            if agg["w"] != lab["w"] or agg["draw"] != lab["draw"] or agg["crash"] > lab["crash"]:
+                mismatched.append(
+                    {
+                        "pg": pg,
+                        "fp": fp,
+                        "frames": agg,
+                        "labels": {"w": lab["w"], "draw": lab["draw"], "crash": lab["crash"]},
+                    }
+                )
         labels_check = {"fork_points": len(fork_agg), "mismatched": len(mismatched)}
         if mismatched:
-            print(f"[ingest] WARNING: {len(mismatched)}/{len(fork_agg)} fork "
-                  f"points disagree with labels.jsonl: {mismatched[:5]}",
-                  file=sys.stderr)
+            print(
+                f"[ingest] WARNING: {len(mismatched)}/{len(fork_agg)} fork "
+                f"points disagree with labels.jsonl: {mismatched[:5]}",
+                file=sys.stderr,
+            )
         else:
-            print(f"[ingest] labels cross-check: {len(fork_agg)} fork points "
-                  f"all agree with labels.jsonl")
+            print(
+                f"[ingest] labels cross-check: {len(fork_agg)} fork points "
+                f"all agree with labels.jsonl"
+            )
 
     # merge behavior-policy records (M2 D6 sampled actors; server-side file,
     # run-level), keyed (g, s). A re-issued game (first attempt crashed
@@ -446,23 +476,27 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
                 mu_rows[(r["g"], r["s"])] = r
         if conflicted:
             n_drop = sum(1 for (g, _) in mu_rows if g in conflicted)
-            print(f"[ingest] WARNING: {len(conflicted)} game(s) with "
-                  f"conflicting mu attempts (diverged re-issue) — dropping "
-                  f"their {n_drop} records: {sorted(conflicted)}",
-                  file=sys.stderr)
+            print(
+                f"[ingest] WARNING: {len(conflicted)} game(s) with "
+                f"conflicting mu attempts (diverged re-issue) — dropping "
+                f"their {n_drop} records: {sorted(conflicted)}",
+                file=sys.stderr,
+            )
             mu_rows = {k: v for k, v in mu_rows.items() if k[0] not in conflicted}
         with open(dest / "mu.jsonl", "w") as f:
             if meta is not None:
                 f.write(json.dumps(meta) + "\n")
-            for key in sorted(mu_rows):
-                f.write(json.dumps(mu_rows[key]) + "\n")
+            f.writelines(json.dumps(mu_rows[key]) + "\n" for key in sorted(mu_rows))
         print(f"[ingest] {len(mu_rows)} behavior-policy records -> mu.jsonl")
 
     if pool_version is None:
         pool_version = run_manifest.get("pool_version")
     if pool_version is None:
-        print("[ingest] WARNING: no pool version in run.json or --pool-version; "
-              "provenance is incomplete", file=sys.stderr)
+        print(
+            "[ingest] WARNING: no pool version in run.json or --pool-version; "
+            "provenance is incomplete",
+            file=sys.stderr,
+        )
     manifest = {
         "run_id": run_id,
         "source": "drill-forks" if forks else "selfplay-heuristic",
@@ -473,11 +507,28 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
         "bytes_compressed": total_clen,
         "bytes_raw": total_rlen,
         # run pins, verbatim (fork/jar/anvil hashes, seeds, decks, flags)
-        "run": {k: run_manifest[k] for k in
-                ("purpose", "created", "fork_commit", "fork_dirty", "anvil_commit",
-                 "jar_sha256", "protocol_version", "decks", "pairs_sha256", "n_pairs",
-                 "games_per_pair", "format", "seed_base",
-                 "games", "bridge", "tags") if k in run_manifest},
+        "run": {
+            k: run_manifest[k]
+            for k in (
+                "purpose",
+                "created",
+                "fork_commit",
+                "fork_dirty",
+                "anvil_commit",
+                "jar_sha256",
+                "protocol_version",
+                "decks",
+                "pairs_sha256",
+                "n_pairs",
+                "games_per_pair",
+                "format",
+                "seed_base",
+                "games",
+                "bridge",
+                "tags",
+            )
+            if k in run_manifest
+        },
     }
     if forks:
         # The drill provenance tag: loaders and mixing logic key off this —
@@ -497,23 +548,30 @@ def ingest(run_dir: Path | str, dest: Path | str | None = None,
         n_dec = 0
         for traj in store.games():
             if traj.end is None:
-                print(f"[ingest] WARNING: game {traj.game_index} has no end record",
-                      file=sys.stderr)
+                print(
+                    f"[ingest] WARNING: game {traj.game_index} has no end record", file=sys.stderr
+                )
             n_dec += len(traj.decisions)
         print(f"[ingest] verified: {len(store)} games, {n_dec} decisions decode cleanly")
 
     ratio = total_rlen / total_clen if total_clen else 0
-    print(f"[ingest] {run_id}: {len(index_entries)} games -> {dest}\n"
-          f"[ingest] {total_rlen / 1e6:.1f} MB raw -> {total_clen / 1e6:.1f} MB "
-          f"({ratio:.1f}x, {total_clen / max(len(index_entries), 1) / 1e3:.0f} KB/game)")
+    print(
+        f"[ingest] {run_id}: {len(index_entries)} games -> {dest}\n"
+        f"[ingest] {total_rlen / 1e6:.1f} MB raw -> {total_clen / 1e6:.1f} MB "
+        f"({ratio:.1f}x, {total_clen / max(len(index_entries), 1) / 1e3:.0f} KB/game)"
+    )
     return dest
 
 
 def status(root: Path | str) -> None:
     store = TrajectoryStore(root)
     m = store.manifest
-    print(f"{m['run_id']}: {m['games']} games, {m['decisions']} decisions, "
-          f"schema v{m['obs_schema']}, pool {m['pool_version']}")
-    print(f"  {m['bytes_raw'] / 1e6:.1f} MB raw / {m['bytes_compressed'] / 1e6:.1f} MB compressed "
-          f"({m['bytes_raw'] / max(m['bytes_compressed'], 1):.1f}x), "
-          f"{m['bytes_compressed'] / max(m['games'], 1) / 1e3:.0f} KB/game")
+    print(
+        f"{m['run_id']}: {m['games']} games, {m['decisions']} decisions, "
+        f"schema v{m['obs_schema']}, pool {m['pool_version']}"
+    )
+    print(
+        f"  {m['bytes_raw'] / 1e6:.1f} MB raw / {m['bytes_compressed'] / 1e6:.1f} MB compressed "
+        f"({m['bytes_raw'] / max(m['bytes_compressed'], 1):.1f}x), "
+        f"{m['bytes_compressed'] / max(m['games'], 1) / 1e3:.0f} KB/game"
+    )

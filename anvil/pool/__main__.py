@@ -1,10 +1,10 @@
 """CLI (docs/design/dc-pool-pipeline.md):
 
-  python -m anvil.pool fetch [--since YYYY-MM] [--limit-decks N]
-  python -m anvil.pool banlist
-  python -m anvil.pool build
-  python -m anvil.pool install
-  python -m anvil.pool status
+python -m anvil.pool fetch [--since YYYY-MM] [--limit-decks N]
+python -m anvil.pool banlist
+python -m anvil.pool build
+python -m anvil.pool install
+python -m anvil.pool status
 """
 
 from __future__ import annotations
@@ -31,12 +31,15 @@ def main() -> None:
 
     if a.verb == "fetch":
         from anvil.pool.fetch import fetch_decks
+
         print(json.dumps(fetch_decks(since=a.since, limit_decks=a.limit_decks), indent=2))
     elif a.verb == "banlist":
         from anvil.pool.fetch import fetch_banlist
+
         print(json.dumps(fetch_banlist(), indent=2))
     elif a.verb == "build":
         from anvil.pool.build import build
+
         print(json.dumps(build(), indent=2))
     elif a.verb == "install":
         dcks = sorted(DECKS_OUT_DIR.glob("*.dck"))
@@ -55,12 +58,14 @@ def main() -> None:
         current = POOL_DIR / "CURRENT"
         if current.exists():
             from anvil.pool import current_manifest
+
             m = current_manifest()
-            print(f"ACTIVE (data/pool/CURRENT): pool-{m['pool_version']} "
-                  f"— {m['counts']}")
+            print(f"ACTIVE (data/pool/CURRENT): pool-{m['pool_version']} — {m['counts']}")
         else:
-            print("no CURRENT pin — run `python -m anvil.pool build` or "
-                  "write a version to data/pool/CURRENT")
+            print(
+                "no CURRENT pin — run `python -m anvil.pool build` or "
+                "write a version to data/pool/CURRENT"
+            )
 
 
 if __name__ == "__main__":

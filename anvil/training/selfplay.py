@@ -49,9 +49,12 @@ def _auto_seg(pinned: int) -> int:
         return pinned
     try:
         out = subprocess.run(
-            ["nvidia-smi", "--query-gpu=memory.free",
-             "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=10)
+            ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
         free_mb = int(out.stdout.split()[0])
     except Exception as e:  # noqa: BLE001
         print(f"[selfplay] seg autotune: nvidia-smi failed ({e}); using 128")
@@ -77,15 +80,24 @@ def _sleep_inhibitor(name: str) -> subprocess.Popen | None:
 
     def _die_with_parent() -> None:
         import ctypes
+
         PR_SET_PDEATHSIG = 1
-        ctypes.CDLL("libc.so.6", use_errno=True).prctl(
-            PR_SET_PDEATHSIG, signal.SIGTERM)
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
 
     proc = subprocess.Popen(
-        ["systemd-inhibit", "--what=sleep:idle", "--who=anvil-selfplay",
-         f"--why=RL loop {name}", "--mode=block", "sleep", "infinity"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        preexec_fn=_die_with_parent)
+        [
+            "systemd-inhibit",
+            "--what=sleep:idle",
+            "--who=anvil-selfplay",
+            f"--why=RL loop {name}",
+            "--mode=block",
+            "sleep",
+            "infinity",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        preexec_fn=_die_with_parent,  # noqa: PLW1509 -- single-purpose child: must die with parent, no threads
+    )
     print(f"[selfplay] sleep inhibitor held (pid {proc.pid})")
     return proc
 
@@ -101,16 +113,32 @@ def _wait_port(port: int, timeout: float = 300.0) -> None:
     raise TimeoutError(f"server never opened port {port}")
 
 
-def _start_server(ckpt: str, port: int, log: Path, sample: bool,
-                  mu_out: Path | None = None, temperature: float = 1.0,
-                  drill_ckpt: str | None = None,
-                  drill_sample: bool = False,
-                  drill_mu_out: Path | None = None):
-    cmd = [sys.executable, "-m", "anvil.bridge.server", "--mode", "model",
-           "--ckpt", ckpt, "--port", str(port), "--pass-delta", "0"]
+def _start_server(
+    ckpt: str,
+    port: int,
+    log: Path,
+    sample: bool,
+    mu_out: Path | None = None,
+    temperature: float = 1.0,
+    drill_ckpt: str | None = None,
+    drill_sample: bool = False,
+    drill_mu_out: Path | None = None,
+):
+    cmd = [
+        sys.executable,
+        "-m",
+        "anvil.bridge.server",
+        "--mode",
+        "model",
+        "--ckpt",
+        ckpt,
+        "--port",
+        str(port),
+        "--pass-delta",
+        "0",
+    ]
     if sample:
-        cmd += ["--sample", "--temperature", str(temperature),
-                "--mu-out", str(mu_out)]
+        cmd += ["--sample", "--temperature", str(temperature), "--mu-out", str(mu_out)]
     if drill_ckpt:
         cmd += ["--drill-ckpt", drill_ckpt]
         if drill_sample:
@@ -118,8 +146,8 @@ def _start_server(ckpt: str, port: int, log: Path, sample: bool,
             # mainline replay argmax on the pinned ckpt
             cmd += ["--drill-sample", "--drill-mu-out", str(drill_mu_out)]
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
-    proc = subprocess.Popen(cmd, stdout=open(log, "w"), stderr=subprocess.STDOUT,
-                            env=env)
+    with open(log, "w") as log_f:
+        proc = subprocess.Popen(cmd, stdout=log_f, stderr=subprocess.STDOUT, env=env)
     try:
         _wait_port(port)
     except TimeoutError:
@@ -151,16 +179,35 @@ def batch_chunk(games: int, workers: int, chunk: int) -> int:
     return max(1, min(chunk, games // (2 * workers)))
 
 
-def _launch_games(purpose: str, games: int, start_index: int, a,
-                  bridge_seats: "int | None" = None) -> Path:
+def _launch_games(
+    purpose: str, games: int, start_index: int, a, bridge_seats: int | None = None
+) -> Path:
     before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-    cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
-           "--games", str(games), "--games-per-pair", str(a.games_per_pair),
-           "--start-index", str(start_index), "--workers", str(a.workers),
-           "--chunk", str(batch_chunk(games, a.workers, a.chunk)),
-           "--bridge", f"grpc:localhost:{a.port}",
-           "--obs", "--census", "--purpose", purpose,
-           "--seed-base", str(a.seed_base)]
+    cmd = [
+        sys.executable,
+        "-m",
+        "anvil.bridge.harness",
+        "launch",
+        "--pool",
+        "--games",
+        str(games),
+        "--games-per-pair",
+        str(a.games_per_pair),
+        "--start-index",
+        str(start_index),
+        "--workers",
+        str(a.workers),
+        "--chunk",
+        str(batch_chunk(games, a.workers, a.chunk)),
+        "--bridge",
+        f"grpc:localhost:{a.port}",
+        "--obs",
+        "--census",
+        "--purpose",
+        purpose,
+        "--seed-base",
+        str(a.seed_base),
+    ]
     if bridge_seats is not None:
         # §6d mixed-opponent batch: only this seat is model-driven; the
         # other seat is the heuristic AI (the eval-arm configuration).
@@ -174,12 +221,13 @@ def _launch_games(purpose: str, games: int, start_index: int, a,
     return Path(new.pop())
 
 
-def iteration_batches(name: str, k: int, games: int, heur_frac: float
-                      ) -> list[tuple[str, int, int, "int | None"]]:
+def iteration_batches(
+    name: str, k: int, games: int, heur_frac: float
+) -> list[tuple[str, int, int, int | None]]:
     """§6d generation plan for one iteration: (purpose, n_games,
     start_index_offset, bridge_seats). Mirror batch first; heuristic-opponent
     games split evenly across seat assignments for symmetry."""
-    n_heur = int(round(games * heur_frac))
+    n_heur = round(games * heur_frac)
     h0 = n_heur // 2
     h1 = n_heur - h0
     n_mirror = games - n_heur
@@ -208,20 +256,51 @@ def _drill_phase(args, state: dict, k: int, drill_dir: Path) -> list[str]:
     drill-provenance stores and join this iteration's store group: fresh
     now, replay-aged later, exactly like game stores. Returns store paths."""
     drill_dir.mkdir(exist_ok=True)
-    rows = [json.loads(line) for line in open(args.drill_selection)]
+    with open(args.drill_selection) as f:
+        rows = [json.loads(line) for line in f]
     sl = drill_slice(rows, k, args.drill_points_per_iter)
     subset = drill_dir / "slice.jsonl"
     subset.write_text("".join(json.dumps(r) + "\n" for r in sl))
     tag = f"mix{k:03d}"
-    _run([sys.executable, "-m", "anvil.grindstone", "plan",
-          "--curation", str(subset), "--out", str(drill_dir / "plan"),
-          "--ckpt", args.drill_replay_ckpt, "--k", str(args.drill_k),
-          "--anchor", "selected", "--tag", tag])
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "anvil.grindstone",
+            "plan",
+            "--curation",
+            str(subset),
+            "--out",
+            str(drill_dir / "plan"),
+            "--ckpt",
+            args.drill_replay_ckpt,
+            "--k",
+            str(args.drill_k),
+            "--anchor",
+            "selected",
+            "--tag",
+            tag,
+        ]
+    )
     before = set(glob.glob(str(RUNS_DIR / f"drill{tag}-*")))
-    _run([sys.executable, "-m", "anvil.grindstone", "generate",
-          "--manifest", str(drill_dir / "plan"), "--port", str(args.port),
-          "--workers", str(args.workers),
-          "--fork-obs", "--sample-forks", "--drill-ckpt", state["ckpt"]])
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "anvil.grindstone",
+            "generate",
+            "--manifest",
+            str(drill_dir / "plan"),
+            "--port",
+            str(args.port),
+            "--workers",
+            str(args.workers),
+            "--fork-obs",
+            "--sample-forks",
+            "--drill-ckpt",
+            state["ckpt"],
+        ]
+    )
     new_dirs = sorted(set(glob.glob(str(RUNS_DIR / f"drill{tag}-*"))) - before)
     if not new_dirs:
         raise RuntimeError(f"drill phase produced no run dirs (tag {tag})")
@@ -246,24 +325,38 @@ def _drill_eval_phase(args, state: dict, k: int, it_dir: Path) -> None:
         return
     es = Path(args.drill_eval_set)
     before = set(es.glob("eval-*.json"))
-    _run([sys.executable, "-m", "anvil.grindstone", "eval",
-          "--evalset", str(es), "--ckpt", state["ckpt"],
-          "--port", str(args.port), "--workers", str(args.workers)])
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "anvil.grindstone",
+            "eval",
+            "--evalset",
+            str(es),
+            "--ckpt",
+            state["ckpt"],
+            "--port",
+            str(args.port),
+            "--workers",
+            str(args.workers),
+        ]
+    )
     new = sorted(set(es.glob("eval-*.json")) - before)
     if not new:
         raise RuntimeError(f"drill eval wrote no report under {es}")
     rep = json.loads(new[-1].read_text())
     out.write_text(json.dumps(rep, indent=2) + "\n")
-    deltas = {b: round(v["winrate"] - v["baseline"], 4)
-              for b, v in rep["per_bin"].items()}
-    print(f"[selfplay] iteration {k}: drill-eval paired deltas {deltas} "
-          f"(overall {rep['winrate']} vs baseline {rep['baseline']})")
+    deltas = {b: round(v["winrate"] - v["baseline"], 4) for b, v in rep["per_bin"].items()}
+    print(
+        f"[selfplay] iteration {k}: drill-eval paired deltas {deltas} "
+        f"(overall {rep['winrate']} vs baseline {rep['baseline']})"
+    )
     _notify(f"anvil {args.name}: drill-eval iter {k}", json.dumps(deltas))
 
 
-def replay_mixture(groups: list[list[str]], replay: int,
-                   fresh_weight: float, replay_weight: float
-                   ) -> tuple[list[str], list[float]]:
+def replay_mixture(
+    groups: list[list[str]], replay: int, fresh_weight: float, replay_weight: float
+) -> tuple[list[str], list[float]]:
     """Flatten the last `replay` iteration GROUPS into rl.py's store/weight
     lists: every store of the newest group gets the fresh weight, all older
     groups' stores the replay weight (§6d: the replay window is measured in
@@ -281,52 +374,59 @@ def _census_tallies(run_dirs) -> dict:
     list (§6d iteration batch groups); the by=bridge filter keeps every rate
     model-seat-only regardless of opponent mix."""
     from collections import Counter
+
     dirs = run_dirs if isinstance(run_dirs, (list, tuple)) else [run_dirs]
     c: Counter[str] = Counter()
     for f in (f for rd in dirs for f in Path(rd).glob("workers/inv-*/census.jsonl")):
-        for line in open(f):
-            try:
-                r = json.loads(line)
-            except json.JSONDecodeError:
-                continue  # torn tail line from a killed worker (e.g. OOM)
-            if r.get("by") != "bridge":
-                continue
-            c["bridged"] += 1
-            if r.get("fallback") is True:
-                c["fallback"] += 1
-            if r.get("m") == "chooseSpellAbilityToPlay":
-                if r.get("veto"):
-                    c["veto"] += 1
-                    if not r.get("reask"):
-                        c["first_veto"] += 1
-                elif r.get("pick") == "pass":
-                    c["pass"] += 1
-                else:
-                    c["cast"] += 1
-                    if r.get("reask"):
-                        # re-ask rescue: a cast realized on attempt >0 —
-                        # pre-reask this window would have been a forced pass
-                        c["reask_rescued"] += 1
+        with open(f) as fh:
+            for line in fh:
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue  # torn tail line from a killed worker (e.g. OOM)
+                if r.get("by") != "bridge":
+                    continue
+                c["bridged"] += 1
+                if r.get("fallback") is True:
+                    c["fallback"] += 1
+                if r.get("m") == "chooseSpellAbilityToPlay":
+                    if r.get("veto"):
+                        c["veto"] += 1
+                        if not r.get("reask"):
+                            c["first_veto"] += 1
+                    elif r.get("pick") == "pass":
+                        c["pass"] += 1
                     else:
-                        c["first_cast"] += 1
-            for k in ("dropped", "forced"):
-                if r.get(k):
-                    c[f"combat_{k}"] += r[k]
+                        c["cast"] += 1
+                        if r.get("reask"):
+                            # re-ask rescue: a cast realized on attempt >0 —
+                            # pre-reask this window would have been a forced pass
+                            c["reask_rescued"] += 1
+                        else:
+                            c["first_cast"] += 1
+                for k in ("dropped", "forced"):
+                    if r.get(k):
+                        c[f"combat_{k}"] += r[k]
     c["veto_rate"] = round(c["veto"] / max(1, c["veto"] + c["cast"]), 4)
     # M3 D1: chain-independent basis — each window contributes exactly one
     # first attempt (census "reask" marks attempts > 0 only), so re-ask chains
     # can't inflate this the way they inflate veto_rate. Done-when #1 reads it.
-    c["first_veto_rate"] = round(
-        c["first_veto"] / max(1, c["first_veto"] + c["first_cast"]), 4)
+    c["first_veto_rate"] = round(c["first_veto"] / max(1, c["first_veto"] + c["first_cast"]), 4)
     if c.get("reask_rescued") or c.get("veto"):
         # rescue rate = vetoed intents eventually realized in the same window
         c["reask_rescue_rate"] = round(c["reask_rescued"] / max(1, c["veto"]), 4)
     return dict(c)
 
 
-def guard_flags(census: dict, rl: dict, baseline: dict | None,
-                kl_max: float = 0.05, ent_mult: float = 2.0,
-                veto_mult: float = 1.5, casts_floor: float = 0.8) -> list[str]:
+def guard_flags(
+    census: dict,
+    rl: dict,
+    baseline: dict | None,
+    kl_max: float = 0.05,
+    ent_mult: float = 2.0,
+    veto_mult: float = 1.5,
+    casts_floor: float = 0.8,
+) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
     monitor.jsonl and nothing acting on it. kl is absolute (drift per
@@ -354,43 +454,59 @@ def guard_flags(census: dict, rl: dict, baseline: dict | None,
 
 def _game_stats(run_dirs) -> dict:
     import statistics
+
     dirs = run_dirs if isinstance(run_dirs, (list, tuple)) else [run_dirs]
     rows = []
     for f in (f for rd in dirs for f in Path(rd).glob("workers/inv-*/games.jsonl")):
-        for line in open(f):
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+        with open(f) as fh:
+            for line in fh:
+                try:
+                    rows.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
     statuses: dict[str, int] = {}
     for r in rows:
         statuses[r["status"]] = statuses.get(r["status"], 0) + 1
-    return {"games": len(rows), "statuses": statuses,
-            "turns_median": statistics.median(r["turns"] for r in rows) if rows else None,
-            "seat0_wins": sum(1 for r in rows if r.get("status") == "won"
-                              and "(1)" in (r.get("winner") or ""))}
+    return {
+        "games": len(rows),
+        "statuses": statuses,
+        "turns_median": statistics.median(r["turns"] for r in rows) if rows else None,
+        "seat0_wins": sum(
+            1 for r in rows if r.get("status") == "won" and "(1)" in (r.get("winner") or "")
+        ),
+    }
 
 
 def _rl_summary(train_dir: Path) -> dict:
-    rows = [json.loads(line) for line in open(train_dir / "metrics.jsonl")]
+    with open(train_dir / "metrics.jsonl") as f:
+        rows = [json.loads(line) for line in f]
     if not rows:
         return {}
     last = rows[-1]
     n = max(1, len(rows))
-    mean = {k: round(sum(r[k] for r in rows) / n, 5)
-            for k in ("reward", "v0", "v0_masked", "rho_mean", "rho_clip",
-                      "kl_mu", "ent", "rej")
-            if all(k in r for r in rows)}
-    return {"steps": last.get("step"), "traj": last.get("traj"),
-            "tripwire_viol": last.get("tripwire_viol"),
-            "skips": last.get("skips"), "mean": mean, "final": last}
+    mean = {
+        k: round(sum(r[k] for r in rows) / n, 5)
+        for k in ("reward", "v0", "v0_masked", "rho_mean", "rho_clip", "kl_mu", "ent", "rej")
+        if all(k in r for r in rows)
+    }
+    return {
+        "steps": last.get("step"),
+        "traj": last.get("traj"),
+        "tripwire_viol": last.get("tripwire_viol"),
+        "skips": last.get("skips"),
+        "mean": mean,
+        "final": last,
+    }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="V-trace self-play loop (M2 D6)")
     ap.add_argument("--name", required=True, help="loop name (dirs key off it)")
-    ap.add_argument("--ckpt", default="data/training/d5-combat/last.pt",
-                    help="iteration-0 init (delta=0 by design)")
+    ap.add_argument(
+        "--ckpt",
+        default="data/training/d5-combat/last.pt",
+        help="iteration-0 init (delta=0 by design)",
+    )
     ap.add_argument("--iterations", type=int, required=True)
     ap.add_argument("--games", type=int, default=480, help="games per iteration")
     ap.add_argument("--games-per-pair", type=int, default=2)
@@ -399,98 +515,175 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=50063)
     ap.add_argument("--seed-base", type=int, required=True)
     ap.add_argument("--temperature", type=float, default=1.0)
-    ap.add_argument("--replay", type=int, default=4,
-                    help="stores in the training mixture (last R iterations)")
-    ap.add_argument("--fresh-weight", type=float, default=1.0,
-                    help="expected passes over the newest store per iteration")
-    ap.add_argument("--replay-weight", type=float, default=0.33,
-                    help="expected passes over each older store (1.0 + 3x0.33 "
-                         "≈ two store-scans, 50%% fresh samples)")
-    ap.add_argument("--rl-workers", type=int, default=12,
-                    help="featurize workers for the learner. Was 6 while the "
-                         "main process was the funnel (collate ran there, so "
-                         "extra workers only added shm churn and 12 measured "
-                         "SLOWER than 6). Since worker-side collate (2026-07-26) "
-                         "the consumer is no longer the bottleneck and workers "
-                         "scale again: 2.062 -> 2.979 traj/s going 6 -> 12.")
+    ap.add_argument(
+        "--replay", type=int, default=4, help="stores in the training mixture (last R iterations)"
+    )
+    ap.add_argument(
+        "--fresh-weight",
+        type=float,
+        default=1.0,
+        help="expected passes over the newest store per iteration",
+    )
+    ap.add_argument(
+        "--replay-weight",
+        type=float,
+        default=0.33,
+        help="expected passes over each older store (1.0 + 3x0.33 "
+        "≈ two store-scans, 50%% fresh samples)",
+    )
+    ap.add_argument(
+        "--rl-workers",
+        type=int,
+        default=12,
+        help="featurize workers for the learner. Was 6 while the "
+        "main process was the funnel (collate ran there, so "
+        "extra workers only added shm churn and 12 measured "
+        "SLOWER than 6). Since worker-side collate (2026-07-26) "
+        "the consumer is no longer the bottleneck and workers "
+        "scale again: 2.062 -> 2.979 traj/s going 6 -> 12.",
+    )
     ap.add_argument("--epochs", type=int, default=1)
     ap.add_argument("--lr", type=float, default=1e-5)
     ap.add_argument("--ent-weight", type=float, default=3e-3)
-    ap.add_argument("--ent-floor", type=float, default=0.08,
-                    help="hinge entropy floor passed to the learner (ADR-0017)")
-    ap.add_argument("--rl-seg", type=int, default=0,
-                    help="learner windows per GPU pass (rl.py --seg); "
-                         "activation peak scales with it, semantics don't. "
-                         "0 (default) = autotune per phase from free VRAM "
-                         "(task #12); nonzero pins it manually")
-    ap.add_argument("--guard-kl", type=float, default=0.05,
-                    help="halt if an iteration's mean KL(pi||mu) exceeds this")
-    ap.add_argument("--guard-ent-mult", type=float, default=2.0,
-                    help="halt if mean entropy exceeds this multiple of iter-0")
-    ap.add_argument("--guard-veto-mult", type=float, default=1.5,
-                    help="halt if veto rate exceeds this multiple of iter-0")
-    ap.add_argument("--guard-casts-floor", type=float, default=0.8,
-                    help="halt if casts/game falls below this fraction of "
-                         "iter-0 (§6c anti-passivity)")
-    ap.add_argument("--penalty", type=float, default=0.0,
-                    help="rejected-intent penalty lambda (§6c); reward change "
-                         "= RL-chain boundary — do not resume a lambda=0 "
-                         "chain's replay mixture with a nonzero lambda")
-    ap.add_argument("--heur-frac", type=float, default=0.0,
-                    help="§6d mixed-opponent generation: fraction of each "
-                         "iteration's games played vs the heuristic (split "
-                         "evenly across seat assignments); 0 = pure mirror")
-    ap.add_argument("--critic", default=None,
-                    help="full-vis critic init ckpt (d6-vtrace-loop §6f, e.g. "
-                         "data/training/d4-critic-fullvis/last.pt). Enables the "
-                         "per-iteration critic phase: finetune_value --full-vis "
-                         "--trainable all on the replay mixture, then rl.py "
-                         "trains against the fresh critic's values. Off = v0 "
-                         "masked-head bootstrap.")
-    ap.add_argument("--critic-lr", type=float, default=1e-5,
-                    help="critic-phase lr (low: 480-game iterations are small "
-                         "for --trainable all)")
-    ap.add_argument("--critic-steps", type=int, default=2000,
-                    help="critic-phase steps per iteration (~1 pass over the "
-                         "fresh store + replay tail at batch 256)")
+    ap.add_argument(
+        "--ent-floor",
+        type=float,
+        default=0.08,
+        help="hinge entropy floor passed to the learner (ADR-0017)",
+    )
+    ap.add_argument(
+        "--rl-seg",
+        type=int,
+        default=0,
+        help="learner windows per GPU pass (rl.py --seg); "
+        "activation peak scales with it, semantics don't. "
+        "0 (default) = autotune per phase from free VRAM "
+        "(task #12); nonzero pins it manually",
+    )
+    ap.add_argument(
+        "--guard-kl",
+        type=float,
+        default=0.05,
+        help="halt if an iteration's mean KL(pi||mu) exceeds this",
+    )
+    ap.add_argument(
+        "--guard-ent-mult",
+        type=float,
+        default=2.0,
+        help="halt if mean entropy exceeds this multiple of iter-0",
+    )
+    ap.add_argument(
+        "--guard-veto-mult",
+        type=float,
+        default=1.5,
+        help="halt if veto rate exceeds this multiple of iter-0",
+    )
+    ap.add_argument(
+        "--guard-casts-floor",
+        type=float,
+        default=0.8,
+        help="halt if casts/game falls below this fraction of iter-0 (§6c anti-passivity)",
+    )
+    ap.add_argument(
+        "--penalty",
+        type=float,
+        default=0.0,
+        help="rejected-intent penalty lambda (§6c); reward change "
+        "= RL-chain boundary — do not resume a lambda=0 "
+        "chain's replay mixture with a nonzero lambda",
+    )
+    ap.add_argument(
+        "--heur-frac",
+        type=float,
+        default=0.0,
+        help="§6d mixed-opponent generation: fraction of each "
+        "iteration's games played vs the heuristic (split "
+        "evenly across seat assignments); 0 = pure mirror",
+    )
+    ap.add_argument(
+        "--critic",
+        default=None,
+        help="full-vis critic init ckpt (d6-vtrace-loop §6f, e.g. "
+        "data/training/d4-critic-fullvis/last.pt). Enables the "
+        "per-iteration critic phase: finetune_value --full-vis "
+        "--trainable all on the replay mixture, then rl.py "
+        "trains against the fresh critic's values. Off = v0 "
+        "masked-head bootstrap.",
+    )
+    ap.add_argument(
+        "--critic-lr",
+        type=float,
+        default=1e-5,
+        help="critic-phase lr (low: 480-game iterations are small for --trainable all)",
+    )
+    ap.add_argument(
+        "--critic-steps",
+        type=int,
+        default=2000,
+        help="critic-phase steps per iteration (~1 pass over the "
+        "fresh store + replay tail at batch 256)",
+    )
     ap.add_argument("--critic-batch", type=int, default=256)
     ap.add_argument("--value-weight", type=float, default=0.5)
     ap.add_argument("--traj-per-step", type=int, default=4)
-    ap.add_argument("--arms-every", type=int, default=5,
-                    help="arms vs heuristic every N iterations (0 = off)")
-    ap.add_argument("--arms-pairs", default=None,
-                    help="pairs file for arms runs (D8 valpair schedule)")
+    ap.add_argument(
+        "--arms-every", type=int, default=5, help="arms vs heuristic every N iterations (0 = off)"
+    )
+    ap.add_argument(
+        "--arms-pairs", default=None, help="pairs file for arms runs (D8 valpair schedule)"
+    )
     ap.add_argument("--arms-games", type=int, default=200)
     ap.add_argument("--arms-seed-base", type=int, default=20260710)
-    ap.add_argument("--drill-selection", default=None,
-                    help="drill-mixed generation (M4 D3): selection.jsonl "
-                         "from `grindstone select` (holdout already "
-                         "subtracted there)")
-    ap.add_argument("--drill-points-per-iter", type=int, default=15,
-                    help="rotating slice size; f = ppi*K / (games + ppi*K)")
-    ap.add_argument("--drill-k", type=int, default=8,
-                    help="sampled completions per drill point")
-    ap.add_argument("--drill-replay-ckpt", default=None,
-                    help="PINNED mainline replay ckpt (the source games' "
-                         "generator; required with --drill-selection)")
-    ap.add_argument("--drill-eval-set", default=None,
-                    help="held-out drill evalset dir (grindstone evalset) for "
-                         "the mid-run decomposition phase — advisory per-bin "
-                         "reads; requires --drill-eval-every")
-    ap.add_argument("--drill-eval-every", type=int, default=0,
-                    help="run the drill-eval phase every N iterations "
-                         "(0 = off; 10 = iters 9 and 19 on a 20-iter run — "
-                         "the halfway kill/continue read + the closing read)")
-    ap.add_argument("--reask", action="store_true",
-                    help="re-ask-on-veto (d6-vtrace-loop §6b) for generation AND "
-                         "arms — an environment change; arms are only comparable "
-                         "to other -reask arms")
-    ap.add_argument("--no-inhibit", action="store_true",
-                    help="skip the systemd-inhibit sleep holder")
+    ap.add_argument(
+        "--drill-selection",
+        default=None,
+        help="drill-mixed generation (M4 D3): selection.jsonl "
+        "from `grindstone select` (holdout already "
+        "subtracted there)",
+    )
+    ap.add_argument(
+        "--drill-points-per-iter",
+        type=int,
+        default=15,
+        help="rotating slice size; f = ppi*K / (games + ppi*K)",
+    )
+    ap.add_argument("--drill-k", type=int, default=8, help="sampled completions per drill point")
+    ap.add_argument(
+        "--drill-replay-ckpt",
+        default=None,
+        help="PINNED mainline replay ckpt (the source games' "
+        "generator; required with --drill-selection)",
+    )
+    ap.add_argument(
+        "--drill-eval-set",
+        default=None,
+        help="held-out drill evalset dir (grindstone evalset) for "
+        "the mid-run decomposition phase — advisory per-bin "
+        "reads; requires --drill-eval-every",
+    )
+    ap.add_argument(
+        "--drill-eval-every",
+        type=int,
+        default=0,
+        help="run the drill-eval phase every N iterations "
+        "(0 = off; 10 = iters 9 and 19 on a 20-iter run — "
+        "the halfway kill/continue read + the closing read)",
+    )
+    ap.add_argument(
+        "--reask",
+        action="store_true",
+        help="re-ask-on-veto (d6-vtrace-loop §6b) for generation AND "
+        "arms — an environment change; arms are only comparable "
+        "to other -reask arms",
+    )
+    ap.add_argument(
+        "--no-inhibit", action="store_true", help="skip the systemd-inhibit sleep holder"
+    )
     args = ap.parse_args()
     if args.drill_selection and not args.drill_replay_ckpt:
-        ap.error("--drill-selection requires --drill-replay-ckpt "
-                 "(the pinned source-game generator)")
+        ap.error(
+            "--drill-selection requires --drill-replay-ckpt (the pinned source-game generator)"
+        )
     if bool(args.drill_eval_set) != bool(args.drill_eval_every):
         ap.error("--drill-eval-set and --drill-eval-every go together")
 
@@ -501,15 +694,17 @@ def main() -> None:
     out = Path("data/training") / args.name
     out.mkdir(parents=True, exist_ok=True)
     state_path = out / "loop_state.json"
-    state = (json.loads(state_path.read_text()) if state_path.exists()
-             else {"iteration": 0, "ckpt": args.ckpt, "stores": [],
-                   "start_index": 0})
+    state = (
+        json.loads(state_path.read_text())
+        if state_path.exists()
+        else {"iteration": 0, "ckpt": args.ckpt, "stores": [], "start_index": 0}
+    )
     # Line-buffer our own narration: under a detached launch (stdout -> log
     # file) block buffering held EVERY driver print in memory for run-8's
     # whole 36h — "===== iteration" markers, guard text — starving the log
     # watcher; subprocess output interleaved fine (own fds). Found 2026-07-25.
     sys.stdout.reconfigure(line_buffering=True)
-    monitor = open(out / "monitor.jsonl", "a", buffering=1)
+    monitor = open(out / "monitor.jsonl", "a", buffering=1)  # noqa: SIM115 -- long-lived monitor append handle
     (out / "loop_config.json").write_text(json.dumps(vars(args), indent=2))
     if not args.no_inhibit:
         _sleep_inhibitor(args.name)  # dies with the driver (PDEATHSIG)
@@ -527,7 +722,6 @@ def main() -> None:
         k = state["iteration"]
         it_dir = out / f"iter-{k:03d}"
         it_dir.mkdir(exist_ok=True)
-        purpose = f"{args.name}-i{k:03d}"
         print(f"\n[selfplay] ===== iteration {k}: ckpt={state['ckpt']} =====")
         t_iter = time.monotonic()
 
@@ -553,15 +747,20 @@ def main() -> None:
                 # the merge. Partial resume KEEPS the file — completed batches'
                 # records live there, and regenerated batches re-emit identical
                 # rows under seeded sampling.
-            server = _start_server(state["ckpt"], args.port, it_dir / "server.log",
-                                   sample=True, mu_out=mu_path,
-                                   temperature=args.temperature)
+            server = _start_server(
+                state["ckpt"],
+                args.port,
+                it_dir / "server.log",
+                sample=True,
+                mu_out=mu_path,
+                temperature=args.temperature,
+            )
             try:
                 for j, (bp, n, off, seats) in enumerate(batches):
                     if run_dirs[j] is None:
                         run_dirs[j] = _launch_games(
-                            bp, n, state["start_index"] + off, args,
-                            bridge_seats=seats)
+                            bp, n, state["start_index"] + off, args, bridge_seats=seats
+                        )
             finally:
                 _stop_server(server)
 
@@ -593,8 +792,7 @@ def main() -> None:
             groups.append(group)
         state["stores"] = groups
 
-        mix, weights = replay_mixture(groups, args.replay,
-                                      args.fresh_weight, args.replay_weight)
+        mix, weights = replay_mixture(groups, args.replay, args.fresh_weight, args.replay_weight)
 
         # ---- critic phase (§6f): adapt the full-vis critic on the same
         # replay mixture BEFORE the policy consumes its values. Iteration 0
@@ -608,20 +806,40 @@ def main() -> None:
             if (critic_dir / "DONE").exists():
                 print(f"[selfplay] iteration {k}: reusing critic in {critic_dir}")
             else:
-                _run([sys.executable, "-m", "anvil.training.finetune_value",
-                      "--ckpt", prev_critic, "--store", ",".join(mix),
-                      "--full-vis", "--trainable", "all",
-                      "--lr", str(args.critic_lr),
-                      "--steps", str(args.critic_steps),
-                      "--warmup", "100", "--batch", str(args.critic_batch),
-                      "--workers", str(args.rl_workers),
-                      "--eval-every", str(args.critic_steps),
-                      "--eval-batches", "50",
-                      "--final-eval-batches", "50",
-                      "--out", str(critic_dir)])
+                _run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "anvil.training.finetune_value",
+                        "--ckpt",
+                        prev_critic,
+                        "--store",
+                        ",".join(mix),
+                        "--full-vis",
+                        "--trainable",
+                        "all",
+                        "--lr",
+                        str(args.critic_lr),
+                        "--steps",
+                        str(args.critic_steps),
+                        "--warmup",
+                        "100",
+                        "--batch",
+                        str(args.critic_batch),
+                        "--workers",
+                        str(args.rl_workers),
+                        "--eval-every",
+                        str(args.critic_steps),
+                        "--eval-batches",
+                        "50",
+                        "--final-eval-batches",
+                        "50",
+                        "--out",
+                        str(critic_dir),
+                    ]
+                )
                 if not (critic_dir / "last.pt").exists():
-                    raise RuntimeError(
-                        f"critic phase produced no checkpoint in {critic_dir}")
+                    raise RuntimeError(f"critic phase produced no checkpoint in {critic_dir}")
                 (critic_dir / "DONE").touch()
             critic_ckpt = critic_dir / "last.pt"
 
@@ -631,19 +849,42 @@ def main() -> None:
         if (train_dir / "DONE").exists():
             print(f"[selfplay] iteration {k}: reusing completed training in {train_dir}")
         else:
-            _run([sys.executable, "-m", "anvil.training.rl",
-                  "--store", ",".join(mix),
-                  "--weights", ",".join(map(str, weights)),
-                  "--ckpt", state["ckpt"], "--out", str(train_dir),
-                  "--lr", str(args.lr), "--ent-weight", str(args.ent_weight),
-                  "--ent-floor", str(args.ent_floor),
-                  "--value-weight", str(args.value_weight),
-                  "--traj-per-step", str(args.traj_per_step),
-                  "--seg", str(_auto_seg(args.rl_seg)),
-                  "--workers", str(args.rl_workers),
-                  "--penalty", str(args.penalty),
-                  "--epochs", str(args.epochs), "--seed", str(k)]
-                 + (["--critic-ckpt", str(critic_ckpt)] if critic_ckpt else []))
+            _run(
+                [
+                    sys.executable,
+                    "-m",
+                    "anvil.training.rl",
+                    "--store",
+                    ",".join(mix),
+                    "--weights",
+                    ",".join(map(str, weights)),
+                    "--ckpt",
+                    state["ckpt"],
+                    "--out",
+                    str(train_dir),
+                    "--lr",
+                    str(args.lr),
+                    "--ent-weight",
+                    str(args.ent_weight),
+                    "--ent-floor",
+                    str(args.ent_floor),
+                    "--value-weight",
+                    str(args.value_weight),
+                    "--traj-per-step",
+                    str(args.traj_per_step),
+                    "--seg",
+                    str(_auto_seg(args.rl_seg)),
+                    "--workers",
+                    str(args.rl_workers),
+                    "--penalty",
+                    str(args.penalty),
+                    "--epochs",
+                    str(args.epochs),
+                    "--seed",
+                    str(k),
+                ]
+                + (["--critic-ckpt", str(critic_ckpt)] if critic_ckpt else [])
+            )
         t_train = time.monotonic() - t0
         new_ckpt = train_dir / "last.pt"
         if not new_ckpt.exists():
@@ -654,8 +895,7 @@ def main() -> None:
         gstats = _game_stats(run_dirs)
         if gstats.get("games"):
             # §6c anti-passivity basis (first attempts: chain-independent)
-            census["casts_per_game"] = round(
-                census.get("first_cast", 0) / gstats["games"], 2)
+            census["casts_per_game"] = round(census.get("first_cast", 0) / gstats["games"], 2)
         rl = _rl_summary(train_dir)
         flags = []
         if census.get("fallback"):
@@ -672,12 +912,17 @@ def main() -> None:
             shaped = mean["reward"] - args.penalty * mean.get("rej", 0.0)
             v0_basis = mean["reward"] if args.critic else shaped
             if abs(v0_basis - mean["v0"]) > 0.1:
-                flags.append(f"reward basis {round(v0_basis, 4)} "
-                             f"(raw {mean['reward']}, rej {mean.get('rej')}) "
-                             f"vs critic {mean['v0']}")
-            if args.critic and mean.get("v0_masked") is not None                     and abs(shaped - mean["v0_masked"]) > 0.1:
-                flags.append(f"shaped reward {round(shaped, 4)} "
-                             f"vs masked head {mean['v0_masked']}")
+                flags.append(
+                    f"reward basis {round(v0_basis, 4)} "
+                    f"(raw {mean['reward']}, rej {mean.get('rej')}) "
+                    f"vs critic {mean['v0']}"
+                )
+            if (
+                args.critic
+                and mean.get("v0_masked") is not None
+                and abs(shaped - mean["v0_masked"]) > 0.1
+            ):
+                flags.append(f"shaped reward {round(shaped, 4)} vs masked head {mean['v0_masked']}")
         if rl.get("tripwire_viol"):
             flags.append(f"tripwire={rl['tripwire_viol']}")
         non_won = {s: n for s, n in gstats["statuses"].items() if s != "won"}
@@ -685,37 +930,54 @@ def main() -> None:
             flags.append(f"non-decisive {non_won}")
 
         # ---- ADR-0017 halt guards: reject the ckpt, don't just narrate ----
-        guards = guard_flags(census, rl, state.get("baseline"),
-                             kl_max=args.guard_kl, ent_mult=args.guard_ent_mult,
-                             veto_mult=args.guard_veto_mult,
-                             casts_floor=args.guard_casts_floor)
-        row = {"iteration": k, "ckpt": state["ckpt"],
-               "run": [str(rd) for rd in run_dirs],
-               "store": group, "gen_s": round(t_gen), "train_s": round(t_train),
-               "census": census, "games": gstats, "rl": rl, "flags": flags,
-               "guard": guards}
+        guards = guard_flags(
+            census,
+            rl,
+            state.get("baseline"),
+            kl_max=args.guard_kl,
+            ent_mult=args.guard_ent_mult,
+            veto_mult=args.guard_veto_mult,
+            casts_floor=args.guard_casts_floor,
+        )
+        row = {
+            "iteration": k,
+            "ckpt": state["ckpt"],
+            "run": [str(rd) for rd in run_dirs],
+            "store": group,
+            "gen_s": round(t_gen),
+            "train_s": round(t_train),
+            "census": census,
+            "games": gstats,
+            "rl": rl,
+            "flags": flags,
+            "guard": guards,
+        }
         monitor.write(json.dumps(row) + "\n")
         if flags:
             print(f"[selfplay] !!! ANOMALY FLAGS iteration {k}: {flags}")
         if guards:
             (it_dir / "REJECTED").write_text("\n".join(guards) + "\n")
-            print(f"[selfplay] !!! GUARD HALT iteration {k}: {guards}\n"
-                  f"[selfplay] ckpt NOT accepted; loop_state unchanged; "
-                  f"re-running re-evaluates the same iteration (deterministic "
-                  f"halt — needs a human)")
-            _notify(f"anvil {args.name}: GUARD HALT iter {k}",
-                    "; ".join(guards))
+            print(
+                f"[selfplay] !!! GUARD HALT iteration {k}: {guards}\n"
+                f"[selfplay] ckpt NOT accepted; loop_state unchanged; "
+                f"re-running re-evaluates the same iteration (deterministic "
+                f"halt — needs a human)"
+            )
+            _notify(f"anvil {args.name}: GUARD HALT iter {k}", "; ".join(guards))
             _watch_unregister(args.name)  # deliberate exit — no GONE alert
             sys.exit(3)
 
         if state.get("baseline") is None:
             # the run's iter-0 operating point: the ent/veto guard baselines
-            state["baseline"] = {"ent": mean.get("ent"),
-                                 "veto_rate": census.get("veto_rate"),
-                                 "first_veto_rate": census.get("first_veto_rate"),
-                                 "casts_per_game": census.get("casts_per_game")}
-        state.update(iteration=k + 1, ckpt=str(new_ckpt),
-                     start_index=state["start_index"] + args.games)
+            state["baseline"] = {
+                "ent": mean.get("ent"),
+                "veto_rate": census.get("veto_rate"),
+                "first_veto_rate": census.get("first_veto_rate"),
+                "casts_per_game": census.get("casts_per_game"),
+            }
+        state.update(
+            iteration=k + 1, ckpt=str(new_ckpt), start_index=state["start_index"] + args.games
+        )
         if critic_ckpt is not None:
             state["critic"] = str(critic_ckpt)
         state_path.write_text(json.dumps(state, indent=2))
@@ -723,20 +985,37 @@ def main() -> None:
         # ---- arms (argmax serve, paired seeds, both seat assignments) ----
         if args.arms_every and (k + 1) % args.arms_every == 0 and args.arms_pairs:
             arm_dirs = []
-            server = _start_server(state["ckpt"], args.port,
-                                   it_dir / "arms-server.log", sample=False)
+            server = _start_server(
+                state["ckpt"], args.port, it_dir / "arms-server.log", sample=False
+            )
             try:
                 for seat in (0, 1):
                     ap_purpose = f"{args.name}-arm-i{k:03d}-s{seat}"
                     before = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*")))
-                    arm_cmd = [sys.executable, "-m", "anvil.bridge.harness", "launch",
-                               "--pairs-file", args.arms_pairs,
-                               "--games", str(args.arms_games), "--workers",
-                               str(args.workers), "--chunk", "50",
-                               "--bridge", f"grpc:localhost:{args.port}",
-                               "--census", "--obs", "--purpose", ap_purpose,
-                               "--seed-base", str(args.arms_seed_base),
-                               "--bridge-seats", str(seat)]
+                    arm_cmd = [
+                        sys.executable,
+                        "-m",
+                        "anvil.bridge.harness",
+                        "launch",
+                        "--pairs-file",
+                        args.arms_pairs,
+                        "--games",
+                        str(args.arms_games),
+                        "--workers",
+                        str(args.workers),
+                        "--chunk",
+                        "50",
+                        "--bridge",
+                        f"grpc:localhost:{args.port}",
+                        "--census",
+                        "--obs",
+                        "--purpose",
+                        ap_purpose,
+                        "--seed-base",
+                        str(args.arms_seed_base),
+                        "--bridge-seats",
+                        str(seat),
+                    ]
                     if args.reask:
                         arm_cmd.append("--reask")
                     _run(arm_cmd)
@@ -744,18 +1023,26 @@ def main() -> None:
                     arm_dirs.append(new.pop())
             finally:
                 _stop_server(server)
-            _run([sys.executable, "scripts/arms_report.py",
-                  "--arm", f"iter{k:03d}={','.join(arm_dirs)}",
-                  "--out", str(it_dir / "arms-report.json")])
+            _run(
+                [
+                    sys.executable,
+                    "scripts/arms_report.py",
+                    "--arm",
+                    f"iter{k:03d}={','.join(arm_dirs)}",
+                    "--out",
+                    str(it_dir / "arms-report.json"),
+                ]
+            )
 
         # ---- mid-run drill-evalset decomposition (advisory; own server) ----
         if args.drill_eval_every and (k + 1) % args.drill_eval_every == 0:
             _drill_eval_phase(args, state, k, it_dir)
 
-    print(f"[selfplay] loop complete: {state['iteration']} iterations, "
-          f"final ckpt {state['ckpt']}")
-    _notify(f"anvil {args.name}: COMPLETE",
-            f"{state['iteration']} iterations, final ckpt {state['ckpt']}")
+    print(f"[selfplay] loop complete: {state['iteration']} iterations, final ckpt {state['ckpt']}")
+    _notify(
+        f"anvil {args.name}: COMPLETE",
+        f"{state['iteration']} iterations, final ckpt {state['ckpt']}",
+    )
     _watch_unregister(args.name)
 
 
@@ -764,8 +1051,7 @@ if __name__ == "__main__":
         main()
     except SystemExit:
         raise  # guard halts notify at the halt site
-    except Exception as e:  # noqa: BLE001
-        name = next((sys.argv[i + 1] for i, a in enumerate(sys.argv[:-1])
-                     if a == "--name"), "?")
+    except Exception as e:
+        name = next((sys.argv[i + 1] for i, a in enumerate(sys.argv[:-1]) if a == "--name"), "?")
         _notify(f"anvil {name}: DRIVER CRASHED", repr(e))
         raise

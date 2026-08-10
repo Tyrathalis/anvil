@@ -40,18 +40,20 @@ import numpy as np
 ERAS = {
     "c1": {
         "labels": ["data/runs/drill-map-r9i9-k8"]
-                  + [f"data/runs/drill-sweep-lost-20260729/arm-{t}"
-                     for t in ("o0", "o2", "o4", "peak")],
-        "traces": {"era": "data/runs/early-doom-run9-i009",
-                   "d4": "data/runs/early-doom-run9-d4crit"},
+        + [f"data/runs/drill-sweep-lost-20260729/arm-{t}" for t in ("o0", "o2", "o4", "peak")],
+        "traces": {
+            "era": "data/runs/early-doom-run9-i009",
+            "d4": "data/runs/early-doom-run9-d4crit",
+        },
         "repeat": ("data/runs/drill-evalset-v2", "eval-20260801-150103.json"),
     },
     "c2": {
         "labels": ["data/runs/drill-map-r11i19-k8"]
-                  + [f"data/runs/drill-sweep-lost-20260804/arm-{t}"
-                     for t in ("o0", "o2", "o4", "peak")],
-        "traces": {"era": "data/runs/early-doom-run11-i019",
-                   "d4": "data/runs/early-doom-run11-d4crit"},
+        + [f"data/runs/drill-sweep-lost-20260804/arm-{t}" for t in ("o0", "o2", "o4", "peak")],
+        "traces": {
+            "era": "data/runs/early-doom-run11-i019",
+            "d4": "data/runs/early-doom-run11-d4crit",
+        },
         "repeat": ("data/runs/drill-evalset-v3", "eval-20260804-175808.json"),
     },
 }
@@ -60,15 +62,17 @@ TURN_BUCKETS = [(1, 6), (7, 10), (11, 16), (17, 99)]
 
 
 def _bin_of(wr: float) -> str:
-    return ("lost" if wr <= 0.2 else "long_shot" if wr <= 0.45
-            else "coin" if wr <= 0.7 else "winnable")
+    return (
+        "lost" if wr <= 0.2 else "long_shot" if wr <= 0.45 else "coin" if wr <= 0.7 else "winnable"
+    )
 
 
 def _load_traces(path: str) -> dict[tuple, dict[int, float]]:
     out = {}
-    for line in Path(path, "traces.jsonl").open():
-        r = json.loads(line)
-        out[(r["store"], r["g"])] = {t: v for t, v in r["vals"]}
+    with Path(path, "traces.jsonl").open() as f:
+        for line in f:
+            r = json.loads(line)
+            out[(r["store"], r["g"])] = {t: v for t, v in r["vals"]}
     return out
 
 
@@ -76,23 +80,31 @@ def build_dataset(era: str, cfg: dict) -> list[dict]:
     tr = {k: _load_traces(p) for k, p in cfg["traces"].items()}
     rows, miss = [], 0
     for src in cfg["labels"]:
-        for line in Path(src, "drills.jsonl").open():
-            r = json.loads(line)
-            if r["n"] <= 0:
-                continue
-            key = (r["store"], r["g"])
-            t = r["fired_t"]
-            vals = {k: tr[k].get(key, {}).get(t) for k in tr}
-            if any(v is None for v in vals.values()):
-                miss += 1
-                continue
-            rows.append({
-                "era": era, "src": Path(src).name,
-                "store": r["store"], "g": r["g"], "t": t,
-                "wr": r["model_wins"] / r["n"], "n": r["n"],
-                "v_era": vals["era"], "v_d4": vals["d4"],
-                "deck": r["deck"],
-            })
+        with Path(src, "drills.jsonl").open() as f:
+            for line in f:
+                r = json.loads(line)
+                if r["n"] <= 0:
+                    continue
+                key = (r["store"], r["g"])
+                t = r["fired_t"]
+                vals = {k: tr[k].get(key, {}).get(t) for k in tr}
+                if any(v is None for v in vals.values()):
+                    miss += 1
+                    continue
+                rows.append(
+                    {
+                        "era": era,
+                        "src": Path(src).name,
+                        "store": r["store"],
+                        "g": r["g"],
+                        "t": t,
+                        "wr": r["model_wins"] / r["n"],
+                        "n": r["n"],
+                        "v_era": vals["era"],
+                        "v_d4": vals["d4"],
+                        "deck": r["deck"],
+                    }
+                )
     print(f"[data] {era}: {len(rows)} labels ({miss} trace-join misses)")
     return rows
 
@@ -134,12 +146,16 @@ def pav_fit(v: np.ndarray, y: np.ndarray):
     w = np.ones(len(ys))
     vals, wts, lo = [], [], []
     for i in range(len(ys)):
-        vals.append(ys[i]); wts.append(w[i]); lo.append(xs[i])
+        vals.append(ys[i])
+        wts.append(w[i])
+        lo.append(xs[i])
         while len(vals) > 1 and vals[-2] >= vals[-1]:
             wv = wts[-1] + wts[-2]
             vals[-2] = (vals[-1] * wts[-1] + vals[-2] * wts[-2]) / wv
             wts[-2] = wv
-            vals.pop(); wts.pop(); lo.pop()
+            vals.pop()
+            wts.pop()
+            lo.pop()
     return np.array(lo), np.array(vals)
 
 
@@ -169,12 +185,18 @@ def repeat_noise(evalset_dir: str, eval_file: str) -> dict:
     """Same position, same policy, argmax, measured twice (map labels vs
     the evalset baseline re-measure): the achievable-agreement floor."""
     rows = json.loads(Path(evalset_dir, eval_file).read_text())["rows"]
-    d = [r["model_wins"] / r["n"] - r["base_wins"] / r["base_n"]
-         for r in rows if r["n"] > 0 and r["base_n"] > 0]
+    d = [
+        r["model_wins"] / r["n"] - r["base_wins"] / r["base_n"]
+        for r in rows
+        if r["n"] > 0 and r["base_n"] > 0
+    ]
     d = np.array(d)
-    return {"n": len(d), "mean": round(float(d.mean()), 4),
-            "sd_pair": round(float(d.std()), 4),
-            "sd_single": round(float(d.std() / math.sqrt(2)), 4)}
+    return {
+        "n": len(d),
+        "mean": round(float(d.mean()), 4),
+        "sd_pair": round(float(d.std()), 4),
+        "sd_single": round(float(d.std() / math.sqrt(2)), 4),
+    }
 
 
 def evaluate(era: str, rows: list[dict], critic_key: str, out: dict) -> None:
@@ -187,14 +209,14 @@ def evaluate(era: str, rows: list[dict], critic_key: str, out: dict) -> None:
 
     a, b = platt_fit(v_tr, y_tr)
     lo, vals = pav_fit(v_tr, y_tr)
-    preds = {"raw": v_ho,
-             "platt": platt_apply(v_ho, a, b),
-             "isotonic": pav_apply(v_ho, lo, vals)}
+    preds = {"raw": v_ho, "platt": platt_apply(v_ho, a, b), "isotonic": pav_apply(v_ho, lo, vals)}
     res = {}
     for name, p in preds.items():
-        res[name] = {"ece": round(ece(p, y_ho), 4),
-                     "brier": round(float(((p - y_ho) ** 2).mean()), 4),
-                     "spearman": round(spearman(p, y_ho), 4)}
+        res[name] = {
+            "ece": round(ece(p, y_ho), 4),
+            "brier": round(float(((p - y_ho) ** 2).mean()), 4),
+            "spearman": round(spearman(p, y_ho), 4),
+        }
     res["n_train"], res["n_holdout"] = len(tr), len(ho)
     res["platt_ab"] = [round(a, 4), round(b, 4)]
     res["mean_v_raw"] = round(float(v_ho.mean()), 4)
@@ -203,26 +225,35 @@ def evaluate(era: str, rows: list[dict], critic_key: str, out: dict) -> None:
     # ---- residual decomposition on held-out isotonic ----
     p_iso = preds["isotonic"]
     resid = p_iso - y_ho
-    groups: dict[str, dict] = defaultdict(lambda: {"n": 0, "sum": 0.0,
-                                                   "abs": 0.0})
+    groups: dict[str, dict] = defaultdict(lambda: {"n": 0, "sum": 0.0, "abs": 0.0})
     deck_g: dict[str, dict] = defaultdict(lambda: {"n": 0, "sum": 0.0})
     for r, e in zip(ho, resid):
-        tb = next(f"t{lo_}-{hi}" for lo_, hi in TURN_BUCKETS
-                  if lo_ <= r["t"] <= hi)
-        for gk in (f"turn:{tb}", f"bin:{_bin_of(r['wr'])}",
-                   f"src:{'map' if 'map' in r['src'] else 'sweep'}"):
+        tb = next(f"t{lo_}-{hi}" for lo_, hi in TURN_BUCKETS if lo_ <= r["t"] <= hi)
+        for gk in (
+            f"turn:{tb}",
+            f"bin:{_bin_of(r['wr'])}",
+            f"src:{'map' if 'map' in r['src'] else 'sweep'}",
+        ):
             g = groups[gk]
-            g["n"] += 1; g["sum"] += e; g["abs"] += abs(e)
+            g["n"] += 1
+            g["sum"] += e
+            g["abs"] += abs(e)
         dg = deck_g[r["deck"]]
-        dg["n"] += 1; dg["sum"] += e
+        dg["n"] += 1
+        dg["sum"] += e
     res["residual_groups"] = {
-        k: {"n": g["n"], "mean": round(g["sum"] / g["n"], 4),
-            "mean_abs": round(g["abs"] / g["n"], 4)}
-        for k, g in sorted(groups.items())}
-    worst = sorted(((d, g["sum"] / g["n"], g["n"]) for d, g in deck_g.items()
-                    if g["n"] >= 8), key=lambda x: -abs(x[1]))[:8]
-    res["worst_decks"] = [{"deck": d, "mean_resid": round(m, 4), "n": n}
-                          for d, m, n in worst]
+        k: {
+            "n": g["n"],
+            "mean": round(g["sum"] / g["n"], 4),
+            "mean_abs": round(g["abs"] / g["n"], 4),
+        }
+        for k, g in sorted(groups.items())
+    }
+    worst = sorted(
+        ((d, g["sum"] / g["n"], g["n"]) for d, g in deck_g.items() if g["n"] >= 8),
+        key=lambda x: -abs(x[1]),
+    )[:8]
+    res["worst_decks"] = [{"deck": d, "mean_resid": round(m, 4), "n": n} for d, m, n in worst]
     out[f"{era}/{critic_key}"] = res
 
 
@@ -246,13 +277,22 @@ def main() -> None:
         for r in all_rows:
             f.write(json.dumps(r) + "\n")
     (out_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps({k: {m: v for m, v in r.items()
-                          if m in ("raw", "platt", "isotonic",
-                                   "n_holdout", "mean_v_raw", "mean_wr")}
-                      if isinstance(r, dict) and "raw" in r else r
-                      for k, r in report.items()}, indent=2))
-    print(f"[calib] -> {out_dir}/report.json + dataset.jsonl "
-          f"({len(all_rows)} labels)")
+    print(
+        json.dumps(
+            {
+                k: {
+                    m: v
+                    for m, v in r.items()
+                    if m in ("raw", "platt", "isotonic", "n_holdout", "mean_v_raw", "mean_wr")
+                }
+                if isinstance(r, dict) and "raw" in r
+                else r
+                for k, r in report.items()
+            },
+            indent=2,
+        )
+    )
+    print(f"[calib] -> {out_dir}/report.json + dataset.jsonl ({len(all_rows)} labels)")
 
 
 if __name__ == "__main__":

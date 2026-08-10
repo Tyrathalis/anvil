@@ -24,7 +24,8 @@ tags' card lists.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 
@@ -44,25 +45,28 @@ GROUPS: dict[str, list[str]] = {
     "draw": ["draw", "card-draw", "cantrip", "card-advantage"],
     "recursion": ["recursion", "reanimate", "reanimation", "regrowth"],
     "protection": ["protection", "counterspell-protection", "hexproof"],
-    "combo": ["combo-piece", "infinite-combo", "untapper", "cost-reducer",
-              "storm"],
-    "wincon": ["win-condition", "extra-turn", "extra-combat", "burn",
-               "lifedrain"],
+    "combo": ["combo-piece", "infinite-combo", "untapper", "cost-reducer", "storm"],
+    "wincon": ["win-condition", "extra-turn", "extra-combat", "burn", "lifedrain"],
 }
 
 _ZONES = ("hand_self", "bf_self", "bf_opp")
 FEATURE_NAMES = [f"otag_{z}_{g}" for z in _ZONES for g in GROUPS]
 # per-family attribution: the self-hand block (outs) vs own board vs
 # opponent board — three distinct hypotheses about where function matters
-FAMILY_OF = {f"otag_{z}_{g}": {"hand_self": "ohand", "bf_self": "obfself",
-                               "bf_opp": "obfopp"}[z]
-             for z in _ZONES for g in GROUPS}
+FAMILY_OF = {
+    f"otag_{z}_{g}": {"hand_self": "ohand", "bf_self": "obfself", "bf_opp": "obfopp"}[z]
+    for z in _ZONES
+    for g in GROUPS
+}
 FAMILIES = ["ohand", "obfself", "obfopp"]
 
 
-def otag_features(dec: dict[str, Any], header: dict[str, Any],
-                  perspective: int,
-                  groups_of: Mapping[str, frozenset[str]]) -> np.ndarray:
+def otag_features(
+    dec: dict[str, Any],
+    header: dict[str, Any],
+    perspective: int,
+    groups_of: Mapping[str, frozenset[str]],
+) -> np.ndarray:
     """One decision record -> (len(FEATURE_NAMES),) float32.
     groups_of: card name -> set of group keys (from the fetched tag table);
     a name absent from the mapping contributes nothing."""
@@ -71,8 +75,7 @@ def otag_features(dec: dict[str, Any], header: dict[str, Any],
         raise ValueError(f"decision s={dec.get('s')} has no observation")
     players = obs["players"]
     n = len(header["players"])
-    opps = {i for i in range(n)
-            if i != perspective and not players[i].get("lost")}
+    opps = {i for i in range(n) if i != perspective and not players[i].get("lost")}
     if not opps:
         opps = {i for i in range(n) if i != perspective}
 
@@ -97,5 +100,6 @@ def otag_features(dec: dict[str, Any], header: dict[str, Any],
         for g in gs:
             counts[(zone, g)] += 1.0
 
-    return np.array([min(counts[(z, g)], COUNT_CAP)
-                     for z in _ZONES for g in GROUPS], dtype=np.float32)
+    return np.array(
+        [min(counts[(z, g)], COUNT_CAP) for z in _ZONES for g in GROUPS], dtype=np.float32
+    )

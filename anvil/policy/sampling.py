@@ -38,8 +38,9 @@ def noise_seed(game_seed: int, dec_seq: int) -> int:
     return splitmix64((game_seed + (dec_seq + 1) * GOLDEN) & MASK)
 
 
-def make_noise(ex: dict, task: str, temperature: float = 1.0, *,
-               seed: int) -> dict[str, torch.Tensor]:
+def make_noise(
+    ex: dict, task: str, temperature: float = 1.0, *, seed: int
+) -> dict[str, torch.Tensor]:
     """Item-level noise tensors at the example's own shapes, float32.
 
     temperature scales the noise INVERSELY (argmax(l/t + g) == argmax(l + t*g)),
@@ -75,8 +76,7 @@ def make_noise(ex: dict, task: str, temperature: float = 1.0, *,
     return {h: shapes[h]() for h in _TASK_HEADS[task]}
 
 
-def mu_record(g: int, s: int, task: str, ex: dict, aux: dict,
-              out: dict) -> dict:
+def mu_record(g: int, s: int, task: str, ex: dict, aux: dict, out: dict) -> dict:
     """Behavior-policy record for one sampled decision (one mu.jsonl line).
 
     Actions are recorded in item-canonical index spaces (entity ROW < N_i;
@@ -133,18 +133,19 @@ def mu_record(g: int, s: int, task: str, ex: dict, aux: dict,
             rec["atk"] = [int(y) for y in yes]
             rec["atgt"] = [canon(int(out["atk_tgt"][0, i])) for i in range(a_i)]
             lp["atk"] = float(out["logp_atk"][0, :a_i].sum())
-            lp["cnt"] = float(sum(out["logp_cnt"][0, i] for i in range(a_i)
-                                  if yes[i] and groups[i] > 1))
-            lp["atgt"] = float(sum(out["logp_atk_tgt"][0, i]
-                                   for i in range(a_i) if yes[i]))
+            lp["cnt"] = float(
+                sum(out["logp_cnt"][0, i] for i in range(a_i) if yes[i] and groups[i] > 1)
+            )
+            lp["atgt"] = float(sum(out["logp_atk_tgt"][0, i] for i in range(a_i) if yes[i]))
             ent["atk"] = float(out["ent_atk"][0, :a_i].mean()) if a_i else 0.0
         else:
             m_i = len(aux["blk_atk_rows"])
             blocking = [int(out["blk_pick"][0, i]) < m_i for i in range(a_i)]
             rec["blk"] = [min(int(out["blk_pick"][0, i]), m_i) for i in range(a_i)]
             lp["blk"] = float(out["logp_blk"][0, :a_i].sum())
-            lp["cnt"] = float(sum(out["logp_cnt"][0, i] for i in range(a_i)
-                                  if blocking[i] and groups[i] > 1))
+            lp["cnt"] = float(
+                sum(out["logp_cnt"][0, i] for i in range(a_i) if blocking[i] and groups[i] > 1)
+            )
             ent["blk"] = float(out["ent_blk"][0, :a_i].mean()) if a_i else 0.0
     rec["lp"] = {k: round(v, 5) for k, v in lp.items()}
     rec["logp"] = round(sum(lp.values()), 5)
@@ -152,8 +153,9 @@ def mu_record(g: int, s: int, task: str, ex: dict, aux: dict,
     return rec
 
 
-def pad_noise(noises: list[dict[str, torch.Tensor]], batch: dict,
-              device) -> dict[str, torch.Tensor]:
+def pad_noise(
+    noises: list[dict[str, torch.Tensor]], batch: dict, device
+) -> dict[str, torch.Tensor]:
     """Scatter item noise into batch-padded tensors (zeros elsewhere).
 
     Layout-aware: tgt/atk_tgt keys are [entities.. players.. (STOP)], blk keys
@@ -167,11 +169,15 @@ def pad_noise(noises: list[dict[str, torch.Tensor]], batch: dict,
     a = batch["cmb_rows"].shape[1]
     m = batch["blk_atk_rows"].shape[1]
     out = {
-        "choice": torch.zeros(b, c), "tgt": torch.zeros(b, T_MAX + 1, n + p + 1),
-        "x": torch.zeros(b, X_CLASSES), "bool": torch.zeros(b),
-        "num": torch.zeros(b, X_CLASSES), "atk": torch.zeros(b, a),
+        "choice": torch.zeros(b, c),
+        "tgt": torch.zeros(b, T_MAX + 1, n + p + 1),
+        "x": torch.zeros(b, X_CLASSES),
+        "bool": torch.zeros(b),
+        "num": torch.zeros(b, X_CLASSES),
+        "atk": torch.zeros(b, a),
         "cnt": torch.zeros(b, a, COMBAT_COUNT_MAX),
-        "atk_tgt": torch.zeros(b, a, n + p), "blk": torch.zeros(b, a, m + 1),
+        "atk_tgt": torch.zeros(b, a, n + p),
+        "blk": torch.zeros(b, a, m + 1),
     }
     for i, nz in enumerate(noises):
         if "choice" in nz:

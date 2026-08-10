@@ -27,8 +27,12 @@ def normalize(name: str) -> str:
 
 
 def fork_commit() -> str:
-    return subprocess.run(["git", "-C", str(FORGE_DIR), "rev-parse", "HEAD"],
-                          capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(
+        ["git", "-C", str(FORGE_DIR), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
 
 
 def parse_card_names(script: str) -> dict[str, str]:
@@ -64,7 +68,9 @@ def load_names() -> dict[str, str]:
     else:
         names = _scan_cardsfolder()
         if len(names) < 10000:
-            raise RuntimeError(f"cardsfolder scan found only {len(names)} names at {CARDSFOLDER} — wrong FORGE_DIR?")
+            raise RuntimeError(
+                f"cardsfolder scan found only {len(names)} names at {CARDSFOLDER} — wrong FORGE_DIR?"
+            )
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(names))
     return {normalize(n): canonical for n, canonical in names.items()}

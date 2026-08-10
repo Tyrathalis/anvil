@@ -12,8 +12,13 @@ from __future__ import annotations
 import pytest
 import torch
 
-from anvil.training.dataset import (COMBAT_COUNT_MAX, _combat_label_window,
-                                    attack_fields, block_fields, collate)
+from anvil.training.dataset import (
+    COMBAT_COUNT_MAX,
+    _combat_label_window,
+    attack_fields,
+    block_fields,
+    collate,
+)
 
 ROW_OF = {1: 0, 2: 0, 3: 1, 10: 5, 11: 5, 20: 7}
 
@@ -29,8 +34,7 @@ def ent(eid, c=0, tap=0, sick=0, **kw):
 
 
 def dec_of(m, ents, turn=5, p=0, s=100):
-    return {"m": m, "p": p, "s": s,
-            "obs": {"glob": {"turn": turn}, "ents": ents}}
+    return {"m": m, "p": p, "s": s, "obs": {"glob": {"turn": turn}, "ents": ents}}
 
 
 def test_attack_labels_pair_partial_and_target():
@@ -41,9 +45,9 @@ def test_attack_labels_pair_partial_and_target():
     assert f["cmb_rows"] == [0, 1]
     assert f["cmb_count"] == [2, 1]
     assert f["atk_label"] == [1, 0]
-    assert f["cmb_count_label"] == [0, -1]        # k=1 of the pair -> class 0
-    assert f["atk_tgt_kind"] == [1, -1]           # player target
-    assert f["atk_tgt_idx"] == [1, -1]            # seat 1 -> player position 1
+    assert f["cmb_count_label"] == [0, -1]  # k=1 of the pair -> class 0
+    assert f["atk_tgt_kind"] == [1, -1]  # player target
+    assert f["atk_tgt_idx"] == [1, -1]  # seat 1 -> player position 1
 
 
 def test_attack_planeswalker_target_and_full_group():
@@ -51,9 +55,9 @@ def test_attack_planeswalker_target_and_full_group():
     lw = dec_of("x", [ent(1, atk={"e": 20}), ent(2, atk={"e": 20})])
     f = attack_fields([d, lw], 0, d, ROW_OF, 2, g=0)
     assert f["atk_label"] == [1]
-    assert f["cmb_count_label"] == [1]            # k=2 -> class 1
+    assert f["cmb_count_label"] == [1]  # k=2 -> class 1
     assert f["atk_tgt_kind"] == [0]
-    assert f["atk_tgt_idx"] == [ROW_OF[20]]       # entity-row target
+    assert f["atk_tgt_idx"] == [ROW_OF[20]]  # entity-row target
 
 
 def test_attack_mixed_group_targets_mask():
@@ -62,7 +66,7 @@ def test_attack_mixed_group_targets_mask():
     f = attack_fields([d, lw], 0, d, ROW_OF, 2, g=0)
     assert f["atk_label"] == [1]
     assert f["cmb_count_label"] == [1]
-    assert f["atk_tgt_kind"] == [-1]              # split targets -> masked
+    assert f["atk_tgt_kind"] == [-1]  # split targets -> masked
 
 
 def test_attack_empty_label_and_eligibility():
@@ -103,15 +107,15 @@ def test_block_labels_none_and_pointer():
     d = dec_of("declareBlockers", [ent(1), ent(2), ent(3), *atk])
     lw = dec_of("x", [ent(1, blk=[10]), ent(2), ent(3), *atk])
     f = block_fields([d, lw], 0, d, ROW_OF, g=0)
-    assert f["blk_atk_rows"] == [5]               # ids 10,11 dedup to one row
+    assert f["blk_atk_rows"] == [5]  # ids 10,11 dedup to one row
     assert f["cmb_rows"] == [0, 1]
-    assert f["blk_label"] == [0, 1]               # pair blocks slot 0; unique = none(1)
-    assert f["cmb_count_label"] == [0, -1]        # 1 of the pair blocks -> class 0
+    assert f["blk_label"] == [0, 1]  # pair blocks slot 0; unique = none(1)
+    assert f["cmb_count_label"] == [0, -1]  # 1 of the pair blocks -> class 0
     # sick creatures may block
     d2 = dec_of("declareBlockers", [ent(3, sick=1), *atk])
     f2 = block_fields([d2], 0, d2, ROW_OF, g=0)
     assert f2["cmb_rows"] == [1]
-    assert f2["blk_label"] == [1]                 # empty label -> none class
+    assert f2["blk_label"] == [1]  # empty label -> none class
 
 
 def test_block_split_group_masks_and_forced_empty():
@@ -119,8 +123,8 @@ def test_block_split_group_masks_and_forced_empty():
     d = dec_of("declareBlockers", [ent(1), ent(2), *atk])
     lw = dec_of("x", [ent(1, blk=[10]), ent(2, blk=[20]), *atk])
     f = block_fields([d, lw], 0, d, ROW_OF, g=0)
-    assert f["blk_label"] == [-1]                 # pair split across attackers
-    assert f["cmb_count_label"] == [1]            # but 2 of the pair do block
+    assert f["blk_label"] == [-1]  # pair split across attackers
+    assert f["cmb_count_label"] == [1]  # but 2 of the pair do block
     # no attackers in obs -> skipped window
     d2 = dec_of("declareBlockers", [ent(1)])
     assert block_fields([d2], 0, d2, ROW_OF, g=0) is None
@@ -135,23 +139,40 @@ def test_block_target_not_attacker_raises():
 
 def _example(n_ent=8, **cmb):
     """Minimal example dict for collate; combat fields default empty."""
-    base = {"cmb_rows": [], "cmb_count": [], "atk_label": [],
-            "cmb_count_label": [], "atk_tgt_kind": [], "atk_tgt_idx": [],
-            "blk_label": [], "blk_atk_rows": []}
+    base = {
+        "cmb_rows": [],
+        "cmb_count": [],
+        "atk_label": [],
+        "cmb_count_label": [],
+        "atk_tgt_kind": [],
+        "atk_tgt_idx": [],
+        "blk_label": [],
+        "blk_atk_rows": [],
+    }
     base.update(cmb)
     x = {
-        "entities": torch.zeros(n_ent, 17), "ent_emb": torch.full((n_ent,), -1),
-        "globals": torch.zeros(8), "players": torch.zeros(2, 6),
+        "entities": torch.zeros(n_ent, 17),
+        "ent_emb": torch.full((n_ent,), -1),
+        "globals": torch.zeros(8),
+        "players": torch.zeros(2, 6),
         "history": torch.full((8, 3), -1),
-        "cand_rows": torch.tensor([-1]), "cand_sa": torch.tensor([-1]),
+        "cand_rows": torch.tensor([-1]),
+        "cand_sa": torch.tensor([-1]),
         "cand_kind": torch.tensor([-1]),
-        "label": torch.tensor(0), "label_row": torch.tensor(-1),
-        "tgt_kind": torch.full((5,), -1), "tgt_idx": torch.full((5,), -1),
-        "x_val": torch.tensor(-1), "task": torch.tensor(6),
-        "bool_label": torch.tensor(-1), "num_label": torch.tensor(-1),
-        "num_lo": torch.tensor(0), "num_hi": torch.tensor(17),
-        "ctx_row": torch.tensor(-1), "forced": torch.tensor(0),
-        "has_outcome": torch.tensor(1), "won": torch.tensor(0),
+        "label": torch.tensor(0),
+        "label_row": torch.tensor(-1),
+        "tgt_kind": torch.full((5,), -1),
+        "tgt_idx": torch.full((5,), -1),
+        "x_val": torch.tensor(-1),
+        "task": torch.tensor(6),
+        "bool_label": torch.tensor(-1),
+        "num_label": torch.tensor(-1),
+        "num_lo": torch.tensor(0),
+        "num_hi": torch.tensor(17),
+        "ctx_row": torch.tensor(-1),
+        "forced": torch.tensor(0),
+        "has_outcome": torch.tensor(1),
+        "won": torch.tensor(0),
     }
     for k, v in base.items():
         x[k] = torch.tensor(v, dtype=torch.int64)
@@ -159,18 +180,28 @@ def _example(n_ent=8, **cmb):
 
 
 def test_collate_combat_padding_and_none_remap():
-    a = _example(cmb_rows=[0, 1], cmb_count=[2, 1], atk_label=[1, 0],
-                 cmb_count_label=[0, -1], atk_tgt_kind=[1, -1],
-                 atk_tgt_idx=[1, -1])
-    blk = _example(cmb_rows=[2], cmb_count=[1], blk_label=[1],  # none = len(atk_rows) = 1
-                   cmb_count_label=[-1], blk_atk_rows=[5])
+    a = _example(
+        cmb_rows=[0, 1],
+        cmb_count=[2, 1],
+        atk_label=[1, 0],
+        cmb_count_label=[0, -1],
+        atk_tgt_kind=[1, -1],
+        atk_tgt_idx=[1, -1],
+    )
+    blk = _example(
+        cmb_rows=[2],
+        cmb_count=[1],
+        blk_label=[1],  # none = len(atk_rows) = 1
+        cmb_count_label=[-1],
+        blk_atk_rows=[5],
+    )
     plain = _example()
     out = collate([a, blk, plain])
     n = out["entities"].shape[1]
     assert out["cmb_mask"].tolist() == [[True, True], [True, False], [False, False]]
     assert out["atk_label"][0].tolist() == [1, 0]
     assert out["atk_tgt_labels"][0].tolist() == [n + 1, -1]  # player 1 class id
-    assert out["atk_label"][1].tolist() == [-1, -1]          # block window: padded
+    assert out["atk_label"][1].tolist() == [-1, -1]  # block window: padded
     # blk none class (per-example 1) remapped to batch none slot M=1 here
     M = out["blk_atk_rows"].shape[1]
     assert out["blk_label"][1, 0].item() == M

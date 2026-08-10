@@ -12,7 +12,9 @@ from pathlib import Path
 
 FORGE_DIR = Path(os.environ.get("FORGE_DIR", Path.home() / "Everything/Projects/forge"))
 CARDSFOLDER = FORGE_DIR / "forge-gui/res/cardsfolder"
-FORGE_USER_DECKS = Path(os.environ.get("FORGE_USER_DIR", Path.home() / ".forge")) / "decks/commander"
+FORGE_USER_DECKS = (
+    Path(os.environ.get("FORGE_USER_DIR", Path.home() / ".forge")) / "decks/commander"
+)
 
 POOL_DIR = Path(os.environ.get("ANVIL_POOL_DIR", Path(__file__).parents[2] / "data/pool"))
 RAW_DIR = POOL_DIR / "raw"
@@ -33,21 +35,24 @@ def current_manifest_path() -> Path:
     final_read included. A dangling or missing pin fails loudly instead.
     """
     import sys
+
     current = POOL_DIR / "CURRENT"
     if not current.exists():
-        sys.exit(f"{current} missing — pin the active pool with "
-                 f"`python -m anvil.pool build`, or write its version "
-                 f"(e.g. cf2ca6ba) there by hand")
+        sys.exit(
+            f"{current} missing — pin the active pool with "
+            f"`python -m anvil.pool build`, or write its version "
+            f"(e.g. cf2ca6ba) there by hand"
+        )
     version = current.read_text().strip()
     manifest = POOL_DIR / f"pool-{version}.json"
     if not manifest.exists():
-        sys.exit(f"{current} pins {version!r} but {manifest.name} does not "
-                 f"exist under {POOL_DIR}")
+        sys.exit(f"{current} pins {version!r} but {manifest.name} does not exist under {POOL_DIR}")
     return manifest
 
 
 def current_manifest() -> dict:
     import json
+
     return json.loads(current_manifest_path().read_text())
 
 
@@ -72,7 +77,9 @@ def verify_installed_decks(deck_files, decks_out_dir=None, installed_dir=None):
             problems.append(f"{name}: missing from {decks_out_dir}")
         elif not installed.exists():
             problems.append(f"{name}: not installed in {installed_dir}")
-        elif (hashlib.sha256(installed.read_bytes()).hexdigest()
-                != hashlib.sha256(src.read_bytes()).hexdigest()):
+        elif (
+            hashlib.sha256(installed.read_bytes()).hexdigest()
+            != hashlib.sha256(src.read_bytes()).hexdigest()
+        ):
             problems.append(f"{name}: installed copy differs from pool source")
     return problems

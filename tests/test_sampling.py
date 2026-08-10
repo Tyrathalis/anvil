@@ -14,12 +14,13 @@ EMBED = Path("data/embeddings/cf2ca6ba-qwen3.safetensors")
 CKPT = Path("data/training/d5-combat/last.pt")
 
 pytestmark = pytest.mark.skipif(
-    not (STORE.exists() and EMBED.exists() and CKPT.exists()),
-    reason="local pilot data not present")
+    not (STORE.exists() and EMBED.exists() and CKPT.exists()), reason="local pilot data not present"
+)
 
 
 def _windows(methods_filter, n=25, games=60):
     from anvil.store.trajectories import open_store
+
     store = open_store(str(STORE))
     got = []
     for g in store.game_indices()[:games]:
@@ -36,6 +37,7 @@ def _windows(methods_filter, n=25, games=60):
 
 def _wire(dec, prior, k=8):
     from tests.test_serve_parity import _wire_hist
+
     w = dict(dec)
     w["hist"] = _wire_hist(prior, dec["_pos"])
     return w
@@ -52,8 +54,12 @@ def net_and_feat():
     methods = default_methods()
     stem = str(EMBED).removesuffix(".safetensors")
     ckpt = torch.load(CKPT, map_location="cpu", weights_only=False)
-    net = build_net(stem, ckpt["config"]["pool_manifest"], len(methods),
-                    n_sa=ckpt["config"].get("sa_vocab_size", 0))
+    net = build_net(
+        stem,
+        ckpt["config"]["pool_manifest"],
+        len(methods),
+        n_sa=ckpt["config"].get("sa_vocab_size", 0),
+    )
     net.load_compat(ckpt["model"])
     net.eval()
     return net, Featurizer(stem, methods)
@@ -107,9 +113,8 @@ def test_batch_composition_invariance(net_and_feat):
         # canonical target picks must agree (padded index spaces differ)
         n1, s1 = int(out1["n_ent"]), int(out1["stop_idx"])
         n2, s2 = int(out2["n_ent"]), int(out2["stop_idx"])
-        ni = ex["entities"].shape[0]
 
-        def canon(picks, n, s):
+        def canon(picks, n, s, ni):
             outp = []
             for t in range(picks.shape[1]):
                 p = int(picks[0, t])
@@ -117,7 +122,10 @@ def test_batch_composition_invariance(net_and_feat):
                     break
                 outp.append(p if p < n else ni + (p - n))
             return outp
-        assert canon(out1["tgt_picks"], n1, s1) == canon(out2["tgt_picks"], n2, s2)
+
+        assert canon(out1["tgt_picks"], n1, s1, ex["entities"].shape[0]) == canon(
+            out2["tgt_picks"], n2, s2, ex["entities"].shape[0]
+        )
         assert int(out1["x_cls"][0]) == int(out2["x_cls"][0])
         assert torch.allclose(out1["logp_choice"][0], out2["logp_choice"][0], atol=1e-4)
         assert torch.allclose(out1["logp_tgt"][0], out2["logp_tgt"][0], atol=1e-4)
@@ -141,6 +149,7 @@ def _roundtrip(net, feat, dec, header, prior, task, seed, tau=1.0):
     rec = mu_record(header["g"], dec["s"], task, ex, aux, out)
 
     import torch
+
     ex2, _ = feat.example(_wire(dec, prior), header, task)
     apply_mu_labels(ex2, rec)
     b2 = collate([ex2])
@@ -199,14 +208,14 @@ def test_mu_roundtrip_temperature(net_and_feat):
     net, feat = net_and_feat
     checked = mismatched = 0
     for dec, header, prior in _windows({"chooseSpellAbilityToPlay"}, n=160):
-        rec, lp = _roundtrip(net, feat, dec, header, prior, "priority", 577,
-                             tau=0.5)
+        rec, lp = _roundtrip(net, feat, dec, header, prior, "priority", 577, tau=0.5)
         assert abs(lp["logp"] - rec["logp"]) < 5e-3, (rec, lp)
         assert abs(lp["choice"] - rec["lp"]["choice"]) < 5e-3
         # the negative control: same record recomputed at τ=1
         import torch
 
         from anvil.training.dataset import collate
+
         ex2, _ = feat.example(_wire(dec, prior), header, "priority")
         apply_mu_labels(ex2, rec)
         b2 = collate([ex2])
@@ -221,9 +230,13 @@ def test_mu_roundtrip_temperature(net_and_feat):
     # the policy is peaked on most priority windows (logp≈0 barely moves
     # under tempering), so wrong-τ trips are sparse — ~2/160 on the D5 ckpt.
     # ≥1 is enough teeth: real iterations sample 10^5 decisions.
-    assert mismatched >= 1, ("τ=1 recompute of τ=0.5 records never tripped "
-                             "the tripwire tolerance — control has no teeth",
-                             mismatched)
+    assert mismatched >= 1, (
+        (
+            "τ=1 recompute of τ=0.5 records never tripped "
+            "the tripwire tolerance — control has no teeth"
+        ),
+        mismatched,
+    )
 
 
 def test_mu_roundtrip_combat(net_and_feat):

@@ -64,9 +64,16 @@ import torch
 
 from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
 from anvil.store.trajectories import GameTrajectory
-from anvil.training.dataset import (T_MAX, TASK_OF_METHOD, TASKS, X_CLASSES,
-                                    EmbeddingCache, MethodVocab, collate,
-                                    default_methods)
+from anvil.training.dataset import (
+    T_MAX,
+    TASK_OF_METHOD,
+    TASKS,
+    X_CLASSES,
+    EmbeddingCache,
+    MethodVocab,
+    collate,
+    default_methods,
+)
 from anvil.training.train import build_net
 
 DECKS_DIR = Path(__file__).parents[2] / "data/pool/decks"
@@ -75,10 +82,9 @@ DECKS_DIR = Path(__file__).parents[2] / "data/pool/decks"
 # library ORDER: subsequent draws by that player are no longer provably
 # uniform over the multiset (scry-to-bottom leaves known-NOT-top information
 # even though the card was serialized). v0 poisons the player game-long.
-ORDER_METHODS = {"arrangeForScry", "arrangeForSurveil", "willPutCardOnTop",
-                 "orderMoveToZoneList"}
+ORDER_METHODS = {"arrangeForScry", "arrangeForSurveil", "willPutCardOnTop", "orderMoveToZoneList"}
 BOTTOM_MARGIN = 20  # stop draw corrections when lib count nears known-bottom tucks
-MC_SAMPLES = 16     # Monte Carlo hands per opener / multi-draw node
+MC_SAMPLES = 16  # Monte Carlo hands per opener / multi-draw node
 
 _deck_cache: dict[str, Counter] = {}
 
@@ -125,17 +131,18 @@ def derive_library(deck: Counter, obs: dict, p: int) -> Counter | None:
 
 @dataclasses.dataclass
 class Node:
-    cls: str              # "opener" | "draw"
-    p: int                # the player whose chance outcome this is
-    dec: dict             # the record whose obs the node evaluates at
-    prior_idx: int        # decisions[:prior_idx] = history for the window
+    cls: str  # "opener" | "draw"
+    p: int  # the player whose chance outcome this is
+    dec: dict  # the record whose obs the node evaluates at
+    prior_idx: int  # decisions[:prior_idx] = history for the window
     drawn: dict[int, str]  # entity id -> actual name (the k cards / the 7)
-    pool: Counter         # candidate multiset INCLUDING the actual cards
+    pool: Counter  # candidate multiset INCLUDING the actual cards
     k: int
 
 
-def extract(traj: GameTrajectory,
-            decks: dict[int, Counter]) -> tuple[list[Node], int | None, Counter]:
+def extract(
+    traj: GameTrajectory, decks: dict[int, Counter]
+) -> tuple[list[Node], int | None, Counter]:
     """Walk one game's decision stream -> (nodes, on_play seat, skip census)."""
     n_players = len(traj.header["players"])
     seen: set[int] = set()
@@ -182,8 +189,11 @@ def extract(traj: GameTrajectory,
             elif not 1 <= len(hand) <= 7:
                 skips["opener_hand_size"] += 1
             else:
-                nodes.append(Node("opener", p_dec, dec, i, dict(hand),
-                                  lib + Counter(hand.values()), len(hand)))
+                nodes.append(
+                    Node(
+                        "opener", p_dec, dec, i, dict(hand), lib + Counter(hand.values()), len(hand)
+                    )
+                )
             mull_count[p_dec] += 1
         elif turn >= 1:
             for p in range(n_players):
@@ -242,8 +252,7 @@ def extract(traj: GameTrajectory,
 def swap_hand(dec: dict, mapping: dict[int, str]) -> dict:
     """Observation surgery: the same record with hand-card names swapped."""
     obs = dec["obs"]
-    ents = [({**e, "n": mapping[e["e"]]} if e["e"] in mapping else e)
-            for e in obs["ents"]]
+    ents = [({**e, "n": mapping[e["e"]]} if e["e"] in mapping else e) for e in obs["ents"]]
     return {**dec, "obs": {**obs, "ents": ents}}
 
 
@@ -252,25 +261,32 @@ class ValueEvaluator:
     from an arbitrary perspective. Trunk state ignores candidate rows, so
     windows carry a PASS-only candidate pad."""
 
-    def __init__(self, ckpt: str, device: str | None = None, batch: int = 256,
-                 full_vis: bool | None = None):
+    def __init__(
+        self, ckpt: str, device: str | None = None, batch: int = 256, full_vis: bool | None = None
+    ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         ck = torch.load(ckpt, map_location=self.device, weights_only=False)
         cfg = ck["config"]
         methods = default_methods()
-        self.net = build_net(cfg["embed"], cfg["pool_manifest"], len(methods),
-                             n_sa=cfg.get("sa_vocab_size", 0)).to(self.device)
+        self.net = build_net(
+            cfg["embed"], cfg["pool_manifest"], len(methods), n_sa=cfg.get("sa_vocab_size", 0)
+        ).to(self.device)
         self.net.load_compat(ck["model"])
         self.net.eval()
         # full-vis critics (M2 D4) evaluate on full-vis windows — §7's
         # omniscient-critic tier; detected from the ckpt's fine-tune stamp.
         # full_vis=... overrides (M6 hidden-info probe: omniscient windows
         # over the policy ckpt — a VALUE instrument only, never policy).
-        self.full_vis = (bool((cfg.get("value_finetune") or {}).get("full_vis"))
-                         if full_vis is None else full_vis)
+        self.full_vis = (
+            bool((cfg.get("value_finetune") or {}).get("full_vis"))
+            if full_vis is None
+            else full_vis
+        )
         if self.full_vis:
-            print("[ante] full-visibility windows"
-                  + ("" if full_vis is None else " (caller override)"))
+            print(
+                "[ante] full-visibility windows"
+                + ("" if full_vis is None else " (caller override)")
+            )
         self.embed = EmbeddingCache(Path(cfg["embed"]))
         self.methods = MethodVocab(methods)
         self.batch = batch
@@ -278,12 +294,16 @@ class ValueEvaluator:
         self.ckpt = str(ckpt)
         self.emb_misses: Counter = Counter()
 
-    def example(self, dec: dict, header: dict, perspective: int,
-                prior: list[dict]) -> dict[str, Any]:
-        out = assemble(dec, header, perspective=perspective,
-                       history=history_tokens(prior, perspective, HISTORY_K,
-                                              now_pos=dec.get("_pos")),
-                       full_vis=self.full_vis)
+    def example(
+        self, dec: dict, header: dict, perspective: int, prior: list[dict]
+    ) -> dict[str, Any]:
+        out = assemble(
+            dec,
+            header,
+            perspective=perspective,
+            history=history_tokens(prior, perspective, HISTORY_K, now_pos=dec.get("_pos")),
+            full_vis=self.full_vis,
+        )
         row_of = out["entity_row_of"]
         hist = np.full((HISTORY_K, 3), -1, dtype=np.int64)
         for j, h in enumerate(out["history"][-HISTORY_K:]):
@@ -295,33 +315,48 @@ class ValueEvaluator:
                 self.emb_misses[n] += 1
             emb.append(r)
         task = TASKS.get(TASK_OF_METHOD.get(dec.get("m"), "priority"), 0)
-        z = lambda v: torch.tensor(v, dtype=torch.int64)  # noqa: E731
+        z = lambda v: torch.tensor(v, dtype=torch.int64)
         return {
             "entities": torch.from_numpy(out["entities"]),
             "ent_emb": torch.tensor(emb, dtype=torch.int64),
             "globals": torch.from_numpy(out["globals"]),
             "players": torch.from_numpy(out["players"]),
             "history": torch.from_numpy(hist),
-            "cand_rows": z([-1]), "cand_sa": z([-1]), "cand_kind": z([-1]),
-            "label": z(0), "label_row": z(-1),
+            "cand_rows": z([-1]),
+            "cand_sa": z([-1]),
+            "cand_kind": z([-1]),
+            "label": z(0),
+            "label_row": z(-1),
             "tgt_kind": torch.full((T_MAX + 1,), -1, dtype=torch.int64),
             "tgt_idx": torch.full((T_MAX + 1,), -1, dtype=torch.int64),
-            "x_val": z(-1), "task": z(task), "bool_label": z(-1),
-            "num_label": z(-1), "num_lo": z(0), "num_hi": z(X_CLASSES - 1),
-            "ctx_row": z(-1), "forced": z(0), "has_outcome": z(0), "won": z(0),
+            "x_val": z(-1),
+            "task": z(task),
+            "bool_label": z(-1),
+            "num_label": z(-1),
+            "num_lo": z(0),
+            "num_hi": z(X_CLASSES - 1),
+            "ctx_row": z(-1),
+            "forced": z(0),
+            "has_outcome": z(0),
+            "won": z(0),
             # combat (D5): collate reads per-example combat fields on every
             # example; value-only windows carry the loader's empty (0-row)
             # form (first tripped by the post-D5 re-ask arm certification)
-            "cmb_rows": z([]), "cmb_count": z([]), "cmb_count_label": z([]),
-            "atk_label": z([]), "atk_tgt_kind": z([]), "atk_tgt_idx": z([]),
-            "blk_label": z([]), "blk_atk_rows": z([]),
+            "cmb_rows": z([]),
+            "cmb_count": z([]),
+            "cmb_count_label": z([]),
+            "atk_label": z([]),
+            "atk_tgt_kind": z([]),
+            "atk_tgt_idx": z([]),
+            "blk_label": z([]),
+            "blk_atk_rows": z([]),
         }
 
     @torch.no_grad()
     def win_probs(self, examples: list[dict]) -> np.ndarray:
         out = []
         for i in range(0, len(examples), self.batch):
-            chunk = collate(examples[i:i + self.batch])
+            chunk = collate(examples[i : i + self.batch])
             chunk = {k: v.to(self.device) for k, v in chunk.items()}
             with torch.autocast(self.device, dtype=torch.bfloat16):
                 res = self.net(chunk)
@@ -329,53 +364,78 @@ class ValueEvaluator:
         return np.concatenate(out) if out else np.zeros(0)
 
 
-def eval_nodes(ev: ValueEvaluator, traj: GameTrajectory, nodes: list[Node],
-               rng: random.Random, mc: int = MC_SAMPLES) -> list[dict]:
+def eval_nodes(
+    ev: ValueEvaluator,
+    traj: GameTrajectory,
+    nodes: list[Node],
+    rng: random.Random,
+    mc: int = MC_SAMPLES,
+) -> list[dict]:
     """Per node: v(actual) − E[v(c)]; exact enumeration for k=1 draws,
     MC hands elsewhere. Values are win probabilities for node.p."""
     header = traj.header
     rows = []
     for node in nodes:
-        prior = traj.decisions[:node.prior_idx]
+        prior = traj.decisions[: node.prior_idx]
         exs = [ev.example(node.dec, header, node.p, prior)]  # index 0 = actual
         weights = None
         ids = sorted(node.drawn)
         if node.cls == "draw" and node.k == 1:
             names = sorted(node.pool)
             weights = np.array([node.pool[n] for n in names], dtype=np.float64)
-            exs += [ev.example(swap_hand(node.dec, {ids[0]: nm}),
-                               header, node.p, prior) for nm in names]
+            exs += [
+                ev.example(swap_hand(node.dec, {ids[0]: nm}), header, node.p, prior) for nm in names
+            ]
         else:
             flat = sorted(node.pool.elements())
-            exs += [ev.example(swap_hand(node.dec, dict(zip(ids, rng.sample(flat, node.k)))),
-                               header, node.p, prior) for _ in range(mc)]
+            exs += [
+                ev.example(
+                    swap_hand(node.dec, dict(zip(ids, rng.sample(flat, node.k)))),
+                    header,
+                    node.p,
+                    prior,
+                )
+                for _ in range(mc)
+            ]
         v = ev.win_probs(exs)
         v_act = float(v[0])
         e_v = float(np.average(v[1:], weights=weights))
-        rows.append({"cls": node.cls, "p": node.p, "k": node.k,
-                     "turn": node.dec["obs"]["glob"].get("turn", 0),
-                     "m": node.dec["m"],
-                     "v": round(v_act, 6), "ev": round(e_v, 6),
-                     "corr": round(v_act - e_v, 6), "n_cand": len(v) - 1})
+        rows.append(
+            {
+                "cls": node.cls,
+                "p": node.p,
+                "k": node.k,
+                "turn": node.dec["obs"]["glob"].get("turn", 0),
+                "m": node.dec["m"],
+                "v": round(v_act, 6),
+                "ev": round(e_v, 6),
+                "corr": round(v_act - e_v, 6),
+                "n_cand": len(v) - 1,
+            }
+        )
     return rows
 
 
-def game_ledger(ev: ValueEvaluator, traj: GameTrajectory, winner: int | None,
-                mc: int = MC_SAMPLES) -> dict | None:
+def game_ledger(
+    ev: ValueEvaluator, traj: GameTrajectory, winner: int | None, mc: int = MC_SAMPLES
+) -> dict | None:
     """One game -> ledger record (None for non-decisive games). `winner` is
     the TRUE winning seat from the store's outcome records (games.jsonl via
     TrajectoryStore.winner_seat) — never the frame end-record's broken field."""
     if winner is None:
         return None
     end = traj.end or {}
-    decks = {i: deck_multiset(pl["deck"])
-             for i, pl in enumerate(traj.header["players"])}
+    decks = {i: deck_multiset(pl["deck"]) for i, pl in enumerate(traj.header["players"])}
     nodes, on_play, skips = extract(traj, decks)
     rng = random.Random(traj.header["seed"] & 0x7FFFFFFF)  # deterministic MC
-    return {"g": traj.game_index, "seed": traj.header["seed"],
-            "winner": winner, "turns": end.get("turns"),
-            "on_play": on_play,
-            "decks": [pl["deck"] for pl in traj.header["players"]],
-            "profiles": [pl.get("profile") for pl in traj.header["players"]],
-            "nodes": eval_nodes(ev, traj, nodes, rng, mc),
-            "skips": dict(skips)}
+    return {
+        "g": traj.game_index,
+        "seed": traj.header["seed"],
+        "winner": winner,
+        "turns": end.get("turns"),
+        "on_play": on_play,
+        "decks": [pl["deck"] for pl in traj.header["players"]],
+        "profiles": [pl.get("profile") for pl in traj.header["players"]],
+        "nodes": eval_nodes(ev, traj, nodes, rng, mc),
+        "skips": dict(skips),
+    }

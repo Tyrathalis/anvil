@@ -28,7 +28,6 @@ import datetime as _dt
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -52,8 +51,9 @@ def _sha256(path: Path) -> str:
 
 
 def _git(repo: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(repo), *args],
-                          capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
+    ).stdout.strip()
 
 
 def _find_jar() -> Path:
@@ -116,15 +116,16 @@ class Run:
         """-d for fixed-pair runs, -pairs/-gpp for pool-schedule runs."""
         m = self.manifest
         if m.get("pairs_file"):
-            return ["-pairs", str(self.dir / m["pairs_file"]),
-                    "-gpp", str(m["games_per_pair"])]
+            return ["-pairs", str(self.dir / m["pairs_file"]), "-gpp", str(m["games_per_pair"])]
         return ["-d", m["decks"][0], m["decks"][1]]
 
     def _verify_jar(self) -> Path:
         jar = Path(self.manifest["jar"])
         if not jar.exists() or _sha256(jar) != self.manifest["jar_sha256"]:
-            sys.exit("jar hash mismatch vs manifest — the fork was rebuilt since this run "
-                     "was created; start a new run (manifests are immutable)")
+            sys.exit(
+                "jar hash mismatch vs manifest — the fork was rebuilt since this run "
+                "was created; start a new run (manifests are immutable)"
+            )
         return jar
 
     def launch_worker(self, span: tuple[int, int], inv: int) -> subprocess.Popen:
@@ -139,15 +140,30 @@ class Run:
         # -Danvil.crash.trace=true for crash-class diagnosis) without a
         # manifest change; space-separated.
         extra = os.environ.get("ANVIL_EXTRA_JVM_OPTS", "").split()
-        cmd += ["java", f"-Xms{m['heap']}", f"-Xmx{m['heap']}", *m["jvm_opts"],
-                *extra,
-                "-jar", str(jar), "anvil",
-                *self._deck_args(), "-f", m["format"],
-                "-range", str(span[0]), str(span[1]),
-                "-seedbase", str(m["seed_base"]),
-                "-results", str(wdir / "games.jsonl"),
-                "-stopfile", str(self.stop_file),
-                "-b", m["bridge"]]
+        cmd += [
+            "java",
+            f"-Xms{m['heap']}",
+            f"-Xmx{m['heap']}",
+            *m["jvm_opts"],
+            *extra,
+            "-jar",
+            str(jar),
+            "anvil",
+            *self._deck_args(),
+            "-f",
+            m["format"],
+            "-range",
+            str(span[0]),
+            str(span[1]),
+            "-seedbase",
+            str(m["seed_base"]),
+            "-results",
+            str(wdir / "games.jsonl"),
+            "-stopfile",
+            str(self.stop_file),
+            "-b",
+            m["bridge"],
+        ]
         if m.get("tags"):
             cmd += ["-tags", m["tags"]]
         if m.get("obs"):
@@ -163,9 +179,14 @@ class Run:
             cmd += ["-reask"]
         if m.get("rollout_k"):
             # M2 D4 rollout-label mode: fork points + K completions per game
-            cmd += ["-rollout", str(m["rollout_k"]),
-                    "-points", str(m.get("rollout_points", 4)),
-                    "-labels", str(wdir / "labels.jsonl")]
+            cmd += [
+                "-rollout",
+                str(m["rollout_k"]),
+                "-points",
+                str(m.get("rollout_points", 4)),
+                "-labels",
+                str(wdir / "labels.jsonl"),
+            ]
         if m.get("drill_file"):
             # M4 D2 drill mode: curated fork turns replace -points sampling
             cmd += ["-drillfile", str(self.dir / m["drill_file"])]
@@ -175,8 +196,8 @@ class Run:
             # M4 D3: completions become store frames of their own
             cmd += ["-forkobs"]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
-        out = open(wdir / "out.log", "a")
-        return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
+        with open(wdir / "out.log", "a") as out:
+            return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
 
     # ---------- scheduler ----------
 
@@ -189,8 +210,10 @@ class Run:
         active: list[tuple[subprocess.Popen, tuple[int, int]]] = []
         slots = self.manifest["workers"]
         t0 = time.monotonic()
-        print(f"[harness] {len(self.completed())}/{total} done, "
-              f"{len(pending)} spans pending, {slots} slots")
+        print(
+            f"[harness] {len(self.completed())}/{total} done, "
+            f"{len(pending)} spans pending, {slots} slots"
+        )
 
         while pending or active:
             while pending and len(active) < slots and not self.stop_file.exists():
@@ -213,9 +236,11 @@ class Run:
                 if todo[0] == span[0] and len(todo) == span[1]:
                     zero_progress_exits += 1
                     if zero_progress_exits >= 3:
-                        sys.exit("[harness] 3 consecutive workers exited with ZERO games "
-                                 "completed — systemic failure (bad paths? server down? "
-                                 "see workers/inv-*/out.log), aborting instead of skipping")
+                        sys.exit(
+                            "[harness] 3 consecutive workers exited with ZERO games "
+                            "completed — systemic failure (bad paths? server down? "
+                            "see workers/inv-*/out.log), aborting instead of skipping"
+                        )
                 else:
                     zero_progress_exits = 0
                 first = todo[0]
@@ -223,9 +248,11 @@ class Run:
                 if crash_counts[first] >= 2:
                     skips = self.skipped() | {first}
                     self.skips_file.write_text(json.dumps({"indices": sorted(skips)}))
-                    print(f"[harness] !! game {first} (seed "
-                          f"{game_seed(self.manifest['seed_base'], first)}) killed its worker "
-                          f"twice -> SKIPPED (free engine-bug repro; see skips.json)")
+                    print(
+                        f"[harness] !! game {first} (seed "
+                        f"{game_seed(self.manifest['seed_base'], first)}) killed its worker "
+                        f"twice -> SKIPPED (free engine-bug repro; see skips.json)"
+                    )
                     todo = todo[1:]
                 if todo:
                     pending.insert(0, (todo[0], todo[-1] - todo[0] + 1))
@@ -239,16 +266,19 @@ class Run:
                 rate = n_done / max(time.monotonic() - t0, 1) * 3600
                 print(f"[harness] {n_done}/{total} ({rate:.0f} g/h this session)")
             time.sleep(POLL_S)
-        print(f"[harness] run complete: {len(self.completed())}/{total} "
-              f"(+{len(self.skipped())} skipped)")
+        print(
+            f"[harness] run complete: {len(self.completed())}/{total} "
+            f"(+{len(self.skipped())} skipped)"
+        )
         summarize(self.dir)
 
 
 # ---------- verbs ----------
 
+
 def launch(a) -> Path:
     jar = _find_jar()
-    run_id = f"{a.purpose}-{_dt.datetime.now():%Y%m%d-%H%M%S}"
+    run_id = f"{a.purpose}-{_dt.datetime.now(_dt.UTC):%Y%m%d-%H%M%S}"
     run_dir = RUNS_DIR / run_id
     (run_dir / "workers").mkdir(parents=True)
 
@@ -257,8 +287,10 @@ def launch(a) -> Path:
         # D8 arms: an explicit pair schedule (e.g. valpair-only held-out
         # matchups) replaces the pool-derived one; same worker mechanism.
         import shutil
+
         shutil.copy(a.pairs_file, run_dir / "pairs.txt")
-        n_lines = sum(1 for _ in open(run_dir / "pairs.txt"))
+        with open(run_dir / "pairs.txt") as f:
+            n_lines = sum(1 for _ in f)
         pool_fields = {
             "pairs_file": "pairs.txt",
             "pairs_source": str(a.pairs_file),
@@ -273,22 +305,26 @@ def launch(a) -> Path:
         # M4 D2 drill mode: the run dir carries its own copy (provenance +
         # workers resolve it relative to the run dir, like pairs.txt).
         import shutil
+
         shutil.copy(a.drill_file, run_dir / "drillfile.txt")
     elif a.pool:
-        from anvil.bridge.harness.pairs import (latest_pool_manifest, pair_schedule,
-                                                write_pairs_file)
+        from anvil.bridge.harness.pairs import latest_pool_manifest, pair_schedule, write_pairs_file
+
         pool = latest_pool_manifest()
         # the playable build's GUI shares this deck store (worklist "shared user
         # store"): a GUI edit would silently change generation, so gate on content
         from anvil.pool import verify_installed_decks
+
         problems = verify_installed_decks([d["file"] for d in pool["decks"]])
         if problems:
             for p in problems[:10]:
                 print(f"[harness] deck store: {p}", file=sys.stderr)
             if len(problems) > 10:
                 print(f"[harness] ... and {len(problems) - 10} more", file=sys.stderr)
-            sys.exit("installed pool decks differ from data/pool/decks — "
-                     "re-run `uv run python -m anvil.pool install`")
+            sys.exit(
+                "installed pool decks differ from data/pool/decks — "
+                "re-run `uv run python -m anvil.pool install`"
+            )
         # schedule covers [0, start+games) so a start-index run's pair mapping
         # (index // gpp) is identical to the run it extends — pair_schedule is
         # prefix-stable in n_pairs, so the shared prefix matches by construction
@@ -302,19 +338,27 @@ def launch(a) -> Path:
             "n_pairs": n_pairs,
             "games_per_pair": a.games_per_pair,
         }
-        print(f"[harness] pool {pool['pool_version']}: {len(pool['decks'])} decks -> "
-              f"{n_pairs} pairs x {a.games_per_pair} games")
+        print(
+            f"[harness] pool {pool['pool_version']}: {len(pool['decks'])} decks -> "
+            f"{n_pairs} pairs x {a.games_per_pair} games"
+        )
 
     manifest = {
-        "run_id": run_id, "purpose": a.purpose,
-        "created": _dt.datetime.now().isoformat(timespec="seconds"),
+        "run_id": run_id,
+        "purpose": a.purpose,
+        "created": _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds"),
         "fork_commit": _git(FORGE_DIR, "rev-parse", "HEAD"),
         "fork_dirty": bool(_git(FORGE_DIR, "status", "--porcelain")),
         "anvil_commit": _git(Path(__file__).parents[3], "rev-parse", "HEAD"),
-        "jar": str(jar), "jar_sha256": _sha256(jar),
+        "jar": str(jar),
+        "jar_sha256": _sha256(jar),
         "protocol_version": PROTOCOL_VERSION,
-        "decks": a.decks, "format": a.format, **pool_fields,
-        "seed_base": a.seed_base, "games": a.games, "chunk": a.chunk,
+        "decks": a.decks,
+        "format": a.format,
+        **pool_fields,
+        "seed_base": a.seed_base,
+        "games": a.games,
+        "chunk": a.chunk,
         "start_index": a.start_index,
         "workers": 12 if a.colocated else a.workers,
         # ExitOnOutOfMemoryError: a batch worker must die (chunk re-issue
@@ -322,10 +366,13 @@ def launch(a) -> Path:
         # reached Forge's GUI bug-report dialog and wedged two headless
         # workers forever (model-mirror run, 2026-07-12). The fork also
         # installs a headless uncaught handler; this is the JVM-level belt.
-        "heap": "2g", "jvm_opts": ["-XX:ActiveProcessorCount=2",
-                                   "-XX:+ExitOnOutOfMemoryError"],
-        "bridge": a.bridge, "tags": a.tags, "nice": not a.calibrated,
-        "obs": a.obs, "obs_schema": 1 if a.obs else None,
+        "heap": "2g",
+        "jvm_opts": ["-XX:ActiveProcessorCount=2", "-XX:+ExitOnOutOfMemoryError"],
+        "bridge": a.bridge,
+        "tags": a.tags,
+        "nice": not a.calibrated,
+        "obs": a.obs,
+        "obs_schema": 1 if a.obs else None,
         "census": getattr(a, "census", False),
         "bridge_seats": getattr(a, "bridge_seats", None),
         "reask": getattr(a, "reask", False),
@@ -337,8 +384,10 @@ def launch(a) -> Path:
         "fork_obs": getattr(a, "fork_obs", False),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "
-          f"bridge={a.bridge}, seed_base={a.seed_base}")
+    print(
+        f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "
+        f"bridge={a.bridge}, seed_base={a.seed_base}"
+    )
     if a.calibrated:
         print("[harness] CALIBRATED run: workers at normal priority — keep the box quiet")
     Run(run_dir).schedule()
@@ -361,25 +410,49 @@ def status(run_dir: Path) -> None:
     r = Run(run_dir)
     done = r.completed()
     m = r.manifest
-    state = ("paused" if r.stop_file.exists()
-             else "complete" if len(done) + len(r.skipped()) >= m["games"] else "in progress")
+    state = (
+        "paused"
+        if r.stop_file.exists()
+        else "complete"
+        if len(done) + len(r.skipped()) >= m["games"]
+        else "in progress"
+    )
     print(f"{m['run_id']}: {len(done)}/{m['games']} done, {len(r.skipped())} skipped [{state}]")
     if done:
         ms = sorted(g["ms"] for g in done.values())
-        print(f"  median {ms[len(ms) // 2] / 1000:.1f}s/game, "
-              f"draws {sum(1 for g in done.values() if g['status'] != 'won')}")
+        print(
+            f"  median {ms[len(ms) // 2] / 1000:.1f}s/game, "
+            f"draws {sum(1 for g in done.values() if g['status'] != 'won')}"
+        )
 
 
 def replay(run_dir: Path, index: int) -> None:
     r = Run(run_dir)
     m = r.manifest
-    print(f"[harness] replaying game {index} "
-          f"(seed {game_seed(m['seed_base'], index)}) of {m['run_id']}")
+    print(
+        f"[harness] replaying game {index} "
+        f"(seed {game_seed(m['seed_base'], index)}) of {m['run_id']}"
+    )
     r._verify_jar()
-    cmd = ["java", f"-Xms{m['heap']}", f"-Xmx{m['heap']}", *m["jvm_opts"],
-           "-jar", m["jar"], "anvil", *r._deck_args(),
-           "-f", m["format"], "-range", str(index), "1",
-           "-seedbase", str(m["seed_base"]), "-b", m["bridge"]]
+    cmd = [
+        "java",
+        f"-Xms{m['heap']}",
+        f"-Xmx{m['heap']}",
+        *m["jvm_opts"],
+        "-jar",
+        m["jar"],
+        "anvil",
+        *r._deck_args(),
+        "-f",
+        m["format"],
+        "-range",
+        str(index),
+        "1",
+        "-seedbase",
+        str(m["seed_base"]),
+        "-b",
+        m["bridge"],
+    ]
     if m.get("tags"):
         cmd += ["-tags", m["tags"]]
     if m.get("obs"):
@@ -396,8 +469,7 @@ def summarize(run_dir: Path) -> None:
     done = r.completed()
     merged = r.dir / "games.jsonl"
     with open(merged, "w") as f:
-        for i in sorted(done):
-            f.write(json.dumps(done[i]) + "\n")
+        f.writelines(json.dumps(done[i]) + "\n" for i in sorted(done))
     games = list(done.values())
     ms = sorted(g["ms"] for g in games) or [0]
     obs_bytes = sum(f.stat().st_size for f in r.workers_dir.glob("inv-*/obs.zst"))
@@ -405,11 +477,13 @@ def summarize(run_dir: Path) -> None:
     # slowest games are the ones to pull frames for if the tail is ugly.
     slowest = sorted(games, key=lambda g: -g["ms"])[:10]
     summary = {
-        "games": len(games), "skipped": sorted(r.skipped()),
+        "games": len(games),
+        "skipped": sorted(r.skipped()),
         "decisive": sum(1 for g in games if g["status"] == "won"),
         "draw_clock_hits": sum(1 for g in games if g.get("draw_clock")),
-        "statuses": {s: sum(1 for g in games if g["status"] == s)
-                     for s in {g["status"] for g in games}},
+        "statuses": {
+            s: sum(1 for g in games if g["status"] == s) for s in {g["status"] for g in games}
+        },
         "turns_median": sorted(g["turns"] for g in games)[len(games) // 2] if games else 0,
         "ms_median": ms[len(ms) // 2],
         "ms_p90": ms[int(len(ms) * 0.9)] if games else 0,
@@ -417,8 +491,9 @@ def summarize(run_dir: Path) -> None:
         "game_hours_played": sum(g["ms"] for g in games) / 3.6e6,
         "obs_bytes": obs_bytes,
         "obs_kb_per_game": round(obs_bytes / max(len(games), 1) / 1e3, 1),
-        "slowest_games": [{k: g.get(k) for k in ("i", "seed", "ms", "turns", "decks")}
-                          for g in slowest],
+        "slowest_games": [
+            {k: g.get(k) for k in ("i", "seed", "ms", "turns", "decks")} for g in slowest
+        ],
     }
     (r.dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary, indent=2))

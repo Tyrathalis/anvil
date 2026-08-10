@@ -24,9 +24,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from anvil.training.notify import notify  # noqa: E402
-from anvil.training.selfplay import (RUNS_DIR, _start_server,  # noqa: E402
-                                     _stop_server, batch_chunk)
+from anvil.training.notify import notify
+from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server, batch_chunk
 
 POLICY = "data/training/d6-run11/iter-019/train/last.pt"
 RANK_CRITIC = "data/training/rank-critic-c2v3/last.pt"
@@ -38,6 +37,7 @@ TRACE_OUT = "data/runs/early-doom-cycle3-rankcrit"
 
 def _run(cmd: list[str]) -> None:
     import subprocess
+
     print(f"[stock] $ {' '.join(cmd)}", flush=True)
     subprocess.run(cmd, check=True, cwd=ROOT)
 
@@ -58,15 +58,34 @@ def main() -> None:
             for seat in (0, 1):
                 purpose = f"cycle3-s{seat}"
                 before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-                _run([sys.executable, "-m", "anvil.bridge.harness", "launch",
-                      "--pool", "--games", str(a.games_per_arm),
-                      "--games-per-pair", "5", "--workers", str(a.workers),
-                      "--chunk", str(batch_chunk(a.games_per_arm,
-                                                 a.workers, 30)),
-                      "--bridge", f"grpc:localhost:{PORT}",
-                      "--obs", "--census", "--reask",
-                      "--bridge-seats", str(seat),
-                      "--purpose", purpose, "--seed-base", str(SEED_BASE)])
+                _run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "anvil.bridge.harness",
+                        "launch",
+                        "--pool",
+                        "--games",
+                        str(a.games_per_arm),
+                        "--games-per-pair",
+                        "5",
+                        "--workers",
+                        str(a.workers),
+                        "--chunk",
+                        str(batch_chunk(a.games_per_arm, a.workers, 30)),
+                        "--bridge",
+                        f"grpc:localhost:{PORT}",
+                        "--obs",
+                        "--census",
+                        "--reask",
+                        "--bridge-seats",
+                        str(seat),
+                        "--purpose",
+                        purpose,
+                        "--seed-base",
+                        str(SEED_BASE),
+                    ]
+                )
                 new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
                 if len(new) != 1:
                     raise RuntimeError(f"expected one run dir: {new}")
@@ -77,21 +96,41 @@ def main() -> None:
         for rd in run_dirs:
             _run([sys.executable, "-m", "anvil.store", "ingest", str(rd)])
             stores.append(f"data/trajectories/{rd.name}")
-        cmd = [sys.executable, "scripts/early_doom.py", "trace",
-               "--ckpt", RANK_CRITIC, "--out", TRACE_OUT]
+        cmd = [
+            sys.executable,
+            "scripts/early_doom.py",
+            "trace",
+            "--ckpt",
+            RANK_CRITIC,
+            "--out",
+            TRACE_OUT,
+        ]
         for i, s in enumerate(stores):
             cmd += ["--arm", f"{s}:{i}"]
         _run(cmd)
-        _run([sys.executable, "scripts/early_doom.py", "analyze",
-              "--out", TRACE_OUT, "--isotonic", ISO_MAPS,
-              "--isotonic-key", "c2/v_rank"])
+        _run(
+            [
+                sys.executable,
+                "scripts/early_doom.py",
+                "analyze",
+                "--out",
+                TRACE_OUT,
+                "--isotonic",
+                ISO_MAPS,
+                "--isotonic-key",
+                "c2/v_rank",
+            ]
+        )
         import json
+
         s = json.loads((ROOT / TRACE_OUT / "summary.json").read_text())
         wall_h = (time.time() - t0) / 3600
-        notify("cycle stock done",
-               f"{s['games']} games, {s['addressable_losses']} addressable "
-               f"({s['addressable_loss_frac']:.0%} of losses) in "
-               f"{wall_h:.1f}h -> {TRACE_OUT}")
+        notify(
+            "cycle stock done",
+            f"{s['games']} games, {s['addressable_losses']} addressable "
+            f"({s['addressable_loss_frac']:.0%} of losses) in "
+            f"{wall_h:.1f}h -> {TRACE_OUT}",
+        )
         print(f"[stock] DONE in {wall_h:.1f}h")
     except BaseException as e:
         notify("cycle stock FAILED", f"{type(e).__name__}: {e}")

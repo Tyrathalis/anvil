@@ -33,7 +33,8 @@ strings, cost names are opaque vocabularies per the schema's hygiene rule).
 from __future__ import annotations
 
 import dataclasses
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 from anvil.store.trajectories import GameTrajectory, TrajectoryStore
 
@@ -45,15 +46,15 @@ PLAY_METHOD = "playChosenSpellAbility"
 class CastPlan:
     """One chosen SpellAbility, decision-time state read off the SA."""
 
-    host: int | None            # host card entity id ("e")
-    sa: str                     # debug/join string, truncated at 120
-    kind: str                   # "land" | "spell" | "ability" | "other"
-    targets: list[dict[str, Any]]        # {"e":id} | {"pi":seat} | {"e":id,"stk":1}
+    host: int | None  # host card entity id ("e")
+    sa: str  # debug/join string, truncated at 120
+    kind: str  # "land" | "spell" | "ability" | "other"
+    targets: list[dict[str, Any]]  # {"e":id} | {"pi":seat} | {"e":id,"stk":1}
     x: int | None
-    alt: str | None             # AlternativeCost enum name
-    optional_costs: list[str]   # OptionalCost enum names
+    alt: str | None  # AlternativeCost enum name
+    optional_costs: list[str]  # OptionalCost enum names
     multikicker: int
-    modes: list["CastPlan"]     # only when bound at decision time
+    modes: list[CastPlan]  # only when bound at decision time
     subs: list[dict[str, Any]]  # [{"i":chain_index,"tgt":[...]}]
 
     @property
@@ -87,22 +88,22 @@ def parse_ret(ret: Any) -> list[CastPlan] | None:
     if isinstance(ret, dict):  # defensive: a bare object instead of a list
         ret = [ret]
     if not isinstance(ret, list):
-        raise ValueError(f"priority ret is neither null nor a list: {ret!r}")
+        raise TypeError(f"priority ret is neither null nor a list: {ret!r}")
     return [parse_plan(v) for v in ret]
 
 
 @dataclasses.dataclass
 class ValidationReport:
     games: int = 0
-    windows: int = 0            # priority decisions seen
-    passes: int = 0             # null rets
-    casts: int = 0              # CastPlan labels
+    windows: int = 0  # priority decisions seen
+    passes: int = 0  # null rets
+    casts: int = 0  # CastPlan labels
     with_targets: int = 0
     with_x: int = 0
     with_opt_costs: int = 0
     windows_with_opts: int = 0  # decs that logged structured options
-    obs_null: int = 0           # dec had no observation (serializer error)
-    winner_mismatch: int = 0    # end.winner != games.jsonl winner (fork 06dd428313)
+    obs_null: int = 0  # dec had no observation (serializer error)
+    winner_mismatch: int = 0  # end.winner != games.jsonl winner (fork 06dd428313)
     errors: list[str] = dataclasses.field(default_factory=list)
     # frames that fail to decode (e.g. a hard-capped game killed mid-write):
     # quarantined — excluded from the corpus, reported loudly, but not label
@@ -118,21 +119,27 @@ class ValidationReport:
 
     def summary(self) -> str:
         lines = [
-            f"{self.games} games, {self.windows} priority windows: "
-            f"{self.passes} pass, {self.casts} cast labels "
-            f"({self.with_targets} targeted, {self.with_x} with X, "
-            f"{self.with_opt_costs} with optional costs); "
-            f"{self.windows_with_opts} windows logged options",
+            (
+                f"{self.games} games, {self.windows} priority windows: "
+                f"{self.passes} pass, {self.casts} cast labels "
+                f"({self.with_targets} targeted, {self.with_x} with X, "
+                f"{self.with_opt_costs} with optional costs); "
+                f"{self.windows_with_opts} windows logged options"
+            ),
         ]
         if self.obs_null:
             lines.append(f"WARNING: {self.obs_null} windows had obs:null")
         if self.winner_mismatch:
-            lines.append(f"WARNING: {self.winner_mismatch} games where end.winner "
-                         "!= games.jsonl winner — pre-06dd428313 store (readers "
-                         "must use winner_seat()) or a regressed fork")
+            lines.append(
+                f"WARNING: {self.winner_mismatch} games where end.winner "
+                "!= games.jsonl winner — pre-06dd428313 store (readers "
+                "must use winner_seat()) or a regressed fork"
+            )
         if self.undecodable:
-            lines.append(f"QUARANTINED: {len(self.undecodable)} undecodable frame(s) "
-                         "excluded from the corpus:")
+            lines.append(
+                f"QUARANTINED: {len(self.undecodable)} undecodable frame(s) "
+                "excluded from the corpus:"
+            )
             lines.extend("  " + u for u in self.undecodable[:10])
         lines.append("OK" if self.ok else f"{len(self.errors)} ERRORS")
         lines.extend("  " + e for e in self.errors[:50])
@@ -173,7 +180,7 @@ def validate_game(traj: GameTrajectory, report: ValidationReport) -> None:
         if obs is None:
             report.obs_null += 1
         opts = dec.get("opts")
-        structured = (opts is not None and (not opts or isinstance(opts[0], dict)))
+        structured = opts is not None and (not opts or isinstance(opts[0], dict))
         if structured:
             report.windows_with_opts += 1
 
@@ -204,17 +211,17 @@ def validate_game(traj: GameTrajectory, report: ValidationReport) -> None:
                         report.error(g, seq, f"target e={ref['e']} not in observation")
                     if "pi" in ref and not (0 <= ref["pi"] < n_players):
                         report.error(g, seq, f"target pi={ref['pi']} out of range")
-            if structured and plan.host is not None:
-                if plan.host not in {o.get("e") for o in opts}:
-                    report.error(g, seq, f"chosen e={plan.host} not among {len(opts)} options")
+            if structured and plan.host is not None and plan.host not in {o.get("e") for o in opts}:
+                report.error(g, seq, f"chosen e={plan.host} not among {len(opts)} options")
             pending_play.setdefault(dec.get("p"), []).append((seq, plan))
 
     for queue in pending_play.values():
         # end-of-game abandonment (hard cap, concession) can strand a tail
         # entry; more than one stranded per seat is a join bug
         if len(queue) > 1:
-            report.error(g, queue[0][0],
-                         f"{len(queue)} cast labels never matched a {PLAY_METHOD} window")
+            report.error(
+                g, queue[0][0], f"{len(queue)} cast labels never matched a {PLAY_METHOD} window"
+            )
 
 
 def validate(store: TrajectoryStore, limit: int | None = None) -> ValidationReport:
@@ -222,7 +229,7 @@ def validate(store: TrajectoryStore, limit: int | None = None) -> ValidationRepo
     for g in store.game_indices():
         try:
             traj = store.game(g)
-        except Exception as e:  # truncated/corrupt frame: quarantine, keep going
+        except Exception as e:  # noqa: BLE001 -- truncated/corrupt frame: quarantine, keep going
             report.undecodable.append(f"game {g}: {type(e).__name__}: {str(e)[:80]}")
             continue
         validate_game(traj, report)
