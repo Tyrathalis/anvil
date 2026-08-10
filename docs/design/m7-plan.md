@@ -86,6 +86,51 @@ at small K on a handful of decisions) prices the K dial before any
 campaign. Next session picks this up as a design+build decision with
 the user.
 
+**Forced-branch design PINNED (user-approved 2026-08-10, second
+session):**
+
+1. **Act = the current policy's preferred cast, pass masked** (the
+   on-policy option; rejected alternative: replaying the source game's
+   recorded action — era-fragile at the measured 7/8 exact-replay rate
+   and off-policy the moment the policy moves). Mechanism: the normal
+   bridge ask with a new **no-pass constraint flag** (bridge protocol
+   addition; served as a mask on the pass logit before sampling); on
+   veto, the standing §6b re-ask machinery walks down to the next-best
+   realizable cast with pass still masked. Δwr therefore prices *the
+   cast the policy would make now* vs holding — exactly the contrastive
+   signal C2b consumes.
+2. **Hold = forced pass exactly once** — the drilled seat's first
+   `chooseSpellAbilityToPlay` post-fork — then free play (end-of-turn /
+   second-main / later-turn casts all permitted). Matches ADR-0049's
+   hold-then-cast metric; the question is cast-*now* vs not-now.
+3. **No forced-branch obs stores in v1.** The branch label IS the
+   action (no μ-record classification needed — the P0 requirement that
+   forced branches obsolete), and Δwr joins onto the *mainline* fork
+   window that `Obs.mark` already keys. v1 output = labels-JSONL only:
+   no `-forkobs` on forced completions, no synthetic-id branch
+   encoding, no ingest-hygiene machinery. Revisit only when something
+   (tier-3) needs the completions' internals.
+4. **Pairing = shared rollSeed per (fp, r) across branches** (identical
+   determinized library order, downstream MyRandom stream, and
+   announced server noise seed; divergence comes only from the forced
+   decision — common random numbers, paired variance shrinks with K by
+   construction). A pair with a crashed member is **dropped whole**
+   (the ~12% crash tax must not unbalance branches); crash/skip counts
+   recorded per row.
+5. **Feasibility guards, loud not silent:** (i) no realizable cast at
+   the fork window ⇒ `branch_skip` recorded, point dropped — the skip
+   *rate* is itself a finding (high ⇒ drilled decisions are hold-only
+   states and instrument coverage shrinks); (ii) force only when the
+   fork window's priority player is the bridge seat.
+6. **Output shape:** one labels row per fork point carrying both
+   branches (`w_act[]`, `w_hold[]`, per-branch draws/crashes/skips,
+   pairs actually used) — pairing explicit in the data, Δwr a
+   one-liner join.
+7. **Sizing read before any campaign:** 20–30 drilled fork points at
+   K ∈ {4, 8, 16} per branch; measure paired SE of Δwr vs K
+   empirically against ADR-0051's noise-floor arithmetic. Cost note:
+   forced-branch mode is 2×K completions per fork point.
+
 Three attribution-separable components; bundle shape decided on D1's
 numbers (aggressive-inclusion posture per ADR-0042, with per-lever
 instruments):

@@ -128,7 +128,7 @@ class ModelBackend:
 
     def __init__(self, ckpt_path: str, pass_delta: float, device: str = "cuda",
                  sample: bool = False, temperature: float = 1.0,
-                 mu_path: "str | None" = None):
+                 mu_path: "str | None" = None, instrument: bool = False):
         import torch
 
         from anvil.bridge.featurize import Featurizer
@@ -164,6 +164,11 @@ class ModelBackend:
         # record per answered decision -> mu.jsonl, joined at ingest on (g, s)
         self.sample = sample
         self.temperature = temperature
+        # M7 forced-branch instrument mode: wire-only fork sessions (g=-1)
+        # may be SAMPLED without mu records — forced-branch completions are
+        # measurement, never training data (m7-plan D2 pin 3). Off, the
+        # standing guard below raises as before.
+        self.instrument = instrument
         self.mu_file = None
         self.mu_lock = threading.Lock()
         if sample:
@@ -195,21 +200,31 @@ class ModelBackend:
             self.counts["reask"] += 1
         ex, aux = self.feat.example(dec, header, task)
         delta = self.pass_delta if task == "priority" else 0.0
+        if req.forbid_decline and task == "priority":
+            # M7 forced-branch act ask: mask the pass logit so the sampled/
+            # argmax pick must be a cast. -1e9 dominates any real logit in
+            # both modes; the calibration delta is irrelevant under the mask.
+            delta -= 1e9
+            self.counts["forbid_decline"] += 1
+        wire_fork = header.get("g", -1) < 0
         noise = None
         if self.sample:
-            if header.get("g", -1) < 0:
+            if wire_fork and not self.instrument:
                 # A wire-only fork header (g=-1): every completion would share
                 # (g, s) mu keys AND the parent's noise seed. Sampled drill
                 # serving requires -forkobs (synthetic unique g, per-completion
-                # announced seed). Raising -> loud decline -> heuristic
-                # fallback with NO mu record, so nothing poisoned can train.
+                # announced seed) — or instrument mode, where the worker
+                # announces per-completion seeds and mu is skipped below.
+                # Raising -> loud decline -> heuristic fallback with NO mu
+                # record, so nothing poisoned can train.
                 raise ValueError("sampled serving needs a store-indexed header "
-                                 "(fork sessions require -forkobs)")
+                                 "(fork sessions require -forkobs or "
+                                 "--fork-instrument)")
             from anvil.policy.sampling import make_noise, noise_seed
             noise = make_noise(ex, task, self.temperature,
                                seed=noise_seed(game_seed or 0, dec["s"]))
         out = self.batcher.submit(ex, delta, noise)
-        if self.sample:
+        if self.sample and not wire_fork:
             self._write_mu(header["g"], dec, task, ex, aux, out)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
         if task == "priority":
@@ -479,6 +494,11 @@ def main() -> None:
     ap.add_argument("--drill-mu-out", default=None,
                     help="drill backend's behavior-policy mu.jsonl (required "
                          "with --drill-sample)")
+    ap.add_argument("--fork-instrument", action="store_true",
+                    help="M7 forced-branch instrument mode: sampled serving "
+                         "for wire-only fork sessions (no -forkobs) with NO "
+                         "mu records — the worker announces per-completion "
+                         "seeds; forced-branch completions never train")
     args = ap.parse_args()
 
     backend = None
@@ -486,12 +506,14 @@ def main() -> None:
     if args.mode == "model":
         backend = ModelBackend(args.ckpt, args.pass_delta, args.device,
                                sample=args.sample, temperature=args.temperature,
-                               mu_path=args.mu_out)
+                               mu_path=args.mu_out,
+                               instrument=args.fork_instrument)
         if args.drill_ckpt:
             drill_backend = ModelBackend(args.drill_ckpt, args.pass_delta,
                                          args.device, sample=args.drill_sample,
                                          temperature=args.temperature,
-                                         mu_path=args.drill_mu_out)
+                                         mu_path=args.drill_mu_out,
+                                         instrument=args.fork_instrument)
     tags = args.tags if args.tags is not None else (
         (MODEL_TAGS + ("," + COMBAT_TAGS if backend.has_combat else ""))
         if args.mode == "model" else DEFAULT_TAGS)

@@ -98,6 +98,10 @@ message DecisionRequest {
   bytes observation = 8;         // entity-token features at M1; empty at M0
   uint64 retry_of = 9;           // set when engine validation re-asks
   uint32 deadline_ms = 10;
+  // M7 forced-branch instrument: the null/decline answer is disallowed for
+  // this decision (mtg.priority: the server masks the pass logit before
+  // sampling). Game-agnostic framing — "must choose a non-null option".
+  bool forbid_decline = 11;
   // M0 measurement instrument only, never a protocol feature: when set, the
   // worker pre-drew the answer from its seeded RNG and the server must echo
   // it verbatim. Makes gRPC-arm games bit-identical to local-arm games so the
