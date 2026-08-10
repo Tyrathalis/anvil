@@ -1,0 +1,15 @@
+{
+  "include": ["anvil", "scripts", "tests"],
+  "exclude": [".venv", "__pycache__", "build", "dist"],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "off",
+  "reportMissingImports": "error",
+  "reportUndefinedVariable": "error",
+  "reportUnboundVariable": "error",
+  "reportPossiblyUnboundVariable": "error",
+  "reportCallIssue": "error",
+  "reportArgumentType": "error",
+  "reportOperatorIssue": "error",
+  "reportIndexIssue": "error",
+  "reportAttributeAccessIssue": "error"
+}
