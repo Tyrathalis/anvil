@@ -70,20 +70,50 @@ def _notify(title: str, msg: str) -> None:
 
 
 def _boot_btime() -> int:
-    for line in open("/proc/stat"):
-        if line.startswith("btime "):
-            return int(line.split()[1])
-    return -1
+    """Boot time as seconds since epoch. Linux via /proc/stat; macOS via sysctl."""
+    try:
+        for line in open("/proc/stat"):
+            if line.startswith("btime "):
+                return int(line.split()[1])
+    except OSError:
+        pass
+    try:
+        out = subprocess.run(["sysctl", "-n", "kern.boottime"],
+                             capture_output=True, text=True, check=True,
+                             timeout=5).stdout.strip()
+        # '{ sec = 1234567890, usec = 0 } Mon Jan  1 00:00:00 2024'
+        return int(out.split("=")[1].split(",")[0].strip())
+    except Exception:  # noqa: BLE001
+        return -1
 
 
 def _proc_starttime(pid: int) -> int | None:
     """starttime (clock ticks since boot), field 22 of /proc/<pid>/stat;
-    parsed from after the last ')' — comm may contain spaces/parens."""
+    parsed from after the last ')' — comm may contain spaces/parens.
+
+    macOS fallback: `ps -o lstart= -p <pid>` gives wall-clock start; convert
+    to ticks-since-boot via boot time. Falls back to wall-clock epoch seconds
+    if boot time unavailable — still enough for identity stability within a
+    boot session and cross-platform tests.
+    """
     try:
         stat = Path(f"/proc/{pid}/stat").read_text()
+        return int(stat.rsplit(")", 1)[1].split()[19])
     except OSError:
+        pass
+    try:
+        out = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)],
+                             capture_output=True, text=True, check=False,
+                             timeout=5).stdout.strip()
+        if not out:
+            return None
+        start_ts = int(time.mktime(time.strptime(out, "%a %b %d %H:%M:%S %Y")))
+        btime = _boot_btime()
+        if btime and btime > 0:
+            return start_ts - btime
+        return start_ts  # epoch seconds fallback
+    except Exception:  # noqa: BLE001
         return None
-    return int(stat.rsplit(")", 1)[1].split()[19])
 
 
 def _newest_mtime(root: Path) -> float:
