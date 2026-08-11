@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Local push gate (mirrors the blocking CI: ruff + pytest; pyright stays
+# CI-only/non-blocking until the D3-era typing sweep). Enable once per clone:
+#   git config core.hooksPath .githooks
+# Escape hatch: SKIP_HOOK=1 git push
+set -euo pipefail
+if [[ "${SKIP_HOOK:-0}" == "1" ]]; then
+  echo "[pre-push] SKIP_HOOK=1 — skipping local checks"
+  exit 0
+fi
+cd "$(git rev-parse --show-toplevel)"
+echo "[pre-push] ruff check..."
+uv run ruff check anvil scripts tests
+echo "[pre-push] pytest..."
+uv run pytest -q
+echo "[pre-push] green — pushing"
