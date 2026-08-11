@@ -187,6 +187,33 @@ A-parked.**
 4. **Sequencing:** probe (labels-only, pre-boundary) → D3 stability pass
    + era boundary + re-baseline → the run. Standing gate unchanged.
 
+**Sequence probe RESOLVED at N=2/K=16 (2026-08-11, same day): the first
+outside-noise contrastive signal in M7 — directional, at sequence
+granularity, in ADR-0049's predicted direction.** 61 pooled points
+(27 s0 + 34 s1), 976/976 triples, 0 crashes, sign-replicated across
+stores:
+
+| contrast | mean Δwr | t | var ratio | RMS true |
+| --- | --- | --- | --- | --- |
+| hold-2 − natural | **−2.6pp ± 1.3** | **−2.02** | **1.33** | **0.049** |
+| act − natural | −0.9pp | −0.82 | 0.94 | 0 |
+| act − hold | +1.6pp | +1.62 | 0.83 | 0 |
+
+Readings: (1) forced 2-turn deferral measurably costs winrate while
+forced-greedy ≈ natural — the policy's cast timing is already near its
+greedy frontier and the loss channel is deferral: causal,
+engine-adjudicated evidence for the cast-suppression story ⇒ **C3
+re-priced from "probably necessary" to "directly evidenced"**;
+(2) hold−nat is the only cell in all of M7 with positive var_signal —
+sequence granularity carries per-point signal where single decisions
+carried none — but RMS 0.049 < the 0.10 label pin and ratio 1.33 on 61
+points is suggestive, not decisive; (3) instrument clean at scale.
+**OPEN (user routing, pending): overnight K=32 / N ∈ {2,4} rung to
+resolve whether sequence signal is label-grade and grows with horizon,
+vs routing now (C3 + corrected mixture + C2a into the B-vehicle run,
+sequence labels held).** Probe artifacts: fork `6d2f44c9d3`
+(`-forceseq`), `scripts/seq_probe_read.py`, runs `seqprobe-s0/s1`.
+
 Three attribution-separable components; bundle shape decided on D1's
 numbers (aggressive-inclusion posture per ADR-0042, with per-lever
 instruments):
