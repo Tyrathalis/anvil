@@ -88,8 +88,6 @@ def _seat_of(store: str) -> int:
 def features(args: argparse.Namespace) -> None:
     import torch
 
-from anvil.torch.utils import get_torch_device
-
     from anvil.ante.ledger import ValueEvaluator
     from anvil.store.trajectories import TrajectoryStore
     from anvil.training.dataset import collate
@@ -245,6 +243,8 @@ def _mlp_fit_pred(xtr: np.ndarray, ytr: np.ndarray, gtr: np.ndarray,
                   xte: np.ndarray, seed: int = 0) -> np.ndarray:
     import torch
     import torch.nn as nn
+
+    from anvil.torch.utils import get_torch_device
 
     torch.manual_seed(seed)
     dev = get_torch_device()
