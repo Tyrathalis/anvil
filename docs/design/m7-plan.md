@@ -152,6 +152,41 @@ ADR-0052 blast radius) / sequence-level contrastive design round. C3
 untouched. Coverage rule for any forced campaign: ~96% fire × ~33–40%
 model-seat-active ⇒ ~3× overshoot or model-active drill selection.
 
+**D2 ROUTING PINNED (user-approved 2026-08-11): C-probe → B-vehicle →
+A-parked.**
+
+1. **Sequence-contrastive probe FIRST** (highest information per cost;
+   tests M7's hypothesis at the granularity ADR-0052's evidence favors):
+   extend the forced-branch harness with a PERSISTENT directive over an
+   N-turn horizon — three arms per fork point sharing rollSeeds per
+   (fp, r): NATURAL (no directive), HOLD-N (force-pass every bridged
+   priority cast window for N turns post-fork, then free), ACT-N
+   (forbid_decline every priority window for N turns; mid-sequence
+   exhaustion degrades to pass, counted loudly). N = 2 default (matches
+   ADR-0049's hold-then-cast horizon and the crash−2 anchor distance),
+   CLI-parameterized. Population: the corrected in-band points
+   (arm-o2 band, both stores). K = 16, sampled instrument serving,
+   labels-only (pin 3 unchanged). Read: pairwise Δwr (hold−nat, act−nat,
+   act−hold) through the ADR-0051/0052 variance decomposition. Resolvable
+   sequence-level signal ⇒ it defines the training target (sequence
+   advantages / plan-segment credit — connects to ADR-0042's §3a
+   planning priority). Null on winnable states ⇒ drilled mid-game states
+   are outcome-insensitive to short policy variation — M7 moves toward
+   its "dense signal cannot reopen improvement" branch with the full
+   measurement chain.
+2. **One training run as the bundle vehicle (road B):** corrected-
+   population drill mixture (band on TRUE winrates, informed anchor) +
+   C2a aux value targets from corrected maps + C3 §6c re-tune — plus
+   sequence-contrastive targets if the probe funds them. Closes
+   case-drilling honestly either way (the one-shot verdict never bound
+   it — run11 was distributional supplementation, ADR-0052).
+3. **Tier-3 search (road A) parked behind a corrected-label critic:**
+   naive rollout-backed 1-ply inherits the same noise arithmetic that
+   killed C2b; revisit once a critic retrained on corrected-map labels
+   exists to back the search.
+4. **Sequencing:** probe (labels-only, pre-boundary) → D3 stability pass
+   + era boundary + re-baseline → the run. Standing gate unchanged.
+
 Three attribution-separable components; bundle shape decided on D1's
 numbers (aggressive-inclusion posture per ADR-0042, with per-lever
 instruments):

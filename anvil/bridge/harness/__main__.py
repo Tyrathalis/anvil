@@ -64,6 +64,12 @@ def main() -> None:
                          "branches x K paired completions per drilled fork "
                          "point, labels-only (requires --drill-file + "
                          "--rollout-k; excludes --fork-obs)")
+    la.add_argument("--force-seq", type=int, default=None,
+                    help="sequence probe (M7 D2 routing pin): natural/hold-N/"
+                         "act-N arms x K paired completions per drilled fork "
+                         "point over an N-turn horizon, labels-only (requires "
+                         "--drill-file + --rollout-k; excludes --fork-obs and "
+                         "--force-branch)")
 
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)

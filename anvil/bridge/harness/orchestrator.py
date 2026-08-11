@@ -177,6 +177,9 @@ class Run:
         if m.get("force_branch"):
             # M7 D2: act/hold paired branches at drilled fork points
             cmd += ["-forcebranch"]
+        if m.get("force_seq"):
+            # M7 D2 sequence probe: natural/hold-N/act-N paired arms
+            cmd += ["-forceseq", str(m["force_seq"])]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
         return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
@@ -339,6 +342,7 @@ def launch(a) -> Path:
         "drill_stop": getattr(a, "drill_stop", False),
         "fork_obs": getattr(a, "fork_obs", False),
         "force_branch": getattr(a, "force_branch", False),
+        "force_seq": getattr(a, "force_seq", None),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "
