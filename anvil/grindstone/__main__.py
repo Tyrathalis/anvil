@@ -163,6 +163,9 @@ def generate(a: argparse.Namespace) -> None:
     out = Path(a.manifest)
     manifest = json.loads((out / "manifest.json").read_text())
     prefix = "drill" + manifest.get("tag", "")
+    if a.sample_mainline and a.sample_forks:
+        sys.exit("FATAL: --sample-mainline is the map path; "
+                 "--sample-forks pins an argmax mainline by design")
     if a.sample_forks:
         if not (a.drill_ckpt and a.fork_obs):
             sys.exit("FATAL: --sample-forks requires --drill-ckpt and "
@@ -193,15 +196,27 @@ def generate(a: argparse.Namespace) -> None:
             shutil.copy(mu_path, Path(run_dirs[-1]) / "mu.jsonl")
             print(f"[generate] mu -> {run_dirs[-1]}/mu.jsonl")
     else:
+        # M7 map-serving fix: sampled sources need a SAMPLED mainline replay
+        # or the map measures argmax-divergent states (the cycle3 band
+        # mismatch: map wr 0.374 vs true 0.062, corr 0.23). --sample-mainline
+        # serves the replay sampled (exact under the seeded noise stream);
+        # wire-fork completions ride --fork-instrument (no mu). The replay's
+        # own mu file is a serving requirement, not a training input.
         server = _start_server(a.ckpt or manifest["ckpt"], a.port,
-                               out / "drill-server.log", sample=False,
-                               drill_ckpt=a.drill_ckpt)
+                               out / "drill-server.log",
+                               sample=a.sample_mainline,
+                               mu_out=out / "mu-mainline.jsonl",
+                               drill_ckpt=a.drill_ckpt,
+                               instrument=a.sample_mainline)
         try:
             _launch_arms(manifest, a.port, a.workers, a.chunk,
                          a.k or manifest["k"], a.drill_stop, prefix,
                          fork_obs=a.fork_obs)
         finally:
             _stop_server(server)
+        if a.sample_mainline:
+            manifest["mainline_serving"] = "sampled"
+            (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"[generate] done; labels under data/runs/{prefix}-*/workers/")
 
 
@@ -575,6 +590,11 @@ def main() -> None:
                    help="sample the drill backend with mu records (per-arm "
                         "server + mu file; requires --drill-ckpt and "
                         "--fork-obs) — the drill TRAINING generation mode")
+    g.add_argument("--sample-mainline", action="store_true",
+                   help="serve the mainline replay SAMPLED (required for "
+                        "sampled-source curation: argmax replay diverges "
+                        "and the map prices the wrong states); completions "
+                        "ride --fork-instrument, replay mu is discarded")
     g.set_defaults(fn=generate)
 
     r = sub.add_parser("report")

@@ -105,12 +105,17 @@ def _start_server(ckpt: str, port: int, log: Path, sample: bool,
                   mu_out: Path | None = None, temperature: float = 1.0,
                   drill_ckpt: str | None = None,
                   drill_sample: bool = False,
-                  drill_mu_out: Path | None = None):
+                  drill_mu_out: Path | None = None,
+                  instrument: bool = False):
     cmd = [sys.executable, "-m", "anvil.bridge.server", "--mode", "model",
            "--ckpt", ckpt, "--port", str(port), "--pass-delta", "0"]
     if sample:
         cmd += ["--sample", "--temperature", str(temperature),
                 "--mu-out", str(mu_out)]
+    if instrument:
+        # M7: sampled serving for wire-only fork sessions (no -forkobs, no
+        # mu) — sampled-mainline drill maps and forced-branch instruments
+        cmd += ["--fork-instrument"]
     if drill_ckpt:
         cmd += ["--drill-ckpt", drill_ckpt]
         if drill_sample:

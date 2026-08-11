@@ -59,6 +59,11 @@ def main() -> None:
                     help="fork-session store (M4 D3): completions written as "
                          "store frames to obs-forks.zst with per-completion "
                          "seeds (requires --obs and --rollout-k)")
+    la.add_argument("--force-branch", action="store_true",
+                    help="forced-branch paired rollouts (M7 D2): act/hold "
+                         "branches x K paired completions per drilled fork "
+                         "point, labels-only (requires --drill-file + "
+                         "--rollout-k; excludes --fork-obs)")
 
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)

@@ -131,6 +131,27 @@ session):**
    empirically against ADR-0051's noise-floor arithmetic. Cost note:
    forced-branch mode is 2×K completions per fork point.
 
+**Pin 7 RESOLVED (2026-08-11, [ADR-0052](../decisions/ADR-0052-ksizing-read-map-serving-mismatch.md)):
+NULL at every K ≤ 16, on a corrected population — no Δwr-label campaign.**
+The read validated the instrument (hold ≈ natural continuation corr 0.885,
+100% pairs, 0 crashes, pairing beats the independent floor) and en route
+found the standing drill-map serving mismatch: `gs generate` replayed
+mainlines argmax over sampled sources, so map winrates priced divergent
+states (map 0.374 vs true 0.062, corr 0.23; true crash states 78%
+0-for-16). After the fix (`--sample-mainline`, corrected three-anchor maps
+in `drill-map-cycle3-true/`: crash−2 true wr 0.491 with 52% band mass),
+the re-read on 59 in-band forced points still measured pure 1/√K noise
+scaling, RMS true Δwr ≤ ~0.08 at K=16 vs the 0.10 pin. Single-decision
+cast-vs-hold deltas are small in truth even at contested states — the
+credit signal lives in decision sequences (composes with ADR-0049).
+**C2b as per-decision Δwr targets is falsified at affordable K.** D2's
+candidate list re-forms (routing = user decision): tier-3 search targets
+(values aggregate over sequences) / corrected-population mixtures + C2a
+(maps now trustworthy; case-drilling has never actually been tried —
+ADR-0052 blast radius) / sequence-level contrastive design round. C3
+untouched. Coverage rule for any forced campaign: ~96% fire × ~33–40%
+model-seat-active ⇒ ~3× overshoot or model-active drill selection.
+
 Three attribution-separable components; bundle shape decided on D1's
 numbers (aggressive-inclusion posture per ADR-0042, with per-lever
 instruments):
