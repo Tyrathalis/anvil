@@ -3,7 +3,7 @@ resolution, .dck emission, banlist section mapping. No network."""
 
 import pytest
 
-from anvil.pool import decklist, forge_db
+from anvil.pool import forge_db
 from anvil.pool.decklist import ShapeError, deck_from_export, parse_mtgo, to_dck
 from anvil.pool.fetch import parse_banlist
 

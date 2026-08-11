@@ -25,10 +25,25 @@ packages = ["anvil"]
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint]
+# Modest green-now set (Talor-A's CI adapted, anvil#4): pyflakes + pycodestyle
+# errors + import sort. The extended set (SIM/BLE/B/DTZ/...) and ruff-format
+# enforcement land with the D3-era mechanical sweep, reviewed as a unit.
+select = ["E4", "E7", "E9", "F", "I"]
+# E741 (ambiguous single-letter names) and E731 (lambda assignment) are
+# in-codebase style choices; revisit with the D3-era sweep.
+ignore = ["E741", "E731"]
+
+[tool.ruff.lint.per-file-ignores]
+"anvil/**/__init__.py" = ["F401"] # re-exports
+"anvil/bridge/pb/*" = ["ALL"]     # generated + grpc-stub hand-fix, never lint
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pyright>=1.1.400",
+    "ruff>=0.16.0",
 ]

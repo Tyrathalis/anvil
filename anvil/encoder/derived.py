@@ -103,8 +103,7 @@ def load_statics(names: set[str]) -> dict[str, CardStatic]:
     """name -> CardStatic from the pinned fork's cardsfolder; silent on
     misses (tokens/emblems have no script) — callers diff against `names`
     for diagnostics."""
-    from anvil.encoder.cardtext import (CARD_FEATURES, face_features,
-                                        parse_faces, _scan_files)
+    from anvil.encoder.cardtext import CARD_FEATURES, _scan_files, face_features, parse_faces
     from anvil.pool.forge_db import normalize
 
     files = _scan_files()

@@ -42,9 +42,14 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import frozen_probe as fp  # noqa: E402  (split/CV/ridge of record)
 
-from anvil.encoder.derived import (DERIVED_VERSION, FAMILIES, FAMILY_OF,  # noqa: E402
-                                   FEATURE_NAMES, collect_names,
-                                   derived_features, load_statics)
+from anvil.encoder.derived import (  # noqa: E402
+    DERIVED_VERSION,
+    FAMILY_OF,
+    FEATURE_NAMES,
+    collect_names,
+    derived_features,
+    load_statics,
+)
 
 DATASET = "data/runs/frozen-probe-ext2-c2/dataset.jsonl"
 TRUNK = "policy-i019"  # the gate trunk (out-ranks d4 both eras, ADR-0039)

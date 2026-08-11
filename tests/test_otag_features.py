@@ -2,8 +2,7 @@
 
 import numpy as np
 
-from anvil.encoder.otag_features import (FAMILY_OF, FEATURE_NAMES,
-                                         otag_features)
+from anvil.encoder.otag_features import FAMILY_OF, FEATURE_NAMES, otag_features
 
 GROUPS_OF = {
     "Swords to Plowshares": frozenset({"removal"}),

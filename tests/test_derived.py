@@ -8,9 +8,14 @@ invariant under identity-substitution of entities P cannot see.
 import numpy as np
 import pytest
 
-from anvil.encoder.derived import (FAMILIES, FAMILY_OF, FEATURE_NAMES,
-                                   CardStatic, collect_names,
-                                   derived_features)
+from anvil.encoder.derived import (
+    FAMILIES,
+    FAMILY_OF,
+    FEATURE_NAMES,
+    CardStatic,
+    collect_names,
+    derived_features,
+)
 
 STATICS = {
     "Forest": CardStatic(cmc=0.0, is_land=True, has_x=False),

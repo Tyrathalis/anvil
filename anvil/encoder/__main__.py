@@ -16,7 +16,6 @@ import argparse
 import datetime as _dt
 import hashlib
 import json
-import sys
 from pathlib import Path
 
 from anvil.encoder.cardtext import pool_texts

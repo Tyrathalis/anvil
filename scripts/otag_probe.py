@@ -37,8 +37,13 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import frozen_probe as fp  # noqa: E402
 
-from anvil.encoder.otag_features import (FAMILY_OF, FEATURE_NAMES, GROUPS,  # noqa: E402
-                                         OTAG_VERSION, otag_features)
+from anvil.encoder.otag_features import (  # noqa: E402
+    FAMILY_OF,
+    FEATURE_NAMES,
+    GROUPS,
+    OTAG_VERSION,
+    otag_features,
+)
 from anvil.pool import current_manifest  # noqa: E402
 
 DATASET = "data/runs/frozen-probe-ext2-c2/dataset.jsonl"

@@ -30,8 +30,7 @@ import torch
 
 from anvil.encoder.transform import GLOBAL_FEATURES, GLOBAL_SCALE
 from anvil.store.trajectories import open_store
-from anvil.training.dataset import (PriorityWindows, _split_of, collate,
-                                    default_methods)
+from anvil.training.dataset import PriorityWindows, _split_of, collate, default_methods
 from anvil.training.train import build_net
 
 TURN = GLOBAL_FEATURES.index("turn")

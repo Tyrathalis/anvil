@@ -11,8 +11,6 @@ and reports X accuracy per checkpoint at SE ~2pp.
 from __future__ import annotations
 
 import argparse
-import json
-from pathlib import Path
 
 import torch
 

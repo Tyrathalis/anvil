@@ -25,8 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from anvil.training.notify import notify  # noqa: E402
-from anvil.training.selfplay import (RUNS_DIR, _start_server,  # noqa: E402
-                                     _stop_server, batch_chunk)
+from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server, batch_chunk  # noqa: E402
 
 POLICY = "data/training/d6-run11/iter-019/train/last.pt"
 RANK_CRITIC = "data/training/rank-critic-c2v3/last.pt"

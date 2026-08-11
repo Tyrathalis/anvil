@@ -26,7 +26,6 @@ import argparse
 import glob
 import hashlib
 import json
-import subprocess
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path

@@ -15,7 +15,7 @@ import re
 import time
 import urllib.request
 
-from anvil.pool import RAW_DIR, RAW_DECKS_DIR
+from anvil.pool import RAW_DECKS_DIR, RAW_DIR
 
 MTGTOP8 = "https://mtgtop8.com"
 FORMAT_URL = f"{MTGTOP8}/format?f=EDH"

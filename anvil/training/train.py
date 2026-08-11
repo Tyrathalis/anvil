@@ -21,11 +21,15 @@ from torch.utils.data import DataLoader
 
 from anvil.encoder.cards import CardEncoder
 from anvil.encoder.cardtext import pool_features
-from anvil.encoder.transform import (ENTITY_FEATURES, GLOBAL_FEATURES, HISTORY_K,
-                                     PLAYER_FEATURES, TRANSFORM_VERSION)
+from anvil.encoder.transform import (
+    ENTITY_FEATURES,
+    GLOBAL_FEATURES,
+    HISTORY_K,
+    PLAYER_FEATURES,
+    TRANSFORM_VERSION,
+)
 from anvil.policy.model import AnvilNet
-from anvil.training.dataset import (PriorityWindows, collate, default_methods,
-                                    default_sa_vocab)
+from anvil.training.dataset import PriorityWindows, collate, default_methods, default_sa_vocab
 
 REPO = Path(__file__).parents[1]
 

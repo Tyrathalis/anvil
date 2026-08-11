@@ -64,9 +64,16 @@ import torch
 
 from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
 from anvil.store.trajectories import GameTrajectory
-from anvil.training.dataset import (T_MAX, TASK_OF_METHOD, TASKS, X_CLASSES,
-                                    EmbeddingCache, MethodVocab, collate,
-                                    default_methods)
+from anvil.training.dataset import (
+    T_MAX,
+    TASK_OF_METHOD,
+    TASKS,
+    X_CLASSES,
+    EmbeddingCache,
+    MethodVocab,
+    collate,
+    default_methods,
+)
 from anvil.training.train import build_net
 
 DECKS_DIR = Path(__file__).parents[2] / "data/pool/decks"

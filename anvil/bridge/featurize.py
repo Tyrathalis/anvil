@@ -26,10 +26,20 @@ import numpy as np
 import torch
 
 from anvil.encoder.transform import HISTORY_K, assemble
-from anvil.training.dataset import (COMBAT_COUNT_MAX, KINDS, PRIORITY, T_MAX,
-                                    TASKS, X_CLASSES, EmbeddingCache,
-                                    MethodVocab, SaVocab, _eligible_rows,
-                                    default_sa_vocab, norm_sa)
+from anvil.training.dataset import (
+    COMBAT_COUNT_MAX,
+    KINDS,
+    PRIORITY,
+    T_MAX,
+    TASKS,
+    X_CLASSES,
+    EmbeddingCache,
+    MethodVocab,
+    SaVocab,
+    _eligible_rows,
+    default_sa_vocab,
+    norm_sa,
+)
 
 _HOST_ID = re.compile(r"\((\d+)\)$")  # mirrors dataset._HOST_ID
 

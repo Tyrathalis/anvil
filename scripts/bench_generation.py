@@ -45,8 +45,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from anvil.training.notify import notify  # noqa: E402
-from anvil.training.selfplay import (RUNS_DIR, _start_server,  # noqa: E402
-                                     _stop_server)
+from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server  # noqa: E402
 
 CKPT = "data/training/d6-run7b/iter-014/train/last.pt"
 

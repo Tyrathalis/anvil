@@ -31,7 +31,7 @@ from pathlib import Path
 REPO = Path(__file__).parents[2]
 sys.path.insert(0, str(REPO))
 
-from anvil.pool import FORGE_DIR, POOL_DIR  # noqa: E402
+from anvil.pool import FORGE_DIR  # noqa: E402
 
 FORGE_GUI_DIR = FORGE_DIR / "forge-gui"
 

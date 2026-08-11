@@ -28,7 +28,6 @@ import datetime as _dt
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -281,8 +280,7 @@ def launch(a) -> Path:
         import shutil
         shutil.copy(a.drill_file, run_dir / "drillfile.txt")
     elif a.pool:
-        from anvil.bridge.harness.pairs import (latest_pool_manifest, pair_schedule,
-                                                write_pairs_file)
+        from anvil.bridge.harness.pairs import latest_pool_manifest, pair_schedule, write_pairs_file
         pool = latest_pool_manifest()
         # the playable build's GUI shares this deck store (worklist "shared user
         # store"): a GUI edit would silently change generation, so gate on content

@@ -52,10 +52,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from anvil.training.notify import notify  # noqa: E402
-from anvil.training.selfplay import (RUNS_DIR, _start_server,  # noqa: E402
-                                     _stop_server, batch_chunk)
 from label_merge import held_out  # noqa: E402
+
+from anvil.training.notify import notify  # noqa: E402
+from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server, batch_chunk  # noqa: E402
 
 POLICY = "data/training/d6-run11/iter-019/train/last.pt"
 ERA_CRITIC = "data/training/d6-run11/iter-019/critic/last.pt"

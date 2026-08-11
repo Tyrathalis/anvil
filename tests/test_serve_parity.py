@@ -51,9 +51,6 @@ def test_featurizer_matches_loader_and_act_matches_forward():
     feat = Featurizer(stem, methods)
     ds = PriorityWindows(str(STORE), stem, methods)
 
-    from anvil.store.trajectories import open_store
-    store = open_store(str(STORE))
-
     net = None
     if CKPT.exists():
         from anvil.training.train import build_net
@@ -132,13 +129,12 @@ def _combat_windows(n=40):
 def test_combat_featurizer_matches_loader():
     """D5: combat windows through the featurizer produce the loader's state
     tensors and candidate fields; act() emits well-formed combat picks."""
+    import numpy as np
     import torch
 
     from anvil.bridge.featurize import Featurizer
     from anvil.encoder.transform import assemble, history_tokens
-    from anvil.training.dataset import (attack_fields, block_fields, collate,
-                                        default_methods)
-    import numpy as np
+    from anvil.training.dataset import attack_fields, block_fields, collate, default_methods
 
     methods = default_methods()
     stem = str(EMBED).removesuffix(".safetensors")

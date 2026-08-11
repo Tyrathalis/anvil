@@ -10,8 +10,7 @@ reordering of hidden entities.
 import numpy as np
 import pytest
 
-from anvil.encoder.transform import (ENTITY_FEATURES, ENTITY_SCALE, VocabError,
-                                     assemble, visible_to)
+from anvil.encoder.transform import ENTITY_FEATURES, ENTITY_SCALE, VocabError, assemble, visible_to
 
 
 def _header():

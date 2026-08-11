@@ -532,7 +532,6 @@ def main() -> None:
         k = state["iteration"]
         it_dir = out / f"iter-{k:03d}"
         it_dir.mkdir(exist_ok=True)
-        purpose = f"{args.name}-i{k:03d}"
         print(f"\n[selfplay] ===== iteration {k}: ckpt={state['ckpt']} =====")
         t_iter = time.monotonic()
 

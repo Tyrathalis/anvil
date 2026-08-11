@@ -172,6 +172,7 @@ def test_undecodable_frame_quarantined(tmp_path):
     """A truncated frame (hard-capped game killed mid-write) is quarantined by
     validate and by games(skip_undecodable=True), never silently swallowed."""
     import json
+
     import pytest
     import zstandard
 

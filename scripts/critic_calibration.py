@@ -134,12 +134,16 @@ def pav_fit(v: np.ndarray, y: np.ndarray):
     w = np.ones(len(ys))
     vals, wts, lo = [], [], []
     for i in range(len(ys)):
-        vals.append(ys[i]); wts.append(w[i]); lo.append(xs[i])
+        vals.append(ys[i])
+        wts.append(w[i])
+        lo.append(xs[i])
         while len(vals) > 1 and vals[-2] >= vals[-1]:
             wv = wts[-1] + wts[-2]
             vals[-2] = (vals[-1] * wts[-1] + vals[-2] * wts[-2]) / wv
             wts[-2] = wv
-            vals.pop(); wts.pop(); lo.pop()
+            vals.pop()
+            wts.pop()
+            lo.pop()
     return np.array(lo), np.array(vals)
 
 
@@ -212,9 +216,12 @@ def evaluate(era: str, rows: list[dict], critic_key: str, out: dict) -> None:
         for gk in (f"turn:{tb}", f"bin:{_bin_of(r['wr'])}",
                    f"src:{'map' if 'map' in r['src'] else 'sweep'}"):
             g = groups[gk]
-            g["n"] += 1; g["sum"] += e; g["abs"] += abs(e)
+            g["n"] += 1
+            g["sum"] += e
+            g["abs"] += abs(e)
         dg = deck_g[r["deck"]]
-        dg["n"] += 1; dg["sum"] += e
+        dg["n"] += 1
+        dg["sum"] += e
     res["residual_groups"] = {
         k: {"n": g["n"], "mean": round(g["sum"] / g["n"], 4),
             "mean_abs": round(g["abs"] / g["n"], 4)}

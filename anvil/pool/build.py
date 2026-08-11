@@ -14,8 +14,15 @@ from __future__ import annotations
 import hashlib
 import json
 
-from anvil.pool import DECKS_OUT_DIR, FLEX_FILE, OVERRIDES_FILE, POOL_DIR, RAW_DECKS_DIR
-from anvil.pool import decklist, forge_db
+from anvil.pool import (
+    DECKS_OUT_DIR,
+    FLEX_FILE,
+    OVERRIDES_FILE,
+    POOL_DIR,
+    RAW_DECKS_DIR,
+    decklist,
+    forge_db,
+)
 from anvil.pool.decklist import ShapeError, deck_from_export
 from anvil.pool.fetch import latest_banlist
 

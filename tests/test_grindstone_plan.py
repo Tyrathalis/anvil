@@ -13,7 +13,6 @@ import pytest
 
 from anvil.grindstone import __main__ as gs
 
-
 SRC_CFG = {
     "pairs_file": "pairs.txt",
     "pairs_sha256": "ab" * 32,

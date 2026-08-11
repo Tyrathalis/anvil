@@ -266,7 +266,9 @@ def _mlp_fit_pred(xtr: np.ndarray, ytr: np.ndarray, gtr: np.ndarray,
         for i in range(0, len(xt), 256):
             b = perm[i:i + 256]
             loss = ((torch.sigmoid(net(xt[b]).squeeze(-1)) - yt[b]) ** 2).mean()
-            opt.zero_grad(); loss.backward(); opt.step()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
         net.eval()
         with torch.no_grad():
             pv = torch.sigmoid(net(xv).squeeze(-1)).cpu().numpy()
@@ -297,7 +299,8 @@ def _curve_subset(games_tr: np.ndarray, size: int | None) -> np.ndarray:
     for g in order:
         if n >= size:
             break
-        keep.add(g); n += counts[g]
+        keep.add(g)
+        n += counts[g]
     return np.isin(games_tr, list(keep))
 
 

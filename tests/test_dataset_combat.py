@@ -12,8 +12,13 @@ from __future__ import annotations
 import pytest
 import torch
 
-from anvil.training.dataset import (COMBAT_COUNT_MAX, _combat_label_window,
-                                    attack_fields, block_fields, collate)
+from anvil.training.dataset import (
+    COMBAT_COUNT_MAX,
+    _combat_label_window,
+    attack_fields,
+    block_fields,
+    collate,
+)
 
 ROW_OF = {1: 0, 2: 0, 3: 1, 10: 5, 11: 5, 20: 7}
 

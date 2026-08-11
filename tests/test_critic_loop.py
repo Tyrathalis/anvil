@@ -95,7 +95,6 @@ def test_fv_labels_stay_padded(feat_and_game):
     """mu labels are applied to the masked stream ONLY — a labeled fv window
     would mean the policy-gradient term could silently consume full-vis
     input (the §6f leak boundary)."""
-    import torch
     _, _, _, trajs = feat_and_game
     checked = 0
     for seat, exs, reward, rej, exs_fv in trajs:
