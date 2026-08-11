@@ -256,10 +256,13 @@ def ingest(
     run_dir = Path(run_dir)
     run_manifest = json.loads((run_dir / "run.json").read_text())
     run_id = run_manifest["run_id"] + ("-forks" if forks else "")
-    dest = Path(dest) if dest else TRAJECTORIES_DIR / run_id
-    if (dest / "manifest.json").exists():
-        sys.exit(f"store already exists at {dest}; ingest is one-shot (delete it to re-ingest)")
-    dest.mkdir(parents=True, exist_ok=True)
+    dest_path = Path(dest) if dest else TRAJECTORIES_DIR / run_id
+    if (dest_path / "manifest.json").exists():
+        sys.exit(
+            f"store already exists at {dest_path}; ingest is one-shot (delete it to re-ingest)"
+        )
+    dest_path.mkdir(parents=True, exist_ok=True)
+    dest: Path = dest_path
 
     src_name = "obs-forks.zst" if forks else "obs.zst"
     index_entries: list[dict] = []
@@ -309,6 +312,7 @@ def ingest(
             f.write(json.dumps(e) + "\n")
 
     fork_agg: dict[tuple[int, int], dict] = {}
+    quarantined: list[int] = []
     if forks:
         # Synthesize games.jsonl from the fork frames' own end records —
         # the harness progress logs carry MAINLINE outcomes, which under
@@ -320,7 +324,6 @@ def ingest(
         for e in index_entries:
             by_file.setdefault(e["file"], []).append(e)
         rows: dict[int, dict] = {}
-        quarantined: list[int] = []
         for fname, entries in sorted(by_file.items()):
             data = (dest / fname).read_bytes()
             for e in entries:

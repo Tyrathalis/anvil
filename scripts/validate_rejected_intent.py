@@ -23,9 +23,22 @@ import argparse
 import glob
 import json
 from pathlib import Path
+from typing import TypedDict
 
 
-def derived_counts(store_path: str, stem: str) -> dict:
+class Counts(TypedDict):
+    priority: int
+    attack: int
+    block: int
+    games: int
+    skipped: int
+
+
+class DerivedReport(Counts):
+    undecodable: list[tuple[int, str]]
+
+
+def derived_counts(store_path: str, stem: str) -> DerivedReport:
     from anvil.bridge.featurize import Featurizer, store_wire_hist
     from anvil.store.trajectories import open_store
     from anvil.training.dataset import default_methods
@@ -33,19 +46,26 @@ def derived_counts(store_path: str, stem: str) -> dict:
 
     store = open_store(store_path)
     feat = Featurizer(stem, default_methods())
-    out = {"priority": 0, "attack": 0, "block": 0, "games": 0, "skipped": 0}
+    counts: Counts = {
+        "priority": 0,
+        "attack": 0,
+        "block": 0,
+        "games": 0,
+        "skipped": 0,
+    }
+    undecodable: list[tuple[int, str]] = []
     for g in store.game_indices():
         mu = store.mu_for_game(g)
         if not mu:
-            out["skipped"] += 1
+            counts["skipped"] += 1
             continue
         try:
             traj = store.game(g)
         except Exception as e:  # noqa: BLE001 -- undecodable frame: census still counted it
-            out["skipped"] += 1
-            out.setdefault("undecodable", []).append((g, str(e)[:60]))
+            counts["skipped"] += 1
+            undecodable.append((g, str(e)[:60]))
             continue
-        out["games"] += 1
+        counts["games"] += 1
         prior = []
         for dec in traj.decisions:
             rec = mu.get(dec["s"])
@@ -54,10 +74,11 @@ def derived_counts(store_path: str, stem: str) -> dict:
                 wire["hist"] = store_wire_hist(prior, dec["_pos"])
                 _ex, aux = feat.example(wire, traj.header, rec["task"])
                 n = rejected_events(traj.decisions, len(prior), dec, rec, aux)
-                if n and rec["task"] in out:
-                    out[rec["task"]] += n
+                if n and rec["task"] in counts:
+                    counts[rec["task"]] += n  # type: ignore[literal-required]
             prior.append(dec)
-    return out
+    report = DerivedReport(**counts, undecodable=undecodable)
+    return report
 
 
 def census_counts(run_dir: str) -> dict:
@@ -69,15 +90,15 @@ def census_counts(run_dir: str) -> dict:
                     r = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-            if r.get("by") != "bridge":
-                continue
-            m = r.get("m")
-            if m == "chooseSpellAbilityToPlay" and r.get("veto"):
-                out["priority"] += 1
-            elif m == "declareAttackers":
-                out["attack"] += r.get("dropped", 0)
-            elif m == "declareBlockers":
-                out["block"] += r.get("dropped", 0) + r.get("forced", 0)
+                if r.get("by") != "bridge":
+                    continue
+                m = r.get("m")
+                if m == "chooseSpellAbilityToPlay" and r.get("veto"):
+                    out["priority"] += 1
+                elif m == "declareAttackers":
+                    out["attack"] += r.get("dropped", 0)
+                elif m == "declareBlockers":
+                    out["block"] += r.get("dropped", 0) + r.get("forced", 0)
     return out
 
 

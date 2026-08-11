@@ -227,7 +227,8 @@ def main() -> None:
     net = build_net(a.embed, a.pool_manifest, len(methods), n_sa=len(sa_vocab)).to(device)
     if a.null_text:
         with torch.no_grad():
-            net.cards.text.zero_()
+            card_text: torch.Tensor = net.cards.text
+            card_text.zero_()
     n_params = sum(p.numel() for p in net.parameters() if p.requires_grad)
 
     train_ds = PriorityWindows(

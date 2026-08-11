@@ -118,6 +118,7 @@ def test_train_batch_split_matches_whole_batch_gradient():
     # tolerance covers bf16-autocast summation-order differences
     assert abs(loss_whole - loss_split) < 2e-2
     for pw, ps in zip(whole.parameters(), split.parameters()):
+        assert pw.grad is not None and ps.grad is not None
         assert torch.allclose(pw.grad, ps.grad, atol=2e-2, rtol=5e-2)
 
 

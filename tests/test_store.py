@@ -234,6 +234,7 @@ def test_reask_consecutive_priority_decs(tmp_path):
     assert d1["s"] == 1 and d1["ret"] == {"e": 1, "sa": "Sol Ring - cast"}
     assert len(d1["opts"]) == 2
     mu = store.mu_for_game(0)
+    assert mu is not None
     assert set(mu) == {0, 1}
     assert mu[0]["logp"] == -1.5 and mu[1]["logp"] == -0.7
 

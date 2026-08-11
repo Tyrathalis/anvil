@@ -37,8 +37,16 @@ def _obs(ents=(70, 81, 90, 55), stack=()):
     return obs
 
 
-def _dec(s, method, p=0, obs=None, opts=None, args=None, ret="__absent__"):
-    d = {"k": "dec", "s": s, "t": 3, "ph": "MAIN1", "p": p, "m": method, "d": 10}
+def _dec(
+    s,
+    method,
+    p=0,
+    obs=None,
+    opts=None,
+    args=None,
+    ret: str | list[dict] | None = "__absent__",
+):
+    d: dict = {"k": "dec", "s": s, "t": 3, "ph": "MAIN1", "p": p, "m": method, "d": 10}
     if obs is not None:
         d["obs"] = obs
     if opts is not None:
@@ -71,7 +79,7 @@ OPTS = [
 def test_parse_ret_shapes():
     assert parse_ret(None) is None
     plans = parse_ret([KICKED])
-    assert len(plans) == 1
+    assert plans is not None and len(plans) == 1
     p = plans[0]
     assert p.host == 90 and p.kind == "spell"
     assert p.optional_costs == ["Kicker1"] and p.multikicker == 0

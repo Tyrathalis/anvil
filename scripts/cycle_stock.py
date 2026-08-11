@@ -19,6 +19,7 @@ import argparse
 import glob
 import sys
 import time
+from io import TextIOWrapper
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -43,6 +44,7 @@ def _run(cmd: list[str]) -> None:
 
 
 def main() -> None:
+    assert isinstance(sys.stdout, TextIOWrapper)
     sys.stdout.reconfigure(line_buffering=True)
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--games-per-arm", type=int, default=800)

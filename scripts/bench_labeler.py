@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import io
 import json
 import subprocess
 import sys
@@ -149,7 +150,8 @@ def main() -> None:
         help="tiny plumbing run (8 games, w=8, K=4, 2 points); timing not meaningful",
     )
     a = ap.parse_args()
-    sys.stdout.reconfigure(line_buffering=True)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
 
     if a.smoke:
         games, workers, points, k, purpose = 8, 8, 2, 4, "labelsmoke"

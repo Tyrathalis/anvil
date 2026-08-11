@@ -42,7 +42,9 @@ class AnvilNet(nn.Module):
     ):
         super().__init__()
         self.cards = card_encoder
-        d_card = card_encoder.fuse[-1].out_features
+        fuse_out = card_encoder.fuse[-1]
+        assert isinstance(fuse_out, nn.Linear)
+        d_card = fuse_out.out_features
         self.assemble = StateAssembler(
             d_model,
             d_card,
@@ -356,7 +358,7 @@ class AnvilNet(nn.Module):
 
         def cat_pick(lg: torch.Tensor, nz: torch.Tensor | None, name: str):
             """Sampled (or greedy) pick over the last dim + logp/ent bookkeeping."""
-            if noise is None:
+            if noise is None or nz is None:
                 return lg.argmax(-1)
             lgf = lg.float()
             pick = (lgf + nz).argmax(-1)
@@ -366,7 +368,7 @@ class AnvilNet(nn.Module):
             return pick
 
         def bern_pick(lg: torch.Tensor, nz: torch.Tensor | None, name: str):
-            if noise is None:
+            if noise is None or nz is None:
                 return lg > 0
             lgf = lg.float()
             pick = (lgf + nz) > 0
@@ -379,7 +381,7 @@ class AnvilNet(nn.Module):
             return pick
 
         logits = self._pointer_logits(state, ent_out, batch, pass_delta=pass_delta)
-        choice = cat_pick(logits, noise and noise["choice"], "choice")
+        choice = cat_pick(logits, noise.get("choice") if noise else None, "choice")
 
         rows_src = batch["cand_rows"].gather(1, choice.unsqueeze(1)).clamp(min=0)
         src_vec = ent_out.gather(1, rows_src.unsqueeze(-1).expand(-1, -1, ent_out.shape[-1]))
@@ -432,7 +434,7 @@ class AnvilNet(nn.Module):
             prev = prev + picked  # STOP's vec is zeros; post-stop slots add nothing
 
         x_cls = cat_pick(
-            self.x_head(torch.cat([state, src_vec], dim=-1)), noise and noise["x"], "x"
+            self.x_head(torch.cat([state, src_vec], dim=-1)), noise.get("x") if noise else None, "x"
         )
 
         ctx = ent_out.gather(
@@ -458,18 +460,25 @@ class AnvilNet(nn.Module):
             "x_cls": x_cls,
             "n_ent": n_ent,
             "stop_idx": stop_idx,
-            "bool": bern_pick(self.bool_head(of_in).squeeze(-1), noise and noise["bool"], "bool"),
-            "num": cat_pick(num_logits, noise and noise["num"], "num"),
+            "bool": bern_pick(
+                self.bool_head(of_in).squeeze(-1), noise.get("bool") if noise else None, "bool"
+            ),
+            "num": cat_pick(num_logits, noise.get("num") if noise else None, "num"),
             "win": torch.sigmoid(self.value_head(state).squeeze(-1)),
             # combat picks (D5): per-row attack yes/no, group count k
             # (count-class argmax + 1), target class over [0,N)∪[N,N+P),
             # block slot over [0,M]∪{M=none}
             # sampled per-row logp_/ent_ stay (B,A) — the server slices
             # real rows and applies the composite inclusion rules
-            "atk_yes": bern_pick(cmb["atk_logits"], noise and noise["atk"], "atk"),
-            "cmb_count": cat_pick(cmb["cmb_count_logits"], noise and noise["cnt"], "cnt") + 1,
-            "atk_tgt": cat_pick(cmb["atk_tgt_logits"], noise and noise["atk_tgt"], "atk_tgt"),
-            "blk_pick": cat_pick(cmb["blk_logits"], noise and noise["blk"], "blk"),
+            "atk_yes": bern_pick(cmb["atk_logits"], noise.get("atk") if noise else None, "atk"),
+            "cmb_count": cat_pick(
+                cmb["cmb_count_logits"], noise.get("cnt") if noise else None, "cnt"
+            )
+            + 1,
+            "atk_tgt": cat_pick(
+                cmb["atk_tgt_logits"], noise.get("atk_tgt") if noise else None, "atk_tgt"
+            ),
+            "blk_pick": cat_pick(cmb["blk_logits"], noise.get("blk") if noise else None, "blk"),
             **mu,
         }
 

@@ -2,6 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 
 import grpc
+import grpc.experimental as _grpc_experimental  # type: ignore[import]
 
 from anvil.bridge.pb import anvil_bridge_pb2 as anvil__bridge__pb2
 
@@ -85,7 +86,7 @@ class DecisionBridge:
         timeout=None,
         metadata=None,
     ):
-        return grpc.experimental.stream_stream(
+        return _grpc_experimental.stream_stream(
             request_iterator,
             target,
             "/anvil.bridge.v0.DecisionBridge/Session",

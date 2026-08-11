@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import io
 import json
 import os
 import shutil
@@ -231,7 +232,7 @@ def iteration_batches(
     h0 = n_heur // 2
     h1 = n_heur - h0
     n_mirror = games - n_heur
-    out = [(f"{name}-i{k:03d}", n_mirror, 0, None)]
+    out: list[tuple[str, int, int, int | None]] = [(f"{name}-i{k:03d}", n_mirror, 0, None)]
     if h0:
         out.append((f"{name}-i{k:03d}h0", h0, n_mirror, 0))
     if h1:
@@ -377,6 +378,7 @@ def _census_tallies(run_dirs) -> dict:
 
     dirs = run_dirs if isinstance(run_dirs, (list, tuple)) else [run_dirs]
     c: Counter[str] = Counter()
+    rates: dict[str, float] = {}
     for f in (f for rd in dirs for f in Path(rd).glob("workers/inv-*/census.jsonl")):
         with open(f) as fh:
             for line in fh:
@@ -407,15 +409,15 @@ def _census_tallies(run_dirs) -> dict:
                 for k in ("dropped", "forced"):
                     if r.get(k):
                         c[f"combat_{k}"] += r[k]
-    c["veto_rate"] = round(c["veto"] / max(1, c["veto"] + c["cast"]), 4)
+    rates["veto_rate"] = round(c["veto"] / max(1, c["veto"] + c["cast"]), 4)
     # M3 D1: chain-independent basis — each window contributes exactly one
     # first attempt (census "reask" marks attempts > 0 only), so re-ask chains
     # can't inflate this the way they inflate veto_rate. Done-when #1 reads it.
-    c["first_veto_rate"] = round(c["first_veto"] / max(1, c["first_veto"] + c["first_cast"]), 4)
+    rates["first_veto_rate"] = round(c["first_veto"] / max(1, c["first_veto"] + c["first_cast"]), 4)
     if c.get("reask_rescued") or c.get("veto"):
         # rescue rate = vetoed intents eventually realized in the same window
-        c["reask_rescue_rate"] = round(c["reask_rescued"] / max(1, c["veto"]), 4)
-    return dict(c)
+        rates["reask_rescue_rate"] = round(c["reask_rescued"] / max(1, c["veto"]), 4)
+    return {**dict(c), **rates}
 
 
 def guard_flags(
@@ -703,7 +705,8 @@ def main() -> None:
     # file) block buffering held EVERY driver print in memory for run-8's
     # whole 36h — "===== iteration" markers, guard text — starving the log
     # watcher; subprocess output interleaved fine (own fds). Found 2026-07-25.
-    sys.stdout.reconfigure(line_buffering=True)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
     monitor = open(out / "monitor.jsonl", "a", buffering=1)  # noqa: SIM115 -- long-lived monitor append handle
     (out / "loop_config.json").write_text(json.dumps(vars(args), indent=2))
     if not args.no_inhibit:

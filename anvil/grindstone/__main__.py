@@ -25,6 +25,7 @@ M1 D2), census stays off (fork decisions pollute telemetry).
 import argparse
 import glob
 import hashlib
+import io
 import json
 import sys
 from collections import Counter, defaultdict
@@ -285,23 +286,23 @@ def report(a: argparse.Namespace) -> None:
                     for line in fh:
                         r = json.loads(line)
                         c = cur.get((arm["store"], r["i"]))
-                    if c is None:
-                        continue
-                    by_game[r["i"]] = {
-                        "store": arm["store"],
-                        "g": r["i"],
-                        "tt": r["tt"],
-                        "fired_t": r["t"],
-                        "k": r["k"],
-                        "model_wins": r["w"][seat],
-                        "n": sum(r["w"]) + r["draw"],
-                        "engine_crashes": r["crash"],
-                        "v_before": c["v_before"],
-                        "drop": c["drop"],
-                        "crash_from_turn": c["crash_from_turn"],
-                        "peak_turn": c["peak_turn"],
-                        "deck": c["decks"][c["model_seat"]],
-                    }
+                        if c is None:
+                            continue
+                        by_game[r["i"]] = {
+                            "store": arm["store"],
+                            "g": r["i"],
+                            "tt": r["tt"],
+                            "fired_t": r["t"],
+                            "k": r["k"],
+                            "model_wins": r["w"][seat],
+                            "n": sum(r["w"]) + r["draw"],
+                            "engine_crashes": r["crash"],
+                            "v_before": c["v_before"],
+                            "drop": c["drop"],
+                            "crash_from_turn": c["crash_from_turn"],
+                            "peak_turn": c["peak_turn"],
+                            "deck": c["decks"][c["model_seat"]],
+                        }
         joined += by_game.values()
         planned = {g for (s, g) in cur if s == arm["store"]}
         missed += [{"store": arm["store"], "g": g} for g in planned - set(by_game)]
@@ -548,20 +549,20 @@ def eval_ckpt(a: argparse.Namespace) -> None:
                     for line in fh:
                         r = json.loads(line)
                         b = baseline.get((arm["store"], r["i"]))
-                    if b is None:
-                        continue
-                    n = sum(r["w"]) + r["draw"]
-                    rows.append(
-                        {
-                            "store": arm["store"],
-                            "g": r["i"],
-                            "bin": b["bin"],
-                            "model_wins": r["w"][seat],
-                            "n": n,
-                            "base_wins": b["model_wins"],
-                            "base_n": b["n"],
-                        }
-                    )
+                        if b is None:
+                            continue
+                        n = sum(r["w"]) + r["draw"]
+                        rows.append(
+                            {
+                                "store": arm["store"],
+                                "g": r["i"],
+                                "bin": b["bin"],
+                                "model_wins": r["w"][seat],
+                                "n": n,
+                                "base_wins": b["model_wins"],
+                                "base_n": b["n"],
+                            }
+                        )
 
     per_bin: dict[str, dict] = {}
     for b in ("winnable", "coin", "long_shot", "lost"):
@@ -595,7 +596,8 @@ def eval_ckpt(a: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    sys.stdout.reconfigure(line_buffering=True)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
 

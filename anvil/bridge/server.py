@@ -575,7 +575,7 @@ def main() -> None:
         )
     )
     servicer = DecisionServicer(
-        args.mode, tags.split(","), backend=backend, drill_backend=drill_backend
+        args.mode, list(tags.split(",")), backend=backend, drill_backend=drill_backend
     )
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=32))
     pb_grpc.add_DecisionBridgeServicer_to_server(servicer, server)

@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import io
 import json
 import os
 import subprocess
@@ -219,7 +220,8 @@ def _checkpoint(tag: str, pause_ok: bool) -> None:
 
 
 def main() -> None:
-    sys.stdout.reconfigure(line_buffering=True)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--workers", type=int, default=16)
     ap.add_argument("--games-per-arm", type=int, default=800)

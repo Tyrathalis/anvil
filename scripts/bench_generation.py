@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import io
 import json
 import subprocess
 import sys
@@ -142,7 +143,8 @@ def main() -> None:
         "not nice)",
     )
     a = ap.parse_args()
-    sys.stdout.reconfigure(line_buffering=True)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
 
     workers = [int(w) for w in a.workers.split(",")]
     if a.chunk:

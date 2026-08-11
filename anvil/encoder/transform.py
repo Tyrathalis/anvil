@@ -211,8 +211,8 @@ def assemble(
     if obs is None:
         raise ValueError(f"decision s={dec.get('s')} has no observation (obs:null error record?)")
     if perspective is None:
-        perspective = dec["p"]
-    if perspective < 0:
+        perspective = dec.get("p")
+    if not isinstance(perspective, int) or perspective < 0:
         raise ValueError("no perspective: decision record has no deciding player")
 
     n_players = len(header["players"])

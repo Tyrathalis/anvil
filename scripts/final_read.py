@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import io
 import sys
 from pathlib import Path
 
@@ -27,7 +28,8 @@ def main() -> None:
     # Detached stdout to a redirected log is BLOCK-buffered, so a log-tail
     # watcher sees nothing until exit (run-8 held 36h of narration in memory).
     # The driver fixed this for itself on 2026-07-25; reads never got it.
-    sys.stdout.reconfigure(line_buffering=True)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
 
     ap = argparse.ArgumentParser(description="2,000-game corrected read")
     ap.add_argument("--ckpt", required=True)

@@ -70,12 +70,12 @@ def _load_traces(paths: list[str]) -> dict[tuple, dict[int, float]]:
                 r = json.loads(line)
                 key = (r["store"], r["g"])
                 vals = {t: v for t, v in r["vals"]}
-            if key in out and out[key] != vals:
-                raise SystemExit(
-                    f"[merge] trace conflict for {key} across "
-                    f"trace dirs — mixed critic eras, refusing"
-                )
-            out[key] = vals
+                if key in out and out[key] != vals:
+                    raise SystemExit(
+                        f"[merge] trace conflict for {key} across "
+                        f"trace dirs — mixed critic eras, refusing"
+                    )
+                out[key] = vals
     return out
 
 

@@ -17,6 +17,9 @@ from torch import nn
 
 
 class CardEncoder(nn.Module):
+    text: torch.Tensor
+    feats: torch.Tensor
+
     def __init__(
         self, embedding_stem: str | Path, features: torch.Tensor, d_card: int = 256, d_id: int = 48
     ):
@@ -46,8 +49,10 @@ class CardEncoder(nn.Module):
         """rows (..., ) int64, -1 = no card -> (..., d_card)."""
         safe = rows.clamp(min=0)
         known = (rows >= 0).unsqueeze(-1)
-        text = torch.where(known, self.text[safe], self.null_text)
-        feats = torch.where(known, self.feats[safe], self.null_feats)
+        text_embed = self.text[safe]
+        feat_embed = self.feats[safe]
+        text = torch.where(known, text_embed, self.null_text)
+        feats = torch.where(known, feat_embed, self.null_feats)
         ids = self.id_emb(
             torch.where(rows >= 0, rows, torch.full_like(rows, self.id_emb.num_embeddings - 1))
         )

@@ -32,11 +32,11 @@ BIG_DROP = 0.30
 
 
 def load(d: str):
-    d = Path(d)
-    summary = json.loads((d / "summary.json").read_text())
-    cur = [json.loads(x) for x in (d / "curation.jsonl").read_text().splitlines()]
+    d_path = Path(d)
+    summary = json.loads((d_path / "summary.json").read_text())
+    cur = [json.loads(x) for x in (d_path / "curation.jsonl").read_text().splitlines()]
     traces = {}
-    for x in (d / "traces.jsonl").read_text().splitlines():
+    for x in (d_path / "traces.jsonl").read_text().splitlines():
         r = json.loads(x)
         traces[(r["model_seat"], r["seed"])] = r
     return summary, cur, traces

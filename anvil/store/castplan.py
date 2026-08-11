@@ -163,7 +163,10 @@ def validate_game(traj: GameTrajectory, report: ValidationReport) -> None:
 
     for dec in traj.decisions:
         if dec["m"] == PLAY_METHOD:
-            queue = pending_play.get(dec.get("p"))
+            seat = dec.get("p")
+            if not isinstance(seat, int):
+                continue
+            queue = pending_play.get(seat)
             if queue:  # a playChosen with no pending label is another play path
                 seq, plan = queue.pop(0)
                 played = (dec.get("args") or {}).get("sa") or ""
@@ -193,6 +196,11 @@ def validate_game(traj: GameTrajectory, report: ValidationReport) -> None:
             report.passes += 1
             continue
 
+        seat = dec.get("p")
+        if not isinstance(seat, int):
+            report.error(g, seq, "priority decision missing integer seat")
+            continue
+
         for plan in plans:
             report.casts += 1
             if plan.targets or plan.subs:
@@ -211,9 +219,14 @@ def validate_game(traj: GameTrajectory, report: ValidationReport) -> None:
                         report.error(g, seq, f"target e={ref['e']} not in observation")
                     if "pi" in ref and not (0 <= ref["pi"] < n_players):
                         report.error(g, seq, f"target pi={ref['pi']} out of range")
-            if structured and plan.host is not None and plan.host not in {o.get("e") for o in opts}:
+            if (
+                structured
+                and plan.host is not None
+                and opts is not None
+                and plan.host not in {o.get("e") for o in opts}
+            ):
                 report.error(g, seq, f"chosen e={plan.host} not among {len(opts)} options")
-            pending_play.setdefault(dec.get("p"), []).append((seq, plan))
+            pending_play.setdefault(seat, []).append((seq, plan))
 
     for queue in pending_play.values():
         # end-of-game abandonment (hard cap, concession) can strand a tail
