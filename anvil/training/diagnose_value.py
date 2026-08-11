@@ -30,6 +30,7 @@ import torch
 
 from anvil.encoder.transform import GLOBAL_FEATURES, GLOBAL_SCALE
 from anvil.store.trajectories import open_store
+from anvil.torch.utils import get_torch_device
 from anvil.training.dataset import PriorityWindows, _split_of, collate, default_methods
 from anvil.training.train import build_net
 
@@ -151,7 +152,7 @@ def main() -> None:
     ap.add_argument("--out", default=None, help="JSON report path (default: beside ckpt)")
     a = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = get_torch_device()
     ckpt = torch.load(a.ckpt, map_location=device, weights_only=False)
     cfg = ckpt["config"]
     methods = default_methods()

@@ -15,6 +15,7 @@ import argparse
 import torch
 
 from anvil.store.trajectories import open_store
+from anvil.torch.utils import get_torch_device
 from anvil.training.dataset import PriorityWindows, _split_of, collate, default_methods
 from anvil.training.train import build_net
 
@@ -50,7 +51,7 @@ def main() -> None:
                          "subset reproduces its historical basis exactly)")
     a = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = get_torch_device()
     wins = None
     for path in a.ckpts:
         ckpt = torch.load(path, map_location=device, weights_only=False)

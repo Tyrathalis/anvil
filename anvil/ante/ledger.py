@@ -64,6 +64,7 @@ import torch
 
 from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
 from anvil.store.trajectories import GameTrajectory
+from anvil.torch.utils import get_torch_device
 from anvil.training.dataset import (
     T_MAX,
     TASK_OF_METHOD,
@@ -261,7 +262,7 @@ class ValueEvaluator:
 
     def __init__(self, ckpt: str, device: str | None = None, batch: int = 256,
                  full_vis: bool | None = None):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or (get_torch_device())
         ck = torch.load(ckpt, map_location=self.device, weights_only=False)
         cfg = ck["config"]
         methods = default_methods()

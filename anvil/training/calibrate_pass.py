@@ -19,6 +19,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
+from anvil.torch.utils import get_torch_device
 from anvil.training.dataset import PriorityWindows, collate, default_methods
 from anvil.training.train import build_net
 
@@ -81,7 +82,7 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=6)
     a = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = get_torch_device()
     ckpt = torch.load(a.ckpt, map_location=device, weights_only=False)
     cfg = ckpt["config"]
     net = build_net(cfg["embed"], cfg["pool_manifest"], len(default_methods()),

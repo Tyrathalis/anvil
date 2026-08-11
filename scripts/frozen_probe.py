@@ -88,6 +88,8 @@ def _seat_of(store: str) -> int:
 def features(args: argparse.Namespace) -> None:
     import torch
 
+from anvil.torch.utils import get_torch_device
+
     from anvil.ante.ledger import ValueEvaluator
     from anvil.store.trajectories import TrajectoryStore
     from anvil.training.dataset import collate
@@ -245,7 +247,7 @@ def _mlp_fit_pred(xtr: np.ndarray, ytr: np.ndarray, gtr: np.ndarray,
     import torch.nn as nn
 
     torch.manual_seed(seed)
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    dev = get_torch_device()
     # game-grouped inner val split for early stopping
     val_m = np.array([hashlib.sha256(f"mlpval:{g}".encode()).digest()[0] % 7 == 0
                       for g in gtr])
