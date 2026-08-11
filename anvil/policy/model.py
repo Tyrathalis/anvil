@@ -1,3 +1,4 @@
+# pyright: basic
 """AnvilNet v0 (M1 D4) + SA-level candidates (M2 D2): encoder + trunk + rung-1 heads.
 
 Trunk: pre-LN transformer encoder, d=512, 8 heads, 10 layers (plan band
@@ -22,6 +23,7 @@ import torch
 from torch import nn
 
 from anvil.encoder.cards import CardEncoder
+from anvil.schemas.tensors import Batch
 from anvil.state.tokens import StateAssembler
 
 
@@ -158,7 +160,7 @@ class AnvilNet(nn.Module):
         self,
         state: torch.Tensor,
         ent_out: torch.Tensor,
-        batch: dict,
+        batch: Batch,
         pass_delta: float | torch.Tensor = 0.0,
     ) -> torch.Tensor:
         # pass_delta: scalar, or (B,1) tensor for mixed micro-batches (D6
@@ -188,7 +190,7 @@ class AnvilNet(nn.Module):
         logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)  # slot 0 = PASS
         return logits.masked_fill(~batch["cand_mask"], -1e9)
 
-    def _combat_outputs(self, state: torch.Tensor, ent_out: torch.Tensor, batch: dict) -> dict:
+    def _combat_outputs(self, state: torch.Tensor, ent_out: torch.Tensor, batch: Batch) -> dict:
         """Combat-head logits (D5), shared by forward() and act(). Per
         candidate row (cmb_rows): attack yes/no logit; count-class logits
         masked to [1, group size]; attack-target pointer over entities+players
@@ -245,7 +247,7 @@ class AnvilNet(nn.Module):
             "blk_logits": blk_logits,
         }
 
-    def forward(self, batch: dict) -> dict:
+    def forward(self, batch: Batch) -> dict[str, torch.Tensor]:
         card_vecs = self.cards(batch["ent_emb"])
         tokens, pad = self.assemble(card_vecs, batch)
         out = self.trunk(tokens, src_key_padding_mask=pad)
@@ -330,7 +332,7 @@ class AnvilNet(nn.Module):
     @torch.no_grad()
     def act(
         self,
-        batch: dict,
+        batch: Batch,
         pass_delta: float | torch.Tensor = 0.0,
         noise: dict | None = None,
         temperature: float = 1.0,

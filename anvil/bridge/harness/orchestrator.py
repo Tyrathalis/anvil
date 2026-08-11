@@ -34,6 +34,7 @@ import time
 from pathlib import Path
 
 from anvil.bridge.harness.seeds import game_seed
+from anvil.schemas.manifests import RunManifest
 
 FORGE_DIR = Path(os.environ.get("FORGE_DIR", Path.home() / "Everything/Projects/forge"))
 FORGE_GUI_DIR = FORGE_DIR / "forge-gui"
@@ -68,7 +69,7 @@ class Run:
         # Resolve: workers run with cwd=FORGE_GUI_DIR, so every path handed to
         # them must be absolute or the results file lands in the wrong tree.
         self.dir = Path(run_dir).resolve()
-        self.manifest = json.loads((self.dir / "run.json").read_text())
+        self.manifest = RunManifest(**json.loads((self.dir / "run.json").read_text()))
         self.stop_file = self.dir / "STOP"
         self.workers_dir = self.dir / "workers"
         self.skips_file = self.dir / "skips.json"
@@ -94,9 +95,9 @@ class Run:
     def remaining_chunks(self) -> list[tuple[int, int]]:
         """Contiguous (start, count) spans still to play, chunk-aligned."""
         done = set(self.completed()) | self.skipped()
-        chunk = self.manifest["chunk"]
-        start = self.manifest.get("start_index", 0)
-        end = start + self.manifest["games"]
+        chunk = self.manifest.chunk
+        start = self.manifest.start_index
+        end = start + self.manifest.games
         spans = []
         for cstart in range(start, end, chunk):
             cend = min(cstart + chunk, end)
@@ -115,13 +116,13 @@ class Run:
     def _deck_args(self) -> list[str]:
         """-d for fixed-pair runs, -pairs/-gpp for pool-schedule runs."""
         m = self.manifest
-        if m.get("pairs_file"):
-            return ["-pairs", str(self.dir / m["pairs_file"]), "-gpp", str(m["games_per_pair"])]
-        return ["-d", m["decks"][0], m["decks"][1]]
+        if m.pairs_file:
+            return ["-pairs", str(self.dir / m.pairs_file), "-gpp", str(m.games_per_pair)]
+        return ["-d", m.decks[0], m.decks[1]]
 
     def _verify_jar(self) -> Path:
-        jar = Path(self.manifest["jar"])
-        if not jar.exists() or _sha256(jar) != self.manifest["jar_sha256"]:
+        jar = Path(self.manifest.jar)
+        if not jar.exists() or _sha256(jar) != self.manifest.jar_sha256:
             sys.exit(
                 "jar hash mismatch vs manifest — the fork was rebuilt since this run "
                 "was created; start a new run (manifests are immutable)"
@@ -134,7 +135,7 @@ class Run:
         wdir = self.workers_dir / f"inv-{inv:04d}"
         wdir.mkdir(parents=True, exist_ok=True)
         cmd = []
-        if m["nice"]:
+        if m.nice:
             cmd += ["nice", "-n", "19"]
         # ANVIL_EXTRA_JVM_OPTS: ad-hoc worker JVM flags (e.g.
         # -Danvil.crash.trace=true for crash-class diagnosis) without a
@@ -142,57 +143,57 @@ class Run:
         extra = os.environ.get("ANVIL_EXTRA_JVM_OPTS", "").split()
         cmd += [
             "java",
-            f"-Xms{m['heap']}",
-            f"-Xmx{m['heap']}",
-            *m["jvm_opts"],
+            f"-Xms{m.heap}",
+            f"-Xmx{m.heap}",
+            *m.jvm_opts,
             *extra,
             "-jar",
             str(jar),
             "anvil",
             *self._deck_args(),
             "-f",
-            m["format"],
+            m.format,
             "-range",
             str(span[0]),
             str(span[1]),
             "-seedbase",
-            str(m["seed_base"]),
+            str(m.seed_base),
             "-results",
             str(wdir / "games.jsonl"),
             "-stopfile",
             str(self.stop_file),
             "-b",
-            m["bridge"],
+            m.bridge,
         ]
-        if m.get("tags"):
-            cmd += ["-tags", m["tags"]]
-        if m.get("obs"):
+        if m.tags:
+            cmd += ["-tags", m.tags]
+        if m.obs:
             cmd += ["-obs", str(wdir / "obs.zst")]
-        if m.get("census"):
+        if m.census:
             # D8: veto reasons + disambiguation rungs live in the census log
             cmd += ["-census", str(wdir / "census.jsonl")]
-        if m.get("bridge_seats") is not None:
-            cmd += ["-bridgeseats", str(m["bridge_seats"])]
-        if m.get("reask"):
+        if m.bridge_seats is not None:
+            cmd += ["-bridgeseats", str(m.bridge_seats)]
+        if m.reask:
             # D6 run-2: re-ask-on-veto (d6-vtrace-loop §6b) — environment
             # change; arms under -reask are not comparable to arms without
             cmd += ["-reask"]
-        if m.get("rollout_k"):
+        if m.rollout_k:
             # M2 D4 rollout-label mode: fork points + K completions per game
             cmd += [
                 "-rollout",
-                str(m["rollout_k"]),
+                str(m.rollout_k),
                 "-points",
-                str(m.get("rollout_points", 4)),
+                str(m.rollout_points or 4),
                 "-labels",
                 str(wdir / "labels.jsonl"),
             ]
-        if m.get("drill_file"):
+        if m.drill_file:
             # M4 D2 drill mode: curated fork turns replace -points sampling
-            cmd += ["-drillfile", str(self.dir / m["drill_file"])]
-            if m.get("drill_stop"):
+            cmd += ["-drillfile", str(self.dir / m.drill_file)]
+            if m.drill_stop:
                 cmd += ["-drillstop"]
-        if m.get("fork_obs"):
+        if m.fork_obs:
             # M4 D3: completions become store frames of their own
             cmd += ["-forkobs"]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
@@ -203,12 +204,12 @@ class Run:
 
     def schedule(self) -> None:
         pending = self.remaining_chunks()
-        total = self.manifest["games"]
+        total = self.manifest.games
         crash_counts: dict[int, int] = {}
         zero_progress_exits = 0  # systemic-failure guard (vs per-game skip rule)
         inv = max([int(p.name[4:]) for p in self.workers_dir.glob("inv-*")] or [-1]) + 1
         active: list[tuple[subprocess.Popen, tuple[int, int]]] = []
-        slots = self.manifest["workers"]
+        slots = self.manifest.workers
         t0 = time.monotonic()
         print(
             f"[harness] {len(self.completed())}/{total} done, "
@@ -250,7 +251,7 @@ class Run:
                     self.skips_file.write_text(json.dumps({"indices": sorted(skips)}))
                     print(
                         f"[harness] !! game {first} (seed "
-                        f"{game_seed(self.manifest['seed_base'], first)}) killed its worker "
+                        f"{game_seed(self.manifest.seed_base, first)}) killed its worker "
                         f"twice -> SKIPPED (free engine-bug repro; see skips.json)"
                     )
                     todo = todo[1:]
@@ -383,6 +384,7 @@ def launch(a) -> Path:
         "drill_stop": getattr(a, "drill_stop", False),
         "fork_obs": getattr(a, "fork_obs", False),
     }
+    manifest = RunManifest(**manifest).model_dump(mode="json")
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(
         f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "
@@ -414,10 +416,10 @@ def status(run_dir: Path) -> None:
         "paused"
         if r.stop_file.exists()
         else "complete"
-        if len(done) + len(r.skipped()) >= m["games"]
+        if len(done) + len(r.skipped()) >= m.games
         else "in progress"
     )
-    print(f"{m['run_id']}: {len(done)}/{m['games']} done, {len(r.skipped())} skipped [{state}]")
+    print(f"{m.run_id}: {len(done)}/{m.games} done, {len(r.skipped())} skipped [{state}]")
     if done:
         ms = sorted(g["ms"] for g in done.values())
         print(
@@ -429,33 +431,30 @@ def status(run_dir: Path) -> None:
 def replay(run_dir: Path, index: int) -> None:
     r = Run(run_dir)
     m = r.manifest
-    print(
-        f"[harness] replaying game {index} "
-        f"(seed {game_seed(m['seed_base'], index)}) of {m['run_id']}"
-    )
+    print(f"[harness] replaying game {index} (seed {game_seed(m.seed_base, index)}) of {m.run_id}")
     r._verify_jar()
     cmd = [
         "java",
-        f"-Xms{m['heap']}",
-        f"-Xmx{m['heap']}",
-        *m["jvm_opts"],
+        f"-Xms{m.heap}",
+        f"-Xmx{m.heap}",
+        *m.jvm_opts,
         "-jar",
-        m["jar"],
+        m.jar,
         "anvil",
         *r._deck_args(),
         "-f",
-        m["format"],
+        m.format,
         "-range",
         str(index),
         "1",
         "-seedbase",
-        str(m["seed_base"]),
+        str(m.seed_base),
         "-b",
-        m["bridge"],
+        m.bridge,
     ]
-    if m.get("tags"):
-        cmd += ["-tags", m["tags"]]
-    if m.get("obs"):
+    if m.tags:
+        cmd += ["-tags", m.tags]
+    if m.obs:
         # The priority-option scan perturbs which trajectory a seed plays
         # (D2 smoke, 2026-07-04: 14/20 identical without it) — a replay must
         # match the original run's logging configuration to reproduce it.

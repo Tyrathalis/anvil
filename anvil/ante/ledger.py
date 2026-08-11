@@ -55,14 +55,15 @@ from __future__ import annotations
 
 import dataclasses
 import random
+import typing
 from collections import Counter
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
 
 from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
+from anvil.schemas.tensors import Example
 from anvil.store.trajectories import GameTrajectory
 from anvil.training.dataset import (
     T_MAX,
@@ -294,9 +295,7 @@ class ValueEvaluator:
         self.ckpt = str(ckpt)
         self.emb_misses: Counter = Counter()
 
-    def example(
-        self, dec: dict, header: dict, perspective: int, prior: list[dict]
-    ) -> dict[str, Any]:
+    def example(self, dec: dict, header: dict, perspective: int, prior: list[dict]) -> Example:
         out = assemble(
             dec,
             header,
@@ -356,11 +355,11 @@ class ValueEvaluator:
         }
 
     @torch.no_grad()
-    def win_probs(self, examples: list[dict]) -> np.ndarray:
+    def win_probs(self, examples: list[Example]) -> np.ndarray:
         out = []
         for i in range(0, len(examples), self.batch):
             chunk = collate(examples[i : i + self.batch])
-            chunk = {k: v.to(self.device) for k, v in chunk.items()}
+            chunk = {k: typing.cast(torch.Tensor, v).to(self.device) for k, v in chunk.items()}
             with torch.autocast(self.device, dtype=torch.bfloat16):
                 res = self.net(chunk)
             out.append(torch.sigmoid(res["value_logit"].float()).cpu().numpy())

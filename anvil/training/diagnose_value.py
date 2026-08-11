@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import typing
 from pathlib import Path
 
 import numpy as np
@@ -83,7 +84,7 @@ def collect(
         last = g_turns.max()
         for i in range(0, len(wins), batch):
             chunk = collate(wins[i : i + batch])
-            chunk = {k: v.to(device) for k, v in chunk.items()}
+            chunk = {k: typing.cast(torch.Tensor, v).to(device) for k, v in chunk.items()}
             with torch.autocast(device, dtype=torch.bfloat16):
                 out = net(chunk)
             probs.append(torch.sigmoid(out["value_logit"].float()).cpu().numpy())

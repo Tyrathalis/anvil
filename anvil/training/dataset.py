@@ -88,6 +88,7 @@ import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
 from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
+from anvil.schemas.tensors import Batch, Example
 from anvil.store.trajectories import open_store
 
 PRIORITY = "chooseSpellAbilityToPlay"
@@ -402,7 +403,7 @@ class PriorityWindows(IterableDataset):
         self._methods_wanted = {m for m, t in TASK_OF_METHOD.items() if t in self.tasks}
         self._epoch = 0  # per-worker: persistent workers re-call __iter__ each epoch
 
-    def _examples(self, store, g: int) -> Iterator[dict[str, Any]]:
+    def _examples(self, store, g: int) -> Iterator[Example]:
         traj = store.game(g)
         # TRUE winner via the store's outcome records (games.jsonl): the frame
         # end-record's "winner" was derived from the post-elimination live
@@ -625,7 +626,7 @@ class PriorityWindows(IterableDataset):
                 raise
 
 
-def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
+def collate(batch: list[Example]) -> Batch:
     """Pad entities/candidates to batch max; boolean masks carry validity."""
     b = len(batch)
     n = max(x["entities"].shape[0] for x in batch)

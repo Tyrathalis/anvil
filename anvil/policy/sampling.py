@@ -1,3 +1,4 @@
+# pyright: basic
 """Seeded Gumbel-max sampling for serve-time exploration (M2 D6).
 
 The V-trace actor samples instead of argmaxing. Noise is generated per
@@ -19,6 +20,7 @@ import numpy as np
 import torch
 
 from anvil.bridge.harness.seeds import GOLDEN, MASK, splitmix64
+from anvil.schemas.tensors import Batch, Example
 from anvil.training.dataset import COMBAT_COUNT_MAX, T_MAX, X_CLASSES
 
 # heads sampled per task; draw order within a task is FIXED (determinism)
@@ -39,7 +41,7 @@ def noise_seed(game_seed: int, dec_seq: int) -> int:
 
 
 def make_noise(
-    ex: dict, task: str, temperature: float = 1.0, *, seed: int
+    ex: Example, task: str, temperature: float = 1.0, *, seed: int
 ) -> dict[str, torch.Tensor]:
     """Item-level noise tensors at the example's own shapes, float32.
 
@@ -76,7 +78,7 @@ def make_noise(
     return {h: shapes[h]() for h in _TASK_HEADS[task]}
 
 
-def mu_record(g: int, s: int, task: str, ex: dict, aux: dict, out: dict) -> dict:
+def mu_record(g: int, s: int, task: str, ex: Example, aux: dict, out: dict) -> dict:
     """Behavior-policy record for one sampled decision (one mu.jsonl line).
 
     Actions are recorded in item-canonical index spaces (entity ROW < N_i;
@@ -154,7 +156,7 @@ def mu_record(g: int, s: int, task: str, ex: dict, aux: dict, out: dict) -> dict
 
 
 def pad_noise(
-    noises: list[dict[str, torch.Tensor]], batch: dict, device
+    noises: list[dict[str, torch.Tensor]], batch: Batch, device
 ) -> dict[str, torch.Tensor]:
     """Scatter item noise into batch-padded tensors (zeros elsewhere).
 

@@ -570,11 +570,11 @@ def status(root: Path | str) -> None:
     store = TrajectoryStore(root)
     m = store.manifest
     print(
-        f"{m['run_id']}: {m['games']} games, {m['decisions']} decisions, "
-        f"schema v{m['obs_schema']}, pool {m['pool_version']}"
+        f"{m.run_id}: {m.games} games, {m.decisions} decisions, "
+        f"schema v{m.obs_schema}, pool {m.pool_version}"
     )
     print(
-        f"  {m['bytes_raw'] / 1e6:.1f} MB raw / {m['bytes_compressed'] / 1e6:.1f} MB compressed "
-        f"({m['bytes_raw'] / max(m['bytes_compressed'], 1):.1f}x), "
-        f"{m['bytes_compressed'] / max(m['games'], 1) / 1e3:.0f} KB/game"
+        f"  {m.bytes_raw / 1e6:.1f} MB raw / {m.bytes_compressed / 1e6:.1f} MB compressed "
+        f"({m.bytes_raw / max(m.bytes_compressed, 1):.1f}x), "
+        f"{m.bytes_compressed / max(m.games, 1) / 1e3:.0f} KB/game"
     )

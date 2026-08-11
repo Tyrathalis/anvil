@@ -1,3 +1,4 @@
+# pyright: basic
 """V-trace self-play learner machinery (M2 D6, docs/design/d6-vtrace-loop.md).
 
 Core contract: the composite action logp is a pure sum over LABELED factors —
@@ -21,6 +22,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 
+from anvil.schemas.tensors import Batch, Example
 from anvil.training.dataset import TASKS, collate, default_methods
 
 
@@ -34,7 +36,7 @@ def _gather_lp(
     return out * ok.float()
 
 
-def composite_logp(fwd: dict, batch: dict, temperature: float = 1.0) -> dict:
+def composite_logp(fwd: dict[str, torch.Tensor], batch: Batch, temperature: float = 1.0) -> dict:
     """Per-window composite action log-prob from forward() outputs.
 
     Every factor with a set label (>= 0 / != -1) contributes; the loader
@@ -79,7 +81,7 @@ def composite_logp(fwd: dict, batch: dict, temperature: float = 1.0) -> dict:
     }
 
 
-def apply_mu_labels(ex: dict, rec: dict) -> dict:
+def apply_mu_labels(ex: Example, rec: dict) -> Example:
     """Write the sampled action from a mu record into an example's label
     fields — the inclusion rules in label form (an unlabeled factor is -1 and
     contributes nothing to composite_logp). Inverse of sampling.mu_record;
@@ -131,7 +133,7 @@ def apply_mu_labels(ex: dict, rec: dict) -> dict:
     return ex
 
 
-def composite_entropy(fwd: dict, batch: dict) -> torch.Tensor:
+def composite_entropy(fwd: dict[str, torch.Tensor], batch: Batch) -> torch.Tensor:
     """Per-window summed entropy over the LABELED factor heads (the sampled
     action's factors) — the exploration-collapse monitor and bonus term.
     Masked logits carry -1e9, so exp() underflows to exact 0 there."""
@@ -497,7 +499,9 @@ def make_forward_segments(dev: str, seg: int):
             while i < b:
                 n = min(seg_size["n"], b - i)
                 try:
-                    seg = {k: (v if n == b else v[i : i + n]).to(dev) for k, v in s.items()}
+                    seg: Batch = {  # type: ignore[assignment]
+                        k: (v if n == b else v[i : i + n]).to(dev) for k, v in s.items()
+                    }
                     ctx = torch.enable_grad() if grad else torch.no_grad()
                     with ctx, torch.autocast(dev, dtype=torch.bfloat16):
                         fwd = model(seg)

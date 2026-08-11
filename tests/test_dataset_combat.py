@@ -196,7 +196,7 @@ def test_collate_combat_padding_and_none_remap():
         blk_atk_rows=[5],
     )
     plain = _example()
-    out = collate([a, blk, plain])
+    out = collate([a, blk, plain])  # type: ignore[arg-type]
     n = out["entities"].shape[1]
     assert out["cmb_mask"].tolist() == [[True, True], [True, False], [False, False]]
     assert out["atk_label"][0].tolist() == [1, 0]

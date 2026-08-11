@@ -1,3 +1,4 @@
+# pyright: basic
 """Wire observation -> model batch, and model output -> wire answer (M1 D8).
 
 The featurization half MIRRORS anvil.training.dataset.PriorityWindows._examples
@@ -26,6 +27,7 @@ import numpy as np
 import torch
 
 from anvil.encoder.transform import HISTORY_K, assemble
+from anvil.schemas.tensors import Example
 from anvil.training.dataset import (
     COMBAT_COUNT_MAX,
     KINDS,
@@ -100,7 +102,7 @@ class Featurizer:
 
     def example(
         self, dec: dict, header: dict, task: str, full_vis: bool = False
-    ) -> tuple[dict, dict]:
+    ) -> tuple[Example, dict]:
         """One wire dec record -> (model example with label pads, aux maps for
         answer translation). full_vis (M3 §6f): asymmetric-critic windows —
         same window/history semantics, info-set gate bypassed in assemble;
@@ -162,7 +164,7 @@ class Featurizer:
         for i, h in enumerate(out["history"][-HISTORY_K:]):
             hist[i] = (self.methods.id(h["m"]), h["self"], row_of.get(h["e"], -1))
 
-        ex = {
+        ex: Example = {  # type: ignore[assignment] -- pyright cannot prove the literal matches the large Example TypedDict
             "entities": torch.from_numpy(out["entities"]),
             "ent_emb": torch.tensor(
                 [self.embed.row(n) for n in out["entity_names"]], dtype=torch.int64

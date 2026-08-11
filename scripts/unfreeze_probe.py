@@ -36,6 +36,7 @@ import hashlib
 import json
 import sys
 import time
+import typing
 from collections import defaultdict
 from pathlib import Path
 
@@ -147,7 +148,7 @@ def _scores(net, examples: list, idxs: np.ndarray, device: str, batch: int) -> n
     with torch.no_grad():
         for i in range(0, len(idxs), batch):
             chunk = collate([examples[j] for j in idxs[i : i + batch]])
-            chunk = {k: v.to(device) for k, v in chunk.items()}
+            chunk = {k: typing.cast(torch.Tensor, v).to(device) for k, v in chunk.items()}
             with torch.autocast(device, dtype=torch.bfloat16):
                 card_vecs = net.cards(chunk["ent_emb"])
                 tokens, pad = net.assemble(card_vecs, chunk)
@@ -233,7 +234,7 @@ def _cell(
             if len(sel) < 8:
                 continue
             chunk = collate([examples[j] for j in row_idx[sel]])
-            chunk = {k: v.to(device) for k, v in chunk.items()}
+            chunk = {k: typing.cast(torch.Tensor, v).to(device) for k, v in chunk.items()}
             yb = torch.tensor(y[sel], dtype=torch.float32, device=device)
             with torch.autocast(device, dtype=torch.bfloat16):
                 card_vecs = net.cards(chunk["ent_emb"])

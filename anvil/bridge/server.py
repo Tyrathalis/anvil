@@ -30,6 +30,7 @@ import json
 import random
 import threading
 import time
+import typing
 from collections import Counter
 from concurrent import futures
 
@@ -37,6 +38,7 @@ import grpc
 
 from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
+from anvil.schemas.tensors import Batch, Example, Slot
 
 PROTOCOL_VERSION = 0
 DEFAULT_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
@@ -75,12 +77,12 @@ class _Batcher:
         self.max_batch = max_batch
         self.window_ms = window_ms
         self.temperature = temperature
-        self.q: queue.Queue[dict] = queue.Queue()
+        self.q: queue.Queue[Slot] = queue.Queue()
         self._queue_mod = queue
         threading.Thread(target=self._loop, daemon=True, name="gpu-batcher").start()
 
-    def submit(self, ex: dict, pass_delta: float, noise: dict | None = None) -> dict:
-        slot = {"ex": ex, "pd": pass_delta, "nz": noise, "ev": threading.Event()}
+    def submit(self, ex: Example, pass_delta: float, noise: dict | None = None) -> dict:
+        slot: Slot = {"ex": ex, "pd": pass_delta, "nz": noise, "ev": threading.Event()}
         self.q.put(slot)
         slot["ev"].wait()
         if "err" in slot:
@@ -105,13 +107,22 @@ class _Batcher:
                     break
             self.counts[f"gpu_batch_{min(len(slots), 16)}"] += 1
             try:
-                batch = {k: v.to(self.device) for k, v in collate([s["ex"] for s in slots]).items()}
+                raw_batch = collate([s["ex"] for s in slots])
+                import torch
+
+                batch: Batch = {
+                    k: typing.cast(torch.Tensor, v).to(self.device) for k, v in raw_batch.items()
+                }
                 pd = self.torch.tensor(
                     [[s["pd"]] for s in slots], device=self.device, dtype=self.torch.float32
                 )
                 # sampling is server-wide: slots carry noise all-or-none
                 nz = (
-                    pad_noise([s["nz"] for s in slots], batch, self.device)
+                    pad_noise(
+                        [typing.cast(dict[str, torch.Tensor], s["nz"]) for s in slots],
+                        batch,
+                        self.device,
+                    )
                     if slots[0]["nz"] is not None
                     else None
                 )
@@ -267,7 +278,7 @@ class ModelBackend:
                 resp.value = v
         return resp
 
-    def _write_mu(self, g: int, dec: dict, task: str, ex: dict, aux: dict, out: dict) -> None:
+    def _write_mu(self, g: int, dec: dict, task: str, ex: Example, aux: dict, out: dict) -> None:
         """One behavior-policy record (M2 D6) -> mu.jsonl, joined at ingest
         on (g, s). Record construction lives in sampling.mu_record."""
         from anvil.policy.sampling import mu_record

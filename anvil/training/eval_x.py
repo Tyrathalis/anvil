@@ -11,15 +11,17 @@ and reports X accuracy per checkpoint at SE ~2pp.
 from __future__ import annotations
 
 import argparse
+import typing
 
 import torch
 
+from anvil.schemas.tensors import Example
 from anvil.store.trajectories import open_store
 from anvil.training.dataset import PriorityWindows, _split_of, collate, default_methods
 from anvil.training.train import build_net
 
 
-def x_windows(cfg: dict, max_games: int | None) -> list[dict]:
+def x_windows(cfg: dict, max_games: int | None) -> list[Example]:
     ds = PriorityWindows(
         cfg["store"], cfg["embed"], default_methods(), split="val", shuffle_games=False
     )
@@ -27,7 +29,7 @@ def x_windows(cfg: dict, max_games: int | None) -> list[dict]:
     games = [g for g in store.game_indices() if _split_of(g) == "val"]
     if max_games:
         games = games[:max_games]
-    wins = []
+    wins: list[Example] = []
     for g in games:
         try:
             for ex in ds._examples(store, g):
@@ -75,7 +77,8 @@ def main() -> None:
         ok = n = 0
         with torch.no_grad():
             for i in range(0, len(wins), a.batch):
-                c = {k: v.to(device) for k, v in collate(wins[i : i + a.batch]).items()}
+                raw = collate(wins[i : i + a.batch])
+                c = {k: typing.cast(torch.Tensor, v).to(device) for k, v in raw.items()}
                 with torch.autocast(device, dtype=torch.bfloat16):
                     out = net(c)
                 m = c["x_val"] >= 0

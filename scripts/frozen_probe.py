@@ -47,10 +47,13 @@ import argparse
 import hashlib
 import json
 import time
+import typing
 from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
+
+from anvil.schemas.tensors import Example
 
 DATASET = "data/runs/critic-calibration-v1/dataset.jsonl"
 CALIB_REPORT = "data/runs/critic-calibration-v1/report.json"
@@ -109,13 +112,13 @@ def features(args: argparse.Namespace) -> None:
 
         @torch.no_grad()
         def capture(
-            examples: list[dict],
+            examples: list[Example],
             ev: ValueEvaluator = ev,
         ) -> tuple[np.ndarray, ...]:
             ss, pp, vv = [], [], []
             for i in range(0, len(examples), ev.batch):
                 chunk = collate(examples[i : i + ev.batch])
-                chunk = {k: v.to(ev.device) for k, v in chunk.items()}
+                chunk = {k: typing.cast(torch.Tensor, v).to(ev.device) for k, v in chunk.items()}
                 with torch.autocast(ev.device, dtype=torch.bfloat16):
                     card_vecs = ev.net.cards(chunk["ent_emb"])
                     tokens, pad = ev.net.assemble(card_vecs, chunk)
