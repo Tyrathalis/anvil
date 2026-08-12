@@ -112,6 +112,31 @@ Notes (replay triage, 2026-07-06):
   question answered, not a blind empty-guard; scope for its own session or
   fold into the consolidation PR. Drill accounting carries the 9 as
   excluded-with-cause meanwhile (1.6% of the map).
+- **FIXED (2026-08-11, fork `b361dfcb8f`, D3 stability pass).** The
+  ordering hypothesis was WRONG (remembered wiring precedes the copy's
+  `checkStateEffects`); the real cause: `copyGameState` restored
+  `setEffectSource` only inside its battlefield-only loop, so
+  command-zone Effect cards (the Prepared mechanic's
+  `MayPlayPlayer$ EffectSourceController` — 6 of the 16 repro decks carry
+  Prepare cards) resolved `findEffectRoot` null in copies while the
+  original kept its retained pointer. Fix: restore the link for every
+  copied card whose source was also copied; no guard at the resolution
+  site (a residual empty list stays a loud crash by design).
+  `EffectSourceCopyTest` reproduces the field IndexOOB pre-fix, green
+  post-fix; full desktop suite green. Upstream candidate (GameCopier).
+- **The carried normal-game IndexOOB was a DIFFERENT class — also FIXED
+  (2026-08-11, fork `9f0a2c0886`).** Traced replay of run13-finalarm-s0
+  g351 captured the stack the class never had: `ComputerUtil.chooseTapType`
+  runs the STATION power filter (strips power ≤ 0) AFTER the
+  size-vs-amount guard, then indexes past the shrunk list — dc-863943's
+  correlation is Synthesizer Labship stationing over 0-power artifact
+  boards (Krang deck). Fix: re-check after the filter, return null
+  (AiCostDecision maps null to a clean payment decline). Same-class
+  hypothesis with MayPlay explicitly falsified (reproduced identically on
+  the GameCopier-fixed jar; normal games never enter makeCopy).
+  `StationTapCostTest` fail-first pair; g351 replays to completion on the
+  fixed jar (won turn 15 vs crash turn 7). Stock-Forge path — clean
+  upstream candidate.
 
 ## Diagnosed hang class — targeting-retry wedge in drill completions (2026-07-30/31, d6-run10; forensics QUEUED post-run)
 
@@ -141,6 +166,23 @@ Notes (replay triage, 2026-07-06):
   `setGameOver` didn't stop the loop before 1 GiB accumulated — either the
   engine loop never re-checks game-over (upstream-relevant) or our
   watchdog has a blind spot (ours to fix).
+- **D3 stability-pass disposition (2026-08-11): CLOSED AS BOUNDED,
+  repro unreachable.** The era-exact repro cannot be rebuilt: the wedge
+  state was reached by ARGMAX mainline replay, retired by the ADR-0052
+  `--sample-mainline` fix — a fresh replay of g734 under current serving
+  ends turn 27 without reaching the drilled turn (solo-replay drift, as
+  documented). Question (3) answered by code reading: `mainGameLoop` AND
+  `mainLoopStep` both check `isGameOver` per step (PhaseHandler:1034,
+  :1121), and the priority do-while caps at 999 for AI seats and then
+  passes priority — so the watchdog's `setGameOver` is consulted between
+  steps, and the wedge must live INSIDE a single controller/resolve call
+  (consistent with the recorded AI-eval-thread timeout dumps: deep
+  blocker-evaluation recursion under cost adjustment). No fix without a
+  reproducing state; the class stays cost-bounded by the landed guards
+  (owner-bound fork frames + ingest quarantine + Obs RAW_CAP + census
+  rawcap) and VISIBLE (360s ms rows + cap markers). Watch-list item: if
+  a wedge row reappears in the corrected-era drill campaign, re-open
+  with `-Danvil.crash.trace` armed in that run's ANVIL_EXTRA_JVM_OPTS.
 
 ## Queued follow-up PR — GameCopier → GameSnapshot consolidation (volunteered 2026-07-11, maintainer-blessed at #11203 merge 2026-07-12)
 
