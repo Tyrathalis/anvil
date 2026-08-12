@@ -26,6 +26,7 @@ project map — so this index is the navigation layer.
 - [upstream-worklist.md](design/upstream-worklist.md) — queued upstream contributions + diagnosed engine classes (incl. the ADR-0055 copy-state divergence class)
 - [playable-fork-worklist.md](design/playable-fork-worklist.md) — playable-track doc of record
 - [chronicle-mvp-plan.md](design/chronicle-mvp-plan.md) — Chronicle side-stream plan (active; D3 iteration next)
+- [run-analysis-protocol.md](design/run-analysis-protocol.md) — the standing post-run analysis battery (pinned 2026-08-12; `anvil/evals/battery.py`)
 
 **Reference (stable, still load-bearing):**
 

@@ -952,6 +952,14 @@ def main() -> None:
             "guard": guards,
         }
         monitor.write(json.dumps(row) + "\n")
+        # ---- standing analysis battery (run-analysis-protocol.md): cheap
+        # per-iteration pass — monitor curves + the holding row. Diagnostic
+        # only; battery.emit never raises into the loop ----
+        from anvil.evals import battery
+
+        battery_an = battery.emit(battery.per_iteration, out, group) or []
+        if battery_an:
+            print(f"[selfplay] battery anomalies iteration {k}: {battery_an}")
         if flags:
             print(f"[selfplay] !!! ANOMALY FLAGS iteration {k}: {flags}")
         if guards:
@@ -1038,9 +1046,17 @@ def main() -> None:
             _drill_eval_phase(args, state, k, it_dir)
 
     print(f"[selfplay] loop complete: {state['iteration']} iterations, final ckpt {state['ckpt']}")
+    # ---- run-end battery: full curves + holding trajectory + behavioral
+    # delta (init vs final). The anomaly lines ride the COMPLETE notify so
+    # the report gets read by default (run-analysis-protocol rule 2) ----
+    from anvil.evals import battery
+
+    end_an = battery.emit(battery.run_end, out) or []
+    an_txt = "; ".join(end_an) if end_an else "none"
     _notify(
         f"anvil {args.name}: COMPLETE",
-        f"{state['iteration']} iterations, final ckpt {state['ckpt']}",
+        f"{state['iteration']} iterations, final ckpt {state['ckpt']}; "
+        f"battery anomalies: {an_txt} (report {out / 'analysis' / 'analysis.md'})",
     )
     _watch_unregister(args.name)
 

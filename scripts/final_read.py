@@ -147,7 +147,27 @@ def main() -> None:
         ]
     )
     print(f"[final_read] report: {out}")
-    notify(f"anvil {a.name}: read complete", str(out), tag="final_read")
+    # ---- standing analysis battery (run-analysis-protocol.md): eval read —
+    # seed-half consistency, distributions, deck spread. Diagnostic only;
+    # anomaly lines ride the notify so the report gets read by default ----
+    from anvil.evals import battery
+
+    an = (
+        battery.emit(
+            battery.eval_read,
+            a.name,
+            [str(d) for d in arm_dirs],
+            str(out),
+            RUNS_DIR / f"{a.name}-analysis",
+        )
+        or []
+    )
+    an_txt = "; ".join(an) if an else "none"
+    notify(
+        f"anvil {a.name}: read complete",
+        f"{out}; battery anomalies: {an_txt}",
+        tag="final_read",
+    )
     watch_unregister(f"{a.name}-read")
 
 
