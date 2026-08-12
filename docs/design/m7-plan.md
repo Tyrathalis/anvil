@@ -225,9 +225,45 @@ horizon is a campaign hyperparameter. **Next: the C-bundle design round
 calibrated against the measured −1.5pp/turn passivity cost) → D3
 boundary → the run vs the standing gate.**
 
-Three attribution-separable components; bundle shape decided on D1's
-numbers (aggressive-inclusion posture per ADR-0042, with per-lever
-instruments):
+**C-bundle design PINNED (user-approved 2026-08-11, third session;
+[ADR-0054](../decisions/ADR-0054-c-bundle-design.md) is the record):**
+
+1. **C-seq target = advantage × specific-cast contrast** at the marked
+   mainline fork window: L_seq = −Â(fp)·[log p(cast*) − log p(pass)],
+   Â = wr_act − wr_hold clipped ±0.25, cast* = the act arm's modal
+   first cast (fallback cast-mass-vs-pass under 50% agreement).
+   Labels-row extension: record act-arm first-cast SA + agreement.
+2. **Campaign: P≈100 points/iter, K=16, two arms, fresh every
+   iteration** (the act arm is policy-conditional — freshness beats
+   K=32's precision), model-active in-band selection riding the drill
+   phase's rotating slice; ≈ +1h/iteration. w_seq calibrated at run
+   start to ~10% of policy-gradient mass; own metrics accumulator.
+3. **C2a channel = critic phase + policy aux.** Discovered fact: the
+   loop retrains the full-vis critic every iteration and pass-A values
+   (the advantage's V) come from it — so the drilled-point wr_K(fp)
+   aux BCE goes into `finetune_value` (capped ~10% of critic batches),
+   realizing the mechanism-of-action statement with zero new
+   generation; the same aux also lands on the policy's masked head
+   (trunk shaping). No drill-regime task token in v1.
+4. **C3 = first-attempt-only + λ=0.01.** The pre-work chain read is
+   RESOLVED (`scripts/rejected_chain_read.py`, 20 run13 main stores,
+   49,902 events / 9,596 traj, 5.2/traj): **57.8% singletons, chains
+   short (83% len-2, 12 cap hits), first-attempt-only alone cuts only
+   23.5% of exposure — the over-pricing is λ magnitude** (0.02/event >
+   0.015 = one held turn's measured cost); 76% of veto windows end
+   abandoned (penalty + tempo loss both paid); chain length is
+   realizer walk-down machinery, not graded intent. New pricing: one
+   λ=0.01 per veto window — per-window exposure strictly below one
+   held turn; total ~38% of current. Guards stay armed; the λ change
+   rides the D3 era boundary.
+
+Owed before the run (D1 rider, still unlanded): the ADR-0049
+cast-suppression + interaction-holding reads productionized into
+`scripts/` as the gate's attribution instruments.
+
+Original component sketches (superseded by the pins above where they
+differ); bundle shape decided on D1's numbers (aggressive-inclusion
+posture per ADR-0042, with per-lever instruments):
 
 - **C2a — rollout value targets at drilled decisions** (design §4
   verbatim). The loop already computes per-fork-point K-rollout winrates

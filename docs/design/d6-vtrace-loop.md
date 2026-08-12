@@ -183,6 +183,16 @@ casts + combat drops, λ = 0.02.** Amends design §3d's terminal-only reward.
 First training use = run-5, gated on run-4's feature-only verdict and the
 census-reconciliation gate below.
 
+**M7 amendment ([ADR-0054](../decisions/ADR-0054-c-bundle-design.md),
+2026-08-11): re-priced to first-attempt-only, λ = 0.01** — one penalty per
+veto *window* regardless of §6b chain length (the run13 chain read: 57.8%
+singletons, chains short, chain length is realizer walk-down machinery;
+the over-pricing was λ = 0.02 exceeding 0.015, the measured cost of one
+held turn, ADR-0053). Per-window exposure now strictly below one held
+turn's cost. Combat drops (chainless) take the new λ. Guards below stay
+armed. Effective from the D3 era boundary (a λ change is an RL-chain
+boundary).
+
 **Motivation.** Re-ask (§6b) removed the reward *leak* but also the last
 vestige of *cost* for doomed attempts: every attempt in a re-ask chain
 shares the window's eventual outcome, so the advantage differential between
