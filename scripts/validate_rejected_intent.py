@@ -84,25 +84,23 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--store", required=True)
     ap.add_argument("--run", required=True)
-    ap.add_argument("--strict", action="store_true",
-                    help="exit nonzero on any mismatch (gate mode)")
+    ap.add_argument(
+        "--strict", action="store_true", help="exit nonzero on any mismatch (gate mode)"
+    )
     ap.add_argument("--stem", default="data/embeddings/cf2ca6ba-qwen3")
     args = ap.parse_args()
 
     d = derived_counts(args.store, args.stem)
     c = census_counts(args.run)
-    print(f"store: {args.store} ({d['games']} mu-covered games, "
-          f"{d['skipped']} skipped)")
+    print(f"store: {args.store} ({d['games']} mu-covered games, {d['skipped']} skipped)")
     ok = True
     for k in ("priority", "attack", "block"):
         match = d[k] == c[k]
         ok = ok and match
-        print(f"  {k:9} derived {d[k]:7}  census {c[k]:7}  "
-              f"{'OK' if match else 'MISMATCH'}")
+        print(f"  {k:9} derived {d[k]:7}  census {c[k]:7}  {'OK' if match else 'MISMATCH'}")
     if args.strict and not ok:
         raise SystemExit(1)
-    report = {"store": args.store, "run": args.run,
-              "derived": d, "census": c, "match": ok}
+    report = {"store": args.store, "run": args.run, "derived": d, "census": c, "match": ok}
     out = Path(args.store) / "rejected_intent_validation.json"
     out.write_text(json.dumps(report, indent=1) + "\n")
     print(f"report: {out}")

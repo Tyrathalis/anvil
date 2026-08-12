@@ -56,7 +56,7 @@ def label_window(decs: list[dict], i: int, turn: int, flag: str) -> dict | None:
     whose own combat had no flags join a later combat's window (the 145
     block violations classified 2026-07-13 — all were this overshoot).
     Returns None when the combat ends with no flagged window (empty label)."""
-    for d in decs[i + 1:]:
+    for d in decs[i + 1 :]:
         if d["m"] == "declareAttackers":
             return None
         obs = d.get("obs")
@@ -83,7 +83,7 @@ def main() -> None:
     group_partials = Counter()  # (attacked, group_size) events where 0<attacked<size
     games = 0
 
-    for g in store.game_indices()[:a.max_games]:
+    for g in store.game_indices()[: a.max_games]:
         try:
             traj = store.game(g)
         except Exception:
@@ -106,8 +106,7 @@ def main() -> None:
                     st["atk_label_empty"] += 1
                     atk_sizes[0] += 1
                     continue
-                attackers = {e["e"]: e["atk"] for e in lw["ents"]
-                             if "atk" in e and e.get("c") == p}
+                attackers = {e["e"]: e["atk"] for e in lw["ents"] if "atk" in e and e.get("c") == p}
                 if not attackers:
                     st["atk_label_empty_flagged_window"] += 1
                     atk_sizes[0] += 1
@@ -152,8 +151,7 @@ def main() -> None:
                 if lw is None:
                     st["blk_label_empty"] += 1
                     continue
-                blockers = {e["e"]: e["blk"] for e in lw["ents"]
-                            if "blk" in e and e.get("c") == p}
+                blockers = {e["e"]: e["blk"] for e in lw["ents"] if "blk" in e and e.get("c") == p}
                 if not blockers:
                     st["blk_label_empty_flagged_window"] += 1
                     continue
@@ -173,7 +171,8 @@ def main() -> None:
                             st["blk_violation_target_not_attacker"] += 1
 
     report = {
-        "store": a.store, "games": games,
+        "store": a.store,
+        "games": games,
         "stats": dict(st),
         "atk_label_sizes": {str(k): v for k, v in sorted(atk_sizes.items())},
         "blk_fanout": {str(k): v for k, v in sorted(blk_fanout.items())},
@@ -186,16 +185,24 @@ def main() -> None:
     aw, bw = st["atk_windows"], st["blk_windows"]
     viol_a = sum(v for k, v in st.items() if k.startswith("atk_violation"))
     viol_b = sum(v for k, v in st.items() if k.startswith("blk_violation"))
-    print(f"{games} games | attack windows {aw} ({aw/max(games,1):.1f}/game), "
-          f"block windows {bw} ({bw/max(games,1):.1f}/game)")
-    print(f"attacks: nonempty {st['atk_label_nonempty']} "
-          f"({st['atk_label_nonempty']/max(aw,1):.1%}), "
-          f"violations {viol_a} ({viol_a/max(st['atk_target_player']+st['atk_target_permanent'],1):.2%} of attackers), "
-          f"targets player/permanent {st['atk_target_player']}/{st['atk_target_permanent']}")
-    print(f"blocks: nonempty {st['blk_label_nonempty']} "
-          f"({st['blk_label_nonempty']/max(bw,1):.1%}), violations {viol_b}")
-    print(f"dedup partial-count events: {st['atk_group_partial_events']} "
-          f"(multi-groups seen {st['atk_multi_groups_seen']})")
+    print(
+        f"{games} games | attack windows {aw} ({aw / max(games, 1):.1f}/game), "
+        f"block windows {bw} ({bw / max(games, 1):.1f}/game)"
+    )
+    print(
+        f"attacks: nonempty {st['atk_label_nonempty']} "
+        f"({st['atk_label_nonempty'] / max(aw, 1):.1%}), "
+        f"violations {viol_a} ({viol_a / max(st['atk_target_player'] + st['atk_target_permanent'], 1):.2%} of attackers), "
+        f"targets player/permanent {st['atk_target_player']}/{st['atk_target_permanent']}"
+    )
+    print(
+        f"blocks: nonempty {st['blk_label_nonempty']} "
+        f"({st['blk_label_nonempty'] / max(bw, 1):.1%}), violations {viol_b}"
+    )
+    print(
+        f"dedup partial-count events: {st['atk_group_partial_events']} "
+        f"(multi-groups seen {st['atk_multi_groups_seen']})"
+    )
     print(f"label sizes: {dict(sorted(atk_sizes.items()))}")
     print(f"block fanout: {dict(sorted(blk_fanout.items()))}")
     print(f"report -> {out}")

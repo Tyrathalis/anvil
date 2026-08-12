@@ -39,7 +39,7 @@ def _pre_collated(n: int, seg: int):
     the learner's seg size (2026-07-26 refactor), so OOM elasticity has to
     SLICE them rather than re-chunk a list of examples."""
     exs = [{"x": torch.full((3,), float(i))} for i in range(n)]
-    return [_stub_collate(exs[i:i + seg]) for i in range(0, n, seg)]
+    return [_stub_collate(exs[i : i + seg]) for i in range(0, n, seg)]
 
 
 def test_forward_segments_halves_on_oom_and_sticks():
@@ -96,9 +96,11 @@ class _ValueNet(torch.nn.Module):
 
 def _value_batch(n=16, seed=0):
     g = torch.Generator().manual_seed(seed)
-    return {"feat": torch.randn(n, 4, generator=g),
-            "has_outcome": torch.ones(n, dtype=torch.int64),
-            "won": (torch.rand(n, generator=g) < 0.5).to(torch.int64)}
+    return {
+        "feat": torch.randn(n, 4, generator=g),
+        "has_outcome": torch.ones(n, dtype=torch.int64),
+        "won": (torch.rand(n, generator=g) < 0.5).to(torch.int64),
+    }
 
 
 def test_train_batch_split_matches_whole_batch_gradient():
@@ -135,6 +137,7 @@ def test_auto_seg_table_pin_and_fallback(monkeypatch):
     def fake_smi(free_mb):
         class R:
             stdout = f"{free_mb}\n"
+
         return lambda *a, **k: R()
 
     monkeypatch.setattr(sp.subprocess, "run", fake_smi(20000))
@@ -147,5 +150,6 @@ def test_auto_seg_table_pin_and_fallback(monkeypatch):
 
     def boom(*a, **k):
         raise FileNotFoundError("no nvidia-smi")
+
     monkeypatch.setattr(sp.subprocess, "run", boom)
     assert _auto_seg(0) == 128  # conservative fallback

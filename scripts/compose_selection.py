@@ -32,8 +32,7 @@ def main() -> None:
     lo, hi = (float(x) for x in a.band.split(":"))
 
     sel_dir = Path(a.selection)
-    rows = [json.loads(x)
-            for x in (sel_dir / "selection.jsonl").read_text().splitlines()]
+    rows = [json.loads(x) for x in (sel_dir / "selection.jsonl").read_text().splitlines()]
     peak = {}
     for x in (Path(a.peak_arm) / "drills.jsonl").read_text().splitlines():
         r = json.loads(x)
@@ -41,24 +40,27 @@ def main() -> None:
             peak[(r["store"], r["g"])] = r
 
     def is_ahead(r: dict) -> bool:
-        return r["drill_turn"] == r["peak_turn"] \
-            and r["peak_turn"] < r["crash_from_turn"]
+        return r["drill_turn"] == r["peak_turn"] and r["peak_turn"] < r["crash_from_turn"]
 
     n = len(rows)
     target = round(a.ahead_share * n)
     have = sum(1 for r in rows if is_ahead(r))
     # crash-anchored entries whose game has a band-eligible peak label,
     # deterministic hash order
-    cands = [r for r in rows
-             if not is_ahead(r) and r["drill_turn"] == r["crash_from_turn"]
-             and (r["store"], r["g"]) in peak]
-    cands = [r for r in cands
-             if lo <= (lambda p: p["model_wins"] / p["n"])(
-                 peak[(r["store"], r["g"])]) <= hi
-             and peak[(r["store"], r["g"])]["fired_t"]
-             < r["crash_from_turn"]]
-    cands.sort(key=lambda r: hashlib.sha256(
-        f"compose:{r['store']}:{r['g']}".encode()).hexdigest())
+    cands = [
+        r
+        for r in rows
+        if not is_ahead(r)
+        and r["drill_turn"] == r["crash_from_turn"]
+        and (r["store"], r["g"]) in peak
+    ]
+    cands = [
+        r
+        for r in cands
+        if lo <= (lambda p: p["model_wins"] / p["n"])(peak[(r["store"], r["g"])]) <= hi
+        and peak[(r["store"], r["g"])]["fired_t"] < r["crash_from_turn"]
+    ]
+    cands.sort(key=lambda r: hashlib.sha256(f"compose:{r['store']}:{r['g']}".encode()).hexdigest())
     swapped = 0
     for r in cands:
         if have + swapped >= target:
@@ -70,18 +72,21 @@ def main() -> None:
         r["sel_rule"] = "band-peak-compose"
         swapped += 1
 
-    (sel_dir / "selection.jsonl").write_text(
-        "".join(json.dumps(r) + "\n" for r in rows))
+    (sel_dir / "selection.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
     meta = json.loads((sel_dir / "meta.json").read_text())
     final = sum(1 for r in rows if is_ahead(r))
-    meta["compose"] = {"ahead_target": a.ahead_share, "swapped": swapped,
-                      "ahead_share": round(final / n, 4),
-                      "mean_sel_wr": round(sum(r["sel_wr"] for r in rows) / n,
-                                           4)}
+    meta["compose"] = {
+        "ahead_target": a.ahead_share,
+        "swapped": swapped,
+        "ahead_share": round(final / n, 4),
+        "mean_sel_wr": round(sum(r["sel_wr"] for r in rows) / n, 4),
+    }
     (sel_dir / "meta.json").write_text(json.dumps(meta, indent=1) + "\n")
-    print(f"[compose] {swapped} swaps -> ahead {final}/{n} = {final/n:.1%} "
-          f"(target {a.ahead_share:.1%}), mean wr "
-          f"{meta['compose']['mean_sel_wr']}")
+    print(
+        f"[compose] {swapped} swaps -> ahead {final}/{n} = {final / n:.1%} "
+        f"(target {a.ahead_share:.1%}), mean wr "
+        f"{meta['compose']['mean_sel_wr']}"
+    )
 
 
 if __name__ == "__main__":

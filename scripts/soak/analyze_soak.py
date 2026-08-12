@@ -7,6 +7,7 @@ Reports: games completed and games/hour, RSS start/end/max and trend (MB/h),
 heap-after-GC trend (the actual leak signal), and full-GC count.
 Stdlib only.
 """
+
 import re
 import sys
 from pathlib import Path
@@ -49,12 +50,18 @@ def main(out_dir: Path) -> None:
             rss_mb = [kb / 1024 for _, kb, _ in rows]
             slope = linear_slope([(t - t0) / 3600 for t, _, _ in rows], rss_mb)
             print(f"duration: {hours:.2f} h ({len(rows)} samples)")
-            print(f"RSS MB: start {rss_mb[0]:.0f}, end {rss_mb[-1]:.0f}, "
-                  f"max {max(rss_mb):.0f}, trend {slope:+.1f} MB/h")
+            print(
+                f"RSS MB: start {rss_mb[0]:.0f}, end {rss_mb[-1]:.0f}, "
+                f"max {max(rss_mb):.0f}, trend {slope:+.1f} MB/h"
+            )
             games = [g for _, _, g in rows if g is not None]
             if games and hours > 0:
-                print(f"games: {games[-1]} completed, {games[-1] / hours:.0f} games/h "
-                      f"({3600 / (games[-1] / hours):.1f} s/game)" if games[-1] else "games: 0")
+                print(
+                    f"games: {games[-1]} completed, {games[-1] / hours:.0f} games/h "
+                    f"({3600 / (games[-1] / hours):.1f} s/game)"
+                    if games[-1]
+                    else "games: 0"
+                )
     else:
         print("no rss.csv found")
     print()
@@ -77,10 +84,14 @@ def main(out_dir: Path) -> None:
             slope = linear_slope(times, after)
             q = len(after) // 4 or 1
             print(f"GC events parsed: {len(after)}, full GCs: {full_gcs}")
-            print(f"heap-after-GC MB: first-quartile avg {sum(after[:q]) / q:.0f}, "
-                  f"last-quartile avg {sum(after[-q:]) / q:.0f}, trend {slope:+.1f} MB/h")
-            print("verdict hint: flat heap-after-GC + flat RSS = no leak; "
-                  "climbing heap-after-GC = LearnForge-style leak lives.")
+            print(
+                f"heap-after-GC MB: first-quartile avg {sum(after[:q]) / q:.0f}, "
+                f"last-quartile avg {sum(after[-q:]) / q:.0f}, trend {slope:+.1f} MB/h"
+            )
+            print(
+                "verdict hint: flat heap-after-GC + flat RSS = no leak; "
+                "climbing heap-after-GC = LearnForge-style leak lives."
+            )
         else:
             print("gc.log present but no heap transitions parsed")
     else:

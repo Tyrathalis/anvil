@@ -14,10 +14,15 @@ from anvil.store import OBS_SCHEMA_VERSION, decode_frame, parse_ret
 from anvil.store.castplan import ValidationReport, validate_game
 from anvil.store.trajectories import GameTrajectory
 
-BOLT = {"e": 81, "sa": "Lightning Bolt - deals 3 damage", "kind": "spell",
-        "tgt": [{"pi": 1}]}
-KICKED = {"e": 90, "sa": "Rite of Replication (Kicked)", "kind": "spell",
-          "tgt": [{"e": 55}], "x": None, "opt": ["Kicker1"]}
+BOLT = {"e": 81, "sa": "Lightning Bolt - deals 3 damage", "kind": "spell", "tgt": [{"pi": 1}]}
+KICKED = {
+    "e": 90,
+    "sa": "Rite of Replication (Kicked)",
+    "kind": "spell",
+    "tgt": [{"e": 55}],
+    "x": None,
+    "opt": ["Kicker1"],
+}
 LAND = {"e": 70, "sa": "Play Mountain", "kind": "land"}
 
 
@@ -46,13 +51,21 @@ def _dec(s, method, p=0, obs=None, opts=None, args=None, ret="__absent__"):
 
 
 def _traj(decisions):
-    header = {"k": "game", "sv": OBS_SCHEMA_VERSION, "g": 0, "seed": 1, "fmt": "Commander",
-              "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}]}
+    header = {
+        "k": "game",
+        "sv": OBS_SCHEMA_VERSION,
+        "g": 0,
+        "seed": 1,
+        "fmt": "Commander",
+        "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}],
+    }
     return GameTrajectory(header, decisions, {"k": "end", "status": "won", "winner": 0}, {})
 
 
-OPTS = [{"e": 81, "sa": "Lightning Bolt - deals 3 damage", "kind": "spell"},
-        {"e": 70, "sa": "Play Mountain", "kind": "land"}]
+OPTS = [
+    {"e": 81, "sa": "Lightning Bolt - deals 3 damage", "kind": "spell"},
+    {"e": 70, "sa": "Play Mountain", "kind": "land"},
+]
 
 
 def test_parse_ret_shapes():
@@ -64,9 +77,17 @@ def test_parse_ret_shapes():
     assert p.optional_costs == ["Kicker1"] and p.multikicker == 0
     assert list(p.all_target_refs) == [{"e": 55}]
     # nested modes + sub targets both feed all_target_refs
-    modal = parse_ret([{"e": 1, "sa": "Charm", "kind": "spell",
-                        "modes": [{"e": 1, "sa": "Mode A", "kind": "other", "tgt": [{"pi": 0}]}],
-                        "sub": [{"i": 2, "tgt": [{"e": 55}]}]}])[0]
+    modal = parse_ret(
+        [
+            {
+                "e": 1,
+                "sa": "Charm",
+                "kind": "spell",
+                "modes": [{"e": 1, "sa": "Mode A", "kind": "other", "tgt": [{"pi": 0}]}],
+                "sub": [{"i": 2, "tgt": [{"e": 55}]}],
+            }
+        ]
+    )[0]
     assert {"pi": 0} in list(modal.all_target_refs)
     assert {"e": 55} in list(modal.all_target_refs)
 
@@ -89,9 +110,13 @@ def test_validate_clean_game():
 def test_validate_catches_bad_refs():
     decs = [
         # host 99 not observed; target e=123 not observed; pi out of range
-        _dec(0, "chooseSpellAbilityToPlay", obs=_obs(), opts=OPTS,
-             ret=[{"e": 99, "sa": "Ghost", "kind": "spell",
-                   "tgt": [{"e": 123}, {"pi": 5}]}]),
+        _dec(
+            0,
+            "chooseSpellAbilityToPlay",
+            obs=_obs(),
+            opts=OPTS,
+            ret=[{"e": 99, "sa": "Ghost", "kind": "spell", "tgt": [{"e": 123}, {"pi": 5}]}],
+        ),
     ]
     r = ValidationReport()
     validate_game(_traj(decs), r)
@@ -102,12 +127,17 @@ def test_validate_catches_bad_refs():
 
 
 def test_validate_stack_target_ok():
-    counterspell = {"e": 81, "sa": "Counterspell", "kind": "spell",
-                    "tgt": [{"e": 200, "stk": 1}]}
-    decs = [_dec(0, "chooseSpellAbilityToPlay", obs=_obs(stack=[200]),
-                 opts=[{"e": 81, "sa": "Counterspell", "kind": "spell"}],
-                 ret=[counterspell]),
-            _dec(1, "playChosenSpellAbility", args={"sa": "Counterspell"})]
+    counterspell = {"e": 81, "sa": "Counterspell", "kind": "spell", "tgt": [{"e": 200, "stk": 1}]}
+    decs = [
+        _dec(
+            0,
+            "chooseSpellAbilityToPlay",
+            obs=_obs(stack=[200]),
+            opts=[{"e": 81, "sa": "Counterspell", "kind": "spell"}],
+            ret=[counterspell],
+        ),
+        _dec(1, "playChosenSpellAbility", args={"sa": "Counterspell"}),
+    ]
     r = ValidationReport()
     validate_game(_traj(decs), r)
     assert r.ok, r.errors
@@ -128,9 +158,16 @@ def test_validate_play_mismatch_and_seat_isolation():
 
 def test_validate_string_opts_are_not_structured():
     """M0 bridged-path opts are plain strings incl. 'pass'; no opts checks."""
-    decs = [_dec(0, "chooseSpellAbilityToPlay", obs=_obs(),
-                 opts=["pass", "Lightning Bolt - deals 3 damage"], ret=[BOLT]),
-            _dec(1, "playChosenSpellAbility", args={"sa": "Lightning Bolt"})]
+    decs = [
+        _dec(
+            0,
+            "chooseSpellAbilityToPlay",
+            obs=_obs(),
+            opts=["pass", "Lightning Bolt - deals 3 damage"],
+            ret=[BOLT],
+        ),
+        _dec(1, "playChosenSpellAbility", args={"sa": "Lightning Bolt"}),
+    ]
     r = ValidationReport()
     validate_game(_traj(decs), r)
     assert r.ok, r.errors
@@ -140,8 +177,14 @@ def test_validate_string_opts_are_not_structured():
 def test_roundtrip_through_frame():
     """The D2 record shapes survive the zstd frame + decode_frame join."""
     recs = [
-        {"k": "game", "sv": OBS_SCHEMA_VERSION, "g": 7, "seed": 3, "fmt": "Commander",
-         "players": [{"name": "P0"}, {"name": "P1"}]},
+        {
+            "k": "game",
+            "sv": OBS_SCHEMA_VERSION,
+            "g": 7,
+            "seed": 3,
+            "fmt": "Commander",
+            "players": [{"name": "P0"}, {"name": "P1"}],
+        },
         _dec(0, "chooseSpellAbilityToPlay", obs=_obs(), opts=OPTS),
         {"k": "ret", "s": 0, "v": [LAND]},
         {"k": "end", "status": "won", "winner": 0, "turns": 5, "ms": 100},

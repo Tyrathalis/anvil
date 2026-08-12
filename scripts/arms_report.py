@@ -73,8 +73,9 @@ def aggregate(run_dirs: list[Path]) -> dict:
                 m = r.get("m")
                 if m == PRIORITY and r.get("by") == "bridge":
                     if r.get("veto"):
-                        vetoes[r.get("veto") if isinstance(r["veto"], str)
-                               else r.get("reason", "veto")] += 1
+                        vetoes[
+                            r.get("veto") if isinstance(r["veto"], str) else r.get("reason", "veto")
+                        ] += 1
                         if not r.get("reask"):
                             prio["first_veto"] += 1
                     elif r.get("pick") == "pass":
@@ -106,8 +107,7 @@ def aggregate(run_dirs: list[Path]) -> dict:
     out["veto_rate"] = n_veto / max(prio["cast"] + n_veto, 1)
     # M3 D1: chain-independent basis (one first attempt per window; census
     # "reask" marks attempts > 0 only) — comparable across reask on/off envs
-    out["first_veto_rate"] = prio["first_veto"] / max(
-        prio["first_veto"] + prio["first_cast"], 1)
+    out["first_veto_rate"] = prio["first_veto"] / max(prio["first_veto"] + prio["first_cast"], 1)
     out["reask"] = reask_env
     if reask_env:
         # rescue rate = vetoed cast intents eventually realized in-window
@@ -137,26 +137,32 @@ def merge_ante(arm: dict, run_dirs: list[Path], reports: list[Path]) -> None:
     for rd in run_dirs:
         rep = by_store.get(rd.name)
         if rep is None:
-            raise SystemExit(f"--ante: no certify report for run {rd.name} "
-                             f"(have {sorted(by_store)})")
+            raise SystemExit(
+                f"--ante: no certify report for run {rd.name} (have {sorted(by_store)})"
+            )
         seats = str(json.loads((rd / "run.json").read_text()).get("bridge_seats"))
         if seats not in ("0", "1"):
-            raise SystemExit(f"--ante: run {rd.name} has bridge_seats={seats}; "
-                             "corrected arms need single-seat mirrored runs")
+            raise SystemExit(
+                f"--ante: run {rd.name} has bridge_seats={seats}; "
+                "corrected arms need single-seat mirrored runs"
+            )
         flip = seats == "1"
         wr = rep["corrected_cv_winrate"]
         raw = rep["raw_winrate"]
-        per_run.append({
-            "run": rd.name, "model_seat": int(seats), "games": rep["games"],
-            "raw_winrate": round(1 - raw, 4) if flip else raw,
-            "corrected_winrate": round(1 - wr, 4) if flip else wr,
-            "corrected_se": rep["corrected_cv_se"],
-            "var_ratio_cv": rep.get("var_ratio_cv"),
-        })
+        per_run.append(
+            {
+                "run": rd.name,
+                "model_seat": int(seats),
+                "games": rep["games"],
+                "raw_winrate": round(1 - raw, 4) if flip else raw,
+                "corrected_winrate": round(1 - wr, 4) if flip else wr,
+                "corrected_se": rep["corrected_cv_se"],
+                "var_ratio_cv": rep.get("var_ratio_cv"),
+            }
+        )
     n_total = sum(r["games"] for r in per_run)
     pooled = sum(r["corrected_winrate"] * r["games"] for r in per_run) / n_total
-    pooled_se = (sum((r["games"] / n_total) ** 2 * r["corrected_se"] ** 2
-                     for r in per_run)) ** 0.5
+    pooled_se = (sum((r["games"] / n_total) ** 2 * r["corrected_se"] ** 2 for r in per_run)) ** 0.5
     arm["ante"] = {
         "corrected_winrate": round(pooled, 4),
         "corrected_se": round(pooled_se, 4),
@@ -167,12 +173,15 @@ def merge_ante(arm: dict, run_dirs: list[Path], reports: list[Path]) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", action="append", required=True,
-                    help="name=run_dir[,run_dir...]")
-    ap.add_argument("--ante", action="append", default=[],
-                    help="name=certify_report.json[,...] — Ante-ledger corrected "
-                         "winrate for the same arm (one report per mirrored run; "
-                         "matched to run dirs by store name)")
+    ap.add_argument("--arm", action="append", required=True, help="name=run_dir[,run_dir...]")
+    ap.add_argument(
+        "--ante",
+        action="append",
+        default=[],
+        help="name=certify_report.json[,...] — Ante-ledger corrected "
+        "winrate for the same arm (one report per mirrored run; "
+        "matched to run dirs by store name)",
+    )
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -190,14 +199,21 @@ def main() -> None:
     Path(args.out).write_text(json.dumps(report, indent=1) + "\n")
     for name, a in report.items():
         wr = a.get("winrate")
-        wr_s = f"winrate {wr:.4f} ± {a['se']:.4f}" if wr is not None else \
-            f"seat0 {a.get('seat0_winrate'):.3f}"
+        wr_s = (
+            f"winrate {wr:.4f} ± {a['se']:.4f}"
+            if wr is not None
+            else f"seat0 {a.get('seat0_winrate'):.3f}"
+        )
         if a.get("ante"):
-            wr_s += (f", ante-corrected {a['ante']['corrected_winrate']:.4f} "
-                     f"± {a['ante']['corrected_se']:.4f}")
-        print(f"{name}: {a['games']} games, {a['decisive']} decisive, "
-              f"{a['crashes']} crashes, {wr_s}, veto_rate {a['veto_rate']:.4f} "
-              f"(first-attempt {a['first_veto_rate']:.4f}), rungs {a['rungs']}")
+            wr_s += (
+                f", ante-corrected {a['ante']['corrected_winrate']:.4f} "
+                f"± {a['ante']['corrected_se']:.4f}"
+            )
+        print(
+            f"{name}: {a['games']} games, {a['decisive']} decisive, "
+            f"{a['crashes']} crashes, {wr_s}, veto_rate {a['veto_rate']:.4f} "
+            f"(first-attempt {a['first_veto_rate']:.4f}), rungs {a['rungs']}"
+        )
 
 
 if __name__ == "__main__":

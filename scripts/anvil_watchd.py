@@ -43,8 +43,7 @@ from pathlib import Path
 
 # ANVIL_WATCH_DIR override = test seam; state file lives BESIDE the
 # registration dir, never inside any watched tree.
-WATCH_DIR = Path(os.environ.get("ANVIL_WATCH_DIR")
-                 or Path.home() / ".local/state/anvil/watch")
+WATCH_DIR = Path(os.environ.get("ANVIL_WATCH_DIR") or Path.home() / ".local/state/anvil/watch")
 STATE_PATH = WATCH_DIR.parent / "watch-state.json"
 
 
@@ -57,14 +56,14 @@ def _notify(title: str, msg: str) -> None:
     cmds = []
     if os.environ.get("ANVIL_NOTIFY_CMD"):
         cmds.append([os.environ["ANVIL_NOTIFY_CMD"], title, msg])
-    cmds.append(["notify-send", "--urgency=critical", "--app-name=anvil",
-                 title, msg])
+    cmds.append(["notify-send", "--urgency=critical", "--app-name=anvil", title, msg])
     for cmd in cmds:
         if shutil.which(cmd[0]) is None:
             continue
         try:
-            subprocess.run(cmd, timeout=30, check=False,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(
+                cmd, timeout=30, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
         except Exception as e:  # noqa: BLE001
             print(f"[watchd] notify via {cmd[0]} failed: {e}", flush=True)
 
@@ -100,16 +99,19 @@ def _newest_mtime(root: Path) -> float:
 def register(a: argparse.Namespace) -> None:
     st = _proc_starttime(a.pid)
     if st is None:
-        sys.exit(f"FATAL: pid {a.pid} not running — register with the live "
-                 f"driver pid")
+        sys.exit(f"FATAL: pid {a.pid} not running — register with the live driver pid")
     WATCH_DIR.mkdir(parents=True, exist_ok=True)
-    rec = {"name": a.name, "pid": a.pid, "starttime": st,
-           "btime": _boot_btime(), "dir": str(Path(a.dir).resolve()),
-           "stall_min": a.stall_min,
-           "registered_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    rec = {
+        "name": a.name,
+        "pid": a.pid,
+        "starttime": st,
+        "btime": _boot_btime(),
+        "dir": str(Path(a.dir).resolve()),
+        "stall_min": a.stall_min,
+        "registered_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
     (WATCH_DIR / f"{a.name}.json").write_text(json.dumps(rec, indent=2) + "\n")
-    print(f"[watchd] registered {a.name}: pid {a.pid} dir {rec['dir']} "
-          f"stall {a.stall_min}m")
+    print(f"[watchd] registered {a.name}: pid {a.pid} dir {rec['dir']} stall {a.stall_min}m")
 
 
 def unregister(a: argparse.Namespace) -> None:
@@ -150,12 +152,13 @@ def check(_a: argparse.Namespace) -> None:
         name = reg["name"]
         prev = state.get(name, "RUNNING")
 
-        alive = (reg.get("btime") == btime
-                 and _proc_starttime(reg["pid"]) == reg["starttime"])
+        alive = reg.get("btime") == btime and _proc_starttime(reg["pid"]) == reg["starttime"]
         if not alive:
-            why = ("machine rebooted while it was live"
-                   if reg.get("btime") != btime
-                   else "process died without clean shutdown")
+            why = (
+                "machine rebooted while it was live"
+                if reg.get("btime") != btime
+                else "process died without clean shutdown"
+            )
             _notify(f"anvil {name} GONE", f"{why} — check {reg['dir']}")
             reg_path.unlink(missing_ok=True)
             state.pop(name, None)
@@ -164,8 +167,9 @@ def check(_a: argparse.Namespace) -> None:
         age_min = (time.time() - _newest_mtime(Path(reg["dir"]))) / 60
         cur = "STALLED" if age_min > reg["stall_min"] else "RUNNING"
         if cur == "STALLED" and prev != "STALLED":
-            _notify(f"anvil {name} STALLED",
-                    f"no artifact written in {age_min:.0f} min ({reg['dir']})")
+            _notify(
+                f"anvil {name} STALLED", f"no artifact written in {age_min:.0f} min ({reg['dir']})"
+            )
         elif cur == "RUNNING" and prev == "STALLED":
             _notify(f"anvil {name} recovered", f"fresh artifacts in {reg['dir']}")
         state[name] = cur
@@ -179,13 +183,16 @@ def status(_a: argparse.Namespace) -> None:
         print("[watchd] no registrations")
     for reg_path in regs:
         reg = json.loads(reg_path.read_text())
-        alive = (reg.get("btime") == _boot_btime()
-                 and _proc_starttime(reg["pid"]) == reg["starttime"])
+        alive = (
+            reg.get("btime") == _boot_btime() and _proc_starttime(reg["pid"]) == reg["starttime"]
+        )
         age = (time.time() - _newest_mtime(Path(reg["dir"]))) / 60
-        print(f"{reg['name']}: pid {reg['pid']} "
-              f"{'alive' if alive else 'DEAD'}, newest artifact {age:.0f}m ago "
-              f"(stall at {reg['stall_min']}m), "
-              f"state {state.get(reg['name'], '?')}")
+        print(
+            f"{reg['name']}: pid {reg['pid']} "
+            f"{'alive' if alive else 'DEAD'}, newest artifact {age:.0f}m ago "
+            f"(stall at {reg['stall_min']}m), "
+            f"state {state.get(reg['name'], '?')}"
+        )
 
 
 def main() -> None:

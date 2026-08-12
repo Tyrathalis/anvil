@@ -11,16 +11,20 @@ GROUPS_OF = {
     "Basalt Monolith": frozenset({"ramp", "combo"}),
 }
 
-HEADER = {"sv": 1, "players": [{"name": "A", "cmd": []},
-                               {"name": "B", "cmd": []}]}
+HEADER = {"sv": 1, "players": [{"name": "A", "cmd": []}, {"name": "B", "cmd": []}]}
 
 
 def _dec(ents):
-    return {"k": "dec", "s": 1, "p": 0, "obs": {
-        "glob": {"turn": 4, "ph": "MAIN1", "ap": 0},
-        "players": [{"life": 30, "hand": 2, "lib": 80},
-                    {"life": 30, "hand": 2, "lib": 80}],
-        "ents": ents}}
+    return {
+        "k": "dec",
+        "s": 1,
+        "p": 0,
+        "obs": {
+            "glob": {"turn": 4, "ph": "MAIN1", "ap": 0},
+            "players": [{"life": 30, "hand": 2, "lib": 80}, {"life": 30, "hand": 2, "lib": 80}],
+            "ents": ents,
+        },
+    }
 
 
 ENTS = [
@@ -42,10 +46,10 @@ def test_counts_and_families():
     v = otag_features(_dec(ENTS), HEADER, 0, GROUPS_OF)
     assert v.shape == (len(FEATURE_NAMES),)
     assert _feat(v, "otag_hand_self_removal") == 1.0
-    assert _feat(v, "otag_bf_self_ramp") == 1.0      # Basalt: ramp...
-    assert _feat(v, "otag_bf_self_combo") == 1.0     # ...and combo
-    assert _feat(v, "otag_bf_opp_ramp") == 1.0       # opp Sol Ring (public)
-    assert _feat(v, "otag_hand_self_tutor") == 0.0   # opp tutor is hidden
+    assert _feat(v, "otag_bf_self_ramp") == 1.0  # Basalt: ramp...
+    assert _feat(v, "otag_bf_self_combo") == 1.0  # ...and combo
+    assert _feat(v, "otag_bf_opp_ramp") == 1.0  # opp Sol Ring (public)
+    assert _feat(v, "otag_hand_self_tutor") == 0.0  # opp tutor is hidden
     assert set(FAMILY_OF.values()) == {"ohand", "obfself", "obfopp"}
 
 
@@ -62,8 +66,7 @@ def test_leak_invariance_hidden_hand():
 def test_own_hand_visible_and_capped():
     ents = [dict(ENTS[0])]
     for i in range(30):  # 30 copies of a removal spell in hand
-        ents.append({"e": 100 + i, "n": "Swords to Plowshares", "z": "hand",
-                     "c": 0, "o": 0})
+        ents.append({"e": 100 + i, "n": "Swords to Plowshares", "z": "hand", "c": 0, "o": 0})
     v = otag_features(_dec(ents), HEADER, 0, GROUPS_OF)
     assert _feat(v, "otag_hand_self_removal") == 20.0  # COUNT_CAP
 

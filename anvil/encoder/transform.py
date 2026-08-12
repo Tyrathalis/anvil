@@ -38,13 +38,34 @@ _VOCAB_PATH = Path(__file__).parent / "vocab_mtg.json"
 
 # entity feature columns (float32), fixed order; see ENTITY_FEATURES
 ENTITY_FEATURES = [
-    "zone", "controller_is_self", "owner_is_self", "tapped", "sick", "phased",
-    "facedown", "damage", "power", "toughness", "has_pt", "token", "attached",
-    "attacking", "blocking", "count", "hidden", "cmd_tax",
+    "zone",
+    "controller_is_self",
+    "owner_is_self",
+    "tapped",
+    "sick",
+    "phased",
+    "facedown",
+    "damage",
+    "power",
+    "toughness",
+    "has_pt",
+    "token",
+    "attached",
+    "attacking",
+    "blocking",
+    "count",
+    "hidden",
+    "cmd_tax",
 ]
 GLOBAL_FEATURES = [
-    "turn", "phase", "active_is_self", "monarch_is_self", "initiative_is_self",
-    "day", "night", "stack_size",
+    "turn",
+    "phase",
+    "active_is_self",
+    "monarch_is_self",
+    "initiative_is_self",
+    "day",
+    "night",
+    "stack_size",
 ]
 # per player, self first then opponents in seat order
 PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_total", "lost"]
@@ -59,8 +80,10 @@ PLAYER_SCALE = np.array([1 / 40, 1 / 8, 1 / 100, 1 / 4, 1 / 10, 1], dtype=np.flo
 # v3: zone stays an index (a vocab question, not a scale one) but /8 for
 # conditioning; damage/P/T ~0-13; count is the dedup multiset size
 # v4: cmd_tax is generic mana (2 per prior cast, typically 0-8)
-ENTITY_SCALE = np.array([1 / 8, 1, 1, 1, 1, 1, 1, 1 / 10, 1 / 10, 1 / 10,
-                         1, 1, 1, 1, 1, 1 / 5, 1, 1 / 10], dtype=np.float32)
+ENTITY_SCALE = np.array(
+    [1 / 8, 1, 1, 1, 1, 1, 1, 1 / 10, 1 / 10, 1 / 10, 1, 1, 1, 1, 1, 1 / 5, 1, 1 / 10],
+    dtype=np.float32,
+)
 
 
 class VocabError(KeyError):
@@ -133,8 +156,12 @@ def _dedup_key(ent: dict[str, Any], name: str | None) -> str:
 HISTORY_K = 8  # last K action records as history tokens (m1-bc-plan D4 default)
 
 
-def history_tokens(prior_decs: list[dict[str, Any]], perspective: int,
-                   k: int = HISTORY_K, now_pos: int | None = None) -> list[dict[str, Any]]:
+def history_tokens(
+    prior_decs: list[dict[str, Any]],
+    perspective: int,
+    k: int = HISTORY_K,
+    now_pos: int | None = None,
+) -> list[dict[str, Any]]:
     """Last k prior decisions -> compact history entries (method, actor-is-self,
     chosen host entity id or -1). Information set: the perspective's own chosen
     hosts are always safe; an opponent's host is kept only for priority casts
@@ -154,20 +181,24 @@ def history_tokens(prior_decs: list[dict[str, Any]], perspective: int,
         actor = d.get("p", -1)
         host = -1
         if actor == perspective or d.get("m") == "chooseSpellAbilityToPlay":
-            ret_arrived = (now_pos is None
-                           or (d.get("_retpos") is not None and d["_retpos"] < now_pos))
+            ret_arrived = now_pos is None or (
+                d.get("_retpos") is not None and d["_retpos"] < now_pos
+            )
             ret = d.get("ret") if ret_arrived else None
             if isinstance(ret, list) and ret and isinstance(ret[0], dict):
                 host = ret[0].get("e", -1)
-        out.append({"m": d.get("m", "?"), "self": 1 if actor == perspective else 0,
-                    "e": host})
+        out.append({"m": d.get("m", "?"), "self": 1 if actor == perspective else 0, "e": host})
     return out
 
 
-def assemble(dec: dict[str, Any], header: dict[str, Any],
-             perspective: int | None = None, vocab: Vocab | None = None,
-             history: list[dict[str, Any]] | None = None,
-             full_vis: bool = False) -> dict[str, Any]:
+def assemble(
+    dec: dict[str, Any],
+    header: dict[str, Any],
+    perspective: int | None = None,
+    vocab: Vocab | None = None,
+    history: list[dict[str, Any]] | None = None,
+    full_vis: bool = False,
+) -> dict[str, Any]:
     """One decision record -> arrays. perspective defaults to the deciding player.
 
     full_vis (M2 D4, design §4): the asymmetric-critic input — every entity's
@@ -229,8 +260,11 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
             1.0 if "blk" in ent else 0.0,
             1.0,  # count, filled below
             0.0 if vis else 1.0,
-            (cmd_tax_of[ent["c"]].get(name, 0.0)
-             if ent["z"] == "command" and not ent.get("tok") else 0.0),
+            (
+                cmd_tax_of[ent["c"]].get(name, 0.0)
+                if ent["z"] == "command" and not ent.get("tok")
+                else 0.0
+            ),
         ]
         groups[key] = [name, feats, 1]
 
@@ -247,45 +281,56 @@ def assemble(dec: dict[str, Any], header: dict[str, Any],
         for eid in ids_of_key[key]:
             entity_row_of[eid] = row_idx
 
-    entities = (np.array(rows, dtype=np.float32) * ENTITY_SCALE if rows
-                else np.zeros((0, len(ENTITY_FEATURES)), dtype=np.float32))
+    entities = (
+        np.array(rows, dtype=np.float32) * ENTITY_SCALE
+        if rows
+        else np.zeros((0, len(ENTITY_FEATURES)), dtype=np.float32)
+    )
 
     # --- globals ---
-    globals_vec = np.array([
-        float(glob["turn"]),
-        float(v.phase(glob.get("ph"))),
-        1.0 if glob.get("ap") == perspective else 0.0,
-        1.0 if glob.get("mono") == perspective else 0.0,
-        1.0 if glob.get("init") == perspective else 0.0,
-        1.0 if glob.get("day") == "day" else 0.0,
-        1.0 if glob.get("day") == "night" else 0.0,
-        float(len(obs.get("stack", []))),
-    ], dtype=np.float32) * GLOBAL_SCALE
+    globals_vec = (
+        np.array(
+            [
+                float(glob["turn"]),
+                float(v.phase(glob.get("ph"))),
+                1.0 if glob.get("ap") == perspective else 0.0,
+                1.0 if glob.get("mono") == perspective else 0.0,
+                1.0 if glob.get("init") == perspective else 0.0,
+                1.0 if glob.get("day") == "day" else 0.0,
+                1.0 if glob.get("day") == "night" else 0.0,
+                float(len(obs.get("stack", []))),
+            ],
+            dtype=np.float32,
+        )
+        * GLOBAL_SCALE
+    )
 
     # --- players, self first then seat order ---
     seats = [perspective] + [i for i in range(n_players) if i != perspective]
     prows = []
     for i in seats:
         p = obs["players"][i]
-        prows.append([
-            float(p["life"]),
-            float(p["hand"]),
-            float(p["lib"]),
-            float(p.get("lands", 0)),
-            float(sum((p.get("mana") or {}).values())),
-            float(p.get("lost", 0)),
-        ])
+        prows.append(
+            [
+                float(p["life"]),
+                float(p["hand"]),
+                float(p["lib"]),
+                float(p.get("lands", 0)),
+                float(sum((p.get("mana") or {}).values())),
+                float(p.get("lost", 0)),
+            ]
+        )
     players = np.array(prows, dtype=np.float32) * PLAYER_SCALE
 
     return {
         "transform_version": TRANSFORM_VERSION,
         "schema_version": header["sv"],
         "perspective": perspective,
-        "entities": entities,          # (N, len(ENTITY_FEATURES)) float32
-        "entity_names": names,         # len N; None = hidden from perspective
+        "entities": entities,  # (N, len(ENTITY_FEATURES)) float32
+        "entity_names": names,  # len N; None = hidden from perspective
         "entity_counts": np.array(counts, dtype=np.int32),
         "entity_row_of": entity_row_of,  # entity id -> row; pointer-head targets
         "globals": globals_vec,
-        "players": players,            # (n_players, len(PLAYER_FEATURES)), self first
-        "history": history or [],      # history_tokens() output, oldest first
+        "players": players,  # (n_players, len(PLAYER_FEATURES)), self first
+        "history": history or [],  # history_tokens() output, oldest first
     }

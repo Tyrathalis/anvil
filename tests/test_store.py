@@ -24,11 +24,29 @@ def _obs(turn=1, ph="MAIN1"):
 
 
 def _frame_records(g, seed, n_decisions=3, with_end=True):
-    recs = [{"k": "game", "sv": OBS_SCHEMA_VERSION, "g": g, "seed": seed, "fmt": "Commander",
-             "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}]}]
+    recs = [
+        {
+            "k": "game",
+            "sv": OBS_SCHEMA_VERSION,
+            "g": g,
+            "seed": seed,
+            "fmt": "Commander",
+            "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}],
+        }
+    ]
     for s in range(n_decisions):
-        recs.append({"k": "dec", "s": s, "t": 1, "ph": "MAIN1", "p": 0,
-                     "m": "chooseSpellAbilityToPlay", "d": 10, "obs": _obs()})
+        recs.append(
+            {
+                "k": "dec",
+                "s": s,
+                "t": 1,
+                "ph": "MAIN1",
+                "p": 0,
+                "m": "chooseSpellAbilityToPlay",
+                "d": 10,
+                "obs": _obs(),
+            }
+        )
         recs.append({"k": "ret", "s": s, "v": {"e": 1, "sa": "Sol Ring - cast"}})
     if with_end:
         recs.append({"k": "end", "status": "won", "winner": 0, "turns": 9, "ms": 1234})
@@ -48,36 +66,75 @@ def _write_worker(wdir: Path, frames: list[list[dict]], truncate_last=False):
             frame = cctx.compress(raw)
             f.write(frame)
             g = recs[0]["g"]
-            idx.write(json.dumps({"g": g, "off": offset, "clen": len(frame),
-                                  "rlen": len(raw), "seed": recs[0]["seed"],
-                                  "recs": len(recs)}) + "\n")
+            idx.write(
+                json.dumps(
+                    {
+                        "g": g,
+                        "off": offset,
+                        "clen": len(frame),
+                        "rlen": len(raw),
+                        "seed": recs[0]["seed"],
+                        "recs": len(recs),
+                    }
+                )
+                + "\n"
+            )
             offset += len(frame)
         if truncate_last:
             # simulate a JVM death mid-frame: orphan bytes past the last idx entry
             f.write(b"\x28\xb5\x2f\xfd partial")
     with open(wdir / "games.jsonl", "w") as f:
         for recs in frames:
-            f.write(json.dumps({"i": recs[0]["g"], "seed": recs[0]["seed"], "status": "won",
-                                "winner": "P0", "turns": 9, "ms": 1234}) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "i": recs[0]["g"],
+                        "seed": recs[0]["seed"],
+                        "status": "won",
+                        "winner": "P0",
+                        "turns": 9,
+                        "ms": 1234,
+                    }
+                )
+                + "\n"
+            )
 
 
 def _make_run(tmp_path: Path, frames_by_worker: list[list[list[dict]]]) -> Path:
     run_dir = tmp_path / "run"
     for i, frames in enumerate(frames_by_worker):
         _write_worker(run_dir / f"workers/inv-{i:04d}", frames)
-    (run_dir / "run.json").write_text(json.dumps({
-        "run_id": "test-run", "purpose": "test", "created": "2026-07-04T00:00:00",
-        "fork_commit": "deadbeef", "fork_dirty": False, "anvil_commit": "cafebabe",
-        "jar_sha256": "0" * 64, "protocol_version": 0, "decks": ["D0", "D1"],
-        "format": "Commander", "seed_base": 1, "games": 4, "chunk": 2,
-        "workers": 1, "heap": "2g", "jvm_opts": [], "bridge": "local-random", "tags": "none",
-    }))
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": "test-run",
+                "purpose": "test",
+                "created": "2026-07-04T00:00:00",
+                "fork_commit": "deadbeef",
+                "fork_dirty": False,
+                "anvil_commit": "cafebabe",
+                "jar_sha256": "0" * 64,
+                "protocol_version": 0,
+                "decks": ["D0", "D1"],
+                "format": "Commander",
+                "seed_base": 1,
+                "games": 4,
+                "chunk": 2,
+                "workers": 1,
+                "heap": "2g",
+                "jvm_opts": [],
+                "bridge": "local-random",
+                "tags": "none",
+            }
+        )
+    )
     return run_dir
 
 
 def test_roundtrip_and_join(tmp_path):
-    run_dir = _make_run(tmp_path, [[_frame_records(0, 11), _frame_records(1, 22)],
-                                   [_frame_records(2, 33)]])
+    run_dir = _make_run(
+        tmp_path, [[_frame_records(0, 11), _frame_records(1, 22)], [_frame_records(2, 33)]]
+    )
     dest = ingest(run_dir, dest=tmp_path / "store", pool_version="cf2ca6ba")
     store = TrajectoryStore(dest)
 
@@ -118,25 +175,55 @@ def test_reask_consecutive_priority_decs(tmp_path):
     own ret join, and their mu records must both land (the (g,s) conflict
     rule is about whole-game re-issue, not re-asks — distinct s never trips
     it)."""
-    opts = [{"e": 1, "sa": "Sol Ring - cast", "kind": "spell"},
-            {"e": 2, "sa": "Arcane Signet - cast", "kind": "spell"},
-            {"e": 3, "sa": "Plains - land", "kind": "land"}]
-    recs = [{"k": "game", "sv": OBS_SCHEMA_VERSION, "g": 0, "seed": 11, "fmt": "Commander",
-             "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}]},
-            # vetoed attempt: full options, closed as a pass (ret null)
-            {"k": "dec", "s": 0, "t": 3, "ph": "MAIN1", "p": 0,
-             "m": "chooseSpellAbilityToPlay", "d": 10, "obs": _obs(turn=3), "opts": opts},
-            {"k": "ret", "s": 0, "v": None},
-            # re-ask: fresh seq, vetoed candidate (e=2) removed, cast realized
-            {"k": "dec", "s": 1, "t": 3, "ph": "MAIN1", "p": 0,
-             "m": "chooseSpellAbilityToPlay", "d": 10, "obs": _obs(turn=3),
-             "opts": [opts[0], opts[2]]},
-            {"k": "ret", "s": 1, "v": {"e": 1, "sa": "Sol Ring - cast"}},
-            {"k": "end", "status": "won", "winner": 0, "turns": 9, "ms": 99}]
+    opts = [
+        {"e": 1, "sa": "Sol Ring - cast", "kind": "spell"},
+        {"e": 2, "sa": "Arcane Signet - cast", "kind": "spell"},
+        {"e": 3, "sa": "Plains - land", "kind": "land"},
+    ]
+    recs = [
+        {
+            "k": "game",
+            "sv": OBS_SCHEMA_VERSION,
+            "g": 0,
+            "seed": 11,
+            "fmt": "Commander",
+            "players": [{"name": "P0", "deck": "D0"}, {"name": "P1", "deck": "D1"}],
+        },
+        # vetoed attempt: full options, closed as a pass (ret null)
+        {
+            "k": "dec",
+            "s": 0,
+            "t": 3,
+            "ph": "MAIN1",
+            "p": 0,
+            "m": "chooseSpellAbilityToPlay",
+            "d": 10,
+            "obs": _obs(turn=3),
+            "opts": opts,
+        },
+        {"k": "ret", "s": 0, "v": None},
+        # re-ask: fresh seq, vetoed candidate (e=2) removed, cast realized
+        {
+            "k": "dec",
+            "s": 1,
+            "t": 3,
+            "ph": "MAIN1",
+            "p": 0,
+            "m": "chooseSpellAbilityToPlay",
+            "d": 10,
+            "obs": _obs(turn=3),
+            "opts": [opts[0], opts[2]],
+        },
+        {"k": "ret", "s": 1, "v": {"e": 1, "sa": "Sol Ring - cast"}},
+        {"k": "end", "status": "won", "winner": 0, "turns": 9, "ms": 99},
+    ]
     run_dir = _make_run(tmp_path, [[recs]])
     (run_dir / "mu.jsonl").write_text(
-        json.dumps({"g": 0, "s": 0, "task": "priority", "logp": -1.5}) + "\n"
-        + json.dumps({"g": 0, "s": 1, "task": "priority", "logp": -0.7}) + "\n")
+        json.dumps({"g": 0, "s": 0, "task": "priority", "logp": -1.5})
+        + "\n"
+        + json.dumps({"g": 0, "s": 1, "task": "priority", "logp": -0.7})
+        + "\n"
+    )
 
     dest = ingest(run_dir, dest=tmp_path / "store")
     store = TrajectoryStore(dest)
@@ -180,22 +267,53 @@ def test_undecodable_frame_quarantined(tmp_path):
     from anvil.store.trajectories import TrajectoryStore
 
     cctx = zstandard.ZstdCompressor(level=3)
-    good = b'\n'.join(json.dumps(r).encode() for r in [
-        {"k": "game", "sv": 1, "g": 0, "seed": 1, "fmt": "Commander",
-         "players": [{"name": "A", "deck": "d1"}, {"name": "B", "deck": "d2"}]},
-        {"k": "end", "status": "won", "winner": 0, "turns": 9, "ms": 1},
-    ])
+    good = b"\n".join(
+        json.dumps(r).encode()
+        for r in [
+            {
+                "k": "game",
+                "sv": 1,
+                "g": 0,
+                "seed": 1,
+                "fmt": "Commander",
+                "players": [{"name": "A", "deck": "d1"}, {"name": "B", "deck": "d2"}],
+            },
+            {"k": "end", "status": "won", "winner": 0, "turns": 9, "ms": 1},
+        ]
+    )
     frame_good = cctx.compress(good)
-    frame_bad = frame_good[:len(frame_good) // 2]  # truncated mid-frame
+    frame_bad = frame_good[: len(frame_good) // 2]  # truncated mid-frame
 
     blob = frame_good + frame_bad
     (tmp_path / "obs-0000.zst").write_bytes(blob)
     (tmp_path / "manifest.json").write_text(json.dumps({"run_id": "t", "games": 2}))
     with open(tmp_path / "index.jsonl", "w") as f:
-        f.write(json.dumps({"g": 0, "file": "obs-0000.zst", "off": 0,
-                            "clen": len(frame_good), "rlen": len(good), "recs": 2}) + "\n")
-        f.write(json.dumps({"g": 1, "file": "obs-0000.zst", "off": len(frame_good),
-                            "clen": len(frame_bad), "rlen": 999, "recs": 2}) + "\n")
+        f.write(
+            json.dumps(
+                {
+                    "g": 0,
+                    "file": "obs-0000.zst",
+                    "off": 0,
+                    "clen": len(frame_good),
+                    "rlen": len(good),
+                    "recs": 2,
+                }
+            )
+            + "\n"
+        )
+        f.write(
+            json.dumps(
+                {
+                    "g": 1,
+                    "file": "obs-0000.zst",
+                    "off": len(frame_good),
+                    "clen": len(frame_bad),
+                    "rlen": 999,
+                    "recs": 2,
+                }
+            )
+            + "\n"
+        )
 
     store = TrajectoryStore(tmp_path)
     with pytest.raises(Exception):
@@ -212,6 +330,7 @@ def test_undecodable_frame_quarantined(tmp_path):
 def test_multistore_disjoint_union(tmp_path):
     """Pilot + extension shape: disjoint index ranges read as one corpus."""
     from anvil.store.trajectories import MultiStore, open_store
+
     ra = _make_run(tmp_path / "a", [[_frame_records(0, 11), _frame_records(1, 22)]])
     rb = _make_run(tmp_path / "b", [[_frame_records(2, 33), _frame_records(3, 44)]])
     sa = ingest(ra, dest=tmp_path / "store-a")
@@ -219,8 +338,8 @@ def test_multistore_disjoint_union(tmp_path):
     ms = MultiStore([sa, sb])
     assert ms.game_indices() == [0, 1, 2, 3]
     assert len(ms) == 4
-    assert ms.game(1).header["seed"] == 22   # routed to store a
-    assert ms.game(3).header["seed"] == 44   # routed to store b
+    assert ms.game(1).header["seed"] == 22  # routed to store a
+    assert ms.game(3).header["seed"] == 44  # routed to store b
     assert [t.game_index for t in ms.games()] == [0, 1, 2, 3]
     # open_store: comma string -> MultiStore; single -> TrajectoryStore
     assert open_store(f"{sa},{sb}").game_indices() == [0, 1, 2, 3]
@@ -229,6 +348,7 @@ def test_multistore_disjoint_union(tmp_path):
 
 def test_multistore_rejects_index_collision(tmp_path):
     from anvil.store.trajectories import MultiStore
+
     ra = _make_run(tmp_path / "a", [[_frame_records(0, 11)]])
     rb = _make_run(tmp_path / "b", [[_frame_records(0, 99)]])
     sa = ingest(ra, dest=tmp_path / "store-a")
@@ -239,24 +359,51 @@ def test_multistore_rejects_index_collision(tmp_path):
 
 # ---------- fork-session ingest (M4 D3) ----------
 
+
 def _fork_frame_records(pg, fp, r, tt, winner=0, status="won", turns=14):
     """A drill completion's frame, as Obs.startForkGame/endForkGame write it:
     synthetic unique g, fork provenance in the header, per-dec stored wire
     hist (the serve-time view, incl. parent-ring entries)."""
     g = (pg * 100 + fp) * 100 + r
-    recs = [{"k": "game", "sv": OBS_SCHEMA_VERSION, "g": g, "seed": 1000 + r,
-             "wid": f"g{pg}.f{fp}r{r}", "fmt": "Commander",
-             "players": [{"name": "Anvil(1)-D0", "deck": "D0"},
-                         {"name": "Anvil(2)-D1", "deck": "D1"}],
-             "fork": {"pg": pg, "fp": fp, "r": r, "tt": tt}}]
+    recs = [
+        {
+            "k": "game",
+            "sv": OBS_SCHEMA_VERSION,
+            "g": g,
+            "seed": 1000 + r,
+            "wid": f"g{pg}.f{fp}r{r}",
+            "fmt": "Commander",
+            "players": [
+                {"name": "Anvil(1)-D0", "deck": "D0"},
+                {"name": "Anvil(2)-D1", "deck": "D1"},
+            ],
+            "fork": {"pg": pg, "fp": fp, "r": r, "tt": tt},
+        }
+    ]
     for s in range(2):
-        recs.append({"k": "dec", "s": s, "t": tt + s, "ph": "MAIN1", "p": 0,
-                     "m": "chooseSpellAbilityToPlay", "d": 10, "obs": _obs(),
-                     "hist": [{"m": "parentDec", "p": 1, "e": 7}]})
+        recs.append(
+            {
+                "k": "dec",
+                "s": s,
+                "t": tt + s,
+                "ph": "MAIN1",
+                "p": 0,
+                "m": "chooseSpellAbilityToPlay",
+                "d": 10,
+                "obs": _obs(),
+                "hist": [{"m": "parentDec", "p": 1, "e": 7}],
+            }
+        )
         recs.append({"k": "ret", "s": s, "v": {"e": 1, "sa": "Sol Ring - cast"}})
-    recs.append({"k": "end", "status": status,
-                 "winner": winner if status == "won" else -1,
-                 "turns": turns, "ms": 55})
+    recs.append(
+        {
+            "k": "end",
+            "status": status,
+            "winner": winner if status == "won" else -1,
+            "turns": turns,
+            "ms": 55,
+        }
+    )
     return recs
 
 
@@ -266,16 +413,24 @@ def _write_fork_worker(wdir: Path, frames: list[list[dict]], labels: list[dict])
     _write_worker(wdir, [_frame_records(0, 11)])  # decoy mainline frame
     cctx = zstandard.ZstdCompressor(level=3)
     offset = 0
-    with open(wdir / "obs-forks.zst", "wb") as f, \
-            open(wdir / "obs-forks.idx.jsonl", "w") as idx:
+    with open(wdir / "obs-forks.zst", "wb") as f, open(wdir / "obs-forks.idx.jsonl", "w") as idx:
         for recs in frames:
             raw = "".join(json.dumps(r) + "\n" for r in recs).encode()
             frame = cctx.compress(raw)
             f.write(frame)
-            idx.write(json.dumps({"g": recs[0]["g"], "off": offset,
-                                  "clen": len(frame), "rlen": len(raw),
-                                  "seed": recs[0]["seed"],
-                                  "recs": len(recs)}) + "\n")
+            idx.write(
+                json.dumps(
+                    {
+                        "g": recs[0]["g"],
+                        "off": offset,
+                        "clen": len(frame),
+                        "rlen": len(raw),
+                        "seed": recs[0]["seed"],
+                        "recs": len(recs),
+                    }
+                )
+                + "\n"
+            )
             offset += len(frame)
     with open(wdir / "labels.jsonl", "w") as f:
         for row in labels:
@@ -283,18 +438,33 @@ def _write_fork_worker(wdir: Path, frames: list[list[dict]], labels: list[dict])
 
 
 def _label_row(pg, fp, tt, w, draw=0, crash=0):
-    return {"i": pg, "seed": 1, "fp": fp, "t": tt, "tt": tt, "k": sum(w) + draw + crash,
-            "w": w, "draw": draw, "crash": crash, "copy_ms": 1, "ms": 1}
+    return {
+        "i": pg,
+        "seed": 1,
+        "fp": fp,
+        "t": tt,
+        "tt": tt,
+        "k": sum(w) + draw + crash,
+        "w": w,
+        "draw": draw,
+        "crash": crash,
+        "copy_ms": 1,
+        "ms": 1,
+    }
 
 
 def test_forks_ingest_synthesizes_outcomes_and_checks_labels(tmp_path):
     run_dir = _make_run(tmp_path, [[_frame_records(9, 77)]])
     wdir = run_dir / "workers/inv-0001"
-    _write_fork_worker(wdir, [
-        _fork_frame_records(5, 0, 0, 12, winner=1),
-        _fork_frame_records(5, 0, 1, 12, winner=0),
-        _fork_frame_records(5, 1, 0, 14, status="draw"),
-    ], labels=[_label_row(5, 0, 12, [1, 1]), _label_row(5, 1, 14, [0, 0], draw=1)])
+    _write_fork_worker(
+        wdir,
+        [
+            _fork_frame_records(5, 0, 0, 12, winner=1),
+            _fork_frame_records(5, 0, 1, 12, winner=0),
+            _fork_frame_records(5, 1, 0, 14, status="draw"),
+        ],
+        labels=[_label_row(5, 0, 12, [1, 1]), _label_row(5, 1, 14, [0, 0], draw=1)],
+    )
 
     dest = ingest(run_dir, dest=tmp_path / "store-forks", forks=True)
     store = TrajectoryStore(dest)
@@ -303,8 +473,7 @@ def test_forks_ingest_synthesizes_outcomes_and_checks_labels(tmp_path):
     assert len(store.index) == 3
     assert store.manifest["source"] == "drill-forks"
     assert store.manifest["drill"]["parent_run"] == "test-run"
-    assert store.manifest["drill"]["labels_check"] == {
-        "fork_points": 2, "mismatched": 0}
+    assert store.manifest["drill"]["labels_check"] == {"fork_points": 2, "mismatched": 0}
     # Outcomes synthesized from end records; winner_seat parses the name.
     assert store.winner_seat((5 * 100 + 0) * 100 + 0) == 1
     assert store.winner_seat((5 * 100 + 0) * 100 + 1) == 0
@@ -317,9 +486,11 @@ def test_forks_ingest_synthesizes_outcomes_and_checks_labels(tmp_path):
 
 def test_forks_ingest_flags_label_mismatch(tmp_path, capsys):
     run_dir = _make_run(tmp_path, [[_frame_records(9, 77)]])
-    _write_fork_worker(run_dir / "workers/inv-0001",
-                       [_fork_frame_records(5, 0, 0, 12, winner=1)],
-                       labels=[_label_row(5, 0, 12, [1, 0])])  # claims seat-0 win
+    _write_fork_worker(
+        run_dir / "workers/inv-0001",
+        [_fork_frame_records(5, 0, 0, 12, winner=1)],
+        labels=[_label_row(5, 0, 12, [1, 0])],
+    )  # claims seat-0 win
     dest = ingest(run_dir, dest=tmp_path / "store-forks", forks=True)
     check = TrajectoryStore(dest).manifest["drill"]["labels_check"]
     assert check == {"fork_points": 1, "mismatched": 1}
@@ -330,18 +501,25 @@ def test_forks_ingest_quarantines_bad_frames(tmp_path, capsys):
     a failed drill ingest killed the d6-run10 driver (2026-07-30)."""
     run_dir = _make_run(tmp_path, [[_frame_records(9, 77)]])
     wdir = run_dir / "workers/inv-0001"
-    _write_fork_worker(wdir, [_fork_frame_records(5, 0, 0, 12, winner=1)],
-                       labels=[_label_row(5, 0, 12, [0, 1])])
+    _write_fork_worker(
+        wdir, [_fork_frame_records(5, 0, 0, 12, winner=1)], labels=[_label_row(5, 0, 12, [0, 1])]
+    )
     # Append garbage bytes with a valid-looking idx row (truncated-frame
     # class) and a clen-0 phantom row (the fd-death class).
     with open(wdir / "obs-forks.zst", "ab") as f:
         off = f.tell()
         f.write(b"\x28\xb5\x2f\xfdgarbage-not-a-frame")
     with open(wdir / "obs-forks.idx.jsonl", "a") as idx:
-        idx.write(json.dumps({"g": 50001, "off": off, "clen": 23,
-                              "rlen": 130000, "recs": 48, "seed": 2}) + "\n")
-        idx.write(json.dumps({"g": 50002, "off": off + 23, "clen": 0,
-                              "rlen": 130000, "recs": 48, "seed": 3}) + "\n")
+        idx.write(
+            json.dumps({"g": 50001, "off": off, "clen": 23, "rlen": 130000, "recs": 48, "seed": 2})
+            + "\n"
+        )
+        idx.write(
+            json.dumps(
+                {"g": 50002, "off": off + 23, "clen": 0, "rlen": 130000, "recs": 48, "seed": 3}
+            )
+            + "\n"
+        )
 
     dest = ingest(run_dir, dest=tmp_path / "store-forks", forks=True)
     store = TrajectoryStore(dest)

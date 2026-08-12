@@ -17,6 +17,7 @@ pairwise contrast (hold-nat, act-nat, act-hold):
 Usage:
   python scripts/seq_probe_read.py <labels.jsonl> [...] [--seat-index 0]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -44,8 +45,9 @@ def load(paths: list[str]) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("labels", nargs="+")
-    ap.add_argument("--seat-index", type=int, default=0,
-                    help="drilled seat's index into the w_* arrays")
+    ap.add_argument(
+        "--seat-index", type=int, default=0, help="drilled seat's index into the w_* arrays"
+    )
     a = ap.parse_args()
 
     rows = load(a.labels)
@@ -55,24 +57,29 @@ def main() -> None:
     skips = [r for r in rows if r.get("seat_skip")]
     pts = [r for r in rows if not r.get("seat_skip")]
     n_hor = sorted({r.get("n") for r in pts})
-    print(f"fork points: {len(rows)} total, {len(skips)} seat_skip, "
-          f"{len(pts)} probed (horizon n={n_hor})")
+    print(
+        f"fork points: {len(rows)} total, {len(skips)} seat_skip, "
+        f"{len(pts)} probed (horizon n={n_hor})"
+    )
     tot_triples = sum(r["triples"] for r in pts)
     tot_k = sum(r["k"] for r in pts)
-    crash = [sum(r.get(f"crash_{arm}", 0) for r in pts)
-             for arm in ("nat", "hold", "act")]
-    print(f"triples {tot_triples}/{tot_k} ({tot_triples / max(1, tot_k):.1%}), "
-          f"crashes nat/hold/act {crash}, holds {sum(r.get('holds', 0) for r in pts)}, "
-          f"forced casts {sum(r.get('acts', 0) for r in pts)}, "
-          f"act exhausts {sum(r.get('exhausts', 0) for r in pts)}, "
-          f"nat anomalies {sum(r.get('nat_anom', 0) for r in pts)}")
+    crash = [sum(r.get(f"crash_{arm}", 0) for r in pts) for arm in ("nat", "hold", "act")]
+    print(
+        f"triples {tot_triples}/{tot_k} ({tot_triples / max(1, tot_k):.1%}), "
+        f"crashes nat/hold/act {crash}, holds {sum(r.get('holds', 0) for r in pts)}, "
+        f"forced casts {sum(r.get('acts', 0) for r in pts)}, "
+        f"act exhausts {sum(r.get('exhausts', 0) for r in pts)}, "
+        f"nat anomalies {sum(r.get('nat_anom', 0) for r in pts)}"
+    )
 
     si = a.seat_index
     usable = [r for r in pts if r["triples"] >= 2]
     print(f"usable (>=2 triples): {len(usable)}")
-    for hi, lo, label in (("hold", "nat", "hold - nat"),
-                          ("act", "nat", "act  - nat"),
-                          ("act", "hold", "act  - hold")):
+    for hi, lo, label in (
+        ("hold", "nat", "hold - nat"),
+        ("act", "nat", "act  - nat"),
+        ("act", "hold", "act  - hold"),
+    ):
         dwrs, binvars = [], []
         for r in usable:
             n = r["triples"]
@@ -86,10 +93,14 @@ def main() -> None:
         var_sig = max(0.0, var_obs - mean_bin)
         neg = sum(1 for d in dwrs if d < 0)
         pos = sum(1 for d in dwrs if d > 0)
-        print(f"\n{label}: mean dwr {m:+.4f} | SD(point) {math.sqrt(var_obs):.4f} "
-              f"| indep floor {math.sqrt(mean_bin):.4f}")
-        print(f"  var_signal {var_sig:.5f} -> RMS true dwr {math.sqrt(var_sig):.4f} "
-              f"| direction: {pos} pos / {neg} neg / {len(dwrs) - pos - neg} zero")
+        print(
+            f"\n{label}: mean dwr {m:+.4f} | SD(point) {math.sqrt(var_obs):.4f} "
+            f"| indep floor {math.sqrt(mean_bin):.4f}"
+        )
+        print(
+            f"  var_signal {var_sig:.5f} -> RMS true dwr {math.sqrt(var_sig):.4f} "
+            f"| direction: {pos} pos / {neg} neg / {len(dwrs) - pos - neg} zero"
+        )
 
 
 if __name__ == "__main__":

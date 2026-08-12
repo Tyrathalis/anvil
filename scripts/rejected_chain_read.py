@@ -43,9 +43,18 @@ def read_store(path: str) -> dict:
     from anvil.store.trajectories import open_store
 
     store = open_store(path)
-    out: dict = {"store": path, "games": 0, "traj": 0, "veto_events": 0,
-                 "singletons": 0, "chains": Counter(), "chain_events": 0,
-                 "chain_end": Counter(), "per_traj": [], "cap_hits": 0}
+    out: dict = {
+        "store": path,
+        "games": 0,
+        "traj": 0,
+        "veto_events": 0,
+        "singletons": 0,
+        "chains": Counter(),
+        "chain_events": 0,
+        "chain_end": Counter(),
+        "per_traj": [],
+        "cap_hits": 0,
+    }
     for g in store.game_indices():
         mu = store.mu_for_game(g)
         if not mu:
@@ -62,8 +71,12 @@ def read_store(path: str) -> dict:
         while i < len(decs):
             dec = decs[i]
             rec = mu.get(dec["s"])
-            vetoed = (rec is not None and rec["task"] == "priority"
-                      and rec["c"] > 0 and dec.get("ret") is None)
+            vetoed = (
+                rec is not None
+                and rec["task"] == "priority"
+                and rec["c"] > 0
+                and dec.get("ret") is None
+            )
             if not vetoed:
                 i += 1
                 continue
@@ -73,9 +86,14 @@ def read_store(path: str) -> dict:
             while j < len(decs):
                 d2 = decs[j]
                 r2 = mu.get(d2["s"])
-                if (d2["p"] == seat and turn_of(d2) == turn
-                        and r2 is not None and r2["task"] == "priority"
-                        and r2["c"] > 0 and d2.get("ret") is None):
+                if (
+                    d2["p"] == seat
+                    and turn_of(d2) == turn
+                    and r2 is not None
+                    and r2["task"] == "priority"
+                    and r2["c"] > 0
+                    and d2.get("ret") is None
+                ):
                     run += 1
                     j += 1
                 else:
@@ -94,8 +112,12 @@ def read_store(path: str) -> dict:
             if j < len(decs):
                 d2 = decs[j]
                 r2 = mu.get(d2["s"])
-                if (d2["p"] == seat and turn_of(d2) == turn
-                        and r2 is not None and r2["task"] == "priority"):
+                if (
+                    d2["p"] == seat
+                    and turn_of(d2) == turn
+                    and r2 is not None
+                    and r2["task"] == "priority"
+                ):
                     if r2["c"] > 0 and d2.get("ret") is not None:
                         end = "rescued"
                     elif r2["c"] == 0:
@@ -112,12 +134,19 @@ def read_store(path: str) -> dict:
 
 
 def merge(rows: list[dict]) -> dict:
-    tot: dict = {"games": 0, "traj": 0, "veto_events": 0, "singletons": 0,
-                 "chains": Counter(), "chain_events": 0,
-                 "chain_end": Counter(), "per_traj": [], "cap_hits": 0}
+    tot: dict = {
+        "games": 0,
+        "traj": 0,
+        "veto_events": 0,
+        "singletons": 0,
+        "chains": Counter(),
+        "chain_events": 0,
+        "chain_end": Counter(),
+        "per_traj": [],
+        "cap_hits": 0,
+    }
     for r in rows:
-        for k in ("games", "traj", "veto_events", "singletons",
-                  "chain_events", "cap_hits"):
+        for k in ("games", "traj", "veto_events", "singletons", "chain_events", "cap_hits"):
             tot[k] += r[k]
         tot["chains"].update(r["chains"])
         tot["chain_end"].update(r["chain_end"])
@@ -128,24 +157,31 @@ def merge(rows: list[dict]) -> dict:
 def report(tag: str, t: dict) -> None:
     n_chain = sum(t["chains"].values())
     events = t["veto_events"]
-    lam_units = t["singletons"] + sum(min(k, 8) * v
-                                      for k, v in t["chains"].items())
+    lam_units = t["singletons"] + sum(min(k, 8) * v for k, v in t["chains"].items())
     first_only_units = t["singletons"] + n_chain
     pt = sorted(t["per_traj"])
     mean_pt = sum(pt) / len(pt) if pt else 0.0
     p90 = pt[int(0.9 * len(pt))] if pt else 0
     print(f"[{tag}] {t['games']} games, {t['traj']} trajectories")
-    print(f"  veto events        {events:7}  ({mean_pt:.2f}/traj mean, "
-          f"p90 {p90}, max {pt[-1] if pt else 0})")
-    print(f"  singletons         {t['singletons']:7}  "
-          f"({t['singletons'] / max(events, 1):.1%} of events)")
-    print(f"  chains (len>=2)    {n_chain:7}  carrying {t['chain_events']} "
-          f"events ({t['chain_events'] / max(events, 1):.1%}); "
-          f"len dist {dict(sorted(t['chains'].items()))}")
+    print(
+        f"  veto events        {events:7}  ({mean_pt:.2f}/traj mean, "
+        f"p90 {p90}, max {pt[-1] if pt else 0})"
+    )
+    print(
+        f"  singletons         {t['singletons']:7}  "
+        f"({t['singletons'] / max(events, 1):.1%} of events)"
+    )
+    print(
+        f"  chains (len>=2)    {n_chain:7}  carrying {t['chain_events']} "
+        f"events ({t['chain_events'] / max(events, 1):.1%}); "
+        f"len dist {dict(sorted(t['chains'].items()))}"
+    )
     print(f"  cap hits (len>=8)  {t['cap_hits']:7}")
-    print(f"  penalty exposure   {lam_units:7} lambda-units under current "
-          f"pricing; {first_only_units} under first-attempt-only "
-          f"({first_only_units / max(lam_units, 1):.1%} of current)")
+    print(
+        f"  penalty exposure   {lam_units:7} lambda-units under current "
+        f"pricing; {first_only_units} under first-attempt-only "
+        f"({first_only_units / max(lam_units, 1):.1%} of current)"
+    )
     print(f"  window outcomes    {dict(sorted(t['chain_end'].items()))}")
 
 
@@ -171,8 +207,9 @@ def main() -> None:
             del r["per_traj"]
         tot["chains"] = dict(tot["chains"])
         tot["chain_end"] = dict(tot["chain_end"])
-        tot["per_traj_mean"] = (sum(tot["per_traj"]) / len(tot["per_traj"])
-                                if tot["per_traj"] else 0.0)
+        tot["per_traj_mean"] = (
+            sum(tot["per_traj"]) / len(tot["per_traj"]) if tot["per_traj"] else 0.0
+        )
         del tot["per_traj"]
         with open(args.json_out, "w") as f:
             json.dump({"stores": rows, "all": tot}, f, indent=1)

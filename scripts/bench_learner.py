@@ -21,6 +21,7 @@ that the seg autotune has been picking 128 because a resident ComfyUI leaves
 
 Usage: uv run python scripts/bench_learner.py [--traj 40] [--out <json>]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,12 +41,18 @@ PY = ROOT / ".venv/bin/python"
 # run-8 iter-005 verbatim (driver.log), minus the knobs under test.
 ITER = "d6-run8"
 STORES = [
-    "d6-run8-i002-20260723-212414", "d6-run8-i002h0-20260723-214323",
-    "d6-run8-i002h1-20260723-215954", "d6-run8-i003-20260723-234052",
-    "d6-run8-i003h0-20260724-000107", "d6-run8-i003h1-20260724-001322",
-    "d6-run8-i004-20260724-021307", "d6-run8-i004h0-20260724-023006",
-    "d6-run8-i004h1-20260724-024035", "d6-run8-i005-20260724-051443",
-    "d6-run8-i005h0-20260724-053218", "d6-run8-i005h1-20260724-054115",
+    "d6-run8-i002-20260723-212414",
+    "d6-run8-i002h0-20260723-214323",
+    "d6-run8-i002h1-20260723-215954",
+    "d6-run8-i003-20260723-234052",
+    "d6-run8-i003h0-20260724-000107",
+    "d6-run8-i003h1-20260724-001322",
+    "d6-run8-i004-20260724-021307",
+    "d6-run8-i004h0-20260724-023006",
+    "d6-run8-i004h1-20260724-024035",
+    "d6-run8-i005-20260724-051443",
+    "d6-run8-i005h0-20260724-053218",
+    "d6-run8-i005h1-20260724-054115",
 ]
 WEIGHTS = [0.33] * 9 + [1.0] * 3
 CKPT = f"data/training/{ITER}/iter-004/train/last.pt"
@@ -65,9 +72,15 @@ class GpuSampler(threading.Thread):
         while not self.stop.is_set():
             try:
                 out = subprocess.run(
-                    ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used",
-                     "--format=csv,noheader,nounits"],
-                    capture_output=True, text=True, timeout=5).stdout.strip()
+                    [
+                        "nvidia-smi",
+                        "--query-gpu=utilization.gpu,memory.used",
+                        "--format=csv,noheader,nounits",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                ).stdout.strip()
                 u, m = out.split(",")
                 self.util.append(float(u))
                 self.mem.append(float(m))
@@ -81,14 +94,41 @@ def arm(seg: int, workers: int, traj: int, scratch: Path) -> dict:
     if out.exists():
         shutil.rmtree(out)
     cmd = [
-        str(PY), "-m", "anvil.training.rl",
-        "--store", ",".join(f"data/trajectories/{s}" for s in STORES),
-        "--weights", ",".join(str(w) for w in WEIGHTS),
-        "--ckpt", CKPT, "--critic-ckpt", CRITIC, "--out", str(out),
-        "--lr", "1e-05", "--ent-weight", "0.003", "--ent-floor", "0.08",
-        "--value-weight", "0.5", "--traj-per-step", "8", "--penalty", "0.02",
-        "--epochs", "1", "--seed", "5",
-        "--seg", str(seg), "--workers", str(workers), "--max-traj", str(traj),
+        str(PY),
+        "-m",
+        "anvil.training.rl",
+        "--store",
+        ",".join(f"data/trajectories/{s}" for s in STORES),
+        "--weights",
+        ",".join(str(w) for w in WEIGHTS),
+        "--ckpt",
+        CKPT,
+        "--critic-ckpt",
+        CRITIC,
+        "--out",
+        str(out),
+        "--lr",
+        "1e-05",
+        "--ent-weight",
+        "0.003",
+        "--ent-floor",
+        "0.08",
+        "--value-weight",
+        "0.5",
+        "--traj-per-step",
+        "8",
+        "--penalty",
+        "0.02",
+        "--epochs",
+        "1",
+        "--seed",
+        "5",
+        "--seg",
+        str(seg),
+        "--workers",
+        str(workers),
+        "--max-traj",
+        str(traj),
     ]
     sampler = GpuSampler()
     sampler.start()
@@ -117,28 +157,34 @@ def arm(seg: int, workers: int, traj: int, scratch: Path) -> dict:
             break
 
     return {
-        "seg": seg, "workers": workers, "ok": True,
+        "seg": seg,
+        "workers": workers,
+        "ok": True,
         "elapsed_s": round(elapsed, 1),
         "trajectories": n_traj,
         "traj_per_s": round(n_traj / elapsed, 3) if n_traj else None,
         "learner_win_per_s": wps,
         "gpu_util_mean": round(statistics.mean(sampler.util), 1) if sampler.util else None,
         "gpu_util_p90": round(sorted(sampler.util)[int(len(sampler.util) * 0.9)], 1)
-        if len(sampler.util) > 10 else None,
+        if len(sampler.util) > 10
+        else None,
         "gpu_busy_frac": round(sum(u > 25 for u in sampler.util) / len(sampler.util), 3)
-        if sampler.util else None,
+        if sampler.util
+        else None,
         "gpu_mem_peak_mb": round(max(sampler.mem)) if sampler.mem else None,
     }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--traj", type=int, default=40,
-                    help="trajectories per arm (wall clock scales with this)")
+    ap.add_argument(
+        "--traj", type=int, default=40, help="trajectories per arm (wall clock scales with this)"
+    )
     ap.add_argument("--out", default="data/runs/learner-bench.json")
     ap.add_argument("--segs", default="64,128,256,512")
-    ap.add_argument("--workers", default="6,12",
-                    help="loader worker counts; the seg sweep runs at the first")
+    ap.add_argument(
+        "--workers", default="6,12", help="loader worker counts; the seg sweep runs at the first"
+    )
     args = ap.parse_args()
 
     segs = [int(s) for s in args.segs.split(",")]
@@ -147,11 +193,15 @@ def main() -> None:
     scratch.mkdir(parents=True, exist_ok=True)
 
     free = subprocess.run(
-        ["nvidia-smi", "--query-gpu=memory.used,memory.total",
-         "--format=csv,noheader"], capture_output=True, text=True).stdout.strip()
+        ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     print(f"[bench] GPU at start: {free}")
-    print(f"[bench] {len(segs)} seg arms + {len(workers) - 1} worker arms, "
-          f"{args.traj} trajectories each\n")
+    print(
+        f"[bench] {len(segs)} seg arms + {len(workers) - 1} worker arms, "
+        f"{args.traj} trajectories each\n"
+    )
 
     results = []
     # seg sweep at the baseline worker count
@@ -183,8 +233,10 @@ def main() -> None:
         print("\n  seg  workers  traj/s   gpu_busy  gpu_mem_mb")
         for r in results:
             if r.get("ok"):
-                print(f"  {r['seg']:>4} {r['workers']:>7}  {r['traj_per_s']:>6} "
-                      f"  {r['gpu_busy_frac']:>7}  {r['gpu_mem_peak_mb']:>9}")
+                print(
+                    f"  {r['seg']:>4} {r['workers']:>7}  {r['traj_per_s']:>6} "
+                    f"  {r['gpu_busy_frac']:>7}  {r['gpu_mem_peak_mb']:>9}"
+                )
 
 
 if __name__ == "__main__":

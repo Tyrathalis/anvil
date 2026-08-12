@@ -49,26 +49,25 @@ TAG_TASK = {
     "mtg.trigger": "trigger",
     "mtg.binary": "binary",
     "mtg.number": "number",
-    "mtg.attack": "attack",   # M2 D5 combat declarations
+    "mtg.attack": "attack",  # M2 D5 combat declarations
     "mtg.block": "block",
 }
 
 
-def wire_history(hist: list[dict] | None, perspective: int,
-                 k: int = HISTORY_K) -> list[dict[str, Any]]:
+def wire_history(
+    hist: list[dict] | None, perspective: int, k: int = HISTORY_K
+) -> list[dict[str, Any]]:
     """Mirrors transform.history_tokens' information-set rule: an opponent's
     chosen host is kept only for priority casts (public events)."""
     out = []
     for h in (hist or [])[-k:]:
         actor = h.get("p", -1)
         host = h.get("e", -1) if (actor == perspective or h.get("m") == PRIORITY) else -1
-        out.append({"m": h.get("m", "?"), "self": 1 if actor == perspective else 0,
-                    "e": host})
+        out.append({"m": h.get("m", "?"), "self": 1 if actor == perspective else 0, "e": host})
     return out
 
 
-def store_wire_hist(prior: list[dict], now_pos: int, k: int = HISTORY_K
-                    ) -> list[dict[str, Any]]:
+def store_wire_hist(prior: list[dict], now_pos: int, k: int = HISTORY_K) -> list[dict[str, Any]]:
     """Reconstruct what the Java ring ships from STORE dec records: raw
     (m, p, ret-host) for the last K prior decs — the info-set rule is applied
     later in wire_history. Hosts back-fill at ret time, so a prior dec whose
@@ -79,30 +78,37 @@ def store_wire_hist(prior: list[dict], now_pos: int, k: int = HISTORY_K
     for d in prior[-k:]:
         ret = d.get("ret")
         host = -1
-        if (isinstance(ret, list) and ret and isinstance(ret[0], dict)
-                and d.get("_retpos") is not None and d["_retpos"] < now_pos):
+        if (
+            isinstance(ret, list)
+            and ret
+            and isinstance(ret[0], dict)
+            and d.get("_retpos") is not None
+            and d["_retpos"] < now_pos
+        ):
             host = ret[0].get("e", -1)
         out.append({"m": d.get("m", "?"), "p": d.get("p", -1), "e": host})
     return out
 
 
 class Featurizer:
-    def __init__(self, embedding_stem: str | Path, methods: list[str],
-                 sa_vocab: list[str] | None = None):
+    def __init__(
+        self, embedding_stem: str | Path, methods: list[str], sa_vocab: list[str] | None = None
+    ):
         self.embed = EmbeddingCache(Path(embedding_stem))
         self.methods = MethodVocab(methods)
         self.sa_vocab = SaVocab(sa_vocab or default_sa_vocab())
 
-    def example(self, dec: dict, header: dict, task: str,
-                full_vis: bool = False) -> tuple[dict, dict]:
+    def example(
+        self, dec: dict, header: dict, task: str, full_vis: bool = False
+    ) -> tuple[dict, dict]:
         """One wire dec record -> (model example with label pads, aux maps for
         answer translation). full_vis (M3 §6f): asymmetric-critic windows —
         same window/history semantics, info-set gate bypassed in assemble;
         NEVER a policy input (rl.py's pass-B leak boundary is test-pinned)."""
         p = dec["p"]
-        out = assemble(dec, header, perspective=p,
-                       history=wire_history(dec.get("hist"), p),
-                       full_vis=full_vis)
+        out = assemble(
+            dec, header, perspective=p, history=wire_history(dec.get("hist"), p), full_vis=full_vis
+        )
         row_of = out["entity_row_of"]
 
         cand_rows = [-1]
@@ -144,11 +150,13 @@ class Featurizer:
             # candidate basis mirrors the loader EXACTLY (same helper): the
             # derived superset; engine legality gates at the worker's realizer
             cmb_rows, cmb_members = _eligible_rows(
-                dec["obs"], p, row_of, need_unsick=(task == "attack"))
+                dec["obs"], p, row_of, need_unsick=(task == "attack")
+            )
             cmb_count = [min(len(cmb_members[r]), COMBAT_COUNT_MAX) for r in cmb_rows]
             if task == "block":
-                blk_atk_rows = sorted({row_of[e["e"]] for e in dec["obs"].get("ents", [])
-                                       if "atk" in e})
+                blk_atk_rows = sorted(
+                    {row_of[e["e"]] for e in dec["obs"].get("ents", []) if "atk" in e}
+                )
 
         hist = np.full((HISTORY_K, 3), -1, dtype=np.int64)
         for i, h in enumerate(out["history"][-HISTORY_K:]):
@@ -156,8 +164,9 @@ class Featurizer:
 
         ex = {
             "entities": torch.from_numpy(out["entities"]),
-            "ent_emb": torch.tensor([self.embed.row(n) for n in out["entity_names"]],
-                                    dtype=torch.int64),
+            "ent_emb": torch.tensor(
+                [self.embed.row(n) for n in out["entity_names"]], dtype=torch.int64
+            ),
             "globals": torch.from_numpy(out["globals"]),
             "players": torch.from_numpy(out["players"]),
             "history": torch.from_numpy(hist),
@@ -185,8 +194,10 @@ class Featurizer:
             "cmb_count": torch.tensor(cmb_count, dtype=torch.int64),
             "cmb_count_label": torch.full((len(cmb_rows),), -1, dtype=torch.int64),
             "blk_atk_rows": torch.tensor(blk_atk_rows, dtype=torch.int64),
-            **{k: torch.zeros(0, dtype=torch.int64) for k in
-               ("atk_label", "atk_tgt_kind", "atk_tgt_idx", "blk_label")},
+            **{
+                k: torch.zeros(0, dtype=torch.int64)
+                for k in ("atk_label", "atk_tgt_kind", "atk_tgt_idx", "blk_label")
+            },
         }
 
         # ---- answer-translation maps ----
@@ -196,17 +207,21 @@ class Featurizer:
                 row_min_id[r] = eid
         stack_ids = {e["e"] for e in dec["obs"].get("ents", []) if e.get("z") == "stack"}
         n_players = len(header["players"])
-        aux = {"cand_rows": cand_rows, "cand_first_opt": cand_first_opt,
-               "row_min_id": row_min_id, "stack_ids": stack_ids,
-               "n_players": n_players,
-               # combat answer translation (D5): candidate rows in example
-               # order; members per row (sorted — first-fit expansion is the
-               # multiset-tie convention); attacker slots; seats maps the
-               # model's self-first player positions back to registered
-               # indices (combat heads use positions, unlike the target
-               # decoder's absolute-pi convention)
-               "cmb_rows": cmb_rows,
-               "cmb_members": {r: sorted(ids) for r, ids in cmb_members.items()},
-               "blk_atk_rows": blk_atk_rows,
-               "seats": [p] + [q for q in range(n_players) if q != p]}
+        aux = {
+            "cand_rows": cand_rows,
+            "cand_first_opt": cand_first_opt,
+            "row_min_id": row_min_id,
+            "stack_ids": stack_ids,
+            "n_players": n_players,
+            # combat answer translation (D5): candidate rows in example
+            # order; members per row (sorted — first-fit expansion is the
+            # multiset-tie convention); attacker slots; seats maps the
+            # model's self-first player positions back to registered
+            # indices (combat heads use positions, unlike the target
+            # decoder's absolute-pi convention)
+            "cmb_rows": cmb_rows,
+            "cmb_members": {r: sorted(ids) for r, ids in cmb_members.items()},
+            "blk_atk_rows": blk_atk_rows,
+            "seats": [p] + [q for q in range(n_players) if q != p],
+        }
         return ex, aux

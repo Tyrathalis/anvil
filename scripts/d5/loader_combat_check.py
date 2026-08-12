@@ -27,8 +27,14 @@ def main() -> None:
     ap.add_argument("--out", default="data/training/d5-loader-combat-check.json")
     a = ap.parse_args()
 
-    ds = PriorityWindows(a.store, a.embed, default_methods(), shuffle_games=False,
-                         max_games=a.max_games, tasks={"attack", "block"})
+    ds = PriorityWindows(
+        a.store,
+        a.embed,
+        default_methods(),
+        shuffle_games=False,
+        max_games=a.max_games,
+        tasks={"attack", "block"},
+    )
     st = Counter()
     for ex in ds:
         t = int(ex["task"])
@@ -39,8 +45,7 @@ def main() -> None:
             st["atk_rows_attacking"] += sum(lab)
             if any(lab):
                 st["atk_nonempty"] += 1
-            for k, tk in zip(ex["cmb_count_label"].tolist(),
-                             ex["atk_tgt_kind"].tolist()):
+            for k, tk in zip(ex["cmb_count_label"].tolist(), ex["atk_tgt_kind"].tolist()):
                 if k >= 0:
                     st["atk_count_labels"] += 1
                 if tk == 1:
@@ -48,9 +53,9 @@ def main() -> None:
                 elif tk == 0:
                     st["atk_tgt_permanent"] += 1
             st["atk_tgt_masked"] += sum(
-                1 for l, tk in zip(lab, ex["atk_tgt_kind"].tolist())
-                if l == 1 and tk == -1)
-        else:       # block
+                1 for l, tk in zip(lab, ex["atk_tgt_kind"].tolist()) if l == 1 and tk == -1
+            )
+        else:  # block
             st["blk_windows"] += 1
             none = ex["blk_atk_rows"].shape[0]
             lab = ex["blk_label"].tolist()
@@ -59,8 +64,7 @@ def main() -> None:
             st["blk_rows_masked"] += sum(1 for x in lab if x == -1)
             if any(0 <= x < none for x in lab) or -1 in lab:
                 st["blk_nonempty"] += 1
-            st["blk_count_labels"] += sum(
-                1 for k in ex["cmb_count_label"].tolist() if k >= 0)
+            st["blk_count_labels"] += sum(1 for k in ex["cmb_count_label"].tolist() if k >= 0)
 
     report = {"store": a.store, "max_games": a.max_games, "stats": dict(st)}
     with open(a.out, "w") as f:

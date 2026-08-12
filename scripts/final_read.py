@@ -37,16 +37,18 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--chunk", type=int, default=50)
     ap.add_argument("--port", type=int, default=50065)
-    ap.add_argument("--pairs-file",
-                    default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
+    ap.add_argument("--pairs-file", default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
     ap.add_argument("--seed-base", type=int, default=20260710)
     ap.add_argument("--critic", default=CRITIC)
-    ap.add_argument("--pool-version", default=None,
-                    help="pool manifest version to stamp on the runs. Default "
-                         "resolves the same manifest the harness would use "
-                         "(the data/pool/CURRENT pin since 2026-08-03; the "
-                         "old mtime-selection hazard is retired) — ingest "
-                         "warns 'provenance is incomplete' without it.")
+    ap.add_argument(
+        "--pool-version",
+        default=None,
+        help="pool manifest version to stamp on the runs. Default "
+        "resolves the same manifest the harness would use "
+        "(the data/pool/CURRENT pin since 2026-08-03; the "
+        "old mtime-selection hazard is retired) — ingest "
+        "warns 'provenance is incomplete' without it.",
+    )
     a = ap.parse_args()
     # Self-registration with the standing watcher: the read reports its OWN
     # pid (the 07-31 chain waiter grabbed a pgrep'd pid that was its own
@@ -56,26 +58,48 @@ def main() -> None:
 
     if a.pool_version is None:
         from anvil.bridge.harness.pairs import latest_pool_manifest
+
         a.pool_version = latest_pool_manifest()["pool_version"]
     print(f"[final_read] pool version {a.pool_version}")
 
     # ---- generation: both seat assignments under one argmax server ----
     arm_dirs: list[Path] = []
-    server = _start_server(a.ckpt, a.port,
-                           RUNS_DIR / f"{a.name}-arm-server.log", sample=False)
+    server = _start_server(a.ckpt, a.port, RUNS_DIR / f"{a.name}-arm-server.log", sample=False)
     try:
         for seat in (0, 1):
             purpose = f"{a.name}arm-s{seat}"
             before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-            _run([sys.executable, "-m", "anvil.bridge.harness", "launch",
-                  "--pairs-file", a.pairs_file, "--games", str(a.games),
-                  "--games-per-pair", str(a.games_per_pair),
-                  "--workers", str(a.workers), "--chunk", str(a.chunk),
-                  "--bridge", f"grpc:localhost:{a.port}",
-                  "--census", "--obs", "--purpose", purpose,
-                  "--seed-base", str(a.seed_base),
-                  "--pool-version", a.pool_version,
-                  "--bridge-seats", str(seat), "--reask"])
+            _run(
+                [
+                    sys.executable,
+                    "-m",
+                    "anvil.bridge.harness",
+                    "launch",
+                    "--pairs-file",
+                    a.pairs_file,
+                    "--games",
+                    str(a.games),
+                    "--games-per-pair",
+                    str(a.games_per_pair),
+                    "--workers",
+                    str(a.workers),
+                    "--chunk",
+                    str(a.chunk),
+                    "--bridge",
+                    f"grpc:localhost:{a.port}",
+                    "--census",
+                    "--obs",
+                    "--purpose",
+                    purpose,
+                    "--seed-base",
+                    str(a.seed_base),
+                    "--pool-version",
+                    a.pool_version,
+                    "--bridge-seats",
+                    str(seat),
+                    "--reask",
+                ]
+            )
             new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
             if len(new) != 1:
                 raise RuntimeError(f"expected one new run dir, got {new}")
@@ -91,17 +115,37 @@ def main() -> None:
         if not store.exists():
             raise RuntimeError(f"ingest did not produce {store}")
         rep = RUNS_DIR / f"ante-{rd.name}.json"
-        _run([sys.executable, "-m", "anvil.ante.certify",
-              "--store", str(store), "--ckpt", a.critic,
-              "--out", str(rep), "--ledger-out", f"{rep}.ledger.jsonl"])
+        _run(
+            [
+                sys.executable,
+                "-m",
+                "anvil.ante.certify",
+                "--store",
+                str(store),
+                "--ckpt",
+                a.critic,
+                "--out",
+                str(rep),
+                "--ledger-out",
+                f"{rep}.ledger.jsonl",
+            ]
+        )
         ante_reports.append(str(rep))
 
     # ---- pooled report ----
     out = RUNS_DIR / f"{a.name}-arms-report.json"
-    _run([sys.executable, "scripts/arms_report.py",
-          "--arm", f"{a.name}={','.join(map(str, arm_dirs))}",
-          "--ante", f"{a.name}={','.join(ante_reports)}",
-          "--out", str(out)])
+    _run(
+        [
+            sys.executable,
+            "scripts/arms_report.py",
+            "--arm",
+            f"{a.name}={','.join(map(str, arm_dirs))}",
+            "--ante",
+            f"{a.name}={','.join(ante_reports)}",
+            "--out",
+            str(out),
+        ]
+    )
     print(f"[final_read] report: {out}")
     notify(f"anvil {a.name}: read complete", str(out), tag="final_read")
     watch_unregister(f"{a.name}-read")

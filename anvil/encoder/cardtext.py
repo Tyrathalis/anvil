@@ -25,11 +25,16 @@ def parse_faces(script: str) -> list[dict]:
     for chunk in script.replace("\r\n", "\n").split("\nALTERNATE\n"):
         face: dict = {}
         for line in chunk.splitlines():
-            for key, field in (("Name:", "name"), ("ManaCost:", "cost"),
-                               ("Types:", "types"), ("PT:", "pt"),
-                               ("Loyalty:", "loyalty"), ("Oracle:", "oracle")):
+            for key, field in (
+                ("Name:", "name"),
+                ("ManaCost:", "cost"),
+                ("Types:", "types"),
+                ("PT:", "pt"),
+                ("Loyalty:", "loyalty"),
+                ("Oracle:", "oracle"),
+            ):
                 if line.startswith(key):
-                    face[field] = line[len(key):].strip()
+                    face[field] = line[len(key) :].strip()
         if face.get("name"):
             faces.append(face)
     return faces
@@ -93,19 +98,32 @@ def pool_texts(manifest: dict) -> dict[str, str]:
         with open(path, encoding="utf-8", errors="replace") as f:
             out[name] = render(parse_faces(f.read()))
     if missing:
-        raise RuntimeError(f"{len(missing)} pool cards have no cardsfolder script "
-                           f"(pool/fork mismatch?): {missing[:5]}")
+        raise RuntimeError(
+            f"{len(missing)} pool cards have no cardsfolder script "
+            f"(pool/fork mismatch?): {missing[:5]}"
+        )
     return out
 
 
 # ---- structured card features (§1: pips, types, P/T — static per card) ----
 
-FEATURE_TYPES = ["Land", "Creature", "Artifact", "Enchantment", "Instant",
-                 "Sorcery", "Planeswalker", "Battle", "Legendary", "Snow"]
-CARD_FEATURES = (["pip_w", "pip_u", "pip_b", "pip_r", "pip_g", "pip_c",
-                  "generic", "has_x", "cmc"]
-                 + [f"type_{t.lower()}" for t in FEATURE_TYPES]
-                 + ["power", "toughness", "has_pt", "loyalty", "has_loyalty", "n_faces"])
+FEATURE_TYPES = [
+    "Land",
+    "Creature",
+    "Artifact",
+    "Enchantment",
+    "Instant",
+    "Sorcery",
+    "Planeswalker",
+    "Battle",
+    "Legendary",
+    "Snow",
+]
+CARD_FEATURES = (
+    ["pip_w", "pip_u", "pip_b", "pip_r", "pip_g", "pip_c", "generic", "has_x", "cmc"]
+    + [f"type_{t.lower()}" for t in FEATURE_TYPES]
+    + ["power", "toughness", "has_pt", "loyalty", "has_loyalty", "n_faces"]
+)
 
 
 def face_features(faces: list[dict]) -> list[float]:
@@ -135,25 +153,38 @@ def face_features(faces: list[dict]) -> list[float]:
         power = float(pt[0]) if pt[0].lstrip("+-").isdigit() else 0.0
         tough = float(pt[1]) if pt[1].lstrip("+-").isdigit() else 0.0
     loyalty = f.get("loyalty", "")
-    return ([pips[c] for c in "WUBRGC"] + [generic, has_x, cmc]
-            + [1.0 if t in types else 0.0 for t in FEATURE_TYPES]
-            + [power, tough, has_pt,
-               float(loyalty) if loyalty.isdigit() else 0.0,
-               1.0 if loyalty else 0.0, float(len(faces))])
+    return (
+        [pips[c] for c in "WUBRGC"]
+        + [generic, has_x, cmc]
+        + [1.0 if t in types else 0.0 for t in FEATURE_TYPES]
+        + [
+            power,
+            tough,
+            has_pt,
+            float(loyalty) if loyalty.isdigit() else 0.0,
+            1.0 if loyalty else 0.0,
+            float(len(faces)),
+        ]
+    )
 
 
 # scaled to O(1) at the model boundary (face_features stays raw/readable):
 # these columns sit beside unit-L2 text embeddings (~0.016/dim) in the
 # CardEncoder fusion concat; raw cmc~15 arrives ~1000x louder per dim — the
 # same conditioning failure transform v2/v3 fixed for state/entity tokens
-FEATURE_SCALE = ([1 / 4] * 6 + [1 / 10, 1, 1 / 10] + [1] * len(FEATURE_TYPES)
-                 + [1 / 10, 1 / 10, 1, 1 / 7, 1, 1 / 2])
+FEATURE_SCALE = (
+    [1 / 4] * 6
+    + [1 / 10, 1, 1 / 10]
+    + [1] * len(FEATURE_TYPES)
+    + [1 / 10, 1 / 10, 1, 1 / 7, 1, 1 / 2]
+)
 
 
 def pool_features(manifest: dict, names: list[str]):
     """Feature matrix aligned to the embedding-cache name order; FEATURE_SCALE
     applied (model-facing — face_features output is raw)."""
     import numpy as np
+
     files = _scan_files()
     rows = []
     for name in names:

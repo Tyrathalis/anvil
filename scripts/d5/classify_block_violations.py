@@ -38,7 +38,7 @@ def creature_rows(obs: dict, p: int) -> dict[int, dict]:
 
 
 def label_window(decs: list[dict], i: int, turn: int) -> tuple[dict | None, int]:
-    for j, d in enumerate(decs[i + 1:], start=i + 1):
+    for j, d in enumerate(decs[i + 1 :], start=i + 1):
         obs = d.get("obs")
         if obs is None:
             continue
@@ -109,8 +109,7 @@ def main() -> None:
                 lw, lj = label_window(decs, i, t)
                 if lw is None:
                     continue
-                blockers = {e["e"]: e["blk"] for e in lw["ents"]
-                            if "blk" in e and e.get("c") == p}
+                blockers = {e["e"]: e["blk"] for e in lw["ents"] if "blk" in e and e.get("c") == p}
                 if not blockers:
                     continue
 
@@ -134,7 +133,7 @@ def main() -> None:
                     continue
 
                 # context shared by all violations in this window
-                between = decs[i + 1: lj]
+                between = decs[i + 1 : lj]
                 ctx = {
                     "store": store_path,
                     "game": g,
@@ -160,24 +159,28 @@ def main() -> None:
                             _, aid = k
                             st["target_not_attacker"] += 1
                             lw_ent = next((e for e in lw["ents"] if e["e"] == aid), None)
-                            ctx["violations"].append({
-                                "kind": "target_not_attacker",
-                                "blocker": eid,
-                                "blocker_name": name.get(eid) or lw_name.get(eid),
-                                "target": aid,
-                                "target_name": name.get(aid) or lw_name.get(aid),
-                                "target_in_dec_obs": any(e["e"] == aid for e in obs["ents"]),
-                                "target_atk_in_lw": bool(lw_ent and "atk" in lw_ent),
-                                "target_atk_earlier_this_turn": aid in turn_atk_seen,
-                            })
+                            ctx["violations"].append(
+                                {
+                                    "kind": "target_not_attacker",
+                                    "blocker": eid,
+                                    "blocker_name": name.get(eid) or lw_name.get(eid),
+                                    "target": aid,
+                                    "target_name": name.get(aid) or lw_name.get(aid),
+                                    "target_in_dec_obs": any(e["e"] == aid for e in obs["ents"]),
+                                    "target_atk_in_lw": bool(lw_ent and "atk" in lw_ent),
+                                    "target_atk_earlier_this_turn": aid in turn_atk_seen,
+                                }
+                            )
                         else:
                             st[k] += 1
-                            ctx["violations"].append({
-                                "kind": k,
-                                "blocker": eid,
-                                "blocker_name": name.get(eid) or lw_name.get(eid),
-                                "blocked": blocked,
-                            })
+                            ctx["violations"].append(
+                                {
+                                    "kind": k,
+                                    "blocker": eid,
+                                    "blocker_name": name.get(eid) or lw_name.get(eid),
+                                    "blocked": blocked,
+                                }
+                            )
                 examples.append(ctx)
 
     report = {

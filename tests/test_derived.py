@@ -26,37 +26,39 @@ STATICS = {
     "Grizzly Bears": CardStatic(cmc=2.0, is_land=False, has_x=False),
 }
 
-HEADER = {"sv": 1, "players": [{"name": "A", "cmd": ["Cmdr A"]},
-                               {"name": "B", "cmd": ["Cmdr B"]}]}
+HEADER = {"sv": 1, "players": [{"name": "A", "cmd": ["Cmdr A"]}, {"name": "B", "cmd": ["Cmdr B"]}]}
 
 
 def _dec(ents, players=None, s=1):
-    return {"k": "dec", "s": s, "p": 0, "obs": {
-        "glob": {"turn": 5, "ph": "MAIN1", "ap": 0},
-        "players": players or [
-            {"life": 10, "hand": 2, "lib": 50, "mana": {"C": 1},
-             "cmdcast": [1]},
-            {"life": 7, "hand": 4, "lib": 60, "cmdcast": [0]},
-        ],
-        "ents": ents}}
+    return {
+        "k": "dec",
+        "s": s,
+        "p": 0,
+        "obs": {
+            "glob": {"turn": 5, "ph": "MAIN1", "ap": 0},
+            "players": players
+            or [
+                {"life": 10, "hand": 2, "lib": 50, "mana": {"C": 1}, "cmdcast": [1]},
+                {"life": 7, "hand": 4, "lib": 60, "cmdcast": [0]},
+            ],
+            "ents": ents,
+        },
+    }
 
 
 ENTS = [
     # self: two forests (one tapped), a ready 3/3, commander in the zone
     {"e": 1, "n": "Forest", "z": "battlefield", "c": 0, "o": 0},
     {"e": 2, "n": "Forest", "z": "battlefield", "c": 0, "o": 0, "tap": 1},
-    {"e": 3, "n": "Grizzly Bears", "z": "battlefield", "c": 0, "o": 0,
-     "pt": [3, 3]},
+    {"e": 3, "n": "Grizzly Bears", "z": "battlefield", "c": 0, "o": 0, "pt": [3, 3]},
     {"e": 4, "n": "Cmdr A", "z": "command", "c": 0, "o": 0},
     # self hand: a castable bolt and an uncastable 6-drop
     {"e": 5, "n": "Lightning Bolt", "z": "hand", "c": 0, "o": 0},
     {"e": 6, "n": "Big Guy", "z": "hand", "c": 0, "o": 0},
     # opponent: a ready 8/8, a summoning-sick 2/2, a tapped land,
     # a hidden hand card, a graveyard card
-    {"e": 7, "n": "Big Guy", "z": "battlefield", "c": 1, "o": 1,
-     "pt": [8, 8]},
-    {"e": 8, "n": "Grizzly Bears", "z": "battlefield", "c": 1, "o": 1,
-     "pt": [2, 2], "sick": 1},
+    {"e": 7, "n": "Big Guy", "z": "battlefield", "c": 1, "o": 1, "pt": [8, 8]},
+    {"e": 8, "n": "Grizzly Bears", "z": "battlefield", "c": 1, "o": 1, "pt": [2, 2], "sick": 1},
     {"e": 9, "n": "Forest", "z": "battlefield", "c": 1, "o": 1, "tap": 1},
     {"e": 10, "n": "Lightning Bolt", "z": "hand", "c": 1, "o": 1},
     {"e": 11, "n": "Big Guy", "z": "graveyard", "c": 1, "o": 1},
@@ -80,7 +82,7 @@ def test_shape_and_families(vec):
 
 def test_race(vec):
     assert _feat(vec, "race_power_ready_self") == 3.0
-    assert _feat(vec, "race_power_ready_opp") == 8.0     # sick 2/2 not ready
+    assert _feat(vec, "race_power_ready_opp") == 8.0  # sick 2/2 not ready
     assert _feat(vec, "race_power_total_opp") == 10.0
     assert _feat(vec, "race_lethal_margin_vs_self") == 8.0 - 10.0
     assert _feat(vec, "race_lethal_margin_vs_opp") == 3.0 - 7.0
@@ -90,7 +92,7 @@ def test_race(vec):
 
 
 def test_clock(vec):
-    assert _feat(vec, "clock_ttd_self") == 1.0           # 10 life / 10 power
+    assert _feat(vec, "clock_ttd_self") == 1.0  # 10 life / 10 power
     assert _feat(vec, "clock_ttd_opp") == pytest.approx(7 / 3)
     assert _feat(vec, "clock_diff") == pytest.approx(1.0 - 7 / 3)
     assert _feat(vec, "clock_ahead") == 0.0
@@ -120,7 +122,7 @@ def test_material(vec):
     assert _feat(vec, "mat_creatures_diff") == 1.0 - 2.0
     assert _feat(vec, "mat_permanents_diff") == 3.0 - 3.0
     assert _feat(vec, "mat_lands_diff") == 2.0 - 1.0
-    assert _feat(vec, "mat_hand_diff") == 2.0 - 4.0     # player counts, not ents
+    assert _feat(vec, "mat_hand_diff") == 2.0 - 4.0  # player counts, not ents
     assert _feat(vec, "mat_grave_diff") == -1.0
     assert _feat(vec, "mat_toughness_diff") == 3.0 - 10.0
     assert _feat(vec, "mat_card_adv") == (2 + 3) - (4 + 3)
@@ -139,8 +141,7 @@ def test_commander(vec):
 
 def test_commander_on_battlefield():
     ents = [dict(e) for e in ENTS if e["e"] != 4]
-    ents.append({"e": 4, "n": "Cmdr A", "z": "battlefield", "c": 0, "o": 0,
-                 "pt": [2, 4]})
+    ents.append({"e": 4, "n": "Cmdr A", "z": "battlefield", "c": 0, "o": 0, "pt": [2, 4]})
     v = derived_features(_dec(ents), HEADER, 0, STATICS)
     assert _feat(v, "cmd_zone_self") == 0.0
     assert _feat(v, "cmd_bf_self") == 1.0
@@ -173,8 +174,9 @@ def test_own_hand_is_visible():
 def test_statics_miss_degrades_gracefully():
     """A token/emblem name with no statics entry: never a land, never
     castability-counted, but its body still races."""
-    ents = ENTS + [{"e": 20, "n": "Spirit Token", "z": "battlefield",
-                    "c": 0, "o": 0, "tok": 1, "pt": [1, 1]}]
+    ents = ENTS + [
+        {"e": 20, "n": "Spirit Token", "z": "battlefield", "c": 0, "o": 0, "tok": 1, "pt": [1, 1]}
+    ]
     v = derived_features(_dec(ents), HEADER, 0, STATICS)
     assert _feat(v, "race_power_ready_self") == 4.0
     assert _feat(v, "cast_mana_avail_self") == 2.0
@@ -212,11 +214,10 @@ def test_eliminated_opponent_excluded():
         {"life": 7, "hand": 4, "lib": 60, "cmdcast": [0]},
         {"life": 0, "hand": 0, "lib": 0, "lost": 1, "cmdcast": [3]},
     ]
-    header = {"sv": 1, "players": HEADER["players"] + [{"name": "C",
-                                                        "cmd": ["Cmdr B"]}]}
+    header = {"sv": 1, "players": HEADER["players"] + [{"name": "C", "cmd": ["Cmdr B"]}]}
     v = derived_features(_dec(ENTS, players=players), header, 0, STATICS)
-    assert _feat(v, "race_life_diff") == 3.0     # vs the living opponent
-    assert _feat(v, "cmd_tax_opp") == 0.0        # lost seat's casts ignored
+    assert _feat(v, "race_life_diff") == 3.0  # vs the living opponent
+    assert _feat(v, "cmd_tax_opp") == 0.0  # lost seat's casts ignored
 
 
 def test_collect_names_respects_visibility():

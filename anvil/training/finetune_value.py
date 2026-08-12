@@ -70,9 +70,12 @@ def _train_batch(net, batch: dict, device: str, denom: int) -> float:
             m = batch["has_outcome"].bool()
             if not m.any():
                 return 0.0
-            loss = torch.nn.functional.binary_cross_entropy_with_logits(
-                out["value_logit"][m], batch["won"][m].float(),
-                reduction="sum") / denom
+            loss = (
+                torch.nn.functional.binary_cross_entropy_with_logits(
+                    out["value_logit"][m], batch["won"][m].float(), reduction="sum"
+                )
+                / denom
+            )
         loss.backward()
         return float(loss.detach())
     except torch.cuda.OutOfMemoryError:
@@ -81,10 +84,9 @@ def _train_batch(net, batch: dict, device: str, denom: int) -> float:
         torch.cuda.empty_cache()
         print(f"[vfix] OOM at batch {b} -> gradient-accumulating halves")
         h = b // 2
-        return (_train_batch(net, {k: v[:h] for k, v in batch.items()},
-                             device, denom)
-                + _train_batch(net, {k: v[h:] for k, v in batch.items()},
-                               device, denom))
+        return _train_batch(
+            net, {k: v[:h] for k, v in batch.items()}, device, denom
+        ) + _train_batch(net, {k: v[h:] for k, v in batch.items()}, device, denom)
 
 
 @torch.no_grad()
@@ -105,9 +107,12 @@ def eval_value(net, loader, device: str, max_batches: int) -> dict:
     y = np.concatenate(wons).astype(np.float64)
     eps = 1e-7
     pc = np.clip(p, eps, 1 - eps)
-    return {"value_bce": float(-(y * np.log(pc) + (1 - y) * np.log(1 - pc)).mean()),
-            "value_auc": _auc(p, y), "n_value": int(len(y)),
-            "pred_std": float(p.std())}
+    return {
+        "value_bce": float(-(y * np.log(pc) + (1 - y) * np.log(1 - pc)).mean()),
+        "value_auc": _auc(p, y),
+        "n_value": int(len(y)),
+        "pred_std": float(p.std()),
+    }
 
 
 def main() -> None:
@@ -124,12 +129,19 @@ def main() -> None:
     ap.add_argument("--eval-batches", type=int, default=100)
     ap.add_argument("--final-eval-batches", type=int, default=600)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--full-vis", action="store_true",
-                    help="asymmetric-critic windows (design §4): all entity "
-                         "identities visible; critic instrument, never policy input")
-    ap.add_argument("--trainable", default="value_head", choices=["value_head", "all"],
-                    help="value_head = frozen-trunk probe; all = critic tower "
-                         "(policy heads in the output ckpt become garbage — never serve)")
+    ap.add_argument(
+        "--full-vis",
+        action="store_true",
+        help="asymmetric-critic windows (design §4): all entity "
+        "identities visible; critic instrument, never policy input",
+    )
+    ap.add_argument(
+        "--trainable",
+        default="value_head",
+        choices=["value_head", "all"],
+        help="value_head = frozen-trunk probe; all = critic tower "
+        "(policy heads in the output ckpt become garbage — never serve)",
+    )
     a = ap.parse_args()
 
     torch.manual_seed(a.seed)
@@ -141,23 +153,33 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     methods = default_methods()
-    net = build_net(cfg["embed"], cfg["pool_manifest"], len(methods),
-                    n_sa=cfg.get("sa_vocab_size", 0)).to(device)
+    net = build_net(
+        cfg["embed"], cfg["pool_manifest"], len(methods), n_sa=cfg.get("sa_vocab_size", 0)
+    ).to(device)
     net.load_compat(ck["model"])
     for name, p in net.named_parameters():
         p.requires_grad = a.trainable == "all" or name.startswith("value_head")
     n_train = sum(p.numel() for p in net.parameters() if p.requires_grad)
 
-    train_ds = PriorityWindows(store, cfg["embed"], methods, split="train",
-                               seed=a.seed, full_vis=a.full_vis)
-    val_ds = PriorityWindows(store, cfg["embed"], methods, split="val",
-                             shuffle_games=False, full_vis=a.full_vis)
-    train = DataLoader(train_ds, batch_size=a.batch, collate_fn=collate,
-                       num_workers=a.workers, persistent_workers=True, prefetch_factor=4)
+    train_ds = PriorityWindows(
+        store, cfg["embed"], methods, split="train", seed=a.seed, full_vis=a.full_vis
+    )
+    val_ds = PriorityWindows(
+        store, cfg["embed"], methods, split="val", shuffle_games=False, full_vis=a.full_vis
+    )
+    train = DataLoader(
+        train_ds,
+        batch_size=a.batch,
+        collate_fn=collate,
+        num_workers=a.workers,
+        persistent_workers=True,
+        prefetch_factor=4,
+    )
     val = DataLoader(val_ds, batch_size=a.batch, collate_fn=collate, num_workers=4)
 
-    opt = torch.optim.AdamW([p for p in net.parameters() if p.requires_grad],
-                            lr=a.lr, weight_decay=0.01)
+    opt = torch.optim.AdamW(
+        [p for p in net.parameters() if p.requires_grad], lr=a.lr, weight_decay=0.01
+    )
 
     def lr_at(step: int) -> float:
         if step < a.warmup:
@@ -165,16 +187,24 @@ def main() -> None:
         t = (step - a.warmup) / max(a.steps - a.warmup, 1)
         return a.lr * 0.5 * (1 + math.cos(math.pi * min(t, 1.0)))
 
-    config = {**cfg, "value_finetune": {**vars(a), "base_step": ck.get("step"),
-                                        "trainable_params": n_train,
-                                        "label_fix": "winner_seat join (2026-07-11)"}}
+    config = {
+        **cfg,
+        "value_finetune": {
+            **vars(a),
+            "base_step": ck.get("step"),
+            "trainable_params": n_train,
+            "label_fix": "winner_seat join (2026-07-11)",
+        },
+    }
     (out_dir / "config.json").write_text(json.dumps(config, indent=1, default=str) + "\n")
     metrics = open(out_dir / "metrics.jsonl", "a")
 
     base = eval_value(net, val, device, a.eval_batches)
-    print(f"[vfix] baseline (broken-label head vs TRUE labels): "
-          f"bce {base['value_bce']:.4f} auc {base['value_auc']:.4f} "
-          f"(n={base['n_value']}, pred_std {base['pred_std']:.4f})")
+    print(
+        f"[vfix] baseline (broken-label head vs TRUE labels): "
+        f"bce {base['value_bce']:.4f} auc {base['value_auc']:.4f} "
+        f"(n={base['n_value']}, pred_std {base['pred_std']:.4f})"
+    )
     metrics.write(json.dumps({"step": 0, "split": "val", **base}) + "\n")
     metrics.flush()
 
@@ -196,24 +226,37 @@ def main() -> None:
             seen += n_out
             step += 1
             if step % 200 == 0:
-                metrics.write(json.dumps({"step": step, "value_loss": loss_val,
-                                          "lr": lr_at(step), "windows": seen,
-                                          "wall_s": round(time.time() - t0, 1)}) + "\n")
+                metrics.write(
+                    json.dumps(
+                        {
+                            "step": step,
+                            "value_loss": loss_val,
+                            "lr": lr_at(step),
+                            "windows": seen,
+                            "wall_s": round(time.time() - t0, 1),
+                        }
+                    )
+                    + "\n"
+                )
                 metrics.flush()
             if step % 1000 == 0:
-                print(f"[vfix] step {step}: loss {loss_val:.4f} "
-                      f"({seen / (time.time() - t0):.0f} win/s)")
+                print(
+                    f"[vfix] step {step}: loss {loss_val:.4f} "
+                    f"({seen / (time.time() - t0):.0f} win/s)"
+                )
             if step % a.eval_every == 0 or step == a.steps:
                 nb = a.final_eval_batches if step == a.steps else a.eval_batches
                 ev = eval_value(net, val, device, nb)
                 metrics.write(json.dumps({"step": step, "split": "val", **ev}) + "\n")
                 metrics.flush()
-                print(f"[vfix] eval step {step}: bce {ev['value_bce']:.4f} "
-                      f"auc {ev['value_auc']:.4f} pred_std {ev['pred_std']:.4f}")
-                torch.save({"step": step, "model": net.state_dict(), "config": config},
-                           out_dir / "last.pt")
-    print(f"[vfix] done: {step} steps, {seen} outcome windows, "
-          f"{(time.time() - t0) / 60:.1f} min")
+                print(
+                    f"[vfix] eval step {step}: bce {ev['value_bce']:.4f} "
+                    f"auc {ev['value_auc']:.4f} pred_std {ev['pred_std']:.4f}"
+                )
+                torch.save(
+                    {"step": step, "model": net.state_dict(), "config": config}, out_dir / "last.pt"
+                )
+    print(f"[vfix] done: {step} steps, {seen} outcome windows, {(time.time() - t0) / 60:.1f} min")
 
 
 if __name__ == "__main__":

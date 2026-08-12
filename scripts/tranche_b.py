@@ -59,14 +59,34 @@ def _run(cmd: list[str]) -> None:
 def _launch_arm(seat: int, games: int, workers: int) -> Path:
     purpose = f"c2ext-s{seat}"
     before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-    _run([sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
-          "--games", str(games), "--games-per-pair", "5",
-          "--workers", str(workers),
-          "--chunk", str(batch_chunk(games, workers, 30)),
-          "--bridge", f"grpc:localhost:{PORT}",
-          "--obs", "--census", "--reask",
-          "--bridge-seats", str(seat),
-          "--purpose", purpose, "--seed-base", str(SEED_BASE)])
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "anvil.bridge.harness",
+            "launch",
+            "--pool",
+            "--games",
+            str(games),
+            "--games-per-pair",
+            "5",
+            "--workers",
+            str(workers),
+            "--chunk",
+            str(batch_chunk(games, workers, 30)),
+            "--bridge",
+            f"grpc:localhost:{PORT}",
+            "--obs",
+            "--census",
+            "--reask",
+            "--bridge-seats",
+            str(seat),
+            "--purpose",
+            purpose,
+            "--seed-base",
+            str(SEED_BASE),
+        ]
+    )
     new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
     if len(new) != 1:
         raise RuntimeError(f"expected one new run dir for {purpose}: {new}")
@@ -78,8 +98,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--games-per-arm", type=int, default=800)
     ap.add_argument("--workers", type=int, default=16)
-    ap.add_argument("--smoke", action="store_true",
-                    help="16 games/arm, map limit 8, no sweep arms")
+    ap.add_argument("--smoke", action="store_true", help="16 games/arm, map limit 8, no sweep arms")
     a = ap.parse_args()
     games = 16 if a.smoke else a.games_per_arm
     t0 = time.time()
@@ -90,8 +109,7 @@ def main() -> None:
         log.parent.mkdir(parents=True, exist_ok=True)
         server = _start_server(POLICY, PORT, log, sample=False)
         try:
-            run_dirs = [_launch_arm(0, games, a.workers),
-                        _launch_arm(1, games, a.workers)]
+            run_dirs = [_launch_arm(0, games, a.workers), _launch_arm(1, games, a.workers)]
         finally:
             _stop_server(server)
 
@@ -107,41 +125,78 @@ def main() -> None:
         # ---- 3. early-doom traces (era critic -> curation; d4 for v_d4) ----
         arms = [f"{s}:{i}" for i, s in enumerate(stores)]
         for ckpt, out in ((ERA_CRITIC, TRACE_ERA), (D4_CRITIC, TRACE_D4)):
-            cmd = [sys.executable, "scripts/early_doom.py", "trace",
-                   "--ckpt", ckpt, "--out", out]
+            cmd = [sys.executable, "scripts/early_doom.py", "trace", "--ckpt", ckpt, "--out", out]
             for arm in arms:
                 cmd += ["--arm", arm]
             _run(cmd)
-        _run([sys.executable, "scripts/early_doom.py", "analyze",
-              "--out", TRACE_ERA])
+        _run([sys.executable, "scripts/early_doom.py", "analyze", "--out", TRACE_ERA])
 
         # ---- 4. drill map at crash:0 + offset arms ----
-        _run([sys.executable, "-m", "anvil.grindstone", "plan",
-              "--curation", f"{TRACE_ERA}/curation.jsonl",
-              "--out", MAP_OUT, "--ckpt", POLICY, "--k", "8",
-              "--anchor", "crash", "--turn-offset", "0"]
-             + (["--limit", "8"] if a.smoke else []))
-        _run([sys.executable, "-m", "anvil.grindstone", "generate",
-              "--manifest", MAP_OUT, "--port", str(PORT),
-              "--workers", str(a.workers), "--chunk", "17", "--drill-stop"])
-        _run([sys.executable, "-m", "anvil.grindstone", "report",
-              "--manifest", MAP_OUT])
+        _run(
+            [
+                sys.executable,
+                "-m",
+                "anvil.grindstone",
+                "plan",
+                "--curation",
+                f"{TRACE_ERA}/curation.jsonl",
+                "--out",
+                MAP_OUT,
+                "--ckpt",
+                POLICY,
+                "--k",
+                "8",
+                "--anchor",
+                "crash",
+                "--turn-offset",
+                "0",
+            ]
+            + (["--limit", "8"] if a.smoke else [])
+        )
+        _run(
+            [
+                sys.executable,
+                "-m",
+                "anvil.grindstone",
+                "generate",
+                "--manifest",
+                MAP_OUT,
+                "--port",
+                str(PORT),
+                "--workers",
+                str(a.workers),
+                "--chunk",
+                "17",
+                "--drill-stop",
+            ]
+        )
+        _run([sys.executable, "-m", "anvil.grindstone", "report", "--manifest", MAP_OUT])
         if not a.smoke:
-            _run([sys.executable, "scripts/drill_sweep.py",
-                  "--map", MAP_OUT,
-                  "--bins", "lost,long_shot,coin,winnable",
-                  "--arms", "o2:crash:-2,o4:crash:-4",
-                  "--out", SWEEP_OUT,
-                  "--workers", str(a.workers), "--chunk", "17",
-                  "--port", str(PORT)])
+            _run(
+                [
+                    sys.executable,
+                    "scripts/drill_sweep.py",
+                    "--map",
+                    MAP_OUT,
+                    "--bins",
+                    "lost,long_shot,coin,winnable",
+                    "--arms",
+                    "o2:crash:-2,o4:crash:-4",
+                    "--out",
+                    SWEEP_OUT,
+                    "--workers",
+                    str(a.workers),
+                    "--chunk",
+                    "17",
+                    "--port",
+                    str(PORT),
+                ]
+            )
 
-        n = sum(1 for f in glob.glob(f"{MAP_OUT}/drills.jsonl")
-                for _ in open(f))
+        n = sum(1 for f in glob.glob(f"{MAP_OUT}/drills.jsonl") for _ in open(f))
         wall_h = (time.time() - t0) / 3600
-        print(f"[tranche-b] DONE: map {n} labels + sweep arms "
-              f"in {wall_h:.1f}h")
-        notify("tranche B done",
-               f"fresh-game labels banked (map {n} + arms) in {wall_h:.1f}h")
+        print(f"[tranche-b] DONE: map {n} labels + sweep arms in {wall_h:.1f}h")
+        notify("tranche B done", f"fresh-game labels banked (map {n} + arms) in {wall_h:.1f}h")
     except BaseException as e:
         notify("tranche B FAILED", f"{type(e).__name__}: {e}")
         raise

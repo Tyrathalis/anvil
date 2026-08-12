@@ -45,21 +45,26 @@ def main(paths: list[str]) -> None:
                 game_events[key].append((r["s"], r["m"], r["d"]))
 
     n_games = len(games)
-    print(f"# {n_games} games ({n_end} completed) across {len(paths)} file(s); "
-          f"{sum(per_method_total.values())} callbacks, {len(per_method_total)} distinct methods\n")
+    print(
+        f"# {n_games} games ({n_end} completed) across {len(paths)} file(s); "
+        f"{sum(per_method_total.values())} callbacks, {len(per_method_total)} distinct methods\n"
+    )
 
     total_per_game = [sum(1 for _ in evs) for evs in game_events.values()]
     if total_per_game:
-        print(f"callbacks/game: mean {mean(total_per_game):.0f}, "
-              f"median {median(total_per_game):.0f}, max {max(total_per_game)}\n")
+        print(
+            f"callbacks/game: mean {mean(total_per_game):.0f}, "
+            f"median {median(total_per_game):.0f}, max {max(total_per_game)}\n"
+        )
 
     print(f"{'method':44s} {'total':>8s} {'mean/g':>8s} {'p50/g':>6s} {'max/g':>6s} {'%games':>7s}")
     for m, tot in per_method_total.most_common():
         counts = per_method_per_game[m]
         vals = list(counts.values())
         pct = 100.0 * len(counts) / n_games if n_games else 0
-        print(f"{m:44s} {tot:8d} {tot / n_games:8.1f} {median(vals):6.0f} "
-              f"{max(vals):6d} {pct:6.1f}%")
+        print(
+            f"{m:44s} {tot:8d} {tot / n_games:8.1f} {median(vals):6.0f} {max(vals):6d} {pct:6.1f}%"
+        )
 
     # Cast-path nesting: callbacks strictly inside each playChosenSpellAbility.
     seqs = Counter()
@@ -79,8 +84,10 @@ def main(paths: list[str]) -> None:
             else:
                 i += 1
 
-    print(f"\n# playChosenSpellAbility nested-callback sequences "
-          f"({sum(seqs.values())} casts, {len(seqs)} distinct):")
+    print(
+        f"\n# playChosenSpellAbility nested-callback sequences "
+        f"({sum(seqs.values())} casts, {len(seqs)} distinct):"
+    )
     for s, n in seqs.most_common(25):
         print(f"{n:6d}  {' -> '.join(s) if s else '(none — fully pre-decided)'}")
 

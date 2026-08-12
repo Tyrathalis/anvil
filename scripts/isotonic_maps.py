@@ -65,20 +65,27 @@ def export(args: argparse.Namespace) -> None:
             maps[f"{era}/{ck}"] = {
                 "lo": [round(float(x), 6) for x in lo],
                 "vals": [round(float(x), 6) for x in vals],
-                "n_labels": len(er), "n_steps": len(vals),
+                "n_labels": len(er),
+                "n_steps": len(vals),
                 "ece_raw": round(ece(v, y), 4),
-                "ece_remapped": round(ece(remapped, y), 4)}
-            print(f"[maps] {era}/{ck}: {len(er)} labels -> {len(vals)} steps, "
-                  f"ECE {maps[f'{era}/{ck}']['ece_raw']:.4f} -> "
-                  f"{maps[f'{era}/{ck}']['ece_remapped']:.4f}")
-    doc = {"provenance": {
-        "dataset": str(args.dataset),
-        "created": _dt.date.today().isoformat(),
-        "fit": "PAV on ALL labels (asset map; report-style holdout lives "
-               "in critic_calibration.py)",
-        "era_scope": "a map is valid only for its era's critic values "
-                     "(ADR-0036: rollout truth is policy-conditional)"},
-        "maps": maps}
+                "ece_remapped": round(ece(remapped, y), 4),
+            }
+            print(
+                f"[maps] {era}/{ck}: {len(er)} labels -> {len(vals)} steps, "
+                f"ECE {maps[f'{era}/{ck}']['ece_raw']:.4f} -> "
+                f"{maps[f'{era}/{ck}']['ece_remapped']:.4f}"
+            )
+    doc = {
+        "provenance": {
+            "dataset": str(args.dataset),
+            "created": _dt.date.today().isoformat(),
+            "fit": "PAV on ALL labels (asset map; report-style holdout lives "
+            "in critic_calibration.py)",
+            "era_scope": "a map is valid only for its era's critic values "
+            "(ADR-0036: rollout truth is policy-conditional)",
+        },
+        "maps": maps,
+    }
     out.write_text(json.dumps(doc, indent=2) + "\n")
     print(f"[maps] -> {out}")
 
@@ -90,22 +97,18 @@ def inspect(args: argparse.Namespace) -> None:
         grid = np.linspace(0.05, 0.95, 10)
         remap = pav_apply(grid, np.array(m["lo"]), np.array(m["vals"]))
         pairs = " ".join(f"{a:.2f}->{b:.2f}" for a, b in zip(grid, remap))
-        print(f"{k} (n={m['n_labels']}, ECE {m['ece_raw']}->"
-              f"{m['ece_remapped']}): {pairs}")
+        print(f"{k} (n={m['n_labels']}, ECE {m['ece_raw']}->{m['ece_remapped']}): {pairs}")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("export")
-    p.add_argument("--dataset",
-                   default="data/runs/frozen-probe-ext2-c2/dataset.jsonl")
-    p.add_argument("--out",
-                   default="data/runs/isotonic-maps/isotonic-maps-v1.json")
+    p.add_argument("--dataset", default="data/runs/frozen-probe-ext2-c2/dataset.jsonl")
+    p.add_argument("--out", default="data/runs/isotonic-maps/isotonic-maps-v1.json")
     p.set_defaults(fn=export)
     p = sub.add_parser("inspect")
-    p.add_argument("--maps",
-                   default="data/runs/isotonic-maps/isotonic-maps-v1.json")
+    p.add_argument("--maps", default="data/runs/isotonic-maps/isotonic-maps-v1.json")
     p.set_defaults(fn=inspect)
     args = ap.parse_args()
     args.fn(args)

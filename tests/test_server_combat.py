@@ -22,7 +22,7 @@ def test_attackmap_expansion_and_targets():
         "n_ent": torch.tensor(10),
         "atk_yes": torch.tensor([[True, True, False]]),
         "cmb_count": torch.tensor([[2, 1, 3]]),
-        "atk_tgt": torch.tensor([[11, 8, 0]]),   # 10+1 = player position 1
+        "atk_tgt": torch.tensor([[11, 8, 0]]),  # 10+1 = player position 1
     }
     aux = {
         "cmb_rows": [3, 5, 6],
@@ -32,9 +32,13 @@ def test_attackmap_expansion_and_targets():
         "blk_atk_rows": [],
     }
     am = ModelBackend._attackmap(_stub(), out, aux)
-    got = [(a.attacker.entity,
-            a.defender.player if a.defender.WhichOneof("ref") == "player"
-            else a.defender.entity) for a in am.assignments]
+    got = [
+        (
+            a.attacker.entity,
+            a.defender.player if a.defender.WhichOneof("ref") == "player" else a.defender.entity,
+        )
+        for a in am.assignments
+    ]
     # pair expands to k=2 first-fit members at the mapped registered player
     assert got == [(7, 0), (9, 0), (11, 20)]
 

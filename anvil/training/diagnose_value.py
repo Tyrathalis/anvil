@@ -63,8 +63,9 @@ def auc(scores: np.ndarray, labels: np.ndarray) -> float:
 
 
 @torch.no_grad()
-def collect(net, ds: PriorityWindows, store, games: list[int],
-            device: str, batch: int) -> dict[str, np.ndarray]:
+def collect(
+    net, ds: PriorityWindows, store, games: list[int], device: str, batch: int
+) -> dict[str, np.ndarray]:
     """Forward every window of every outcome-bearing game; keep per-window
     (prob, won, turn, turns_from_end)."""
     probs, wons, turns, from_end = [], [], [], []
@@ -82,7 +83,7 @@ def collect(net, ds: PriorityWindows, store, games: list[int],
         g_turns = np.array([float(w["globals"][TURN]) / GLOBAL_SCALE[TURN] for w in wins])
         last = g_turns.max()
         for i in range(0, len(wins), batch):
-            chunk = collate(wins[i:i + batch])
+            chunk = collate(wins[i : i + batch])
             chunk = {k: v.to(device) for k, v in chunk.items()}
             with torch.autocast(device, dtype=torch.bfloat16):
                 out = net(chunk)
@@ -92,12 +93,17 @@ def collect(net, ds: PriorityWindows, store, games: list[int],
         from_end.append(last - g_turns)
     if skipped:
         print(f"[diag] skipped {skipped} quarantined game(s)")
-    return {"prob": np.concatenate(probs), "won": np.concatenate(wons).astype(np.float64),
-            "turn": np.concatenate(turns), "from_end": np.concatenate(from_end)}
+    return {
+        "prob": np.concatenate(probs),
+        "won": np.concatenate(wons).astype(np.float64),
+        "turn": np.concatenate(turns),
+        "from_end": np.concatenate(from_end),
+    }
 
 
-def bin_table(d: dict[str, np.ndarray], key: str, bins: list[tuple[int, int]],
-              base_rate: float) -> list[dict]:
+def bin_table(
+    d: dict[str, np.ndarray], key: str, bins: list[tuple[int, int]], base_rate: float
+) -> list[dict]:
     rows = []
     for lo, hi in bins:
         m = (d[key] >= lo) & (d[key] <= hi)
@@ -105,16 +111,18 @@ def bin_table(d: dict[str, np.ndarray], key: str, bins: list[tuple[int, int]],
             continue
         y, p = d["won"][m], d["prob"][m]
         rate = float(y.mean())
-        rows.append({
-            "bin": f"{lo}-{'+' if hi > 10**8 else hi}",
-            "n": int(m.sum()),
-            "win_rate": round(rate, 4),
-            "bce_model": round(bce(p, y), 4),
-            "bce_const_global": round(const_bce(base_rate, y), 4),
-            "bce_const_bin": round(const_bce(rate, y), 4),  # within-bin oracle floor
-            "auc": round(auc(p, y), 4),
-            "pred_std": round(float(p.std()), 4),
-        })
+        rows.append(
+            {
+                "bin": f"{lo}-{'+' if hi > 10**8 else hi}",
+                "n": int(m.sum()),
+                "win_rate": round(rate, 4),
+                "bce_model": round(bce(p, y), 4),
+                "bce_const_global": round(const_bce(base_rate, y), 4),
+                "bce_const_bin": round(const_bce(rate, y), 4),  # within-bin oracle floor
+                "auc": round(auc(p, y), 4),
+                "pred_std": round(float(p.std()), 4),
+            }
+        )
     return rows
 
 
@@ -125,10 +133,14 @@ def calibration(d: dict[str, np.ndarray], n_bins: int = 10) -> list[dict]:
         m = (d["prob"] >= edges[i]) & (d["prob"] < edges[i + 1])
         if m.sum() < 20:
             continue
-        rows.append({"pred_bin": f"[{edges[i]:.1f},{edges[i+1]:.1f})",
-                     "n": int(m.sum()),
-                     "mean_pred": round(float(d["prob"][m].mean()), 4),
-                     "empirical": round(float(d["won"][m].mean()), 4)})
+        rows.append(
+            {
+                "pred_bin": f"[{edges[i]:.1f},{edges[i + 1]:.1f})",
+                "n": int(m.sum()),
+                "mean_pred": round(float(d["prob"][m].mean()), 4),
+                "empirical": round(float(d["won"][m].mean()), 4),
+            }
+        )
     return rows
 
 
@@ -156,8 +168,9 @@ def main() -> None:
     ckpt = torch.load(a.ckpt, map_location=device, weights_only=False)
     cfg = ckpt["config"]
     methods = default_methods()
-    net = build_net(cfg["embed"], cfg["pool_manifest"], len(methods),
-                    n_sa=cfg.get("sa_vocab_size", 0)).to(device)
+    net = build_net(
+        cfg["embed"], cfg["pool_manifest"], len(methods), n_sa=cfg.get("sa_vocab_size", 0)
+    ).to(device)
     net.load_compat(ckpt["model"])
     net.eval()
 
@@ -166,20 +179,24 @@ def main() -> None:
     full_vis = bool((cfg.get("value_finetune") or {}).get("full_vis"))
     if full_vis:
         print("[diag] full-visibility critic checkpoint — windows assembled full-vis")
-    ds = PriorityWindows(cfg["store"], cfg["embed"], methods,
-                         split=a.split, shuffle_games=False, full_vis=full_vis)
+    ds = PriorityWindows(
+        cfg["store"], cfg["embed"], methods, split=a.split, shuffle_games=False, full_vis=full_vis
+    )
     store = open_store(cfg["store"])
     games = [g for g in store.game_indices() if _split_of(g) == a.split]
     if a.max_games:
-        games = games[:a.max_games]
+        games = games[: a.max_games]
     print(f"[diag] ckpt step {ckpt['step']}, split={a.split}, {len(games)} games")
 
     d = collect(net, ds, store, games, device, a.batch)
     y, p = d["won"], d["prob"]
     base = float(y.mean())
     report = {
-        "ckpt": a.ckpt, "step": ckpt["step"], "split": a.split,
-        "windows": int(len(y)), "games": len(games),
+        "ckpt": a.ckpt,
+        "step": ckpt["step"],
+        "split": a.split,
+        "windows": int(len(y)),
+        "games": len(games),
         "base_rate_acting_player": round(base, 4),
         "bce_model": round(bce(p, y), 4),
         "bce_const_half": round(math.log(2), 4),
@@ -195,10 +212,14 @@ def main() -> None:
     }
 
     print(f"\n[diag] {report['windows']} windows | acting-player base rate {base:.4f}")
-    print(f"[diag] BCE model {report['bce_model']} | const 0.5 {report['bce_const_half']} "
-          f"| const base-rate {report['bce_const_base_rate']} | AUC {report['auc']}")
-    print(f"[diag] pred spread: mean {report['pred_mean']} std {report['pred_std']} "
-          f"p05 {report['pred_p05']} p95 {report['pred_p95']}")
+    print(
+        f"[diag] BCE model {report['bce_model']} | const 0.5 {report['bce_const_half']} "
+        f"| const base-rate {report['bce_const_base_rate']} | AUC {report['auc']}"
+    )
+    print(
+        f"[diag] pred spread: mean {report['pred_mean']} std {report['pred_std']} "
+        f"p05 {report['pred_p05']} p95 {report['pred_p95']}"
+    )
     print("\n[diag] by turn:")
     print(fmt(report["by_turn"]))
     print("\n[diag] by turns-from-end:")

@@ -39,6 +39,7 @@ FORGE_GUI_DIR = FORGE_DIR / "forge-gui"
 def latest_manifest() -> dict:
     # data/pool/CURRENT pin (2026-08-03); was newest-mtime
     from anvil.pool import current_manifest
+
     return current_manifest()
 
 
@@ -64,8 +65,11 @@ def main() -> None:
     p.add_argument("--games-per-pair", type=int, default=5)
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--seed-base", type=int, default=20260704)
-    p.add_argument("--out", type=Path,
-                   default=REPO / f"data/census/run-{_dt.date.today().strftime('%Y%m%d')}-dcpool")
+    p.add_argument(
+        "--out",
+        type=Path,
+        default=REPO / f"data/census/run-{_dt.date.today().strftime('%Y%m%d')}-dcpool",
+    )
     a = p.parse_args()
     a.out = a.out.resolve()  # lanes run with cwd=FORGE_GUI_DIR; relative paths are the known trap
 
@@ -76,11 +80,17 @@ def main() -> None:
     pairs = pair_schedule([d["file"] for d in manifest["decks"]], a.pairs, a.seed_base)
     run_meta = {
         "pool_version": manifest["pool_version"],
-        "fork_commit": subprocess.run(["git", "-C", str(FORGE_DIR), "rev-parse", "HEAD"],
-                                      capture_output=True, text=True, check=True).stdout.strip(),
+        "fork_commit": subprocess.run(
+            ["git", "-C", str(FORGE_DIR), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip(),
         "jar_sha256": hashlib.sha256(jar.read_bytes()).hexdigest(),
-        "pairs": pairs, "games_per_pair": a.games_per_pair,
-        "seed_base": a.seed_base, "workers": a.workers,
+        "pairs": pairs,
+        "games_per_pair": a.games_per_pair,
+        "seed_base": a.seed_base,
+        "workers": a.workers,
     }
     (a.out / "run.json").write_text(json.dumps(run_meta, indent=2))
 
@@ -98,13 +108,17 @@ def main() -> None:
                 f"nice -n 19 java -Xms1g -Xmx2g -XX:ActiveProcessorCount=2 "
                 f"-jar '{jar}' census -d '{d1}' '{d2}' -f Commander "
                 f"-n {a.games_per_pair} -s {seed} -o '{out}.tmp' "
-                f"&& mv '{out}.tmp' '{out}'")
+                f"&& mv '{out}.tmp' '{out}'"
+            )
         lane_sh = a.out / f"lane-{w}.sh"
         lane_sh.write_text("#!/bin/sh\nset -e\n" + "\n".join(script_lines) + "\n")
         lane_sh.chmod(0o755)
         log = open(a.out / f"lane-{w}.log", "a")
-        lanes.append(subprocess.Popen(["sh", str(lane_sh)], cwd=FORGE_GUI_DIR,
-                                      stdout=log, stderr=subprocess.STDOUT))
+        lanes.append(
+            subprocess.Popen(
+                ["sh", str(lane_sh)], cwd=FORGE_GUI_DIR, stdout=log, stderr=subprocess.STDOUT
+            )
+        )
     print(f"{len(pairs)} pairs x {a.games_per_pair} games, {a.workers} lanes -> {a.out}")
     rcs = [lane.wait() for lane in lanes]
     print(f"lanes done, exit codes {rcs}")

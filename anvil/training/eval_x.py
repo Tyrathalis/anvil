@@ -21,8 +21,9 @@ from anvil.training.train import build_net
 
 
 def x_windows(cfg: dict, max_games: int | None) -> list[dict]:
-    ds = PriorityWindows(cfg["store"], cfg["embed"], default_methods(),
-                         split="val", shuffle_games=False)
+    ds = PriorityWindows(
+        cfg["store"], cfg["embed"], default_methods(), split="val", shuffle_games=False
+    )
     store = open_store(cfg["store"])
     games = [g for g in store.game_indices() if _split_of(g) == "val"]
     if max_games:
@@ -44,11 +45,14 @@ def main() -> None:
     ap.add_argument("--ckpts", nargs="+", required=True)
     ap.add_argument("--max-games", type=int, default=None)
     ap.add_argument("--batch", type=int, default=256)
-    ap.add_argument("--store", default=None,
-                    help="override the ckpt's store spec (e.g. pilot-only for the "
-                         "fixed 672-window basis the ADR-0006 curves used; the "
-                         "split is a pure function of game index, so a store "
-                         "subset reproduces its historical basis exactly)")
+    ap.add_argument(
+        "--store",
+        default=None,
+        help="override the ckpt's store spec (e.g. pilot-only for the "
+        "fixed 672-window basis the ADR-0006 curves used; the "
+        "split is a pure function of game index, so a store "
+        "subset reproduces its historical basis exactly)",
+    )
     a = ap.parse_args()
 
     device = get_torch_device()
@@ -61,14 +65,18 @@ def main() -> None:
         if wins is None:  # same store/split across ckpts: collect once
             wins = x_windows(cfg, a.max_games)
             print(f"[eval_x] {len(wins)} X windows in the val split")
-        net = build_net(cfg["embed"], cfg["pool_manifest"], len(default_methods()),
-                    n_sa=cfg.get("sa_vocab_size", 0)).to(device)
+        net = build_net(
+            cfg["embed"],
+            cfg["pool_manifest"],
+            len(default_methods()),
+            n_sa=cfg.get("sa_vocab_size", 0),
+        ).to(device)
         net.load_compat(ckpt["model"])
         net.eval()
         ok = n = 0
         with torch.no_grad():
             for i in range(0, len(wins), a.batch):
-                c = {k: v.to(device) for k, v in collate(wins[i:i + a.batch]).items()}
+                c = {k: v.to(device) for k, v in collate(wins[i : i + a.batch]).items()}
                 with torch.autocast(device, dtype=torch.bfloat16):
                     out = net(c)
                 m = c["x_val"] >= 0

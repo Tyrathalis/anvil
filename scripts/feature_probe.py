@@ -69,8 +69,9 @@ def features(args: argparse.Namespace) -> None:
     by_store: dict[str, list[tuple[int, int]]] = defaultdict(list)
     for store, g, t in positions:
         by_store[store].append((g, t))
-    print(f"[dfeat] {len(rows)} labels -> {len(positions)} unique positions "
-          f"in {len(by_store)} stores")
+    print(
+        f"[dfeat] {len(rows)} labels -> {len(positions)} unique positions in {len(by_store)} stores"
+    )
 
     t0 = time.time()
     keys, pending, missed = [], [], []
@@ -105,31 +106,44 @@ def features(args: argparse.Namespace) -> None:
                 pending.append((dec, traj.header, seat))
                 wanted_names |= collect_names(dec, traj.header, seat)
     if missed:
-        raise SystemExit(f"[dfeat] {len(missed)} positions missed the turn "
-                         f"join, e.g. {missed[:3]} — convention drift, "
-                         "refusing to write a partial dump")
+        raise SystemExit(
+            f"[dfeat] {len(missed)} positions missed the turn "
+            f"join, e.g. {missed[:3]} — convention drift, "
+            "refusing to write a partial dump"
+        )
 
     statics = load_statics(wanted_names)
     misses = sorted(wanted_names - statics.keys())
-    feats = np.stack([derived_features(dec, header, seat, statics)
-                      for dec, header, seat in pending])
+    feats = np.stack(
+        [derived_features(dec, header, seat, statics) for dec, header, seat in pending]
+    )
     np.savez_compressed(
         out_dir / "derived-features.npz",
-        keys=np.array(keys), feats=feats,
+        keys=np.array(keys),
+        feats=feats,
         feature_names=np.array(FEATURE_NAMES),
-        family=np.array([FAMILY_OF[n] for n in FEATURE_NAMES]))
-    meta = {"dataset": args.dataset, "derived_version": DERIVED_VERSION,
-            "n_positions": len(keys), "n_features": len(FEATURE_NAMES),
-            "statics": {"wanted": len(wanted_names), "resolved": len(statics),
-                        "missed": len(misses), "missed_names": misses[:40]},
-            "per_feature_std": {n: round(float(s), 3) for n, s in
-                                zip(FEATURE_NAMES, feats.std(0))}}
-    (out_dir / "derived-features-meta.json").write_text(
-        json.dumps(meta, indent=2) + "\n")
-    print(f"[dfeat] {len(keys)} positions x {len(FEATURE_NAMES)} features "
-          f"in {time.time() - t0:.0f}s; statics {len(statics)}/"
-          f"{len(wanted_names)} resolved ({len(misses)} missed, e.g. "
-          f"{misses[:5]}) -> derived-features.npz")
+        family=np.array([FAMILY_OF[n] for n in FEATURE_NAMES]),
+    )
+    meta = {
+        "dataset": args.dataset,
+        "derived_version": DERIVED_VERSION,
+        "n_positions": len(keys),
+        "n_features": len(FEATURE_NAMES),
+        "statics": {
+            "wanted": len(wanted_names),
+            "resolved": len(statics),
+            "missed": len(misses),
+            "missed_names": misses[:40],
+        },
+        "per_feature_std": {n: round(float(s), 3) for n, s in zip(FEATURE_NAMES, feats.std(0))},
+    }
+    (out_dir / "derived-features-meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+    print(
+        f"[dfeat] {len(keys)} positions x {len(FEATURE_NAMES)} features "
+        f"in {time.time() - t0:.0f}s; statics {len(statics)}/"
+        f"{len(wanted_names)} resolved ({len(misses)} missed, e.g. "
+        f"{misses[:5]}) -> derived-features.npz"
+    )
     dead = [n for n, s in zip(FEATURE_NAMES, feats.std(0)) if s == 0]
     if dead:
         print(f"[dfeat] WARNING constant features (std=0): {dead}")
@@ -138,15 +152,25 @@ def features(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------- probe
 
 
-def _fit_eval(xtr_r: np.ndarray, ytr: np.ndarray, gtr: np.ndarray,
-              xte_r: np.ndarray, yte: np.ndarray) -> dict:
+def _fit_eval(
+    xtr_r: np.ndarray, ytr: np.ndarray, gtr: np.ndarray, xte_r: np.ndarray, yte: np.ndarray
+) -> dict:
     xtr, xte = fp._standardize(xtr_r, xte_r)
-    alpha, cv_s = fp._cv_pick(xtr, ytr, gtr, {
-        a: (lambda xa, ya, xb, a=a: fp._ridge_pred(xb, fp._ridge_fit(xa, ya, a)))
-        for a in fp.RIDGE_ALPHAS})
+    alpha, cv_s = fp._cv_pick(
+        xtr,
+        ytr,
+        gtr,
+        {
+            a: (lambda xa, ya, xb, a=a: fp._ridge_pred(xb, fp._ridge_fit(xa, ya, a)))
+            for a in fp.RIDGE_ALPHAS
+        },
+    )
     pred = fp._ridge_pred(xte, fp._ridge_fit(xtr, ytr, alpha))
-    return {"spearman": round(fp.spearman(pred, yte), 4), "alpha": alpha,
-            "cv_spearman": round(cv_s, 4)}
+    return {
+        "spearman": round(fp.spearman(pred, yte), 4),
+        "alpha": alpha,
+        "cv_spearman": round(cv_s, 4),
+    }
 
 
 def probe(args: argparse.Namespace) -> None:
@@ -162,12 +186,15 @@ def probe(args: argparse.Namespace) -> None:
     families = sorted(set(fam.tolist()))
     fam_cols = {f: np.where(fam == f)[0] for f in families}
 
-    report: dict = {"constants": {
-        "gate": "beat the 0.455 ridge / ~0.46 plateau on c2 (ADR-0041 "
-                "standing gate) — identical split, banked [STATE] dump",
-        "trunk": TRUNK,
-        "features_npz": str(args.features_npz or "derived-features.npz"),
-        "families": {f: int(len(c)) for f, c in fam_cols.items()}}}
+    report: dict = {
+        "constants": {
+            "gate": "beat the 0.455 ridge / ~0.46 plateau on c2 (ADR-0041 "
+            "standing gate) — identical split, banked [STATE] dump",
+            "trunk": TRUNK,
+            "features_npz": str(args.features_npz or "derived-features.npz"),
+            "families": {f: int(len(c)) for f, c in fam_cols.items()},
+        }
+    }
 
     for era in ("c1", "c2"):
         er = [r for r in rows if r["era"] == era]
@@ -196,12 +223,15 @@ def probe(args: argparse.Namespace) -> None:
         for name, x in cfgs.items():
             r = _fit_eval(x[~ho], y[~ho], game_key[~ho], x[ho], y[ho])
             res[name] = r
-            print(f"[probe] {era} {name:>14}: {r['spearman']:.4f} "
-                  f"(a={r['alpha']}, cv={r['cv_spearman']:.4f})", flush=True)
+            print(
+                f"[probe] {era} {name:>14}: {r['spearman']:.4f} "
+                f"(a={r['alpha']}, cv={r['cv_spearman']:.4f})",
+                flush=True,
+            )
         base = res["state"]["spearman"]
         res["delta_vs_state"] = {
-            n: round(res[n]["spearman"] - base, 4)
-            for n in cfgs if n != "state"}
+            n: round(res[n]["spearman"] - base, 4) for n in cfgs if n != "state"
+        }
 
         # curve read on the bundle: a real representation gain should hold
         # (or rise) with n, not be a small-n artifact
@@ -209,8 +239,9 @@ def probe(args: argparse.Namespace) -> None:
             curve = {}
             for size in CURVE_SIZES:
                 sub = fp._curve_subset(game_key[~ho], size)
-                r = _fit_eval(cfgs[cfg][~ho][sub], y[~ho][sub],
-                              game_key[~ho][sub], cfgs[cfg][ho], y[ho])
+                r = _fit_eval(
+                    cfgs[cfg][~ho][sub], y[~ho][sub], game_key[~ho][sub], cfgs[cfg][ho], y[ho]
+                )
                 curve[str(size) if size else "all"] = r["spearman"]
             res[f"curve_{cfg}"] = curve
             print(f"[probe] {era} curve {cfg}: {curve}", flush=True)
@@ -229,11 +260,12 @@ def main() -> None:
         p.add_argument("--out", required=True)
         p.add_argument("--dataset", default=DATASET)
         if name == "probe":
-            p.add_argument("--features-npz", default=None,
-                           help="probe an alternative feature bundle "
-                                "(keys/feats/feature_names/family npz)")
-            p.add_argument("--report", default=None,
-                           help="report filename in --out")
+            p.add_argument(
+                "--features-npz",
+                default=None,
+                help="probe an alternative feature bundle (keys/feats/feature_names/family npz)",
+            )
+            p.add_argument("--report", default=None, help="report filename in --out")
         p.set_defaults(fn=fn)
     args = ap.parse_args()
     args.fn(args)

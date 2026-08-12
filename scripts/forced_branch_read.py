@@ -23,6 +23,7 @@ Seat index: which registered player is the drilled seat in w_* arrays
 (harness convention: -bridgeseats 0 => model is seat 0 in -d order; pairs
 files map seats per game — pass per-file overrides if a run mixes).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,8 +52,9 @@ def load(paths: list[str]) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("labels", nargs="+")
-    ap.add_argument("--seat-index", type=int, default=0,
-                    help="drilled seat's index into w_act/w_hold")
+    ap.add_argument(
+        "--seat-index", type=int, default=0, help="drilled seat's index into w_act/w_hold"
+    )
     a = ap.parse_args()
 
     rows = load(a.labels)
@@ -61,8 +63,7 @@ def main() -> None:
 
     seat_skips = [r for r in rows if r.get("seat_skip")]
     pts = [r for r in rows if not r.get("seat_skip")]
-    print(f"fork points: {len(rows)} total, {len(seat_skips)} seat_skip, "
-          f"{len(pts)} forced")
+    print(f"fork points: {len(rows)} total, {len(seat_skips)} seat_skip, {len(pts)} forced")
 
     skid = Counter()
     for r in pts:
@@ -80,12 +81,13 @@ def main() -> None:
         grp = by_k[K]
         total_pairs = sum(r["pairs"] for r in grp)
         total_skip = sum(r.get("skip_act", 0) for r in grp)
-        total_crash = sum(r.get("crash_act", 0) + r.get("crash_hold", 0)
-                          for r in grp)
+        total_crash = sum(r.get("crash_act", 0) + r.get("crash_hold", 0) for r in grp)
         usable = [r for r in grp if r["pairs"] >= 2]
-        print(f"\nK={K}: {len(grp)} points, pairs {total_pairs}/{len(grp) * K} "
-              f"({total_pairs / (len(grp) * K):.1%}), skip_act {total_skip}, "
-              f"crashes {total_crash}, usable(>=2 pairs) {len(usable)}")
+        print(
+            f"\nK={K}: {len(grp)} points, pairs {total_pairs}/{len(grp) * K} "
+            f"({total_pairs / (len(grp) * K):.1%}), skip_act {total_skip}, "
+            f"crashes {total_crash}, usable(>=2 pairs) {len(usable)}"
+        )
         if not usable:
             continue
         dwrs, binvars = [], []
@@ -100,13 +102,13 @@ def main() -> None:
         var_obs = sum((d - m) ** 2 for d in dwrs) / max(1, len(dwrs) - 1)
         mean_bin = sum(binvars) / len(binvars)
         var_sig = max(0.0, var_obs - mean_bin)
-        print(f"  mean dwr {m:+.4f} | SD(point dwr) {math.sqrt(var_obs):.4f} "
-              f"| indep binomial floor {math.sqrt(mean_bin):.4f}")
-        print(f"  var_signal {var_sig:.5f} -> RMS true dwr "
-              f"{math.sqrt(var_sig):.4f}")
+        print(
+            f"  mean dwr {m:+.4f} | SD(point dwr) {math.sqrt(var_obs):.4f} "
+            f"| indep binomial floor {math.sqrt(mean_bin):.4f}"
+        )
+        print(f"  var_signal {var_sig:.5f} -> RMS true dwr {math.sqrt(var_sig):.4f}")
         sign_hold = sum(1 for d in dwrs if d < 0)
-        print(f"  direction: hold better at {sign_hold}/{len(dwrs)} points "
-              f"(dwr<0)")
+        print(f"  direction: hold better at {sign_hold}/{len(dwrs)} points (dwr<0)")
 
 
 if __name__ == "__main__":

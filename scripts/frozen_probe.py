@@ -99,8 +99,9 @@ def features(args: argparse.Namespace) -> None:
     by_store: dict[str, list[tuple[int, int]]] = defaultdict(list)
     for store, g, t in positions:
         by_store[store].append((g, t))
-    print(f"[feat] {len(rows)} labels -> {len(positions)} unique positions "
-          f"in {len(by_store)} stores")
+    print(
+        f"[feat] {len(rows)} labels -> {len(positions)} unique positions in {len(by_store)} stores"
+    )
 
     for trunk, ckpt in TRUNKS.items():
         t0 = time.time()
@@ -110,7 +111,7 @@ def features(args: argparse.Namespace) -> None:
         def capture(examples: list[dict]) -> tuple[np.ndarray, ...]:
             ss, pp, vv = [], [], []
             for i in range(0, len(examples), ev.batch):
-                chunk = collate(examples[i:i + ev.batch])
+                chunk = collate(examples[i : i + ev.batch])
                 chunk = {k: v.to(ev.device) for k, v in chunk.items()}
                 with torch.autocast(ev.device, dtype=torch.bfloat16):
                     card_vecs = ev.net.cards(chunk["ent_emb"])
@@ -120,8 +121,7 @@ def features(args: argparse.Namespace) -> None:
                 ss.append(out[:, 0].float().cpu().numpy())
                 pp.append(out[:, 1].float().cpu().numpy())
                 vv.append(torch.sigmoid(vlogit.float()).cpu().numpy())
-            return (np.concatenate(ss), np.concatenate(pp),
-                    np.concatenate(vv))
+            return (np.concatenate(ss), np.concatenate(pp), np.concatenate(vv))
 
         keys, exs, missed = [], [], []
         for store, wants in sorted(by_store.items()):
@@ -151,32 +151,46 @@ def features(args: argparse.Namespace) -> None:
                         continue
                     dec = traj.decisions[i]
                     keys.append(f"{store}:{g}:{t}")
-                    exs.append(ev.example(dec, traj.header, seat,
-                                          traj.decisions[:i]))
+                    exs.append(ev.example(dec, traj.header, seat, traj.decisions[:i]))
         if missed:
-            raise SystemExit(f"[feat] {len(missed)} positions missed the "
-                             f"turn join, e.g. {missed[:3]} — convention "
-                             "drift, refusing to write a partial dump")
+            raise SystemExit(
+                f"[feat] {len(missed)} positions missed the "
+                f"turn join, e.g. {missed[:3]} — convention "
+                "drift, refusing to write a partial dump"
+            )
         state, plan, val = capture(exs)
         np.savez_compressed(
             out_dir / f"features-{trunk}.npz",
-            keys=np.array(keys), state=state, plan=plan, value=val)
-        print(f"[feat] {trunk}: {len(keys)} positions, d={state.shape[1]}, "
-              f"{time.time() - t0:.0f}s -> features-{trunk}.npz")
+            keys=np.array(keys),
+            state=state,
+            plan=plan,
+            value=val,
+        )
+        print(
+            f"[feat] {trunk}: {len(keys)} positions, d={state.shape[1]}, "
+            f"{time.time() - t0:.0f}s -> features-{trunk}.npz"
+        )
 
     # join sanity: the d4 trunk's value head IS the v_d4 column
     d4 = np.load(out_dir / "features-d4-critic-fullvis.npz")
     vmap = dict(zip(d4["keys"].tolist(), d4["value"].tolist()))
-    diffs = [abs(vmap[f"{r['store']}:{r['g']}:{r['t']}"] - r["v_d4"])
-             for r in rows]
-    meta = {"dataset": args.dataset, "trunks": TRUNKS,
-            "n_labels": len(rows), "n_positions": len(positions),
-            "d4_value_join_check": {"mean_abs": round(float(np.mean(diffs)), 5),
-                                    "max_abs": round(float(np.max(diffs)), 5)}}
+    diffs = [abs(vmap[f"{r['store']}:{r['g']}:{r['t']}"] - r["v_d4"]) for r in rows]
+    meta = {
+        "dataset": args.dataset,
+        "trunks": TRUNKS,
+        "n_labels": len(rows),
+        "n_positions": len(positions),
+        "d4_value_join_check": {
+            "mean_abs": round(float(np.mean(diffs)), 5),
+            "max_abs": round(float(np.max(diffs)), 5),
+        },
+    }
     (out_dir / "features-meta.json").write_text(json.dumps(meta, indent=2) + "\n")
-    print(f"[feat] d4 value join check: mean|Δ|={meta['d4_value_join_check']['mean_abs']}"
-          f" max|Δ|={meta['d4_value_join_check']['max_abs']} "
-          "(rounding of the banked column is 4dp)")
+    print(
+        f"[feat] d4 value join check: mean|Δ|={meta['d4_value_join_check']['mean_abs']}"
+        f" max|Δ|={meta['d4_value_join_check']['max_abs']} "
+        "(rounding of the banked column is 4dp)"
+    )
 
 
 # ---------------------------------------------------------------- probes
@@ -191,8 +205,7 @@ def spearman(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def _game_folds(games: list[str], folds: int) -> dict[str, int]:
-    return {g: hashlib.sha256(f"cv:{g}".encode()).digest()[0] % folds
-            for g in games}
+    return {g: hashlib.sha256(f"cv:{g}".encode()).digest()[0] % folds for g in games}
 
 
 def _standardize(xtr: np.ndarray, *rest: np.ndarray):
@@ -211,8 +224,7 @@ def _ridge_pred(x: np.ndarray, w: np.ndarray) -> np.ndarray:
     return np.hstack([x, np.ones((len(x), 1))]) @ w
 
 
-def _knn_pred(xtr: np.ndarray, ytr: np.ndarray, xte: np.ndarray,
-              k: int) -> np.ndarray:
+def _knn_pred(xtr: np.ndarray, ytr: np.ndarray, xte: np.ndarray, k: int) -> np.ndarray:
     a = xtr / (np.linalg.norm(xtr, axis=1, keepdims=True) + 1e-8)
     b = xte / (np.linalg.norm(xte, axis=1, keepdims=True) + 1e-8)
     sim = b @ a.T
@@ -220,8 +232,7 @@ def _knn_pred(xtr: np.ndarray, ytr: np.ndarray, xte: np.ndarray,
     return ytr[idx].mean(1)
 
 
-def _cv_pick(x: np.ndarray, y: np.ndarray, games: np.ndarray,
-             fit_eval) -> tuple:
+def _cv_pick(x: np.ndarray, y: np.ndarray, games: np.ndarray, fit_eval) -> tuple:
     """Pick a hyperparameter by game-grouped CV Spearman on the train split."""
     fold_of = _game_folds(sorted(set(games.tolist())), CV_FOLDS)
     fold = np.array([fold_of[g] for g in games])
@@ -239,8 +250,9 @@ def _cv_pick(x: np.ndarray, y: np.ndarray, games: np.ndarray,
     return best, best_s
 
 
-def _mlp_fit_pred(xtr: np.ndarray, ytr: np.ndarray, gtr: np.ndarray,
-                  xte: np.ndarray, seed: int = 0) -> np.ndarray:
+def _mlp_fit_pred(
+    xtr: np.ndarray, ytr: np.ndarray, gtr: np.ndarray, xte: np.ndarray, seed: int = 0
+) -> np.ndarray:
     import torch
     import torch.nn as nn
 
@@ -249,8 +261,7 @@ def _mlp_fit_pred(xtr: np.ndarray, ytr: np.ndarray, gtr: np.ndarray,
     torch.manual_seed(seed)
     dev = get_torch_device()
     # game-grouped inner val split for early stopping
-    val_m = np.array([hashlib.sha256(f"mlpval:{g}".encode()).digest()[0] % 7 == 0
-                      for g in gtr])
+    val_m = np.array([hashlib.sha256(f"mlpval:{g}".encode()).digest()[0] % 7 == 0 for g in gtr])
     if val_m.sum() < 20:
         val_m = np.zeros(len(gtr), bool)
         val_m[:: max(len(gtr) // 20, 1)] = True
@@ -258,15 +269,16 @@ def _mlp_fit_pred(xtr: np.ndarray, ytr: np.ndarray, gtr: np.ndarray,
     yt = torch.tensor(ytr[~val_m], dtype=torch.float32, device=dev)
     xv = torch.tensor(xtr[val_m], dtype=torch.float32, device=dev)
     yv = ytr[val_m]
-    net = nn.Sequential(nn.Linear(xtr.shape[1], 256), nn.ReLU(),
-                        nn.Dropout(0.1), nn.Linear(256, 1)).to(dev)
+    net = nn.Sequential(
+        nn.Linear(xtr.shape[1], 256), nn.ReLU(), nn.Dropout(0.1), nn.Linear(256, 1)
+    ).to(dev)
     opt = torch.optim.Adam(net.parameters(), lr=1e-3, weight_decay=1e-4)
     best_s, best_state, patience = -2.0, None, 0
     for epoch in range(300):
         net.train()
         perm = torch.randperm(len(xt), device=dev)
         for i in range(0, len(xt), 256):
-            b = perm[i:i + 256]
+            b = perm[i : i + 256]
             loss = ((torch.sigmoid(net(xt[b]).squeeze(-1)) - yt[b]) ** 2).mean()
             opt.zero_grad()
             loss.backward()
@@ -294,8 +306,9 @@ def _curve_subset(games_tr: np.ndarray, size: int | None) -> np.ndarray:
     """Deterministic game-order subsample: add whole games until >= size rows."""
     if size is None:
         return np.ones(len(games_tr), bool)
-    order = sorted(set(games_tr.tolist()),
-                   key=lambda g: hashlib.sha256(f"lc:{g}".encode()).hexdigest())
+    order = sorted(
+        set(games_tr.tolist()), key=lambda g: hashlib.sha256(f"lc:{g}".encode()).hexdigest()
+    )
     keep, n = set(), 0
     counts = {g: int((games_tr == g).sum()) for g in order}
     for g in order:
@@ -309,22 +322,22 @@ def _curve_subset(games_tr: np.ndarray, size: int | None) -> np.ndarray:
 def probe(args: argparse.Namespace) -> None:
     global CURVE_SIZES
     if args.curve_sizes:
-        CURVE_SIZES = [int(s) if s != "all" else None
-                       for s in args.curve_sizes.split(",")]
+        CURVE_SIZES = [int(s) if s != "all" else None for s in args.curve_sizes.split(",")]
     out_dir = Path(args.out)
     rows = load_rows(args.dataset)
     feats = {t: np.load(out_dir / f"features-{t}.npz") for t in TRUNKS}
-    idx_of = {t: {k: i for i, k in enumerate(f["keys"].tolist())}
-              for t, f in feats.items()}
+    idx_of = {t: {k: i for i, k in enumerate(f["keys"].tolist())} for t, f in feats.items()}
 
-    report: dict = {"constants": {
-        "critic_floor": "0.26-0.29 (ADR-0036 held-out raw/remapped Spearman)",
-        "repeat_ceiling": "0.94-0.97 (repeat-measure ceiling)",
-        "readings": "A: >=~0.7 rising | B: <=~0.4 flat | between: price both"}}
+    report: dict = {
+        "constants": {
+            "critic_floor": "0.26-0.29 (ADR-0036 held-out raw/remapped Spearman)",
+            "repeat_ceiling": "0.94-0.97 (repeat-measure ceiling)",
+            "readings": "A: >=~0.7 rising | B: <=~0.4 flat | between: price both",
+        }
+    }
     calib = Path(CALIB_REPORT)
     if calib.exists():
-        report["constants"]["repeat_noise"] = json.loads(
-            calib.read_text())["repeat_noise"]
+        report["constants"]["repeat_noise"] = json.loads(calib.read_text())["repeat_noise"]
 
     for era in ("c1", "c2"):
         er = [r for r in rows if r["era"] == era]
@@ -333,12 +346,14 @@ def probe(args: argparse.Namespace) -> None:
         y = np.array([r["wr"] for r in er])
         for trunk in TRUNKS:
             x_all = feats[trunk]["state"][
-                [idx_of[trunk][f"{r['store']}:{r['g']}:{r['t']}"] for r in er]]
+                [idx_of[trunk][f"{r['store']}:{r['g']}:{r['t']}"] for r in er]
+            ]
             res: dict = {"n_holdout": int(ho.sum())}
             # baseline: the banked critic value column, same split
             vcol = "v_era" if trunk == "policy-i019" else "v_d4"
             res[f"baseline_{vcol}_spearman"] = round(
-                spearman(np.array([r[vcol] for r in er])[ho], y[ho]), 4)
+                spearman(np.array([r[vcol] for r in er])[ho], y[ho]), 4
+            )
             for size in CURVE_SIZES:
                 sub = _curve_subset(game_key[~ho], size)
                 xtr_r, ytr = x_all[~ho][sub], y[~ho][sub]
@@ -347,29 +362,46 @@ def probe(args: argparse.Namespace) -> None:
                 tag = str(size) if size else "all"
                 sz: dict = {"n_train": int(sub.sum())}
 
-                alpha, cv_s = _cv_pick(xtr, ytr, gtr, {
-                    a: (lambda xa, ya, xb, a=a:
-                        _ridge_pred(xb, _ridge_fit(xa, ya, a)))
-                    for a in RIDGE_ALPHAS})
+                alpha, cv_s = _cv_pick(
+                    xtr,
+                    ytr,
+                    gtr,
+                    {
+                        a: (lambda xa, ya, xb, a=a: _ridge_pred(xb, _ridge_fit(xa, ya, a)))
+                        for a in RIDGE_ALPHAS
+                    },
+                )
                 pred = _ridge_pred(xte, _ridge_fit(xtr, ytr, alpha))
-                sz["ridge"] = {"spearman": round(spearman(pred, y[ho]), 4),
-                               "alpha": alpha, "cv_spearman": round(cv_s, 4)}
+                sz["ridge"] = {
+                    "spearman": round(spearman(pred, y[ho]), 4),
+                    "alpha": alpha,
+                    "cv_spearman": round(cv_s, 4),
+                }
 
-                k, cv_s = _cv_pick(xtr, ytr, gtr, {
-                    k: (lambda xa, ya, xb, k=k: _knn_pred(xa, ya, xb, k))
-                    for k in KNN_KS})
+                k, cv_s = _cv_pick(
+                    xtr,
+                    ytr,
+                    gtr,
+                    {k: (lambda xa, ya, xb, k=k: _knn_pred(xa, ya, xb, k)) for k in KNN_KS},
+                )
                 pred = _knn_pred(xtr, ytr, xte, k)
-                sz["knn"] = {"spearman": round(spearman(pred, y[ho]), 4),
-                             "k": k, "cv_spearman": round(cv_s, 4)}
+                sz["knn"] = {
+                    "spearman": round(spearman(pred, y[ho]), 4),
+                    "k": k,
+                    "cv_spearman": round(cv_s, 4),
+                }
 
                 pred = _mlp_fit_pred(xtr, ytr, gtr, xte)
                 sz["mlp"] = {"spearman": round(spearman(pred, y[ho]), 4)}
 
                 res[tag] = sz
-                print(f"[probe] {era}/{trunk} n={sz['n_train']}: "
-                      f"ridge {sz['ridge']['spearman']} (a={alpha}) | "
-                      f"knn {sz['knn']['spearman']} (k={k}) | "
-                      f"mlp {sz['mlp']['spearman']}", flush=True)
+                print(
+                    f"[probe] {era}/{trunk} n={sz['n_train']}: "
+                    f"ridge {sz['ridge']['spearman']} (a={alpha}) | "
+                    f"knn {sz['knn']['spearman']} (k={k}) | "
+                    f"mlp {sz['mlp']['spearman']}",
+                    flush=True,
+                )
             report[f"{era}/{trunk}"] = res
 
     (out_dir / "probe-report.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -383,9 +415,11 @@ def main() -> None:
         p = sub.add_parser(name)
         p.add_argument("--out", required=True)
         p.add_argument("--dataset", default=DATASET)
-        p.add_argument("--curve-sizes", default=None,
-                       help="probe only: comma list, 'all' = full train split "
-                            "(default: 500,1000,2000,all)")
+        p.add_argument(
+            "--curve-sizes",
+            default=None,
+            help="probe only: comma list, 'all' = full train split (default: 500,1000,2000,all)",
+        )
         p.set_defaults(fn=fn)
     args = ap.parse_args()
     args.fn(args)

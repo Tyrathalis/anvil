@@ -34,19 +34,23 @@ from anvil.training.dataset import PriorityWindows, collate, default_methods, de
 REPO = Path(__file__).parents[1]
 
 
-def build_net(embedding_stem: str, pool_manifest: str, n_methods: int,
-              n_sa: int = 0) -> AnvilNet:
+def build_net(embedding_stem: str, pool_manifest: str, n_methods: int, n_sa: int = 0) -> AnvilNet:
     """n_sa: SA-string vocab size (M2 D2 SA-level candidates); 0 rebuilds the
     M1 host-level architecture so pre-D2 checkpoints keep loading (the server
     reads it from ckpt config's sa_vocab_size, absent = 0)."""
     m = json.loads(Path(pool_manifest).read_text())
     meta = json.loads(Path(f"{embedding_stem}.json").read_text())
     feats = torch.from_numpy(pool_features(m, meta["names"]))
-    return AnvilNet(CardEncoder(embedding_stem, feats),
-                    n_entity_features=len(ENTITY_FEATURES),
-                    n_global=len(GLOBAL_FEATURES), n_players=2,
-                    n_player_features=len(PLAYER_FEATURES),
-                    n_methods=n_methods, history_k=HISTORY_K, n_sa=n_sa)
+    return AnvilNet(
+        CardEncoder(embedding_stem, feats),
+        n_entity_features=len(ENTITY_FEATURES),
+        n_global=len(GLOBAL_FEATURES),
+        n_players=2,
+        n_player_features=len(PLAYER_FEATURES),
+        n_methods=n_methods,
+        history_k=HISTORY_K,
+        n_sa=n_sa,
+    )
 
 
 @torch.no_grad()
@@ -62,8 +66,7 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
     vsum = vn = 0.0
     of_ok = {t: 0 for t in ("mull", "trigger", "binary", "number")}
     of_n = {t: 0 for t in ("mull", "trigger", "binary", "number")}
-    cmb_ok = {k: 0 for k in ("atk_row", "atk_win", "atk_tgt", "cmb_count",
-                             "blk_row", "blk_win")}
+    cmb_ok = {k: 0 for k in ("atk_row", "atk_win", "atk_tgt", "cmb_count", "blk_row", "blk_win")}
     cmb_n = dict(cmb_ok)
     for i, batch in enumerate(loader):
         if i >= max_batches:
@@ -73,7 +76,7 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
             out = net(batch)
         prio = batch["task"] == 0
         pred = out["policy_logits"].argmax(1)
-        valid = batch["label"] >= 0                     # SA-level label resolved
+        valid = batch["label"] >= 0  # SA-level label resolved
         lab = batch["label"].clamp(min=0)
         ok = (pred == lab) & prio & valid
         multi = (batch["cand_mask"].sum(1) > 1) & prio  # single-legal-option exclusion
@@ -88,8 +91,7 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
         # host-level basis (M1 continuity): the chosen candidate's HOST row vs
         # the expert's, defined on ALL multi windows incl. SA-masked ones
         pred_row = batch["cand_rows"].gather(1, pred.unsqueeze(1)).squeeze(1)
-        host_ok = torch.where(pred == 0, batch["label_row"] == -1,
-                              pred_row == batch["label_row"])
+        host_ok = torch.where(pred == 0, batch["label_row"] == -1, pred_row == batch["label_row"])
         agree_host += (host_ok & multi).sum().item()
         n_host += multi.sum().item()
         tm = batch["tgt_labels"] >= 0
@@ -122,12 +124,14 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
         cmb_ok["atk_win"] += (rok.sum(1) == am.sum(1))[awm].sum().item()
         cmb_n["atk_win"] += awm.sum().item()
         atm = batch["atk_tgt_labels"] >= 0
-        cmb_ok["atk_tgt"] += ((out["atk_tgt_logits"].argmax(-1)
-                               == batch["atk_tgt_labels"]) & atm).sum().item()
+        cmb_ok["atk_tgt"] += (
+            ((out["atk_tgt_logits"].argmax(-1) == batch["atk_tgt_labels"]) & atm).sum().item()
+        )
         cmb_n["atk_tgt"] += atm.sum().item()
         cm = batch["cmb_count_label"] >= 0
-        cmb_ok["cmb_count"] += ((out["cmb_count_logits"].argmax(-1)
-                                 == batch["cmb_count_label"]) & cm).sum().item()
+        cmb_ok["cmb_count"] += (
+            ((out["cmb_count_logits"].argmax(-1) == batch["cmb_count_label"]) & cm).sum().item()
+        )
         cmb_n["cmb_count"] += cm.sum().item()
         bm = batch["blk_label"] >= 0
         brok = (out["blk_logits"].argmax(-1) == batch["blk_label"]) & bm
@@ -139,26 +143,32 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
         vm = batch["has_outcome"].bool()
         if vm.any():
             vsum += torch.nn.functional.binary_cross_entropy_with_logits(
-                out["value_logit"][vm], batch["won"][vm].float(), reduction="sum").item()
+                out["value_logit"][vm], batch["won"][vm].float(), reduction="sum"
+            ).item()
             vn += vm.sum().item()
     net.train()
     # per-metric ns alongside every rate: the D5 matrix compares runs, and a
     # rate without its sample size hides the noise floor (nonpass at n~1.4K
     # has SE ~1.2% — arms closer than that are indistinguishable)
     return {
-        "agree_honest": agree / max(n_honest, 1),   # THE number (forced excluded;
-                                                    # SA basis since M2 D2)
+        "agree_honest": agree / max(n_honest, 1),  # THE number (forced excluded;
+        # SA basis since M2 D2)
         "agree_honest_host": agree_host / max(n_host, 1),  # M1-continuity basis
         "agree_raw": raw / max(n_raw, 1),
         "agree_nonpass": agree_np / max(n_np, 1),
-        "n_host": n_host, "n_masked": n_masked,
+        "n_host": n_host,
+        "n_masked": n_masked,
         "acc_target": tgt_ok / max(tgt_n, 1),
         "acc_x": x_ok / max(x_n, 1),
         "value_bce": vsum / max(vn, 1),
         "eval_windows": n_raw,
-        "n_honest": n_honest, "n_nonpass": n_np, "n_target": tgt_n,
-        "n_x": x_n, "n_value": int(vn),
-        "acc_tuck": tuck_ok / max(tuck_n, 1), "n_tuck": tuck_n,
+        "n_honest": n_honest,
+        "n_nonpass": n_np,
+        "n_target": tgt_n,
+        "n_x": x_n,
+        "n_value": int(vn),
+        "acc_tuck": tuck_ok / max(tuck_n, 1),
+        "n_tuck": tuck_n,
         **{f"acc_{t}": of_ok[t] / max(of_n[t], 1) for t in of_ok},
         **{f"n_{t}": of_n[t] for t in of_n},
         **{f"acc_{k}": cmb_ok[k] / max(cmb_n[k], 1) for k in cmb_ok},
@@ -168,9 +178,12 @@ def evaluate(net: AnvilNet, loader: DataLoader, device: str, max_batches: int) -
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--store", default="data/trajectories/d3pilot-20260704-175219",
-                    help="store dir, or comma-separated dirs with disjoint game "
-                         "indices (pilot + extension read as one corpus)")
+    ap.add_argument(
+        "--store",
+        default="data/trajectories/d3pilot-20260704-175219",
+        help="store dir, or comma-separated dirs with disjoint game "
+        "indices (pilot + extension read as one corpus)",
+    )
     ap.add_argument("--embed", default="data/embeddings/cf2ca6ba-qwen3")
     ap.add_argument("--pool-manifest", default="data/pool/pool-cf2ca6ba.json")
     ap.add_argument("--out", default=None)
@@ -185,11 +198,16 @@ def main() -> None:
     # flat throughout. 0.1 = action-rich prior for M2; the honest cost is the
     # pass boundary, recalibratable post-hoc via a PASS-logit offset
     ap.add_argument("--pass-weight", type=float, default=0.1)
-    ap.add_argument("--null-text", action="store_true",
-                    help="zero the card-text embedding buffer (text-channel ablation: "
-                         "does rung-1 use text at all, or only features+ID+dynamics?)")
+    ap.add_argument(
+        "--null-text",
+        action="store_true",
+        help="zero the card-text embedding buffer (text-channel ablation: "
+        "does rung-1 use text at all, or only features+ID+dynamics?)",
+    )
     ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--max-games", type=int, default=None, help="train-subset cap (learning curves)")
+    ap.add_argument(
+        "--max-games", type=int, default=None, help="train-subset cap (learning curves)"
+    )
     ap.add_argument("--eval-every", type=int, default=1000)
     ap.add_argument("--eval-batches", type=int, default=60)
     # mid-run evals stay cheap (trajectory shape); the final eval is the number
@@ -212,15 +230,19 @@ def main() -> None:
             net.cards.text.zero_()
     n_params = sum(p.numel() for p in net.parameters() if p.requires_grad)
 
-    train_ds = PriorityWindows(a.store, a.embed, methods, split="train",
-                               seed=a.seed, max_games=a.max_games)
-    val_ds = PriorityWindows(a.store, a.embed, methods, split="val",
-                             shuffle_games=False)
-    vp_ds = PriorityWindows(a.store, a.embed, methods, split="valpair",
-                            shuffle_games=False)
-    train = DataLoader(train_ds, batch_size=a.batch, collate_fn=collate,
-                       num_workers=a.workers, persistent_workers=True,
-                       prefetch_factor=4)
+    train_ds = PriorityWindows(
+        a.store, a.embed, methods, split="train", seed=a.seed, max_games=a.max_games
+    )
+    val_ds = PriorityWindows(a.store, a.embed, methods, split="val", shuffle_games=False)
+    vp_ds = PriorityWindows(a.store, a.embed, methods, split="valpair", shuffle_games=False)
+    train = DataLoader(
+        train_ds,
+        batch_size=a.batch,
+        collate_fn=collate,
+        num_workers=a.workers,
+        persistent_workers=True,
+        prefetch_factor=4,
+    )
     val = DataLoader(val_ds, batch_size=a.batch, collate_fn=collate, num_workers=4)
     vp = DataLoader(vp_ds, batch_size=a.batch, collate_fn=collate, num_workers=4)
 
@@ -232,14 +254,19 @@ def main() -> None:
         t = (step - a.warmup) / max(a.steps - a.warmup, 1)
         return a.lr * 0.5 * (1 + math.cos(math.pi * min(t, 1.0)))
 
-    config = {**vars(a), "params": n_params, "methods_version": 1,
-              "sa_vocab_version": 1, "sa_vocab_size": len(sa_vocab),
-              "transform_version": TRANSFORM_VERSION,
-              "embed_meta": json.loads(Path(f"{a.embed}.json").read_text())}
+    config = {
+        **vars(a),
+        "params": n_params,
+        "methods_version": 1,
+        "sa_vocab_version": 1,
+        "sa_vocab_size": len(sa_vocab),
+        "transform_version": TRANSFORM_VERSION,
+        "embed_meta": json.loads(Path(f"{a.embed}.json").read_text()),
+    }
     del config["out"]
     (out_dir / "config.json").write_text(json.dumps(config, indent=1, default=str) + "\n")
     metrics = open(out_dir / "metrics.jsonl", "a")
-    print(f"[train] {n_params/1e6:.1f}M params -> {out_dir}")
+    print(f"[train] {n_params / 1e6:.1f}M params -> {out_dir}")
 
     step = 0
     t0 = time.time()
@@ -261,17 +288,35 @@ def main() -> None:
             step += 1
 
             if step % 100 == 0:
-                row = {"step": step,
-                       **{k: float(L[k].detach()) for k in
-                          ("loss", "policy", "target", "x", "value", "bool", "num",
-                           "atk", "cmb_count", "atk_tgt", "blk")},
-                       "lr": lr_at(step),
-                       "windows": win_seen, "wall_s": round(time.time() - t0, 1)}
+                row = {
+                    "step": step,
+                    **{
+                        k: float(L[k].detach())
+                        for k in (
+                            "loss",
+                            "policy",
+                            "target",
+                            "x",
+                            "value",
+                            "bool",
+                            "num",
+                            "atk",
+                            "cmb_count",
+                            "atk_tgt",
+                            "blk",
+                        )
+                    },
+                    "lr": lr_at(step),
+                    "windows": win_seen,
+                    "wall_s": round(time.time() - t0, 1),
+                }
                 metrics.write(json.dumps(row) + "\n")
                 metrics.flush()
                 if step % 500 == 0:
-                    print(f"[train] step {step}: loss {row['loss']:.3f} "
-                          f"({win_seen / (time.time() - t0):.0f} win/s)")
+                    print(
+                        f"[train] step {step}: loss {row['loss']:.3f} "
+                        f"({win_seen / (time.time() - t0):.0f} win/s)"
+                    )
             if step % a.eval_every == 0 or step == a.steps:
                 nb = a.final_eval_batches if step == a.steps else a.eval_batches
                 ev = {"step": step, "split": "val", **evaluate(net, val, device, nb)}
@@ -279,16 +324,18 @@ def main() -> None:
                 for row in (ev, ep):
                     metrics.write(json.dumps(row) + "\n")
                 metrics.flush()
-                print(f"[eval] step {step}: honest {ev['agree_honest']:.4f} "
-                      f"(host {ev['agree_honest_host']:.4f}) "
-                      f"raw {ev['agree_raw']:.4f} nonpass {ev['agree_nonpass']:.4f} "
-                      f"tgt {ev['acc_target']:.4f} "
-                      f"atk {ev['acc_atk_row']:.4f}/{ev['acc_atk_win']:.4f} "
-                      f"blk {ev['acc_blk_row']:.4f} | valpair honest {ep['agree_honest']:.4f}")
-                torch.save({"step": step, "model": net.state_dict(), "config": config},
-                           out_dir / "last.pt")
-    print(f"[train] done: {step} steps, {win_seen} windows, "
-          f"{(time.time() - t0) / 3600:.2f}h")
+                print(
+                    f"[eval] step {step}: honest {ev['agree_honest']:.4f} "
+                    f"(host {ev['agree_honest_host']:.4f}) "
+                    f"raw {ev['agree_raw']:.4f} nonpass {ev['agree_nonpass']:.4f} "
+                    f"tgt {ev['acc_target']:.4f} "
+                    f"atk {ev['acc_atk_row']:.4f}/{ev['acc_atk_win']:.4f} "
+                    f"blk {ev['acc_blk_row']:.4f} | valpair honest {ep['agree_honest']:.4f}"
+                )
+                torch.save(
+                    {"step": step, "model": net.state_dict(), "config": config}, out_dir / "last.pt"
+                )
+    print(f"[train] done: {step} steps, {win_seen} windows, {(time.time() - t0) / 3600:.2f}h")
 
 
 if __name__ == "__main__":
