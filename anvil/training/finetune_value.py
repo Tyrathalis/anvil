@@ -142,7 +142,31 @@ def main() -> None:
         help="value_head = frozen-trunk probe; all = critic tower "
         "(policy heads in the output ckpt become garbage — never serve)",
     )
+    # ---- C2a critic-phase aux (ADR-0054): drilled-point wr_K(fp) value
+    # targets at fork first-windows. Pass-A values in the loop come from
+    # THIS critic, so drilled accuracy entering here is what reaches the
+    # V-trace advantage — the M7 mechanism-of-action channel ----
+    ap.add_argument(
+        "--seq-labels",
+        default=None,
+        help="csv of forced-seq labels.jsonl paths or campaign run dirs "
+        "(wr_nat = the aux BCE target wr_K(fp))",
+    )
+    ap.add_argument(
+        "--seq-stores",
+        default=None,
+        help="csv of drill fork stores carrying the fork windows",
+    )
+    ap.add_argument(
+        "--seq-every",
+        type=int,
+        default=10,
+        help="every Nth step trains the fork-window aux batch instead of "
+        "a corpus batch (ADR-0054: capped ~10%% of critic batches)",
+    )
     a = ap.parse_args()
+    if bool(a.seq_labels) != bool(a.seq_stores):
+        ap.error("--seq-labels and --seq-stores go together")
 
     torch.manual_seed(a.seed)
     device = "cuda"
@@ -181,6 +205,27 @@ def main() -> None:
         [p for p in net.parameters() if p.requires_grad], lr=a.lr, weight_decay=0.01
     )
 
+    seq_segs = None
+    if a.seq_labels:
+        from anvil.training.seqlabels import build_seq_batch
+
+        sb = build_seq_batch(
+            a.seq_labels.split(","),
+            a.seq_stores.split(","),
+            cfg["embed"],
+            methods,
+            seg=a.batch,
+            full_vis=a.full_vis,
+        )
+        if sb is None:
+            print("[vfix] WARNING: seq labels joined ZERO fork windows — aux OFF this run")
+        else:
+            seq_segs = sb["segs_fv"] if a.full_vis else sb["segs"]
+            print(
+                f"[vfix] C2a aux batch: {sb['n']} fork windows / {sb['n_labels']} labels "
+                f"(every {a.seq_every}th step)"
+            )
+
     def lr_at(step: int) -> float:
         if step < a.warmup:
             return a.lr * step / a.warmup
@@ -216,6 +261,32 @@ def main() -> None:
             for g in opt.param_groups:
                 g["lr"] = lr_at(step)
             net.train()
+            # ---- C2a aux step (ADR-0054): every Nth step trains the fork
+            # windows toward wr_K(fp) INSTEAD of this corpus batch ----
+            if seq_segs is not None and step > 0 and step % a.seq_every == 0:
+                opt.zero_grad(set_to_none=True)
+                n_aux = sum(next(iter(s.values())).shape[0] for s in seq_segs)
+                aux_val = 0.0
+                for sbatch in seq_segs:
+                    sb_d = {k: v.to(device, non_blocking=True) for k, v in sbatch.items()}
+                    with torch.autocast(device, dtype=torch.bfloat16):
+                        out = net(sb_d)
+                        loss = (
+                            torch.nn.functional.binary_cross_entropy_with_logits(
+                                out["value_logit"].float(),
+                                sb_d["seq_wr"].clamp(0.0, 1.0),
+                                reduction="sum",
+                            )
+                            / n_aux
+                        )
+                    loss.backward()
+                    aux_val += float(loss.detach())
+                opt.step()
+                step += 1
+                if step % 200 == 0:
+                    metrics.write(json.dumps({"step": step, "seq_aux_loss": aux_val}) + "\n")
+                    metrics.flush()
+                continue
             batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
             n_out = int(batch["has_outcome"].sum())
             if n_out == 0:

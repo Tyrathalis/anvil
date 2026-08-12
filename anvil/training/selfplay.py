@@ -313,6 +313,67 @@ def _drill_phase(args, state: dict, k: int, drill_dir: Path) -> list[str]:
     return stores
 
 
+def _seq_phase(args, state: dict, k: int, seq_dir: Path, drill_dir: Path) -> list[str]:
+    """ADR-0054 C-seq campaign: forced-seq labels (natural/hold-N/act-N × K)
+    at THIS iteration's drill slice, arms answered by the CURRENT ckpt —
+    labels are policy-conditional and regenerate fresh every iteration.
+    Labels-only (forced-branch pin 3): L_seq's fork windows come from the
+    drill phase's fork stores at the same points; both phases replay the
+    mainline argmax on the pinned replay ckpt, so labels and windows
+    describe the same fork states (drift = the known ~1-2% replay class,
+    absorbed as label noise; unjoined points drop in seqlabels). Returns
+    the campaign run dirs (seqlabels.load_rows takes them verbatim)."""
+    seq_dir.mkdir(exist_ok=True)
+    tag = f"seq{k:03d}"
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "anvil.grindstone",
+            "plan",
+            "--curation",
+            str(drill_dir / "slice.jsonl"),
+            "--out",
+            str(seq_dir / "plan"),
+            "--ckpt",
+            args.drill_replay_ckpt,
+            "--k",
+            str(args.seq_k),
+            "--anchor",
+            "selected",
+            "--tag",
+            tag,
+        ]
+    )
+    before = set(glob.glob(str(RUNS_DIR / f"drill{tag}-*")))
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "anvil.grindstone",
+            "generate",
+            "--manifest",
+            str(seq_dir / "plan"),
+            "--port",
+            str(args.port),
+            "--workers",
+            str(args.workers),
+            "--force-seq",
+            str(args.seq_n),
+            "--drill-ckpt",
+            state["ckpt"],
+        ]
+    )
+    new_dirs = sorted(set(glob.glob(str(RUNS_DIR / f"drill{tag}-*"))) - before)
+    if not new_dirs:
+        raise RuntimeError(f"seq campaign produced no run dirs (tag {tag})")
+    n_rows = sum(
+        1 for rd in new_dirs for f in Path(rd).glob("workers/inv-*/labels.jsonl") for _ in open(f)
+    )
+    print(f"[selfplay] iteration {k}: seq campaign {len(new_dirs)} runs, {n_rows} label rows")
+    return new_dirs
+
+
 def _drill_eval_phase(args, state: dict, k: int, it_dir: Path) -> None:
     """Mid-run drill-evalset decomposition (M4, post-ADR-0031): run
     `grindstone eval` on the held-out evalset with the just-accepted
@@ -589,7 +650,33 @@ def main() -> None:
         default=0.0,
         help="rejected-intent penalty lambda (§6c); reward change "
         "= RL-chain boundary — do not resume a lambda=0 "
-        "chain's replay mixture with a nonzero lambda",
+        "chain's replay mixture with a nonzero lambda. "
+        "ADR-0054 pricing = 0.01 with grouping 'first'.",
+    )
+    ap.add_argument(
+        "--penalty-grouping",
+        choices=["first", "event"],
+        default="first",
+        help="§6c pricing basis (ADR-0054): first = one penalty per veto "
+        "window; event = the superseded per-attempt pricing",
+    )
+    ap.add_argument(
+        "--seq-n",
+        type=int,
+        default=0,
+        help="ADR-0054 C-seq campaign horizon N (0 = campaign off). "
+        "Requires the drill phase (--drill-selection): the campaign "
+        "rides the drill slice — the drill fork stores supply L_seq's "
+        "windows, the forced-seq labels its targets. Recipe note: "
+        "the bundle run sizes --drill-points-per-iter to the campaign "
+        "P (~100), not run13's 15.",
+    )
+    ap.add_argument(
+        "--seq-k",
+        type=int,
+        default=16,
+        help="completions per forced-seq arm (ADR-0054: 16 — freshness "
+        "beats K=32 precision on policy-conditional labels)",
     )
     ap.add_argument(
         "--heur-frac",
@@ -785,6 +872,22 @@ def main() -> None:
                 drill_stores = _drill_phase(args, state, k, it_dir / "drill")
                 stores_rec.write_text(json.dumps(drill_stores))
 
+        # ---- C-seq campaign (ADR-0054): forced-seq labels at the same
+        # slice, fresh each iteration; phase-idempotent via runs.json ----
+        seq_runs: list[str] = []
+        if args.seq_n:
+            if not args.drill_selection:
+                raise RuntimeError(
+                    "--seq-n requires --drill-selection (the campaign rides the drill slice)"
+                )
+            seq_rec = it_dir / "seq" / "runs.json"
+            if seq_rec.exists():
+                seq_runs = json.loads(seq_rec.read_text())
+                print(f"[selfplay] iteration {k}: reusing seq campaign")
+            else:
+                seq_runs = _seq_phase(args, state, k, it_dir / "seq", it_dir / "drill")
+                seq_rec.write_text(json.dumps(seq_runs))
+
         group = [str(TRAJ_DIR / rd.name) for rd in run_dirs] + drill_stores
         groups = [g if isinstance(g, list) else [g] for g in state["stores"]]
         if not groups or groups[-1] != group:
@@ -836,6 +939,13 @@ def main() -> None:
                         "--out",
                         str(critic_dir),
                     ]
+                    # C2a (ADR-0054): drilled-point wr_K aux into the critic
+                    # phase — the channel that reaches pass-A values
+                    + (
+                        ["--seq-labels", ",".join(seq_runs), "--seq-stores", ",".join(drill_stores)]
+                        if seq_runs and drill_stores
+                        else []
+                    )
                 )
                 if not (critic_dir / "last.pt").exists():
                     raise RuntimeError(f"critic phase produced no checkpoint in {critic_dir}")
@@ -877,12 +987,21 @@ def main() -> None:
                     str(args.rl_workers),
                     "--penalty",
                     str(args.penalty),
+                    "--penalty-grouping",
+                    args.penalty_grouping,
                     "--epochs",
                     str(args.epochs),
                     "--seed",
                     str(k),
                 ]
                 + (["--critic-ckpt", str(critic_ckpt)] if critic_ckpt else [])
+                # C-seq (ADR-0054): this iteration's fresh labels + the drill
+                # fork stores that carry the matching fork windows
+                + (
+                    ["--seq-labels", ",".join(seq_runs), "--seq-stores", ",".join(drill_stores)]
+                    if seq_runs and drill_stores
+                    else []
+                )
             )
         t_train = time.monotonic() - t0
         new_ckpt = train_dir / "last.pt"

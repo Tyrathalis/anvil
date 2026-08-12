@@ -242,12 +242,28 @@ def mu_matches(ex: dict, rec: dict) -> bool:
     return True
 
 
-def rejected_events(decs: list, i: int, dec: dict, rec: dict, aux: dict) -> int:
-    """Engine-rejected intent count for one mu-covered window (§6c pin).
+def rejected_events(
+    decs: list,
+    i: int,
+    dec: dict,
+    rec: dict,
+    aux: dict,
+    mu: dict | None = None,
+    grouping: str = "event",
+) -> int:
+    """Engine-rejected intent count for one mu-covered window (§6c pin;
+    pricing superseded by ADR-0054 — see `grouping`).
 
     priority: 1 iff the mu pick was a cast (c > 0) and no SA realized
-    (ret null) — the vetoed-attempt signature (re-ask chains: every vetoed
-    attempt is its own dec, so each counts once).
+    (ret null) — the vetoed-attempt signature. grouping="event" counts
+    every vetoed attempt (re-ask chains: each dec counts once — the
+    original §6c pricing; scripts/validate_rejected_intent.py reconciles
+    THIS basis against census). grouping="first" (ADR-0054 C3): one count
+    per veto WINDOW — a chain continuation (the immediately preceding dec
+    is a vetoed attempt by the same seat in the same turn; §6b re-asks
+    adjacently, nothing intervenes — the scripts/rejected_chain_read.py
+    inference) counts zero, because chain length is realizer walk-down
+    machinery, not graded intent. Requires `mu` to classify the neighbor.
     attack: declared-but-not-realized attacker entities (per candidate row,
     intended count minus realized count), via the D5 bounded obs join.
     block: |declared - realized| blocker entities per row — dropped AND
@@ -260,7 +276,22 @@ def rejected_events(decs: list, i: int, dec: dict, rec: dict, aux: dict) -> int:
     run trains (d6-vtrace-loop §6c)."""
     task = rec["task"]
     if task == "priority":
-        return 1 if rec["c"] > 0 and dec.get("ret") is None else 0
+        if not (rec["c"] > 0 and dec.get("ret") is None):
+            return 0
+        if grouping == "first" and mu is not None and i > 0:
+            prev = decs[i - 1]
+            pr = mu.get(prev["s"])
+            if (
+                pr is not None
+                and pr.get("task") == "priority"
+                and pr.get("c", 0) > 0
+                and prev.get("ret") is None
+                and prev.get("p") == dec.get("p")
+                and (prev.get("obs") or {}).get("glob", {}).get("turn")
+                == (dec.get("obs") or {}).get("glob", {}).get("turn")
+            ):
+                return 0  # chain continuation: the window already paid
+        return 1
     if task not in ("attack", "block"):
         return 0
     from anvil.training.dataset import _combat_label_window
@@ -295,7 +326,7 @@ def rejected_events(decs: list, i: int, dec: dict, rec: dict, aux: dict) -> int:
     return n
 
 
-def game_trajectories(store, feat, g: int, full_vis: bool = False):
+def game_trajectories(store, feat, g: int, full_vis: bool = False, penalty_grouping: str = "first"):
     """Per-seat mu-covered trajectories of one stored game, serve-identical
     windows via the featurizer path (store_wire_hist -> Featurizer.example ->
     apply_mu_labels).
@@ -334,7 +365,9 @@ def game_trajectories(store, feat, g: int, full_vis: bool = False):
             ex, aux = feat.example(wire, traj.header, rec["task"])
             if not mu_matches(ex, rec):
                 return [], "mu_mismatch"
-            rej = rejected_events(traj.decisions, len(prior), dec, rec, aux)
+            rej = rejected_events(
+                traj.decisions, len(prior), dec, rec, aux, mu=mu, grouping=penalty_grouping
+            )
             apply_mu_labels(ex, rec)
             ex_fv = (
                 feat.example(wire, traj.header, rec["task"], full_vis=True)[0] if full_vis else None
@@ -351,6 +384,35 @@ def game_trajectories(store, feat, g: int, full_vis: bool = False):
         )
         for p, items in sorted(by_seat.items())
     ], None
+
+
+def seq_pass(
+    net, seq_segs: list, forward_segments, w_seq: float, aux_w: float, grad: bool = True
+) -> tuple[float, float]:
+    """One pass over the C-seq batch (ADR-0054): the sequence-contrastive
+    term L_seq = −Â·[logp(cast*) − logp(pass)] (logp(cast*) = logsumexp over
+    the candidates matching the act arm's modal first cast; the tmask is the
+    all-nonpass mass fallback where agreement was low) + the C2a masked-head
+    aux BCE toward wr_nat. Means are over the whole seq batch. grad=True
+    backwards the weighted total into the current accumulation window;
+    grad=False (calibration) just measures. Returns (raw L_seq, raw aux)."""
+    n_total = sum(next(iter(s.values())).shape[0] for s in seq_segs)
+    tot_l = tot_aux = 0.0
+    for seg, fwd in forward_segments(net, seq_segs, grad=grad):
+        lp = fwd["policy_logits"].float().log_softmax(1)
+        contrast = lp.masked_fill(~seg["seq_tmask"], -1e9).logsumexp(1) - lp[:, 0]
+        l_seq = -(seg["seq_adv"] * contrast).sum() / n_total
+        aux = (
+            F.binary_cross_entropy_with_logits(
+                fwd["value_logit"].float(), seg["seq_wr"].clamp(0.0, 1.0), reduction="sum"
+            )
+            / n_total
+        )
+        if grad:
+            (w_seq * l_seq + aux_w * aux).backward()
+        tot_l += float(l_seq.detach())
+        tot_aux += float(aux.detach())
+    return tot_l, tot_aux
 
 
 def entropy_hinge(ent: "torch.Tensor", floor: float, b: int, t_len: int):
@@ -390,6 +452,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         epochs: int = 1,
         full_vis: bool = False,
         seg: int = 256,
+        penalty_grouping: str = "first",
     ):
         self.stores = stores
         self.weights = weights
@@ -398,6 +461,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         self.seed = seed
         self.epochs = epochs
         self.full_vis = full_vis
+        self.penalty_grouping = penalty_grouping
         # Collate WORKER-SIDE at exactly the learner's seg size (2026-07-26).
         # Yielding per-window example dicts shipped ~20 tensors x hundreds of
         # windows x2 (masked + fv) through the DataLoader's shm+pickle path for
@@ -430,7 +494,13 @@ class RlTrajectories(torch.utils.data.IterableDataset):
             for si, g in schedule:
                 if (g * 2654435761 + si) % nw != wid:
                     continue
-                trajs, skip = game_trajectories(opened[si], feat, g, full_vis=self.full_vis)
+                trajs, skip = game_trajectories(
+                    opened[si],
+                    feat,
+                    g,
+                    full_vis=self.full_vis,
+                    penalty_grouping=self.penalty_grouping,
+                )
                 if skip is not None:
                     yield {"skip": skip, "g": g}
                     continue
@@ -582,10 +652,63 @@ def main() -> None:
         type=float,
         default=0.0,
         help="rejected-intent penalty lambda (d6-vtrace-loop §6c): "
-        "per-event negative reward on vetoed cast attempts "
-        "and dropped/repaired combat declarations; 0 = off. "
+        "negative reward on vetoed cast attempts and dropped/"
+        "repaired combat declarations; 0 = off. ADR-0054 pricing "
+        "= 0.01 with --penalty-grouping first (per-window "
+        "exposure strictly below one held turn's measured cost). "
         "A reward change is an RL-chain boundary — never mix "
         "replay stores across different lambda values.",
+    )
+    ap.add_argument(
+        "--penalty-grouping",
+        choices=["first", "event"],
+        default="first",
+        help="§6c pricing basis (ADR-0054): first = one penalty per "
+        "veto WINDOW (re-ask chain continuations free — chain "
+        "length is realizer walk-down, not graded intent); "
+        "event = the superseded per-attempt pricing (run5-run13 "
+        "era reproduction only).",
+    )
+    # ---- C-seq + C2a policy-side aux (ADR-0054) ----
+    ap.add_argument(
+        "--seq-labels",
+        default=None,
+        help="csv of forced-seq labels.jsonl paths or campaign run dirs "
+        "(ADR-0054 C-seq). With --seq-stores, enables the sequence-"
+        "contrastive term L_seq = -A*[logp(cast*) - logp(pass)] and "
+        "the C2a masked-head aux at the same fork windows. Labels "
+        "are policy-conditional: pass only THIS iteration's fresh "
+        "campaign output.",
+    )
+    ap.add_argument(
+        "--seq-stores",
+        default=None,
+        help="csv of drill fork stores carrying the fork windows the "
+        "seq labels join to (keyed header.fork.pg/fp = labels i/fp)",
+    )
+    ap.add_argument(
+        "--seq-frac",
+        type=float,
+        default=0.1,
+        help="target share of policy-gradient loss magnitude the seq "
+        "term carries (w_seq calibrated over --seq-calib-steps, "
+        "then frozen and logged)",
+    )
+    ap.add_argument("--seq-calib-steps", type=int, default=50)
+    ap.add_argument(
+        "--seq-agree-min",
+        type=float,
+        default=0.5,
+        help="act_first_agree threshold below which a point falls back "
+        "to the cast-mass-vs-pass contrast (ADR-0054 pin 1)",
+    )
+    ap.add_argument("--seq-clip", type=float, default=0.25, help="advantage clip (at birth)")
+    ap.add_argument(
+        "--seq-aux-weight",
+        type=float,
+        default=0.5,
+        help="weight on the C2a masked-head aux BCE toward wr_nat at "
+        "fork windows (mirrors --value-weight's scale)",
     )
     ap.add_argument(
         "--tripwire-tol",
@@ -658,6 +781,15 @@ def main() -> None:
                 "epochs",
                 "seed",
                 "tripwire_tol",
+                "penalty",
+                "penalty_grouping",
+                "seq_labels",
+                "seq_stores",
+                "seq_frac",
+                "seq_calib_steps",
+                "seq_agree_min",
+                "seq_clip",
+                "seq_aux_weight",
             )
         },
         "init_step": ckpt.get("step"),
@@ -674,6 +806,7 @@ def main() -> None:
         epochs=args.epochs,
         full_vis=critic is not None,
         seg=args.seg,
+        penalty_grouping=args.penalty_grouping,
     )
     loader = torch.utils.data.DataLoader(
         ds,
@@ -684,6 +817,37 @@ def main() -> None:
     )
 
     forward_segments = make_forward_segments(dev, args.seg)
+
+    # ---- C-seq batch (ADR-0054): built once per invocation — the campaign
+    # regenerates labels fresh each iteration, so one rl.py run sees one
+    # policy-conditional label generation ----
+    if bool(args.seq_labels) != bool(args.seq_stores):
+        raise SystemExit("--seq-labels and --seq-stores go together")
+    seq = None
+    w_seq: float | None = None
+    if args.seq_labels:
+        from anvil.training.seqlabels import build_seq_batch
+
+        seq = build_seq_batch(
+            args.seq_labels.split(","),
+            args.seq_stores.split(","),
+            cfg["embed"],
+            methods,
+            seg=args.seg,
+            agree_min=args.seq_agree_min,
+            clip=args.seq_clip,
+        )
+        if seq is None:
+            print("[rl] WARNING: seq labels joined ZERO fork windows — seq term OFF this run")
+        else:
+            print(
+                f"[rl] seq batch: {seq['n']} fork windows / {seq['n_labels']} labels "
+                f"({seq['n_cast_target']} specific-cast, {seq['n_mass']} mass-fallback; "
+                f"mean |adv| {seq['mean_abs_adv']:.4f})"
+            )
+    calib_pg = 0.0
+    calib_traj = 0
+    calib_steps = 0
 
     # step continues from the init checkpoint: monotonic across the whole
     # BC->RL chain, so mu meta "step" uniquely names the generating ckpt
@@ -800,6 +964,7 @@ def main() -> None:
 
         # ---- pass B (grad): policy gradient + value + entropy ----
         off = 0
+        traj_pg = 0.0
         for seg, fwd in forward_segments(net, segs, grad=True):
             b = seg["label"].shape[0]
             adv = pg_adv[off : off + b].to(dev)
@@ -818,6 +983,7 @@ def main() -> None:
             ) / args.traj_per_step
             loss.backward()
             acc["pg"] = acc.get("pg", 0.0) + float(pg_loss)
+            traj_pg += float(pg_loss)
             acc["v"] = acc.get("v", 0.0) + float(v_loss)
             acc["ent"] = acc.get("ent", 0.0) + float(ent_mean)
             acc["ent_pen"] = acc.get("ent_pen", 0.0) + float(ent_pen)
@@ -831,8 +997,49 @@ def main() -> None:
         if v0_masked is not None:
             acc["v0_masked"] = acc.get("v0_masked", 0.0) + v0_masked
         acc["rej"] = acc.get("rej", 0.0) + float(item["rej"].sum())
+        if seq is not None and w_seq is None:
+            calib_pg += abs(traj_pg)
+            calib_traj += 1
 
         if n_traj % args.traj_per_step == 0:
+            # ---- C-seq step (ADR-0054): calibrate w_seq over the first
+            # --seq-calib-steps optimizer steps (loss-magnitude proxy for
+            # gradient mass: w_seq * |L_seq| ≈ seq_frac * mean |PG per
+            # trajectory|), then apply the seq batch every step ----
+            if seq is not None:
+                if w_seq is None:
+                    calib_steps += 1
+                    if calib_steps >= args.seq_calib_steps:
+                        raw, aux_raw = seq_pass(
+                            net, seq["segs"], forward_segments, 0.0, 0.0, grad=False
+                        )
+                        mean_pg = calib_pg / max(calib_traj, 1)
+                        w_seq = args.seq_frac * mean_pg / max(abs(raw), 1e-4)
+                        cal = {
+                            "w_seq": w_seq,
+                            "seq_frac": args.seq_frac,
+                            "mean_abs_pg_per_traj": mean_pg,
+                            "l_seq_raw_at_calib": raw,
+                            "seq_aux_raw_at_calib": aux_raw,
+                            "calib_steps": calib_steps,
+                            "calib_traj": calib_traj,
+                            "n_windows": seq["n"],
+                        }
+                        (out_dir / "seq_calibration.json").write_text(
+                            json.dumps(cal, indent=1) + "\n"
+                        )
+                        print(f"[rl] w_seq calibrated: {cal}")
+                else:
+                    raw, aux_raw = seq_pass(
+                        net,
+                        seq["segs"],
+                        forward_segments,
+                        w_seq,
+                        args.seq_aux_weight,
+                        grad=True,
+                    )
+                    acc["seq_raw"] = acc.get("seq_raw", 0.0) + raw
+                    acc["seq_aux"] = acc.get("seq_aux", 0.0) + aux_raw
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             opt.step()
             opt.zero_grad(set_to_none=True)
@@ -850,6 +1057,10 @@ def main() -> None:
                     "step": step,
                     "traj": n_traj,
                     **{k: round(v / n, 5) for k, v in acc.items()},
+                    # seq_raw/seq_aux above are per-TRAJECTORY means of a
+                    # once-per-optimizer-step term (trend metric, not a
+                    # loss share); w_seq is the frozen calibration
+                    **({"w_seq": round(w_seq, 6)} if w_seq is not None else {}),
                     "skips": dict(skips),
                     "tripwire_viol": tripwire_viol,
                     "win_per_s": round(win_count / wall, 1),

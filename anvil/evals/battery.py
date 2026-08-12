@@ -58,7 +58,6 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Callable
 
-
 # ---------------------------------------------------------------- plumbing
 
 
@@ -230,9 +229,7 @@ def holding_read(store_paths: list[str]) -> dict:
                 if not spells:
                     continue
                 seat = dec["p"]
-                cls = seat_cls.get(
-                    seat, "model" if mu.get(dec["s"]) is not None else "heur"
-                )
+                cls = seat_cls.get(seat, "model" if mu.get(dec["s"]) is not None else "heur")
                 b = out[cls]
                 b["spell_windows"] += 1
                 for o in spells:
@@ -544,9 +541,14 @@ def run_end(run_dir: Path, delta_windows: int = 20000) -> list[str]:
             n0, n1 = hold_rows[0]["model"]["casts"], hold_rows[-1]["model"]["casts"]
             d = last["same_turn_hold_then_cast_rate"] - first["same_turn_hold_then_cast_rate"]
             se = (
-                sum(r * (1 - r) / max(n, 1) for r, n in
-                    ((first["same_turn_hold_then_cast_rate"], n0),
-                     (last["same_turn_hold_then_cast_rate"], n1))) ** 0.5
+                sum(
+                    r * (1 - r) / max(n, 1)
+                    for r, n in (
+                        (first["same_turn_hold_then_cast_rate"], n0),
+                        (last["same_turn_hold_then_cast_rate"], n1),
+                    )
+                )
+                ** 0.5
             )
             if abs(d) > 3 * se:
                 anomalies.append(
@@ -564,9 +566,7 @@ def run_end(run_dir: Path, delta_windows: int = 20000) -> list[str]:
         groups = state.get("stores") or []
         last_group = groups[-1] if groups else None
         if cfg.get("ckpt") and state.get("ckpt") and last_group:
-            delta = emit(
-                behavioral_delta, cfg["ckpt"], state["ckpt"], last_group, delta_windows
-            )
+            delta = emit(behavioral_delta, cfg["ckpt"], state["ckpt"], last_group, delta_windows)
             if delta and delta["cast_changed_rate"] > 0.05:
                 anomalies.append(
                     f"behavioral delta: {delta['cast_changed_rate']:.1%} of the init ckpt's "
@@ -575,14 +575,18 @@ def run_end(run_dir: Path, delta_windows: int = 20000) -> list[str]:
                     "intent)"
                 )
 
-    numbers = {"monitor": mon_numbers, "holding": hold_rows[-1] if hold_rows else None,
-               "behavioral_delta": delta}
+    numbers = {
+        "monitor": mon_numbers,
+        "holding": hold_rows[-1] if hold_rows else None,
+        "behavioral_delta": delta,
+    }
     (out / "analysis.json").write_text(json.dumps(numbers, indent=1) + "\n")
     sections = [
         "![monitor](monitor.png)",
         "![holding](holding.png)" if (out / "holding.png").exists() else "",
-        f"**Behavioral delta (init -> final):** `{json.dumps(delta)}`" if delta else
-        "**Behavioral delta:** unavailable (missing config/state/stores)",
+        f"**Behavioral delta (init -> final):** `{json.dumps(delta)}`"
+        if delta
+        else "**Behavioral delta:** unavailable (missing config/state/stores)",
         "\n## Exploratory\n\nAll of the above is hypothesis-generating only "
         "(run-analysis-protocol rule 1); the run verdict is the pre-registered gate read.",
     ]

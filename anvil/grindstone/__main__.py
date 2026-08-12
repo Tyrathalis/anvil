@@ -133,6 +133,7 @@ def _launch_arms(
     drill_stop: bool,
     purpose_prefix: str,
     fork_obs: bool = False,
+    force_seq: int | None = None,
 ) -> None:
     from anvil.training.selfplay import _run
 
@@ -175,6 +176,8 @@ def _launch_arms(
             cmd += ["--drill-stop"]
         if fork_obs:
             cmd += ["--fork-obs"]
+        if force_seq:
+            cmd += ["--force-seq", str(force_seq)]
         print(
             f"[launch] {purpose}: {arm['n_drills']} drills / "
             f"{arm['n_games']} games (span {arm['index_span']})"
@@ -195,6 +198,17 @@ def generate(a: argparse.Namespace) -> None:
             "FATAL: --sample-mainline is the map path; "
             "--sample-forks pins an argmax mainline by design"
         )
+    if a.force_seq:
+        if a.fork_obs or a.sample_forks:
+            sys.exit(
+                "FATAL: --force-seq is labels-only (ADR-0054 / forced-branch "
+                "pin 3) — no --fork-obs / --sample-forks"
+            )
+        if not a.drill_ckpt:
+            sys.exit(
+                "FATAL: --force-seq needs --drill-ckpt (the act arm is the "
+                "CURRENT policy's preferred cast — labels are policy-conditional)"
+            )
     if a.sample_forks:
         if not (a.drill_ckpt and a.fork_obs):
             sys.exit(
@@ -252,7 +266,9 @@ def generate(a: argparse.Namespace) -> None:
             sample=a.sample_mainline,
             mu_out=out / "mu-mainline.jsonl",
             drill_ckpt=a.drill_ckpt,
-            instrument=a.sample_mainline,
+            # forced-seq arms are always instrument-served (sampled, no mu —
+            # labels-only); sampled mainline needs it for the wire forks too
+            instrument=a.sample_mainline or bool(a.force_seq),
         )
         try:
             _launch_arms(
@@ -264,6 +280,7 @@ def generate(a: argparse.Namespace) -> None:
                 a.drill_stop,
                 prefix,
                 fork_obs=a.fork_obs,
+                force_seq=a.force_seq,
             )
         finally:
             _stop_server(server)
@@ -687,6 +704,17 @@ def main() -> None:
         "sampled-source curation: argmax replay diverges "
         "and the map prices the wrong states); completions "
         "ride --fork-instrument, replay mu is discarded",
+    )
+    g.add_argument(
+        "--force-seq",
+        type=int,
+        default=None,
+        help="ADR-0054 C-seq campaign: forced-seq arms (natural/"
+        "hold-N/act-N x K, N = this horizon) at the manifest's "
+        "fork points, labels-only (no fork obs; the era jar runs "
+        "3 arms — the 2-arm trim waits for the next boundary "
+        "window). Arms answered by --drill-ckpt (the current "
+        "policy) via --fork-instrument sampled serving.",
     )
     g.set_defaults(fn=generate)
 
