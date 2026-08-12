@@ -184,6 +184,24 @@ Notes (replay triage, 2026-07-06):
   a wedge row reappears in the corrected-era drill campaign, re-open
   with `-Danvil.crash.trace` armed in that run's ANVIL_EXTRA_JVM_OPTS.
 
+## Diagnosed divergence class — deterministic copy-state divergence, post-rebase era (2026-08-12, ADR-0055 annex)
+
+- **Signature:** 58/500 forkcheck games diverge copy-vs-mainline,
+  **deterministically**: identical game set across three runs, two jars
+  (`46c0c0893e` prefix, `d798917ae5` ×2), and both identity-hash modes
+  (FIXED_HASH pair) — not hash-iteration, not wall-clock. Up from the
+  7.0% prior-era rate; statics 0.
+- **Repro:** the 58 seeds in
+  `data/forkcheck/run-20260812-fixedhash/results.jsonl` (status =
+  divergence) — each row carries divergenceTurn + first-divergence
+  sample (library/zone/life symptoms; root mechanic not yet named).
+- **Hypothesis:** rebase-introduced state GameCopier does not carry —
+  #11436's depth-zero-simulation bookkeeping is the prime suspect;
+  same family as the effect-source gap (`b361dfcb8f`).
+- **Forensics slot:** with/after the GameCopier→GameSnapshot
+  consolidation below (trace-diff the recorded snapshots at
+  divergenceTurn). Does not reopen the D3 boundary.
+
 ## Queued follow-up PR — GameCopier → GameSnapshot consolidation (volunteered 2026-07-11, maintainer-blessed at #11203 merge 2026-07-12)
 
 Make the snapshot path own simulation copies and delete GameCopier's

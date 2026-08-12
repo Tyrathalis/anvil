@@ -97,9 +97,28 @@ unless a future re-fit motivates it.
   a corrected-era campaign); mask-cache re-enable still gated on the
   obs-diff protocol if ever wanted.
 
-## Annex: FIXED_HASH discriminator (pending at write time)
+## Annex: FIXED_HASH discriminator — RESOLVED (2026-08-12): the
+divergence is DETERMINISTIC copy-state divergence, not nondeterminism
 
-Launched 2026-08-12 early (quiet box, post-read); result to be recorded
-here: identical-hash divergence ≈ the same 11.6% ⇒ real copy-state
-divergence (investigate); materially lower ⇒ the rise is the #11436
-hash/wall-clock nondeterminism class (accept as characterized).
+The FIXED_HASH=1 pair returned **the identical tally AND the identical
+game set: 442/58, all 58 seeds shared with the default-mode run** — and
+the killed v1 forkcheck (pre-#9 jar, `46c0c0893e`, 437-game prefix)
+agrees 49/49 on its shared seeds. Three runs, two jars, two
+identity-hash modes, one divergent set: the 11.6% is a fully
+deterministic, seed-stable copy-vs-mainline divergence class — NOT the
+hash-iteration class and NOT wall-clock (either would vary across
+launches). Divergence samples show generic downstream symptoms
+(library-order/zone/life diffs at the first divergent state), so the
+root mechanic needs trace-diff forensics: prime suspect remains
+rebase-introduced state that GameCopier does not carry (e.g. #11436's
+simulation bookkeeping or another new upstream mechanic), in the same
+family as the effect-source gap this era fixed.
+
+Disposition: **queued on the upstream-worklist as a diagnosed-class
+entry; does not reopen the boundary.** The era is characterized
+(statics 0, the set is stable and enumerable — the 58 seeds ARE the
+repro list), fork instruments inherit a known rate, and the
+corrected-population machinery re-prices drill labels from true
+rollouts regardless. Forensics slot: with/after the GameCopier→
+GameSnapshot consolidation work, using the recorded first-divergence
+snapshots.
