@@ -378,7 +378,11 @@ def launch(a) -> Path:
         # workers forever (model-mirror run, 2026-07-12). The fork also
         # installs a headless uncaught handler; this is the JVM-level belt.
         "heap": "2g",
-        "jvm_opts": ["-XX:ActiveProcessorCount=2", "-XX:+ExitOnOutOfMemoryError"],
+        "jvm_opts": [
+            "-XX:ActiveProcessorCount=2",
+            "-XX:+ExitOnOutOfMemoryError",
+            "-Dapple.awt.UIElement=true",
+        ],
         "bridge": a.bridge,
         "tags": a.tags,
         "nice": not a.calibrated,
