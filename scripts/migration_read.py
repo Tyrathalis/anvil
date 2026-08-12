@@ -117,6 +117,14 @@ def main() -> None:
 
         dw, dn = rate(sel & set(k1))
         uw, un = rate(set(k1) - sel)
+        if dn + un == 0:
+            # Disjoint seed sets (e.g. a fresh-stock cycle vs a standing-seed
+            # closing read): seed-level migration is structurally empty — the
+            # distributional sections above are the read. Found 2026-08-12
+            # (cycle3 seed_base 20260809 vs the d3-rebaseline standing seeds).
+            print("--- drilled vs undrilled conversion (memorization check)")
+            print("  n/a: zero matched games — prev/curr seed sets are disjoint")
+            return
         p = (dw + uw) / (dn + un)
         se = math.sqrt(p * (1 - p) * (1 / dn + 1 / un))
         print("--- drilled vs undrilled conversion (memorization check)")
