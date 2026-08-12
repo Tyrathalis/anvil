@@ -208,11 +208,22 @@ re-priced from "probably necessary" to "directly evidenced"**;
 sequence granularity carries per-point signal where single decisions
 carried none — but RMS 0.049 < the 0.10 label pin and ratio 1.33 on 61
 points is suggestive, not decisive; (3) instrument clean at scale.
-**OPEN (user routing, pending): overnight K=32 / N ∈ {2,4} rung to
-resolve whether sequence signal is label-grade and grows with horizon,
-vs routing now (C3 + corrected mixture + C2a into the B-vehicle run,
-sequence labels held).** Probe artifacts: fork `6d2f44c9d3`
+Probe artifacts: fork `6d2f44c9d3`
 (`-forceseq`), `scripts/seq_probe_read.py`, runs `seqprobe-s0/s1`.
+
+**K=32 / N ∈ {2,4} rung RESOLVED same day
+([ADR-0053](../decisions/ADR-0053-sequence-probe-resolution.md)): the C
+bundle is FUNDED.** Deferral cost compounds (−2.6pp @ N=2 → **−6.1pp @
+N=4, t = −4.49**, ≈ −1.5pp per held turn, 27/28 nonzero points
+negative); per-point RMS true Δwr grows with horizon to **0.090
+(hold−nat) / 0.085 (act−hold) ≈ the 0.10 pin**, var ratios 3.7+; timing
+ordering natural > greedy ≫ hold (act−nat −1.7pp at N=4 — pure
+aggression is NOT the target). Trainable contrast = act−hold (2 forced
+arms, no natural): 64 completions/point at N=4/K=32. No further rungs —
+horizon is a campaign hyperparameter. **Next: the C-bundle design round
+(sequence-contrastive targets at N≈4 + C2a + C3, with C3's re-tune
+calibrated against the measured −1.5pp/turn passivity cost) → D3
+boundary → the run vs the standing gate.**
 
 Three attribution-separable components; bundle shape decided on D1's
 numbers (aggressive-inclusion posture per ADR-0042, with per-lever
