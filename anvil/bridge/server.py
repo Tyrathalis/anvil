@@ -37,6 +37,7 @@ import grpc
 
 from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
+from anvil.torch.utils import get_torch_device
 
 PROTOCOL_VERSION = 0
 DEFAULT_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
@@ -139,7 +140,7 @@ class ModelBackend:
         self,
         ckpt_path: str,
         pass_delta: float,
-        device: str = "cuda",
+        device: str,
         sample: bool = False,
         temperature: float = 1.0,
         mu_path: "str | None" = None,
@@ -525,7 +526,7 @@ def main() -> None:
         default=0.0,
         help="PASS-logit offset (pass_calibration.json delta; arm knob)",
     )
-    ap.add_argument("--device", default="cuda")
+    ap.add_argument("--device", default=get_torch_device())
     ap.add_argument(
         "--sample",
         action="store_true",

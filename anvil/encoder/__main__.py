@@ -23,6 +23,7 @@ from pathlib import Path
 
 from anvil.encoder.cardtext import pool_texts
 from anvil.pool.forge_db import fork_commit
+from anvil.torch.utils import get_torch_device
 
 REPO = Path(__file__).parents[1]
 EMBED_DIR = REPO.parent / "data/embeddings"
@@ -65,7 +66,7 @@ def cmd_embed(a) -> None:
 
     model_id = MODELS[a.model]
     kwargs = {"torch_dtype": torch.float16} if a.model == "qwen3" else {}
-    model = SentenceTransformer(model_id, device="cuda", model_kwargs=kwargs)
+    model = SentenceTransformer(model_id, device=get_torch_device(), model_kwargs=kwargs)
     revision = getattr(getattr(model[0], "auto_model", None), "config", None)
     revision = getattr(revision, "_commit_hash", None) or "unknown"
     # Cards are documents: no instruction prefix (Qwen3-Embedding applies
