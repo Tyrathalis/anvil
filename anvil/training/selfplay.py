@@ -251,7 +251,14 @@ def drill_slice(rows: list[dict], k: int, ppi: int) -> list[dict]:
     return [rows[(start + i) % n] for i in range(min(ppi, n))]
 
 
-def _drill_phase(args, state: dict, k: int, drill_dir: Path, port: int | None = None) -> list[str]:
+def _drill_phase(
+    args,
+    state: dict,
+    k: int,
+    drill_dir: Path,
+    port: int | None = None,
+    workers: int | None = None,
+) -> list[str]:
     """M4 D3 drill-mixed generation: a rotating slice of the selection list
     is re-drilled — mainline replay argmax on the PINNED source ckpt (the
     only policy those games replay under), completions SAMPLED by the
@@ -296,7 +303,7 @@ def _drill_phase(args, state: dict, k: int, drill_dir: Path, port: int | None = 
             "--port",
             str(port or args.port),
             "--workers",
-            str(args.workers),
+            str(workers or args.workers),
             "--fork-obs",
             "--sample-forks",
             "--drill-ckpt",
@@ -314,7 +321,13 @@ def _drill_phase(args, state: dict, k: int, drill_dir: Path, port: int | None = 
 
 
 def _seq_phase(
-    args, state: dict, k: int, seq_dir: Path, drill_dir: Path, port: int | None = None
+    args,
+    state: dict,
+    k: int,
+    seq_dir: Path,
+    drill_dir: Path,
+    port: int | None = None,
+    workers: int | None = None,
 ) -> list[str]:
     """ADR-0054 C-seq campaign: forced-seq labels (natural/hold-N/act-N × K)
     at THIS iteration's drill slice, arms answered by the CURRENT ckpt —
@@ -359,7 +372,7 @@ def _seq_phase(
             "--port",
             str(port or args.port),
             "--workers",
-            str(args.workers),
+            str(workers or args.workers),
             "--force-seq",
             str(args.seq_n),
             "--drill-ckpt",
@@ -706,6 +719,16 @@ def main() -> None:
         "from --port when --overlap-campaign)",
     )
     ap.add_argument(
+        "--campaign-workers",
+        type=int,
+        default=0,
+        help="drill/campaign fleet width (default = --workers). The "
+        "2026-08-12 w-bench: single-fleet throughput peaks at w=24 "
+        "and regresses at 32 on the 32-core box — under "
+        "--overlap-campaign keep gen+campaign totals near 24 "
+        "(e.g. gen 8 + campaign 16, campaign = the critical path)",
+    )
+    ap.add_argument(
         "--heur-frac",
         type=float,
         default=0.0,
@@ -897,13 +920,16 @@ def main() -> None:
             dstores: list[str] = []
             sruns: list[str] = []
             camp_port = args.campaign_port or (args.port + 2)
+            camp_w = args.campaign_workers or args.workers
             if args.drill_selection:
                 stores_rec = it_dir / "drill" / "stores.json"
                 if stores_rec.exists():
                     dstores = json.loads(stores_rec.read_text())
                     print(f"[selfplay] iteration {k}: reusing drill stores")
                 else:
-                    dstores = _drill_phase(args, state, k, it_dir / "drill", port=camp_port)
+                    dstores = _drill_phase(
+                        args, state, k, it_dir / "drill", port=camp_port, workers=camp_w
+                    )
                     stores_rec.write_text(json.dumps(dstores))
             if args.seq_n:
                 if not args.drill_selection:
@@ -916,7 +942,13 @@ def main() -> None:
                     print(f"[selfplay] iteration {k}: reusing seq campaign")
                 else:
                     sruns = _seq_phase(
-                        args, state, k, it_dir / "seq", it_dir / "drill", port=camp_port
+                        args,
+                        state,
+                        k,
+                        it_dir / "seq",
+                        it_dir / "drill",
+                        port=camp_port,
+                        workers=camp_w,
                     )
                     seq_rec.write_text(json.dumps(sruns))
             walls["campaign"] = time.monotonic() - t0
