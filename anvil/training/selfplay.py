@@ -697,6 +697,14 @@ def main() -> None:
         "d6-run14). Recorded here so launch commands pin it.",
     )
     ap.add_argument(
+        "--seq-carry-w",
+        action="store_true",
+        help="calibrate w_seq at run start only and carry it (the "
+        "ADR-0054 behavior; reproduces run14/run15). Default: "
+        "recalibrate every iteration (ADR-0057 — tracks declining PG "
+        "mass so seq_share holds ~seq_frac instead of drifting).",
+    )
+    ap.add_argument(
         "--penalty",
         type=float,
         default=0.0,
@@ -1244,12 +1252,17 @@ def main() -> None:
         )
         if critic_ckpt is not None:
             state["critic"] = str(critic_ckpt)
-        # w_seq carry-forward (ADR-0054: calibrated at RUN start): iteration
-        # 0 calibrates, every later iteration reuses via --seq-w so the seq
-        # term is live from step 1 instead of sitting out each iteration's
-        # calibration window
+        # w_seq recalibrates PER ITERATION by default (ADR-0057, d6-run15:
+        # PG mass declines as training proceeds while the hinged L_seq does
+        # not, so a frozen run-start w_seq lets seq_share drift toward the
+        # guard with no seq-term misbehavior; per-iteration calibration
+        # tracks PG mass by construction — safe now that the hinge bounds
+        # |L_seq|, which was the run14 precondition failure). --seq-carry-w
+        # restores the ADR-0054 run-start-only behavior (era reproduction
+        # of run14/run15). Cost of recalibrating: each iteration's first
+        # --seq-calib-steps optimizer steps run seq-off (~6% at run scale).
         cal_path = train_dir / "seq_calibration.json"
-        if seq_runs and "seq_w" not in state and cal_path.exists():
+        if args.seq_carry_w and seq_runs and "seq_w" not in state and cal_path.exists():
             state["seq_w"] = json.loads(cal_path.read_text())["w_seq"]
             print(f"[selfplay] w_seq calibrated at run start: {state['seq_w']:.6g} (carried)")
         state_path.write_text(json.dumps(state, indent=2))
