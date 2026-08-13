@@ -97,6 +97,21 @@ def test_guard_kl_is_absolute_no_baseline_needed():
     assert len(flags) == 1 and "kl_mu" in flags[0]
 
 
+def test_guard_seq_share():
+    """d6-run14 guard: the seq term's share of PG mass vs the ADR-0054
+    calibration target. Absolute like kl (no baseline); quiet when the
+    share is absent (seq off) or the guard is unset."""
+
+    def rl_share(ss):
+        return {"mean": {"kl_mu": 0.01, "seq_share": ss}}
+
+    assert guard_flags({}, rl_share(0.15), None, seq_share_max=0.3) == []
+    flags = guard_flags({}, rl_share(0.45), None, seq_share_max=0.3)
+    assert len(flags) == 1 and "seq_share" in flags[0]
+    assert guard_flags({}, _rl_of(0.01, None), None, seq_share_max=0.3) == []
+    assert guard_flags({}, rl_share(0.45), None) == []
+
+
 def test_draw_scores_zero_for_both_seats():
     """§3d cap-aware rule as used by the loader: draw/cap reward is 0 — the
     stalling leader's vs targets sink toward 0, same as a loss."""

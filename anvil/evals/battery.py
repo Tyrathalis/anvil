@@ -98,6 +98,8 @@ MONITOR_SERIES = [
     ("census.first_veto_rate", "first-veto rate"),
     ("census.casts_per_game", "casts/game"),
     ("rl.mean.rej", "rejected/traj"),
+    ("rl.mean.seq_raw", "seq_raw"),
+    ("rl.mean.seq_share", "seq share"),
     ("rl.mean.reward", "reward"),
     ("rl.mean.v0", "v0"),
     ("games.turns_median", "turns median"),
@@ -163,6 +165,14 @@ def monitor_curves(run_dir: Path) -> tuple[list[str], dict]:
         ent = first_last("entropy")
         if ent and ent[0] and ent[1] < 0.7 * ent[0]:
             anomalies.append(f"entropy fell {ent[0]:.4g} -> {ent[1]:.4g} (>30% decline)")
+        sr = first_last("seq_raw")
+        if sr and abs(sr[0]) > 1e-9 and abs(sr[1]) / abs(sr[0]) > 3:
+            anomalies.append(
+                f"|seq_raw| grew {sr[0]:.4g} -> {sr[1]:.4g} "
+                f"({abs(sr[1]) / abs(sr[0]):.1f}x; the d6-run14 unbounded-term "
+                "shape — the seq contrast is outgrowing its frozen weight; "
+                "check seq_share against the 0.1 target)"
+            )
         vr = [y for y in series["veto rate"] if y is not None]
         if vr and (max(vr) - min(vr)) > 2 * statistics.median(vr):
             anomalies.append(

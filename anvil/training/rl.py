@@ -387,20 +387,33 @@ def game_trajectories(store, feat, g: int, full_vis: bool = False, penalty_group
 
 
 def seq_pass(
-    net, seq_segs: list, forward_segments, w_seq: float, aux_w: float, grad: bool = True
+    net,
+    seq_segs: list,
+    forward_segments,
+    w_seq: float,
+    aux_w: float,
+    grad: bool = True,
+    margin: float = 0.0,
 ) -> tuple[float, float]:
     """One pass over the C-seq batch (ADR-0054): the sequence-contrastive
     term L_seq = −Â·[logp(cast*) − logp(pass)] (logp(cast*) = logsumexp over
     the candidates matching the act arm's modal first cast; the tmask is the
     all-nonpass mass fallback where agreement was low) + the C2a masked-head
-    aux BCE toward wr_nat. Means are over the whole seq batch. grad=True
-    backwards the weighted total into the current accumulation window;
-    grad=False (calibration) just measures. Returns (raw L_seq, raw aux)."""
+    aux BCE toward wr_nat. margin > 0 hinges the contrast at ±margin: a
+    window where the preferred action already wins by the margin contributes
+    zero gradient, so L_seq is bounded (|L_seq| ≤ clip·margin) — the raw
+    log-prob contrast is unbounded and ran away in d6-run14 (seq_raw −0.22 →
+    −8.5 across three iterations under a frozen w_seq; the M6 rule is clips
+    at birth). Means are over the whole seq batch. grad=True backwards the
+    weighted total into the current accumulation window; grad=False
+    (calibration) just measures. Returns (raw L_seq, raw aux)."""
     n_total = sum(next(iter(s.values())).shape[0] for s in seq_segs)
     tot_l = tot_aux = 0.0
     for seg, fwd in forward_segments(net, seq_segs, grad=grad):
         lp = fwd["policy_logits"].float().log_softmax(1)
         contrast = lp.masked_fill(~seg["seq_tmask"], -1e9).logsumexp(1) - lp[:, 0]
+        if margin > 0:
+            contrast = contrast.clamp(-margin, margin)
         l_seq = -(seg["seq_adv"] * contrast).sum() / n_total
         aux = (
             F.binary_cross_entropy_with_logits(
@@ -715,6 +728,25 @@ def main() -> None:
     )
     ap.add_argument("--seq-clip", type=float, default=0.25, help="advantage clip (at birth)")
     ap.add_argument(
+        "--seq-margin",
+        type=float,
+        default=6.0,
+        help="hinge on the L_seq contrast at ±margin (log-prob units): a "
+        "window already preferring its target by e^margin odds gives "
+        "zero gradient, bounding |L_seq| ≤ seq_clip*margin. 0 = raw "
+        "unbounded contrast — the d6-run14 divergence; keep > 0.",
+    )
+    ap.add_argument(
+        "--kl-abort",
+        type=float,
+        default=0.0,
+        help="end the phase early if a log-window's mean kl_mu exceeds "
+        "this (0 = off). A runaway diverges exponentially within one "
+        "phase (d6-run14 iter 2: 0.05 -> 20 in ~300 steps); the driver "
+        "guard still rejects the ckpt — this just stops wasting steps "
+        "and leaves a cleaner state.",
+    )
+    ap.add_argument(
         "--seq-aux-weight",
         type=float,
         default=0.5,
@@ -800,7 +832,9 @@ def main() -> None:
                 "seq_calib_steps",
                 "seq_agree_min",
                 "seq_clip",
+                "seq_margin",
                 "seq_aux_weight",
+                "kl_abort",
             )
         },
         "init_step": ckpt.get("step"),
@@ -859,6 +893,9 @@ def main() -> None:
     calib_pg = 0.0
     calib_traj = 0
     calib_steps = 0
+    share_pg = share_seq = 0.0
+    share_traj = share_steps = 0
+    kl_aborted = False
 
     # step continues from the init checkpoint: monotonic across the whole
     # BC->RL chain, so mu meta "step" uniquely names the generating ckpt
@@ -1011,6 +1048,13 @@ def main() -> None:
         if seq is not None and w_seq is None:
             calib_pg += abs(traj_pg)
             calib_traj += 1
+        if seq is not None and w_seq is not None:
+            # seq-share window accumulators (d6-run14): the calibration
+            # identity w_seq*|L_seq| ≈ seq_frac*mean|PG per traj| is the
+            # design's load-bearing invariant — measure it continuously,
+            # the driver guards on the iteration mean
+            share_pg += abs(traj_pg)
+            share_traj += 1
 
         if n_traj % args.traj_per_step == 0:
             # ---- C-seq step (ADR-0054): calibrate w_seq over the first
@@ -1022,7 +1066,13 @@ def main() -> None:
                     calib_steps += 1
                     if calib_steps >= args.seq_calib_steps:
                         raw, aux_raw = seq_pass(
-                            net, seq["segs"], forward_segments, 0.0, 0.0, grad=False
+                            net,
+                            seq["segs"],
+                            forward_segments,
+                            0.0,
+                            0.0,
+                            grad=False,
+                            margin=args.seq_margin,
                         )
                         mean_pg = calib_pg / max(calib_traj, 1)
                         w_seq = args.seq_frac * mean_pg / max(abs(raw), 1e-4)
@@ -1048,9 +1098,12 @@ def main() -> None:
                         w_seq,
                         args.seq_aux_weight,
                         grad=True,
+                        margin=args.seq_margin,
                     )
                     acc["seq_raw"] = acc.get("seq_raw", 0.0) + raw
                     acc["seq_aux"] = acc.get("seq_aux", 0.0) + aux_raw
+                    share_seq += raw
+                    share_steps += 1
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             opt.step()
             opt.zero_grad(set_to_none=True)
@@ -1064,6 +1117,16 @@ def main() -> None:
                 n = max(n_traj - last_flush_traj, 1)
                 last_flush_traj = n_traj
                 wall = time.monotonic() - t0
+                # seq_share = w_seq*|mean L_seq per step| / mean|PG per traj|
+                # — the calibration identity, measured live; at calibration
+                # it equals seq_frac by construction
+                seq_share = None
+                if share_steps and share_traj and share_pg > 0 and w_seq:
+                    seq_share = round(
+                        w_seq * abs(share_seq / share_steps) / (share_pg / share_traj), 5
+                    )
+                share_pg = share_seq = 0.0
+                share_traj = share_steps = 0
                 row = {
                     "step": step,
                     "traj": n_traj,
@@ -1072,6 +1135,7 @@ def main() -> None:
                     # once-per-optimizer-step term (trend metric, not a
                     # loss share); w_seq is the frozen calibration
                     **({"w_seq": round(w_seq, 6)} if w_seq is not None else {}),
+                    **({"seq_share": seq_share} if seq_share is not None else {}),
                     "skips": dict(skips),
                     "tripwire_viol": tripwire_viol,
                     "win_per_s": round(win_count / wall, 1),
@@ -1082,9 +1146,18 @@ def main() -> None:
                 }
                 metrics.write(json.dumps(row) + "\n")
                 print(f"[rl] {row}")
+                if args.kl_abort > 0 and row.get("kl_mu", 0.0) > args.kl_abort:
+                    kl_aborted = True
+                    print(
+                        f"[rl] KL ABORT: window kl_mu {row['kl_mu']} > "
+                        f"{args.kl_abort} — ending the phase early (the "
+                        f"driver guard rejects the ckpt on the iteration mean)"
+                    )
                 acc = {}
             if step % 200 == 0:
                 save()
+        if kl_aborted:
+            break
 
     save()
     (out_dir / "DONE").touch()  # completion marker: the loop driver skips

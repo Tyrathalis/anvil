@@ -128,3 +128,42 @@ def test_seq_pass_contrast_math():
     # grad=True must backward without error and leave gradients
     raw2, _ = seq_pass(None, [seg], fake_forward_segments, w_seq=1.0, aux_w=0.5, grad=True)
     assert logits.grad is not None and abs(raw2 - raw) < 1e-5
+
+
+def test_seq_pass_margin_hinges_contrast_and_kills_saturated_gradient():
+    """d6-run14: the raw contrast is unbounded — margin clamps it, and a
+    window past the margin contributes ZERO policy gradient (hinge, not a
+    value clamp). Window 0's contrast (~5.9) and window 1's (~0.69) both
+    exceed margin=0.5, so L_seq = -(0.2*0.5 + (-0.1)*0.5)/2 exactly and
+    the policy grad vanishes."""
+    logits = torch.tensor([[0.0, 5.0, -1.0], [0.5, 0.5, 0.5]], requires_grad=True)
+    seg = {
+        "seq_adv": torch.tensor([0.2, -0.1]),
+        "seq_tmask": torch.tensor([[False, True, False], [False, True, True]]),
+        "seq_wr": torch.tensor([0.6, 0.4]),
+        "x": torch.zeros(2),
+    }
+    fwd = {"policy_logits": logits, "value_logit": torch.tensor([0.1, -0.2], requires_grad=True)}
+
+    def fake_forward_segments(net, segs, grad):
+        yield segs[0], fwd
+
+    raw, _ = seq_pass(
+        None, [seg], fake_forward_segments, w_seq=1.0, aux_w=0.0, grad=False, margin=0.5
+    )
+    assert abs(raw - (-(0.2 * 0.5 + (-0.1) * 0.5) / 2)) < 1e-5
+
+    raw2, _ = seq_pass(
+        None, [seg], fake_forward_segments, w_seq=1.0, aux_w=0.0, grad=True, margin=0.5
+    )
+    assert abs(raw2 - raw) < 1e-5
+    assert logits.grad is not None and float(logits.grad.abs().max()) < 1e-7
+
+    # margin=0 must reproduce the unbounded form (back-compat)
+    raw_off, _ = seq_pass(
+        None, [seg], fake_forward_segments, w_seq=1.0, aux_w=0.0, grad=False, margin=0.0
+    )
+    lp = logits.log_softmax(1)
+    c0 = lp[0, 1] - lp[0, 0]
+    c1 = torch.logsumexp(lp[1, 1:], 0) - lp[1, 0]
+    assert abs(raw_off - float(-(0.2 * c0 + (-0.1) * c1) / 2)) < 1e-5

@@ -503,6 +503,7 @@ def guard_flags(
     ent_mult: float = 2.0,
     veto_mult: float = 1.5,
     casts_floor: float = 0.8,
+    seq_share_max: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -516,6 +517,12 @@ def guard_flags(
     kl = m.get("kl_mu")
     if kl is not None and kl > kl_max:
         flags.append(f"guard: kl_mu {kl} > {kl_max}")
+    ss = m.get("seq_share")
+    if seq_share_max is not None and ss is not None and ss > seq_share_max:
+        # d6-run14: the seq term's share of PG mass is the ADR-0054
+        # calibration invariant (~10%); the halt-worthy failure is the
+        # term outgrowing its weight, which precedes the kl symptom
+        flags.append(f"guard: seq_share {ss} > {seq_share_max}")
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
         if ent is not None and ent0 and ent > ent_mult * ent0:
@@ -558,12 +565,26 @@ def _rl_summary(train_dir: Path) -> dict:
     if not rows:
         return {}
     last = rows[-1]
-    n = max(1, len(rows))
-    mean = {
-        k: round(sum(r[k] for r in rows) / n, 5)
-        for k in ("reward", "v0", "v0_masked", "rho_mean", "rho_clip", "kl_mu", "ent", "rej")
-        if all(k in r for r in rows)
-    }
+    # per-key presence (not all-or-nothing): seq keys only appear after
+    # iteration-0's calibration steps, and w_seq/seq_share only when the
+    # C-seq term is active — a partial column still means something
+    mean = {}
+    for k in (
+        "reward",
+        "v0",
+        "v0_masked",
+        "rho_mean",
+        "rho_clip",
+        "kl_mu",
+        "ent",
+        "rej",
+        "seq_raw",
+        "seq_aux",
+        "seq_share",
+    ):
+        vals = [r[k] for r in rows if k in r]
+        if vals:
+            mean[k] = round(sum(vals) / len(vals), 5)
     return {
         "steps": last.get("step"),
         "traj": last.get("traj"),
@@ -658,6 +679,22 @@ def main() -> None:
         type=float,
         default=0.8,
         help="halt if casts/game falls below this fraction of iter-0 (§6c anti-passivity)",
+    )
+    ap.add_argument(
+        "--guard-seq-share",
+        type=float,
+        default=0.3,
+        help="halt if the iteration-mean seq_share (w_seq*|L_seq| / "
+        "mean|PG per traj|) exceeds this — 3x the ADR-0054 target "
+        "share of 0.1. The d6-run14 guard: the term outgrowing its "
+        "frozen weight is the cause; kl growth is the symptom.",
+    )
+    ap.add_argument(
+        "--seq-margin",
+        type=float,
+        default=6.0,
+        help="passed to rl.py --seq-margin (hinge on the L_seq contrast; "
+        "d6-run14). Recorded here so launch commands pin it.",
     )
     ap.add_argument(
         "--penalty",
@@ -1086,11 +1123,21 @@ def main() -> None:
                 # C-seq (ADR-0054): this iteration's fresh labels + the drill
                 # fork stores that carry the matching fork windows
                 + (
-                    ["--seq-labels", ",".join(seq_runs), "--seq-stores", ",".join(drill_stores)]
+                    [
+                        "--seq-labels",
+                        ",".join(seq_runs),
+                        "--seq-stores",
+                        ",".join(drill_stores),
+                        "--seq-margin",
+                        str(args.seq_margin),
+                    ]
                     if seq_runs and drill_stores
                     else []
                 )
                 + (["--seq-w", str(state["seq_w"])] if seq_runs and state.get("seq_w") else [])
+                # in-phase abort at 5x the iteration-mean guard (d6-run14:
+                # the runaway crossed 5x guard ~40% into the phase)
+                + (["--kl-abort", str(5 * args.guard_kl)] if args.guard_kl > 0 else [])
             )
         t_train = time.monotonic() - t0
         new_ckpt = train_dir / "last.pt"
@@ -1145,6 +1192,7 @@ def main() -> None:
             ent_mult=args.guard_ent_mult,
             veto_mult=args.guard_veto_mult,
             casts_floor=args.guard_casts_floor,
+            seq_share_max=args.guard_seq_share,
         )
         row = {
             "iteration": k,
