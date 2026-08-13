@@ -251,7 +251,7 @@ def drill_slice(rows: list[dict], k: int, ppi: int) -> list[dict]:
     return [rows[(start + i) % n] for i in range(min(ppi, n))]
 
 
-def _drill_phase(args, state: dict, k: int, drill_dir: Path) -> list[str]:
+def _drill_phase(args, state: dict, k: int, drill_dir: Path, port: int | None = None) -> list[str]:
     """M4 D3 drill-mixed generation: a rotating slice of the selection list
     is re-drilled — mainline replay argmax on the PINNED source ckpt (the
     only policy those games replay under), completions SAMPLED by the
@@ -294,7 +294,7 @@ def _drill_phase(args, state: dict, k: int, drill_dir: Path) -> list[str]:
             "--manifest",
             str(drill_dir / "plan"),
             "--port",
-            str(args.port),
+            str(port or args.port),
             "--workers",
             str(args.workers),
             "--fork-obs",
@@ -313,7 +313,9 @@ def _drill_phase(args, state: dict, k: int, drill_dir: Path) -> list[str]:
     return stores
 
 
-def _seq_phase(args, state: dict, k: int, seq_dir: Path, drill_dir: Path) -> list[str]:
+def _seq_phase(
+    args, state: dict, k: int, seq_dir: Path, drill_dir: Path, port: int | None = None
+) -> list[str]:
     """ADR-0054 C-seq campaign: forced-seq labels (natural/hold-N/act-N × K)
     at THIS iteration's drill slice, arms answered by the CURRENT ckpt —
     labels are policy-conditional and regenerate fresh every iteration.
@@ -355,7 +357,7 @@ def _seq_phase(args, state: dict, k: int, seq_dir: Path, drill_dir: Path) -> lis
             "--manifest",
             str(seq_dir / "plan"),
             "--port",
-            str(args.port),
+            str(port or args.port),
             "--workers",
             str(args.workers),
             "--force-seq",
@@ -679,6 +681,31 @@ def main() -> None:
         "beats K=32 precision on policy-conditional labels)",
     )
     ap.add_argument(
+        "--drill-windows-only",
+        action="store_true",
+        help="recipe pin 2026-08-12: drill fork stores serve ONLY as "
+        "L_seq window sources, never the training mixture — the "
+        "bundle is the sole training-signal delta (run12/13 read "
+        "supplementation TIE; ADR-0049 says it was never the "
+        "missing signal). Pairs with --drill-k 2.",
+    )
+    ap.add_argument(
+        "--overlap-campaign",
+        action="store_true",
+        help="run generation ‖ (drill → campaign) concurrently — both "
+        "tracks serve ckpt_k so the trained gradient is recipe-"
+        "identical to sequential; pure wall-clock overlap (~25%%). "
+        "Fleet interference is measured, not assumed: per-track "
+        "walls land in the monitor row.",
+    )
+    ap.add_argument(
+        "--campaign-port",
+        type=int,
+        default=0,
+        help="drill/campaign server port (default port+2; must differ "
+        "from --port when --overlap-campaign)",
+    )
+    ap.add_argument(
         "--heur-frac",
         type=float,
         default=0.0,
@@ -826,69 +853,98 @@ def main() -> None:
                     break
             run_dirs.append(found)
         mu_path = it_dir / "mu.jsonl"
-        if any(rd is None for rd in run_dirs):
-            if all(rd is None for rd in run_dirs) and mu_path.exists():
-                mu_path.unlink()  # fresh iteration: a fresh server APPENDS;
-                # stale records from an interrupted attempt would conflict at
-                # the merge. Partial resume KEEPS the file — completed batches'
-                # records live there, and regenerated batches re-emit identical
-                # rows under seeded sampling.
-            server = _start_server(
-                state["ckpt"],
-                args.port,
-                it_dir / "server.log",
-                sample=True,
-                mu_out=mu_path,
-                temperature=args.temperature,
-            )
-            try:
-                for j, (bp, n, off, seats) in enumerate(batches):
-                    if run_dirs[j] is None:
-                        run_dirs[j] = _launch_games(
-                            bp, n, state["start_index"] + off, args, bridge_seats=seats
-                        )
-            finally:
-                _stop_server(server)
+        walls = {"gen": 0.0, "campaign": 0.0}
 
-        # ---- ingest (mu joined on (g, s); disjoint start-index slices make
-        # the shared mu file's game ids unambiguous across batches) ----
-        for rd in run_dirs:
-            if not (TRAJ_DIR / rd.name / "manifest.json").exists():
-                (rd / "mu.jsonl").write_bytes(mu_path.read_bytes())
-                _run([sys.executable, "-m", "anvil.store", "ingest", str(rd)])
-        t_gen = time.monotonic() - t_iter
-
-        # ---- drill phase (M4 D3): drill stores join THIS iteration's group,
-        # so they age through the replay window like game stores; the drill
-        # fraction f is set by volume (points_per_iter x K vs games). Phase-
-        # idempotent via stores.json ----
-        drill_stores: list[str] = []
-        if args.drill_selection:
-            stores_rec = it_dir / "drill" / "stores.json"
-            if stores_rec.exists():
-                drill_stores = json.loads(stores_rec.read_text())
-                print(f"[selfplay] iteration {k}: reusing drill stores")
-            else:
-                drill_stores = _drill_phase(args, state, k, it_dir / "drill")
-                stores_rec.write_text(json.dumps(drill_stores))
-
-        # ---- C-seq campaign (ADR-0054): forced-seq labels at the same
-        # slice, fresh each iteration; phase-idempotent via runs.json ----
-        seq_runs: list[str] = []
-        if args.seq_n:
-            if not args.drill_selection:
-                raise RuntimeError(
-                    "--seq-n requires --drill-selection (the campaign rides the drill slice)"
+        def _gen_track() -> None:
+            t0 = time.monotonic()
+            if any(rd is None for rd in run_dirs):
+                if all(rd is None for rd in run_dirs) and mu_path.exists():
+                    mu_path.unlink()  # fresh iteration: a fresh server APPENDS;
+                    # stale records from an interrupted attempt would conflict
+                    # at the merge. Partial resume KEEPS the file — completed
+                    # batches' records live there, and regenerated batches
+                    # re-emit identical rows under seeded sampling.
+                server = _start_server(
+                    state["ckpt"],
+                    args.port,
+                    it_dir / "server.log",
+                    sample=True,
+                    mu_out=mu_path,
+                    temperature=args.temperature,
                 )
-            seq_rec = it_dir / "seq" / "runs.json"
-            if seq_rec.exists():
-                seq_runs = json.loads(seq_rec.read_text())
-                print(f"[selfplay] iteration {k}: reusing seq campaign")
-            else:
-                seq_runs = _seq_phase(args, state, k, it_dir / "seq", it_dir / "drill")
-                seq_rec.write_text(json.dumps(seq_runs))
+                try:
+                    for j, (bp, n, off, seats) in enumerate(batches):
+                        if run_dirs[j] is None:
+                            run_dirs[j] = _launch_games(
+                                bp, n, state["start_index"] + off, args, bridge_seats=seats
+                            )
+                finally:
+                    _stop_server(server)
+            # ---- ingest (mu joined on (g, s); disjoint start-index slices
+            # make the shared mu file's game ids unambiguous across batches)
+            for rd in run_dirs:
+                if not (TRAJ_DIR / rd.name / "manifest.json").exists():
+                    (rd / "mu.jsonl").write_bytes(mu_path.read_bytes())
+                    _run([sys.executable, "-m", "anvil.store", "ingest", str(rd)])
+            walls["gen"] = time.monotonic() - t0
 
-        group = [str(TRAJ_DIR / rd.name) for rd in run_dirs] + drill_stores
+        def _campaign_track() -> tuple[list[str], list[str]]:
+            # ---- drill phase (M4 D3) + C-seq campaign (ADR-0054), both
+            # phase-idempotent. Under --drill-windows-only the fork stores
+            # serve ONLY as L_seq window sources (never the mixture) — the
+            # drill phase can then run at K=2 ----
+            t0 = time.monotonic()
+            dstores: list[str] = []
+            sruns: list[str] = []
+            camp_port = args.campaign_port or (args.port + 2)
+            if args.drill_selection:
+                stores_rec = it_dir / "drill" / "stores.json"
+                if stores_rec.exists():
+                    dstores = json.loads(stores_rec.read_text())
+                    print(f"[selfplay] iteration {k}: reusing drill stores")
+                else:
+                    dstores = _drill_phase(args, state, k, it_dir / "drill", port=camp_port)
+                    stores_rec.write_text(json.dumps(dstores))
+            if args.seq_n:
+                if not args.drill_selection:
+                    raise RuntimeError(
+                        "--seq-n requires --drill-selection (the campaign rides the drill slice)"
+                    )
+                seq_rec = it_dir / "seq" / "runs.json"
+                if seq_rec.exists():
+                    sruns = json.loads(seq_rec.read_text())
+                    print(f"[selfplay] iteration {k}: reusing seq campaign")
+                else:
+                    sruns = _seq_phase(
+                        args, state, k, it_dir / "seq", it_dir / "drill", port=camp_port
+                    )
+                    seq_rec.write_text(json.dumps(sruns))
+            walls["campaign"] = time.monotonic() - t0
+            return dstores, sruns
+
+        if args.overlap_campaign and args.drill_selection:
+            # gen ‖ (drill → campaign): both tracks serve ckpt_k, so the
+            # trained gradient is recipe-identical to sequential — pure
+            # wall-clock overlap. Campaign servers live on their own port;
+            # fleet interference is a MEASURED question (per-track walls
+            # land in the monitor row for the battery to read).
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                f_gen = pool.submit(_gen_track)
+                f_camp = pool.submit(_campaign_track)
+                f_gen.result()
+                drill_stores, seq_runs = f_camp.result()
+        else:
+            _gen_track()
+            drill_stores, seq_runs = _campaign_track()
+        t_gen = walls["gen"]
+
+        # windows-only (recipe pin 2026-08-12): drill fork stores stay OUT
+        # of the training mixture — the bundle is the only training-signal
+        # delta vs the base recipe; fork frames exist for L_seq windows
+        mixture_drill = [] if args.drill_windows_only else drill_stores
+        group = [str(TRAJ_DIR / rd.name) for rd in run_dirs] + mixture_drill
         groups = [g if isinstance(g, list) else [g] for g in state["stores"]]
         if not groups or groups[-1] != group:
             groups.append(group)
@@ -1063,6 +1119,7 @@ def main() -> None:
             "run": [str(rd) for rd in run_dirs],
             "store": group,
             "gen_s": round(t_gen),
+            "campaign_s": round(walls["campaign"]),
             "train_s": round(t_train),
             "census": census,
             "games": gstats,

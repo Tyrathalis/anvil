@@ -102,6 +102,7 @@ MONITOR_SERIES = [
     ("rl.mean.v0", "v0"),
     ("games.turns_median", "turns median"),
     ("gen_s", "gen_s"),
+    ("campaign_s", "campaign_s"),
     ("train_s", "train_s"),
 ]
 
