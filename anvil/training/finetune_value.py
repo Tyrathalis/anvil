@@ -283,9 +283,10 @@ def main() -> None:
                     aux_val += float(loss.detach())
                 opt.step()
                 step += 1
-                if step % 200 == 0:
-                    metrics.write(json.dumps({"step": step, "seq_aux_loss": aux_val}) + "\n")
-                    metrics.flush()
+                # log EVERY aux step (the smoke's %200-after-increment check
+                # could never coincide with a %10 aux step — 49 silent steps)
+                metrics.write(json.dumps({"step": step, "seq_aux_loss": aux_val}) + "\n")
+                metrics.flush()
                 continue
             batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
             n_out = int(batch["has_outcome"].sum())

@@ -1090,6 +1090,7 @@ def main() -> None:
                     if seq_runs and drill_stores
                     else []
                 )
+                + (["--seq-w", str(state["seq_w"])] if seq_runs and state.get("seq_w") else [])
             )
         t_train = time.monotonic() - t0
         new_ckpt = train_dir / "last.pt"
@@ -1195,6 +1196,14 @@ def main() -> None:
         )
         if critic_ckpt is not None:
             state["critic"] = str(critic_ckpt)
+        # w_seq carry-forward (ADR-0054: calibrated at RUN start): iteration
+        # 0 calibrates, every later iteration reuses via --seq-w so the seq
+        # term is live from step 1 instead of sitting out each iteration's
+        # calibration window
+        cal_path = train_dir / "seq_calibration.json"
+        if seq_runs and "seq_w" not in state and cal_path.exists():
+            state["seq_w"] = json.loads(cal_path.read_text())["w_seq"]
+            print(f"[selfplay] w_seq calibrated at run start: {state['seq_w']:.6g} (carried)")
         state_path.write_text(json.dumps(state, indent=2))
 
         # ---- arms (argmax serve, paired seeds, both seat assignments) ----

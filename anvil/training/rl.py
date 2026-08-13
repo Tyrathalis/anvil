@@ -696,6 +696,17 @@ def main() -> None:
     )
     ap.add_argument("--seq-calib-steps", type=int, default=50)
     ap.add_argument(
+        "--seq-w",
+        type=float,
+        default=0.0,
+        help="explicit w_seq (skips calibration). ADR-0054 calibrates at "
+        "RUN start, not per invocation: the driver calibrates in "
+        "iteration 0 and carries the value forward via loop_state — "
+        "otherwise every iteration's first --seq-calib-steps "
+        "optimizer steps (~28%% of an iteration) run with the seq "
+        "term silently off.",
+    )
+    ap.add_argument(
         "--seq-agree-min",
         type=float,
         default=0.5,
@@ -824,7 +835,7 @@ def main() -> None:
     if bool(args.seq_labels) != bool(args.seq_stores):
         raise SystemExit("--seq-labels and --seq-stores go together")
     seq = None
-    w_seq: float | None = None
+    w_seq: float | None = args.seq_w if args.seq_w > 0 else None
     if args.seq_labels:
         from anvil.training.seqlabels import build_seq_batch
 
