@@ -59,7 +59,6 @@ def main() -> None:
     kept = []
     for row in rows:
         store = row.get("store", "")
-        key = (store, row["g"], row.get("drill_turn"))
         if any(k[1] == row["g"] and k[2] == row.get("drill_turn") and k[0] in store for k in active):
             kept.append(row)
     out = Path(a.out)

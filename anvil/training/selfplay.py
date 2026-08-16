@@ -904,7 +904,6 @@ def main() -> None:
         it_dir = out / f"iter-{k:03d}"
         it_dir.mkdir(exist_ok=True)
         print(f"\n[selfplay] ===== iteration {k}: ckpt={state['ckpt']} =====")
-        t_iter = time.monotonic()
 
         # ---- generate (sampled serve); idempotent — a crash later in the
         # iteration must not cost a ~25-min regeneration on resume.
