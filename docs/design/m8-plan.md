@@ -61,33 +61,59 @@ decisions; ADR-0053 measured plan-granularity signal only under
 *forced* directives. D1 closes that gap for a fraction of a campaign's
 cost before anything is built.
 
-**Method:** a fresh single-arm campaign at the current era — the
+**Method (amended at the D1 design session, 2026-08-17,
+user-approved):** a fresh single-arm campaign at the current era — the
 model-active in-band selection (`drill-selection-v5-active`, 99
-points), K=32 NATURAL completions per point (no directive), N=4
-horizon. One small harness extension rides in-era (labels-only, store
-formats untouched): record the drilled seat's first realized cast SA +
-turn offset per NATURAL completion — the natural-arm sibling of the
-act-arm field `6a63ec2997` already records. Classification per
-completion: first-cast timing bin (in-window / +1 turn / +2 / ≥+3 or
-never). Read: within-point Δwr between populated timing bins through
-the standing ADR-0051/0052 variance decomposition, split abundance
-measured first. Cost: ~3,200 completions ≈ half a forced-seq campaign
-phase (~1h box time at w=16) + the extension.
+points), **K=64** NATURAL completions per point (no directive). One
+small harness extension rides in-era (labels-only, store formats
+untouched; ADR-0025 empirical proof — forkcheck same-hash on the
+normal game path — is the boundary-exemption obligation): per NATURAL
+completion, record the drilled seat's **first realized spell cast**
+(`isSpell()`) SA + absolute game turn — the binning field; lands AND
+activated abilities (fetch cracks, equips) are excluded as mana
+development, not the spell-timing axis (the smoke caught a fetchland
+activation registering as "first cast"), and in-hand lands would
+otherwise pull completions into the in-window bin — plus the first
+land-play turn (confound check) and the per-completion outcome (the
+aggregate `w_nat` can't join bins to wins). An arms-selection
+flag runs the NATURAL arm alone (partially retires the queued 2-arm
+trim; the act/hold arms were already measured in ADR-0053).
+Classification per completion: **primary two-bin contrast = in-window
+vs deferred** (first spell on the fork turn vs any later/never); the
+fine 4-bin classification (in-window / +1 / +2 / ≥+3-or-never, global
+turns — +1 is an opponent-turn instant-speed window) is recorded and
+read descriptively to shape D2, but does not gate. Read: within-point
+Δwr between the two bins through the standing ADR-0051/0052 variance
+decomposition, split abundance measured first. Cost: ~6,300
+completions ≈ 2h box time at w=16.
 
-**Pre-registered gate (numbers PROPOSED here; PIN at the D1 design
-session, before any generation runs):**
+**Why K=64 / two-bin (the ADR-0051 design-time resolvability check,
+run at pin time):** within-natural bins are different completions —
+no common-random-numbers pairing exists, so the binomial floor is the
+full independent one. At the originally proposed K=32 with ≥4/32
+bins, the floor variance (~0.06–0.125/point) puts the RMS-0.10 target
+(var_signal = 0.01) below 1σ of the variance-estimator's own sampling
+noise across ~30 split points — the gate would measure noise in both
+directions (false-fail and false-fund). K=64 with the coarse two-bin
+contrast (floor ~0.017 at a 24/40 split) resolves the pin at
+~1.7–1.9σ on 40–50 split points.
 
-1. **Split abundance:** ≥30% of points show a non-degenerate timing
-   split (≥2 bins with ≥4/32 completions each). Degenerate splits ⇒
-   the policy barely varies its timing at drilled points — nothing for
-   a natural-timing target to grade.
-2. **Signal:** RMS true Δwr ≥ 0.10 between leading bins on the
-   split-bearing points (the standing label pin).
-3. **Headroom arithmetic** (the ADR-0051 standing rule — check the
-   threshold against estimator resolvability at design time): mismatch
-   fraction (modal natural timing ≠ argmax-Δwr bin) × mean |Δwr| ×
+**Pre-registered gate (PINNED 2026-08-17, before any generation):**
+
+1. **Split abundance:** ≥30% of probed points show a non-degenerate
+   two-bin split (minority bin ≥12.5% of counted completions, i.e.
+   ≥8/64). Degenerate splits ⇒ the policy barely varies its spell
+   timing at drilled points — nothing for a natural-timing target to
+   grade.
+2. **Signal:** RMS true Δwr ≥ 0.10 on the primary two-bin contrast
+   over the split-bearing points (the standing label pin), via the
+   standing variance decomposition.
+3. **Headroom arithmetic:** mismatch fraction (modal natural bin ≠
+   argmax-Δwr bin among split-bearing points) × mean |Δwr| ×
    drilled-window play-weight ⇒ implied whole-game effect ≥ ~1pp (the
-   gate's resolution).
+   gate's resolution). The play-weight derivation (occurrences of
+   in-band model-active fork windows per game, from the standing
+   selection/screening funnel) is fixed in the D1 ADR before the read.
 
 All three pass ⇒ the formulation is FUNDED (D2). Any fail ⇒ the pivot
 branch (D2′), with the failure mode recorded — each clause failing

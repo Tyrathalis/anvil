@@ -23,7 +23,13 @@ set -euo pipefail
 
 FORGE_DIR="${FORGE_DIR:-$HOME/Everything/Projects/forge}"
 FORGE_GUI_DIR="$FORGE_DIR/forge-gui"
-JAR="$(ls "$FORGE_DIR"/forge-gui-desktop/target/forge-gui-desktop-*-jar-with-dependencies.jar | head -1)"
+# NEWEST jar, not alphabetical: `ls | head -1` picked a stale 2.0.14 over the
+# era 2.0.15 for the ADR-0055 fidelity runs (found 2026-08-17 — the whole
+# "post-rebase" characterization ran the pre-rebase jar). Override with JAR=.
+JAR="${JAR:-$(ls -t "$FORGE_DIR"/forge-gui-desktop/target/forge-gui-desktop-*-jar-with-dependencies.jar | head -1)}"
+if [[ "$(ls "$FORGE_DIR"/forge-gui-desktop/target/forge-gui-desktop-*-jar-with-dependencies.jar | wc -l)" -gt 1 ]]; then
+  echo "WARNING: multiple candidate jars in target/ — using newest: $JAR" >&2
+fi
 OUT_DIR="${1:-$HOME/Everything/Projects/Anvil/data/forkcheck/run-$(date +%Y%m%d-%H%M%S)}"
 N_GAMES="${N_GAMES:-500}"
 SEED="${SEED:-20260703}"

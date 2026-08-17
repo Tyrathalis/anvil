@@ -133,6 +133,15 @@ def main() -> None:
         "--drill-file + --rollout-k; excludes --fork-obs and "
         "--force-branch)",
     )
+    la.add_argument(
+        "--seq-arms",
+        choices=("nat", "all"),
+        default=None,
+        help="M8 D1: 'nat' runs the NATURAL arm alone under an "
+        "OBSERVE directive (records first-spell/first-land "
+        "timing per completion, never forces); requires "
+        "--force-seq",
+    )
 
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)

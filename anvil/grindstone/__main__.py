@@ -134,6 +134,7 @@ def _launch_arms(
     purpose_prefix: str,
     fork_obs: bool = False,
     force_seq: int | None = None,
+    seq_arms: str | None = None,
 ) -> None:
     from anvil.training.selfplay import _run
 
@@ -178,6 +179,8 @@ def _launch_arms(
             cmd += ["--fork-obs"]
         if force_seq:
             cmd += ["--force-seq", str(force_seq)]
+            if seq_arms:
+                cmd += ["--seq-arms", seq_arms]
         print(
             f"[launch] {purpose}: {arm['n_drills']} drills / "
             f"{arm['n_games']} games (span {arm['index_span']})"
@@ -209,6 +212,8 @@ def generate(a: argparse.Namespace) -> None:
                 "FATAL: --force-seq needs --drill-ckpt (the act arm is the "
                 "CURRENT policy's preferred cast — labels are policy-conditional)"
             )
+    if a.seq_arms and not a.force_seq:
+        sys.exit("FATAL: --seq-arms requires --force-seq")
     if a.sample_forks:
         if not (a.drill_ckpt and a.fork_obs):
             sys.exit(
@@ -281,6 +286,7 @@ def generate(a: argparse.Namespace) -> None:
                 prefix,
                 fork_obs=a.fork_obs,
                 force_seq=a.force_seq,
+                seq_arms=a.seq_arms,
             )
         finally:
             _stop_server(server)
@@ -715,6 +721,14 @@ def main() -> None:
         "3 arms — the 2-arm trim waits for the next boundary "
         "window). Arms answered by --drill-ckpt (the current "
         "policy) via --fork-instrument sampled serving.",
+    )
+    g.add_argument(
+        "--seq-arms",
+        choices=("nat", "all"),
+        default=None,
+        help="M8 D1: 'nat' = the NATURAL arm alone under an OBSERVE "
+        "directive (per-completion first-spell/first-land timing "
+        "recording, never forces); requires --force-seq",
     )
     g.set_defaults(fn=generate)
 

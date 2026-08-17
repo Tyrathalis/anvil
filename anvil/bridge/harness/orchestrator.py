@@ -201,9 +201,24 @@ class Run:
         if m.get("force_seq"):
             # M7 D2 sequence probe: natural/hold-N/act-N paired arms
             cmd += ["-forceseq", str(m["force_seq"])]
+            if m.get("seq_arms"):
+                # M8 D1: single-natural-arm OBSERVE mode ('nat')
+                cmd += ["-seqarms", str(m["seq_arms"])]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
-        return subprocess.Popen(cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT)
+        # Forge's Main inits Sentry + AWT before CLI dispatch; with no
+        # DISPLAY the JVM dies exit-1 with ZERO output (Sentry swallows the
+        # crash). Agent/SSH shells are tty — default the display env so
+        # headless-launched workers survive (2026-08-17).
+        env = dict(os.environ)
+        if not env.get("DISPLAY"):
+            xauth = sorted(Path("/run/user/1000").glob("xauth_*"))
+            if xauth:
+                env["DISPLAY"] = ":0"
+                env["XAUTHORITY"] = str(xauth[0])
+        return subprocess.Popen(
+            cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT, env=env
+        )
 
     # ---------- scheduler ----------
 
@@ -395,6 +410,7 @@ def launch(a) -> Path:
         "fork_obs": getattr(a, "fork_obs", False),
         "force_branch": getattr(a, "force_branch", False),
         "force_seq": getattr(a, "force_seq", None),
+        "seq_arms": getattr(a, "seq_arms", None),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(
