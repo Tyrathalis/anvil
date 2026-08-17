@@ -46,6 +46,7 @@ def load_rows(paths: list[str], agree_min: float = 0.5, clip: float = 0.25) -> l
     for p in map(Path, paths):
         files += sorted(p.glob("workers/inv-*/labels.jsonl")) if p.is_dir() else [p]
     rows = []
+    n_bad = 0
     for f in files:
         for line in open(f):
             line = line.strip()
@@ -54,6 +55,10 @@ def load_rows(paths: list[str], agree_min: float = 0.5, clip: float = 0.25) -> l
             try:
                 r = json.loads(line)
             except json.JSONDecodeError:
+                # Pre-jstr-fix jars split rows on modal spell text (M8 D1
+                # discovery: newlines in SA strings); drops must be LOUD —
+                # M7's campaigns lost rows here silently.
+                n_bad += 1
                 continue
             if not r.get("seq") or r.get("seat_skip") or not r.get("triples"):
                 continue
@@ -77,6 +82,11 @@ def load_rows(paths: list[str], agree_min: float = 0.5, clip: float = 0.25) -> l
                     "triples": n,
                 }
             )
+    if n_bad:
+        print(
+            f"[seqlabels] WARNING: {n_bad} unparseable labels lines dropped "
+            f"({len(rows)} rows kept) — pre-jstr-fix jar output?"
+        )
     return rows
 
 
