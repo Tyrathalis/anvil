@@ -29,8 +29,11 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from collections import Counter
+
+_SEAT = re.compile(r"Anvil\((\d)\)")
 
 MINORITY_FRAC = 0.125  # pinned: minority bin >= 12.5% of counted comps
 ABUNDANCE_PIN = 0.30
@@ -58,7 +61,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("labels", nargs="+")
     ap.add_argument(
-        "--seat-index", type=int, default=0, help="drilled seat's winner index in out[]"
+        "--seat-index",
+        type=int,
+        default=None,
+        help="drilled seat's winner index in out[] (default: parsed per row "
+        "from the Anvil(N) seat name — arms drill different seats)",
     )
     ap.add_argument(
         "--min-comps",
@@ -90,14 +97,22 @@ def main() -> None:
         f"nat_anom {anom}{'  <-- TRIPLINE (must be 0)' if anom else ''}"
     )
 
-    si = a.seat_index
     fine = Counter()  # offset bin -> [n, wins]
     fine_w = Counter()
     sa_counts = Counter()
     land_in, land_any, spell_after_land = 0, 0, 0
-    probed = []  # (dwr, binvar, n_in, n_def, wr_in, wr_def, split)
+    probed = []  # (dwr, binvar, n_in, n_def, split)
+    no_seat = 0
     for r in pts:
         t0 = r["t"]
+        if a.seat_index is not None:
+            si = a.seat_index
+        else:
+            m = _SEAT.search(r.get("seat") or "")
+            if not m:
+                no_seat += 1
+                continue
+            si = int(m.group(1)) - 1
         wins_in = n_in = wins_def = n_def = 0
         for out, ft, lt, sa in zip(r["out"], r["first_t"], r["land_t"], r["first_sa"]):
             if out == -2:
@@ -136,7 +151,8 @@ def main() -> None:
     n_probed = len(probed)
     splits = [p for p in probed if p[4]]
     abundance = len(splits) / max(1, n_probed)
-    print(f"\nprobed (>= {a.min_comps} comps): {n_probed}")
+    print(f"\nprobed (>= {a.min_comps} comps): {n_probed}"
+          + (f"  [WARNING: {no_seat} rows dropped, unparseable seat name]" if no_seat else ""))
     print(
         f"clause 1 — split abundance: {len(splits)}/{n_probed} = {abundance:.1%} "
         f"(pin >= {ABUNDANCE_PIN:.0%}) -> {'PASS' if abundance >= ABUNDANCE_PIN else 'FAIL'}"
