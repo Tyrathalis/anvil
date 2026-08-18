@@ -50,7 +50,7 @@ class = STATION tap-guard (`9f0a2c0886`), MinMaxBlocker fixed 07-25,
 targeting-retry closed-as-bounded with its reopen trigger armed.
 Nothing carries into M8 from M3/M4.
 
-## D1 — the natural-timing probe (the decision gate)
+## D1 — the natural-timing probe (the decision gate) — RESOLVED 2026-08-17: gate FAILED ([ADR-0060](../decisions/ADR-0060-d1-natural-timing-probe.md)), pivot taken
 
 **Question:** does *within-natural* timing variation at plan
 granularity carry per-point label-grade signal — and is the implied
@@ -119,7 +119,7 @@ All three pass ⇒ the formulation is FUNDED (D2). Any fail ⇒ the pivot
 branch (D2′), with the failure mode recorded — each clause failing
 says something different about where timing credit dies.
 
-## D2 — funded branch: the natural-timing formulation + one run
+## D2 — funded branch: the natural-timing formulation + one run — NOT FUNDED (ADR-0060)
 
 A design round pins the loss form: a timing-bin advantage at the marked
 mainline fork window that rewards the argmax bin — **including holding
@@ -136,23 +136,114 @@ decomposition + battery attribution: did per-point timing agreement
 with the argmax bin rise, and did hold-then-cast move toward the
 natural optimum rather than away?).
 
-## D2′ — pivot branch (pre-registered): curriculum × rank-critic curation
+## D2′ — pivot branch (TAKEN 2026-08-17, ADR-0060): curriculum × rank-critic curation
 
 The best-evidenced *untried* strength combination on file: curriculum
 composition is the only lever that ever produced a promotion (+1.98pp
 ± 0.71, ADR-0031), one-shot **per curation method** (ADR-0035) — and a
 rank-critic-ordered curation is a method that has never run.
+(**Premise verified 2026-08-17** against the cycle-3 session record:
+run13's ordering/banding came entirely from the K=8 rollout map — the
+critic only screened candidacy (calibrated `peak_v ≥ 0.5`) and placed
+anchors; its list order was uncorrelated with critic ranking, Spearman
+−0.08. Critic-*ordered* is genuinely never-run.)
 
-**Entry gate (pinned at its own design session):** a rollout audit of
-`rank-critic-c2v3` ordering on the target curation population — the
-ADR-0036 caution stands (trained on loss-adjacent c2 labels; its
-ordering elsewhere is extrapolation until audited). Spearman vs
-K-rollout truth above a pinned threshold funds critic-ordered
-curation; below it, fall back to corrected-map-anchored composition
-against the winnable residual (still a new method — the corrected maps
-postdate run11's curation entirely). Audit labels bank into the
-standing calibration set either way (the M5 invariant). Close = the
-same standing gate, same read.
+### Pinned design (audit design session, 2026-08-17, user-approved — pinned before any stock generation or audit labels)
+
+**Method under test:** `rank-critic-c2v3`'s calibrated (era-scoped
+isotonic) score replaces the K=8 rollout map's `sel_wr` as the
+ordering/band-membership source for selection and quota filling.
+Everything the critic already did in cycle-3 — addressability
+screening and anchor placement — carries verbatim, so the run
+attributes to **ordering, given quotas**. The audit unit is the
+**anchor point** (the unit banding actually ranks), through the
+standing cycle-3 anchor machinery.
+
+**Stock:** fresh seed base per the `cycle_stock` freshness principle
+(honest stock = games the critic has never seen labels from; the
+re-baseline stores stay untouched as the gate instrument).
+`cycle_stock.py` gets parameterized for M8 (it is hardcoded to
+cycle-3: seed base, output paths). Initial pool = **2× cycle-3**:
+~3,200 games (~2h at w=16) → ~840 calibrated-addressable candidates
+by the measured funnel (cycle-3: 1,600 → 576 raw → 422 calibrated,
+~26%). Curriculum size stays ~320 entries — pool scale IS the
+selectivity ratio, which is the method's payoff (ranking-for-free
+over more candidates than K=8 labeling affords).
+
+**Entry gate (PINNED): Spearman ≥ 0.45** between the critic's
+calibrated score and K=8 rollout `sel_wr`, over **N=500
+uniformly-random anchor points** from the candidate pool — NOT
+band-filtered (the audit measures ordering on the population the
+critic would rank; banding on `sel_wr` first would condition on the
+labels under test). Reference frame: home-holdout 0.4833 measured
+against the same K=8 instrument (attenuation apples-to-apples), blind
+floor 0.27, K=8 repeat ceiling 0.94 — the semantics are "fund only if
+new-era ordering roughly matches the critic's own holdout; material
+degradation ⇒ fallback." Labels bank into the standing calibration
+set either way (M5 invariant). Cost: 4,000 rollouts ≈ 1.5h box.
+
+*Resolvability (run at pin time, the ADR-0051 obligation):* Fisher-z
+SE = 1/√497 ≈ 0.045 → ±0.036 in ρ near the pin. A materially degraded
+ordering (0.35) sits ~2.7σ below the pin; a true-holdout-level
+ordering (0.4833) reads below 0.45 ~17% of the time — **accepted**,
+because both branches are pre-registered, respectable methods (a
+knife-edge read routes to a good branch either way). Distinguishing
+0.4833 from 0.45 itself would need N≈2,800 and is not the decision at
+stake.
+
+*Descriptive reads (never gating):* per-bin ordering quality
+(winnable/coin/long_shot/lost Spearman + top-slice enrichment — the
+ADR-0036 winnable-blindness check, recorded for future composition
+work); realized band/bin distribution of the selected ~320 vs
+cycle-3's (ordering shifts content even under fixed quotas — the
+attribution caveat, logged for the closeout ADR).
+
+**Pool-scale rule (PINNED — responsive by pre-registered rule, no
+auto-scaling machinery):** on the audit labels, simulate
+quota-filling selection at effective pool scales {1×, 2×, 4×, 8×}
+(selection fractions ≈76/38/19/9.5% of candidates; ~379/190/95/47
+labeled points per slice). Primary metric: **true-in-band precision**
+— fraction of critic-selected entries whose rollout wr ∈ [0.25, 0.85]
+(K=8 binomial spillover hits all scales equally; the relative read is
+unbiased). Rule: final pool scale = the largest simulated scale whose
+precision is within 5pp of the 1× read, **capped at 4×** (the 8×
+slice is ~47 points — indicative only, recorded to shape future
+cycles, never funding this one; the 4× read resolves at ~1σ against
+the 5pp margin — the cap bounds the damage). If the rule says >2×,
+ONE pre-authorized top-up generation before curation; top-up
+candidates are critic-ranked **without additional labels** — that is
+the method. The rule keys only on rollout-labeled quantities, never
+critic scores (no self-grading — the winner's-curse check cannot be
+run on the instrument being audited).
+
+**Composition (PINNED):** the promoted a2 quotas verbatim (ADR-0031:
+18.8% ahead rebalance, band 0.25–0.85), critic-ordered within bands.
+Cycle-3's D3-composition winnable-20% quota is NOT reused: it never
+promoted, and ADR-0036's winnable −0.56 residual says the critic is
+most blind exactly there — winnable-weighting × critic-ordering would
+concentrate curriculum mass where the ordering instrument is least
+trustworthy. Winnable-weighting remains the fallback branch's method
+and a recorded future lever if this cycle's decomposition reopens it.
+
+**Fallback branch (audit < 0.45):** corrected-map-anchored
+composition against the winnable residual — the N=500 audit labels
+ARE a uniform rollout map of the pool; compose from the labeled
+points (still a never-run method: the corrected maps postdate run11's
+curation entirely). Same run, same gate.
+
+**Order of operations:** (1) **pipeline smoke** — the critic-ordering
+path end-to-end (trace → rank → calibrated band membership → compose)
+on existing cycle-3 candidates, wiring check only, BEFORE any
+generation (the jstr lesson: instrument bugs surface on first
+contact); (2) `cycle_stock`-M8 generation at 2×; (3) audit labels
+(N=500, K=8); (4) gate read + selectivity curve → pool-scale decision
+(top-up iff the pinned rule says so); (5) curation, funded or
+fallback method; (6) **migration read** (standing gatekeeper) before
+pricing; (7) the run — run11 recipe verbatim, init `iter-019`,
+in-loop critic unchanged, M7's recipe-neutral machinery riding (loud
+seqlabels drops, guard set). Close = the standing 2,000-game combined
+paired read vs **0.5373 ± 0.0112** + evalset-v4 decomposition +
+battery.
 
 ## D3 — riders (conditional, never blocking)
 
