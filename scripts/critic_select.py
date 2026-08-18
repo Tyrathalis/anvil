@@ -128,6 +128,20 @@ def main() -> None:
             )
         )
 
+    # Fork-store index namespace (run17 iter-2 crash, 2026-08-18): encoded
+    # fork indices carry source_g only (FORK_G_BASE + g*10000 + k), so the
+    # same g drilled in two source stores collides in the training mixture
+    # (MultiStore FATAL). Until the next-era store-format namespace fix,
+    # selections must be cross-store g-unique: keep the higher-centrality
+    # entry per g; the size cut below refills from the pool.
+    best_by_g: dict[int, dict] = {}
+    for r in picked:
+        b = best_by_g.get(r["g"])
+        if b is None or (r["centrality"], r["store"]) > (b["centrality"], b["store"]):
+            best_by_g[r["g"]] = r
+    stats["cross_store_g_dups_dropped"] = len(picked) - len(best_by_g)
+    picked = list(best_by_g.values())
+
     # critic order: most-confidently-in-band first; deterministic tiebreak
     picked.sort(key=lambda r: (-r["centrality"], r["store"], r["g"]))
     pool_n = len(picked)

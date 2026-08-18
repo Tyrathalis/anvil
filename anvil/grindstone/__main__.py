@@ -457,6 +457,23 @@ def select(a: argparse.Namespace) -> None:
         w, n = by_t[t]
         picked.append(dict(cur[key], drill_turn=t, sel_rule=rule, sel_wr=round(w / n, 4), sel_n=n))
 
+    # Fork-store index namespace (run17 iter-2, 2026-08-18): fork indices
+    # encode source_g only — the same g selected in two source stores
+    # collides in the training mixture. Loud until the next-era namespace
+    # fix (run13's selection carried 38 such pairs and survived on
+    # rotation luck alone).
+    stores_by_g: dict[int, set] = defaultdict(set)
+    for r in picked:
+        stores_by_g[r["g"]].add(r["store"])
+    dup_g = {g: sorted(s) for g, s in stores_by_g.items() if len(s) > 1}
+    if dup_g:
+        sys.exit(
+            f"FATAL: {len(dup_g)} cross-store duplicate source-g values in "
+            f"the selection (fork-index encoding collides in training "
+            f"mixtures): {dict(list(dup_g.items())[:3])} ... — dedupe the "
+            f"selection or namespace the fork encoding (next-era item)"
+        )
+
     with (out / "selection.jsonl").open("w") as f:
         for r in picked:
             f.write(json.dumps(r) + "\n")
