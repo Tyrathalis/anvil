@@ -266,6 +266,18 @@ seqlabels drops, guard set). Close = the standing 2,000-game combined
 paired read vs **0.5373 ± 0.0112** + evalset-v4 decomposition +
 battery.
 
+**Recipe interpretation recorded at launch (2026-08-18,
+user-decided): "verbatim" binds the recipe's STRUCTURE for
+comparability, not superseded components** — the §6c penalty runs at
+the standing corrected pricing (0.01 / per-window grouping, ADR-0054),
+not run13's 0.02/per-event, which the driver retains for era
+reproduction only and whose veto-elevation cost (0.215) ADR-0048
+documented. Delta vs run13 is therefore curation + pricing; the gate
+of record (vs the baseline) is unaffected. Launch command of record:
+`scripts/launch_d6_run17.sh` (run13 `loop_config` otherwise verbatim;
+fresh seed base 20260821; evalset-v4 drill-eval every 5 riding as
+recipe-neutral instrumentation).
+
 ## D3 — riders (conditional, never blocking)
 
 - **Throughput items** unpark only if D1/D2 campaign economics demand
