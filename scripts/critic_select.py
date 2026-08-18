@@ -81,7 +81,12 @@ def anchor_candidates(row: dict, tv: dict[int, float]) -> dict[int, float]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--trace-dir", required=True)
+    ap.add_argument(
+        "--trace-dir",
+        required=True,
+        help="early_doom out dir(s), comma-separated — the 4x pool is "
+        "base stock + top-up stock (ADR-0061)",
+    )
     ap.add_argument("--isotonic", required=True)
     ap.add_argument("--isotonic-key", required=True)
     ap.add_argument("--band", default="0.25:0.85")
@@ -91,9 +96,12 @@ def main() -> None:
     a = ap.parse_args()
     lo, hi = (float(x) for x in a.band.split(":"))
 
-    trace_dir = Path(a.trace_dir)
-    traces = load_calibrated_traces(trace_dir, a.isotonic, a.isotonic_key)
-    cur = [json.loads(x) for x in (trace_dir / "curation.jsonl").read_text().splitlines()]
+    traces: dict = {}
+    cur: list[dict] = []
+    for d in a.trace_dir.split(","):
+        trace_dir = Path(d)
+        traces.update(load_calibrated_traces(trace_dir, a.isotonic, a.isotonic_key))
+        cur += [json.loads(x) for x in (trace_dir / "curation.jsonl").read_text().splitlines()]
 
     picked, stats = [], Counter()
     for row in cur:
@@ -165,7 +173,7 @@ def main() -> None:
     offsets = Counter(min(r["drill_turn"] - r["crash_from_turn"], 0) for r in picked)
     meta = {
         "method": "critic-ordered (m8-plan D2' funded branch)",
-        "trace_dir": str(trace_dir),
+        "trace_dir": a.trace_dir.split(","),
         "isotonic": {"maps": a.isotonic, "key": a.isotonic_key},
         "band": [lo, hi],
         "size": a.size,

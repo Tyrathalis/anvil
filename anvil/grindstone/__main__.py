@@ -314,9 +314,13 @@ def report(a: argparse.Namespace) -> None:
         if not run_dirs:
             sys.exit(f"FATAL: no drill run dirs match {run_glob}")
         # Aggregate across every drill run for this arm, ascending by
-        # timestamp — a later run's label for the same game supersedes
-        # (the re-drill flow: fix a crash class, rerun just those rows).
-        by_game: dict[int, dict] = {}
+        # timestamp — a later run's label for the same (game, turn)
+        # supersedes (the re-drill flow: fix a crash class, rerun just
+        # those rows). Keyed per fork POINT, not per game: multi-turn
+        # drillfiles fire several forks in one mainline (fp 0,1,...)
+        # and a game-keyed join silently kept only one of them (caught
+        # by the M8 audit sample, 2026-08-17 — 124 of 500 points lost).
+        by_game: dict[tuple[int, int], dict] = {}
         for run_dir in run_dirs:
             for lf in glob.glob(f"{run_dir}/workers/*/labels.jsonl"):
                 for line in open(lf):
@@ -324,7 +328,7 @@ def report(a: argparse.Namespace) -> None:
                     c = cur.get((arm["store"], r["i"]))
                     if c is None:
                         continue
-                    by_game[r["i"]] = {
+                    by_game[(r["i"], r["t"])] = {
                         "store": arm["store"],
                         "g": r["i"],
                         "tt": r["tt"],
@@ -341,7 +345,8 @@ def report(a: argparse.Namespace) -> None:
                     }
         joined += by_game.values()
         planned = {g for (s, g) in cur if s == arm["store"]}
-        missed += [{"store": arm["store"], "g": g} for g in planned - set(by_game)]
+        labeled_games = {g for (g, _) in by_game}
+        missed += [{"store": arm["store"], "g": g} for g in planned - labeled_games]
 
     ok = [r for r in joined if r["n"] > 0]
     zero = [r for r in joined if r["n"] == 0]
