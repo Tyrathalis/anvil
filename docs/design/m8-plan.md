@@ -191,6 +191,27 @@ knife-edge read routes to a good branch either way). Distinguishing
 0.4833 from 0.45 itself would need N≈2,800 and is not the decision at
 stake.
 
+**AMENDMENT (2026-08-17, same session, user-approved — BEFORE any
+audit labels existed; the D1 K=32→K=64 precedent): threshold
+re-pinned 0.45 → 0.35.** The pipeline smoke ran the audit reader over
+cycle-3's own K=8 labels (1,193 anchor points, the full old-era
+curation population — effectively the audit with ZERO era transfer)
+and measured **Spearman 0.377**. The 0.4833 reference was the
+critic's holdout on its *training-label population*; on the
+*curation-anchor population* the critic reads 0.377 even in-era — so
+the 0.45 pin conflated two degradations: population-type (now
+measured, 0.483→0.377 in-era) and era transfer (unknown, the
+chartered question). Under 0.45 the gate's outcome was nearly
+foregone and carried no transfer information. Re-referenced
+semantics: **fund if ordering survives the era boundary within noise
+of its measured in-era, same-population benchmark (0.377)**; fail =
+genuine era degradation ⇒ fallback. Recorded caveat: 0.377 vs 0.35
+is ~0.6σ at N=500 — a transfer-intact ordering still reads below the
+pin ~25% of the time; accepted on the same both-branches-respectable
+argument. The cycle-3 validation read (0.3772, curve 1× 0.623 → 4×
+0.646, no winner's-curse signature) is the amendment's evidence and
+lives in the 7f9f5ca smoke artifacts.
+
 *Descriptive reads (never gating):* per-bin ordering quality
 (winnable/coin/long_shot/lost Spearman + top-slice enrichment — the
 ADR-0036 winnable-blindness check, recorded for future composition

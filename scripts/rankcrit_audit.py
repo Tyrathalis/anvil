@@ -1,8 +1,13 @@
 """M8 D2′ entry-gate audit of rank-critic-c2v3 ordering (m8-plan D2′).
 
-Gate PINNED 2026-08-17 at the design session, before any generation:
-Spearman >= 0.45 between the critic's calibrated score and K=8 rollout
-`sel_wr` on N=500 uniformly-random anchor points from the fresh
+Gate PINNED 2026-08-17 at the design session, before any generation;
+threshold AMENDED same session 0.45 -> 0.35 (m8-plan D2' amendment,
+user-approved, before any audit labels existed): the smoke's validation
+read measured the in-era, same-population benchmark at 0.377 — the gate
+now asks whether ordering survives the ERA TRANSFER, not whether it
+matches the training-holdout 0.4833 measured on a different population
+type. Spearman >= 0.35 between the critic's calibrated score and K=8
+rollout `sel_wr` on N=500 uniformly-random anchor points from the fresh
 candidate pool. Pass => critic-ordered curation (scripts/critic_select.py);
 fail => corrected-map fallback composition from these same labels.
 
@@ -49,7 +54,9 @@ from pathlib import Path
 import numpy as np
 from critic_select import anchor_candidates, load_calibrated_traces
 
-THRESHOLD = 0.45  # PINNED (m8-plan D2', 2026-08-17) — do not tune
+# PINNED (m8-plan D2', 2026-08-17; amended 0.45 -> 0.35 same session,
+# before any audit labels — the in-era benchmark re-reference) — do not tune
+THRESHOLD = 0.35
 CURVE_SCALES = (1, 2, 4, 8)
 CURVE_BASE_FRAC = 320 / 422  # cycle-3's realized selectivity = the 1x point
 CURVE_MARGIN = 0.05
@@ -192,7 +199,12 @@ def read(a: argparse.Namespace) -> None:
             "n_points": len(joined),
             "se_fisher_z": round(float(se_z), 4),
             "verdict": verdict,
-            "reference": {"home_holdout": 0.4833, "blind_floor": 0.27, "k8_repeat_ceiling": 0.94},
+            "reference": {
+                "in_era_population_benchmark": 0.3772,
+                "home_holdout": 0.4833,
+                "blind_floor": 0.27,
+                "k8_repeat_ceiling": 0.94,
+            },
         },
         "pool_scale_rule": {
             "curve": curve,
