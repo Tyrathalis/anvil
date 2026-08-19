@@ -558,7 +558,7 @@ def make_forward_segments(dev: str, seg: int):
     learner PARKS for the cotenant instead of raising (scale-to-zero),
     and after a quiet stretch a free-VRAM tier probe restores seg toward
     the launch size (replacing the original sticks-for-the-run policy)."""
-    from anvil.training.vram import free_mb, seg_tier, wait_for_vram
+    from anvil.training.vram import free_mb, park_for_cotenant, seg_tier
 
     seg_size = {"n": seg, "target": seg, "ok": 0}
     RESTORE_AFTER = 256  # clean segments before probing back up
@@ -594,9 +594,12 @@ def make_forward_segments(dev: str, seg: int):
                     torch.cuda.empty_cache()
                     if seg_size["n"] <= 8:
                         # scale-to-zero: below this the fixed footprint
-                        # dominates — park for the cotenant, retry same size
-                        wait_for_vram("rl learner")
-                        continue
+                        # dominates. Park ONLY for genuine scarcity and
+                        # retry; a floor OOM with VRAM free re-raises
+                        # (fragmentation/bug — not parkable)
+                        if park_for_cotenant("rl learner"):
+                            continue
+                        raise
                     seg_size["n"] //= 2
                     print(f"[rl] OOM at seg {n} -> retrying at {seg_size['n']}")
                     continue

@@ -32,3 +32,12 @@ def test_wait_for_vram_parks_until_recovery():
     assert polls == 3
     assert sleeps == [7, 7, 7]
     assert len(notes) == 1  # notified once, on entering the parked state
+
+
+def test_park_for_cotenant_refuses_without_scarcity(monkeypatch):
+    # CUDA absent (the CPU test env): a floor OOM is not a scarcity
+    # problem — caller must re-raise (the legacy floor-test contract)
+    import anvil.training.vram as v
+
+    monkeypatch.setattr(v.torch.cuda, "is_available", lambda: False)
+    assert v.park_for_cotenant("t") is False

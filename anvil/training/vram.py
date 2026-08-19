@@ -30,6 +30,23 @@ def free_mb() -> float:
     return free / 2**20
 
 
+def park_for_cotenant(who: str, min_free: float = 9000) -> bool:
+    """Floor-OOM triage. True iff the OOM looks like genuine cotenant
+    scarcity AND we parked until recovery — the caller retries. False =
+    VRAM is free (or CUDA absent): parking cannot fix what scarcity did
+    not cause, the caller re-raises — fragmentation, a stub, or a real
+    bug (the free-but-OOM spin caught by the legacy floor tests at the
+    M8-close merge gate). Preserves the original raise contract on CPU
+    and on healthy cards."""
+    if not torch.cuda.is_available():
+        return False
+    torch.cuda.empty_cache()
+    if free_mb() >= min_free:
+        return False
+    wait_for_vram(who, min_free_mb=min_free)
+    return True
+
+
 def wait_for_vram(
     who: str,
     min_free_mb: float = 9000,

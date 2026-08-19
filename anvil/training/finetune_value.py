@@ -43,7 +43,7 @@ from torch.utils.data import DataLoader
 
 from anvil.training.dataset import PriorityWindows, collate, default_methods
 from anvil.training.train import build_net
-from anvil.training.vram import wait_for_vram
+from anvil.training.vram import park_for_cotenant
 
 
 def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
@@ -82,11 +82,12 @@ def _train_batch(net, batch: dict, device: str, denom: int) -> float:
     except torch.cuda.OutOfMemoryError:
         if b < 2:
             # scale-to-zero (2026-08-18): at b=1 the fixed footprint
-            # dominates — nothing left to split; park for the cotenant
-            # instead of crashing the run (the run17 iter-8 incident)
-            torch.cuda.empty_cache()
-            wait_for_vram("critic finetune")
-            return _train_batch(net, batch, device, denom)
+            # dominates — nothing left to split. Park ONLY for genuine
+            # cotenant scarcity (the run17 iter-8 incident); a floor OOM
+            # with VRAM free re-raises (fragmentation/bug — not parkable)
+            if park_for_cotenant("critic finetune"):
+                return _train_batch(net, batch, device, denom)
+            raise
         torch.cuda.empty_cache()
         print(f"[vfix] OOM at batch {b} -> gradient-accumulating halves")
         h = b // 2
@@ -111,8 +112,9 @@ def _eval_batch(net, batch: dict, device: str, probs: list, wons: list) -> None:
     except torch.cuda.OutOfMemoryError:
         torch.cuda.empty_cache()
         if b < 2:
-            wait_for_vram("critic eval")
-            return _eval_batch(net, batch, device, probs, wons)
+            if park_for_cotenant("critic eval"):
+                return _eval_batch(net, batch, device, probs, wons)
+            raise
         print(f"[vfix] eval OOM at batch {b} -> halves")
         h = b // 2
         _eval_batch(net, {k: v[:h] for k, v in batch.items()}, device, probs, wons)
