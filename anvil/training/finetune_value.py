@@ -43,6 +43,7 @@ from torch.utils.data import DataLoader
 
 from anvil.training.dataset import PriorityWindows, collate, default_methods
 from anvil.training.train import build_net
+from anvil.training.vram import wait_for_vram
 
 
 def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
@@ -80,13 +81,42 @@ def _train_batch(net, batch: dict, device: str, denom: int) -> float:
         return float(loss.detach())
     except torch.cuda.OutOfMemoryError:
         if b < 2:
-            raise  # not a batching problem at one example
+            # scale-to-zero (2026-08-18): at b=1 the fixed footprint
+            # dominates — nothing left to split; park for the cotenant
+            # instead of crashing the run (the run17 iter-8 incident)
+            torch.cuda.empty_cache()
+            wait_for_vram("critic finetune")
+            return _train_batch(net, batch, device, denom)
         torch.cuda.empty_cache()
         print(f"[vfix] OOM at batch {b} -> gradient-accumulating halves")
         h = b // 2
         return _train_batch(
             net, {k: v[:h] for k, v in batch.items()}, device, denom
         ) + _train_batch(net, {k: v[h:] for k, v in batch.items()}, device, denom)
+
+
+@torch.no_grad()
+def _eval_batch(net, batch: dict, device: str, probs: list, wons: list) -> None:
+    """One eval forward with the same OOM elasticity as _train_batch —
+    eval batches carry no hyperparameter semantics, so splitting is free;
+    at b=1 park for the cotenant (scale-to-zero, 2026-08-18)."""
+    b = next(iter(batch.values())).shape[0]
+    try:
+        with torch.autocast(device, dtype=torch.bfloat16):
+            out = net(batch)
+        m = batch["has_outcome"].bool()
+        if m.any():
+            probs.append(torch.sigmoid(out["value_logit"][m].float()).cpu().numpy())
+            wons.append(batch["won"][m].cpu().numpy())
+    except torch.cuda.OutOfMemoryError:
+        torch.cuda.empty_cache()
+        if b < 2:
+            wait_for_vram("critic eval")
+            return _eval_batch(net, batch, device, probs, wons)
+        print(f"[vfix] eval OOM at batch {b} -> halves")
+        h = b // 2
+        _eval_batch(net, {k: v[:h] for k, v in batch.items()}, device, probs, wons)
+        _eval_batch(net, {k: v[h:] for k, v in batch.items()}, device, probs, wons)
 
 
 @torch.no_grad()
@@ -97,12 +127,7 @@ def eval_value(net, loader, device: str, max_batches: int) -> dict:
         if i >= max_batches:
             break
         batch = {k: v.to(device) for k, v in batch.items()}
-        with torch.autocast(device, dtype=torch.bfloat16):
-            out = net(batch)
-        m = batch["has_outcome"].bool()
-        if m.any():
-            probs.append(torch.sigmoid(out["value_logit"][m].float()).cpu().numpy())
-            wons.append(batch["won"][m].cpu().numpy())
+        _eval_batch(net, batch, device, probs, wons)
     p = np.concatenate(probs)
     y = np.concatenate(wons).astype(np.float64)
     eps = 1e-7
