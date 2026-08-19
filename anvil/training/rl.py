@@ -552,11 +552,16 @@ def make_forward_segments(dev: str, seg: int):
 
     VRAM elasticity (task #12): seg is pure micro-batching — activation
     peak scales with it, semantics don't — so cotenant memory pressure (a
-    resident ComfyUI job, run-3's OOM class) is absorbed by halving it and
-    retrying instead of crashing the iteration. The reduced size sticks
-    for the rest of the run (conservative: the cotenant is usually still
-    there)."""
-    seg_size = {"n": seg}
+    resident ComfyUI job, run-3's OOM class) is absorbed by halving it
+    and retrying instead of crashing the iteration. Extended 2026-08-18
+    (user directive, the run17 iter-8 incident): at the halving floor the
+    learner PARKS for the cotenant instead of raising (scale-to-zero),
+    and after a quiet stretch a free-VRAM tier probe restores seg toward
+    the launch size (replacing the original sticks-for-the-run policy)."""
+    from anvil.training.vram import free_mb, seg_tier, wait_for_vram
+
+    seg_size = {"n": seg, "target": seg, "ok": 0}
+    RESTORE_AFTER = 256  # clean segments before probing back up
 
     def forward_segments(model, segs, grad: bool):
         # GENERATOR, deliberately: with grad on, each yielded fwd holds a
@@ -585,17 +590,28 @@ def make_forward_segments(dev: str, seg: int):
                     with ctx, torch.autocast(dev, dtype=torch.bfloat16):
                         fwd = model(seg)
                 except torch.cuda.OutOfMemoryError:
-                    if seg_size["n"] <= 8:
-                        raise  # not a batching problem at this size
-                    seg_size["n"] //= 2
+                    seg_size["ok"] = 0
                     torch.cuda.empty_cache()
-                    print(
-                        f"[rl] OOM at seg {n} -> retrying at {seg_size['n']} "
-                        f"(sticks for the rest of the run)"
-                    )
+                    if seg_size["n"] <= 8:
+                        # scale-to-zero: below this the fixed footprint
+                        # dominates — park for the cotenant, retry same size
+                        wait_for_vram("rl learner")
+                        continue
+                    seg_size["n"] //= 2
+                    print(f"[rl] OOM at seg {n} -> retrying at {seg_size['n']}")
                     continue
                 yield seg, fwd
                 i += n
+                # scale-back-up: after a quiet stretch, restore toward the
+                # launch seg if the free-VRAM tier allows (no trial OOM —
+                # the probe reads mem_get_info against the autotune tiers)
+                seg_size["ok"] += 1
+                if seg_size["n"] < seg_size["target"] and seg_size["ok"] >= RESTORE_AFTER:
+                    seg_size["ok"] = 0
+                    t = min(seg_size["target"], seg_tier(free_mb()))
+                    if t > seg_size["n"]:
+                        print(f"[rl] VRAM recovered -> seg {t}")
+                        seg_size["n"] = t
 
     return forward_segments
 
