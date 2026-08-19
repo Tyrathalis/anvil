@@ -68,6 +68,15 @@ and the closeout ADR records it as such.
 
 ## D1 — the veto knowability decomposition (entry instrument + theory premise check)
 
+**RESOLVED 2026-08-19
+([ADR-0063](../decisions/ADR-0063-m9-d1-veto-knowability.md)): gate
+PASS in all four populations — knowable 0.5347 sampled / 0.5029 argmax
+/ 0.5282 stock / 0.5993 elevated (lower bounds; validity bar
+0.986–0.993). The premise stands; collapse baseline = knowable-veto
+rate 0.0583 sampled / 0.0429 argmax. The elevated population is MORE
+knowable (generic_short 31%→49%) — the veto climb happened in the
+knowable channel.**
+
 **Question:** of the vetoes the current policy actually eats, what
 fraction are *knowable-from-public* (the acting seat had enough public
 information to know the cast was unaffordable/illegal) vs
@@ -79,19 +88,46 @@ NOT knowable-from-public, an affordability-bearing interface can't be
 what removes them, and the theory is in trouble before anything is
 built.
 
-**Method sketch (instrument design pinned at the D1 session):**
-classify logged vetoes from standing stores (run17 + baseline-era —
-both sampled-play and argmax-serve populations; run17 measured 0.303
-sampled vs 0.181 argmax, so the split itself is informative) by
-replaying the veto context and computing affordability from the public
-state the seat could see. Output: knowable fraction ± CI per
-population, plus a taxonomy of the knowable ones (colors short /
-generic short / timing-illegal / other) to shape the D3 class design.
+**Method (PINNED at the D1 session, 2026-08-19):** classify logged
+vetoes by joining census veto records to the raw obs stream at
+`(g, s)` and computing affordability **from the observation the model
+actually saw** (untapped battlefield sources via `tap` + a card table
+parsed from the fork's card scripts: `ManaCost` + `Produced$`
+including combos; commander tax via `cmdcast`) — so
+"knowable-from-public" literally means "knowable-from-the-model's-own-
+input," the exact premise D2a then probes on `[STATE]`. Seeded replay
+is spot-validation only. **Instrument validity bar (pinned):** the
+classifier must call ≥95% of engine-*accepted* casts affordable (the
+free adjudicated negative-control population); windows the arithmetic
+can't settle (cost modifiers, X-costs, alt-costs) go to an explicit
+`uncertain` bucket reported separately, never silently into either
+class. Output: knowable fraction ± CI per population, plus a taxonomy
+of the knowable ones (colors short / generic short / timing-illegal /
+other) to shape the D3 class design.
 
-**Pre-registered reads (PIN AT DESIGN — D1 session):**
+**Populations (pinned; the M8 kill list had removed the sampled-play
+census — restored 2026-08-19 from the kopia 08-19 08:00 pre-kill
+snapshot):** sampled-play = `d6-run17-i000*` (generation from the
+run17 *init*, i.e. iter-019 itself, at training temperature; veto rate
+0.195 = ADR-0062's recorded iter-0 baseline; 4,816 vetoes / 3,547
+first-attempt); argmax = `d3-rebaselinearm-s0/s1` (12,167 vetoes) with
+`m8stock*` (restored, argmax per `cycle_stock.py` `sample=False`,
+40,597 vetoes) as supplementary N; `run17-i009/i010-finalarm` = the
+elevated-population descriptive. Note: the remaining run17 iteration
+dirs live only in kopia dailies expiring ~08-25.
 
-1. Knowable-from-public fraction ≥ **[PIN]** ⇒ premise stands, the
-   veto-collapse metric is defined on the knowable subset.
+**Pre-registered reads (PINNED 2026-08-19):**
+
+1. Knowable-from-public fraction ≥ **0.50** ⇒ premise stands, the
+   veto-collapse metric is defined on the knowable subset. Basis:
+   **first-attempt vetoes** (the chain-independent M3 rule — re-ask
+   chains can't inflate either side), **mana-relevant subset only**
+   (`unpayable` + `timing`, ~74% of veto mass; `no_shape_fit` is
+   realizer shape-mismatch and `restrictions`/`dangling_ref`/
+   `after_stack` are engine-rule artifacts — a payment head shouldn't
+   collapse those, so they'd blur both the gate and the falsification
+   test). The full all-reasons decomposition is still reported and
+   banked as the baseline table.
 2. Below the pin ⇒ the M9 question is re-scoped at a checkpoint
    session before D3 spends fork work (the payment head may still be
    right for *strength* reasons, but the veto-collapse mechanism check
