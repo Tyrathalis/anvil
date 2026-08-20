@@ -1,15 +1,35 @@
-# M9 rung 3 DRAFT — payment drill evalset + sub-head design
+# M9 rung 3 — payment drill evalset + sub-head design
 
-**Status: DRAFT for review (written overnight 2026-08-20; nothing here
-is pinned).** Anchors: [m9-plan](m9-plan.md) D3 item 3 + D4;
+**Status: PINNED (rung-3 design session, 2026-08-20; drafted overnight
+same day).** Anchors: [m9-plan](m9-plan.md) D3 item 3 + D4;
 [m9-payment-surface-spec §12](m9-payment-surface-spec.md) (the goal
 surface + the final pre-D4 baseline `run-20260819-paygoals2`);
 [ADR-0064](../decisions/ADR-0064-d2a-affordability-probe.md) (the
 `[STATE]⊕cand` substrate finding rung 3 builds the head on).
 
-Everything marked **[PIN]** is a decision for the rung-3 session, per
-the PIN-AT-DESIGN rule. This draft proposes and gives one
-recommendation each; it decides nothing.
+**Session decisions (user-pinned):**
+1. **Sub-head = Option A** — the standing pointer-decoder `SELECT_ONE`
+   path; no new architecture; goal semantics read from label text; the
+   dedicated-embedding head (Option B) is the recorded D4-negative
+   fallback variant.
+2. **Auto-bias init = +2.0** learned per-task scalar on option 0 —
+   argmax stays auto at init (bit-identity where it matters), sampled
+   play explores ~10–12%/consequential window (~2–3 legal payment
+   deviations/game): D4-observable signal without unpinning day-zero
+   safety. (+3.0 rejected as exploration-starving; the deviation
+   tripwire idea folds into the battery anomaly set, not a guard.)
+3. **Certification = per-shape predicates**, deterministic where the
+   shape allows; paired K=8 rollouts at 2-turn horizon only where
+   needed. **Drill accuracy (D4's readout) = argmax pick lands in the
+   certified-best outcome-equivalence class.**
+4. **Batch:** ~120-drill target with yield-driven split around the §2
+   ranges; miner adopted as a standing script + tested; battery gains
+   `pay_deviation` curves (sampled AND argmax from day one, the
+   ADR-0063 lesson); **D4 gate values remain PIN-AT-DESIGN at the D4
+   session** — set knowing the +2.0 bias and the certification yield.
+
+Original [PIN] markers below are retained with their proposals for the
+decision trail; the list above is authoritative where they differ.
 
 ## 1. What rung 3 owes (from the plan)
 
