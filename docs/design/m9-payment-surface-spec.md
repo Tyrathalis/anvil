@@ -260,8 +260,78 @@ assets, obs schema version bump.
 
 | pin | value | revisit trigger |
 | --- | --- | --- |
-| `K_MAX` classes | 8 (+`auto`) | truncation > 5% of consequential windows |
+| ~~`K_MAX` classes~~ | ~~8 (+`auto`)~~ **SUPERSEDED by §12** (gate fired 0.3911, tail probe measured cap-raising out) | — |
 | plan-size cap | shards + 2 activations | truncation telemetry, same gate |
 | chained admissibility | greedy net-gain ordering | executor `directed_salvage` rate > 1% |
 | in-scope traffic budget | ~61/g ceiling, flag-sparse below it | census telemetry read pre-training |
 | enumeration primitives | engine arithmetic only; `getAIPlayableMana` BANNED | never (the trap rule) |
+| `GOAL_MAX` option-list cap (§12) | 16 incl. `auto` (defensive) | goal truncation > 0.5% of consequential windows |
+| DFS node budget (§12) | 200,000 | `nodecap` > 1% of scoped windows (probe measured 0.2%) |
+
+## 12. Pre-D4 revisit amendments (2026-08-19, PINNED at the revisit session)
+
+The truncation gate fired (§8: 0.3911 vs 0.05) and the tail probe
+(`run-20260819-paytail`, fork `c4ddbc0ff4`, reader
+`scripts/payment_tail_read.py`) measured the cause: the true
+class-count tail is fat (consequential p50 5 / p75 16 / p90 55 / p95
+censored at 64; no plausible K closes the coverage curve) and the
+explosion is **assignment combinatorics over few residual types** —
+distinct source classes p50 6 / p90 8 / max 11 on the over-8 set while
+compositions run 26–64+. DFS compute is free (nodes p50 105 / p90
+1,625; nodecap 0.2% at 200k). Three coupled pins resolved:
+
+### 12a. The decision object is a preservation GOAL, not a composition
+
+The wire is unchanged (`SELECT_ONE` on `mtg.pay_mana_class`, `auto` =
+option 0) but an option is now a **goal**; the decision space scales
+with source classes (≤11 observed), not compositions:
+
+- **`spare(k)`** for every source class `k` with ≥1 atom: *pay while
+  tapping as few members of `k` as possible* — soft preference, always
+  feasible, partial preservation expressible (pinned over hard
+  zero-taps semantics);
+- **`min_life`**, only when the cost has phyrexian shards: pay mana,
+  not life (the D1 phyrexian artifact family, not expressible via
+  spare-goals);
+- **no explicit `chain` goal in v1** — pinned test-verify-first: the
+  build must prove on the ADR-0065 Signet board that some spare-goal
+  argmax reaches the chained composition; if unreachable, `chain`
+  ("use ≥1 mana-cost activation") joins the vocabulary on that
+  evidence.
+
+**Enumeration:** the DFS runs node-budget-bounded (no class cap) and
+keeps a running **per-goal argmax** — for each goal, the composition
+minimizing its objective (taps of `k` / phyrexian life), deterministic
+lexicographic plan-key tie-break. Goals whose argmax compositions are
+identical **dedupe into one option** (labeled with the joined goal
+names); the surfaced list is outcome-distinct by construction. The
+chosen goal's composition executes through the unchanged
+float-then-apply executor (§7). On `nodecap`, per-goal bests found so
+far still surface — degraded and logged, never silently censored.
+
+**Consequential flag (shape unchanged from the §4 amendment):**
+`in-scope ∧ (≥2 outcome-distinct options ∨ (≥1 plan ∧ ¬auto-payable ∧
+¬costmod))`. The auto-payability probe still only widens — trap-safe.
+
+### 12b. Cost-modified windows: out-of-scope v1, `costmod` kv
+
+The adjusted cost is not determined until payment (delve exile
+choices), so detection is two-pronged: **static** (the SA/host carries
+a cost-adjustment mechanism — delve/convoke/improvise/affinity-class
+keywords or applicable cost-adjusting statics) ⇒ `costmod`; plus the
+**retrospective backstop** — 0 plans on the raw cost while auto pays ⇒
+`costmod_late` (catches static-detector leaks loudly; the census
+re-run measures the leak rate). `costmod` windows never bridge in v1
+(auto + telemetry). This makes the cost-composition-cousins deferral
+explicit at the flag (the D3 stance obligation) and gives
+payment-completion queue item 2 measured traffic.
+
+### 12c. Forced marker: `forced := ¬auto-payable ∧ ≥1 plan ∧ ¬costmod`
+
+Only meaningful on unmodified costs — D5's cleanest collapse channel
+stays unpolluted. The census's 32 forced windows were
+cost-mod-confounded; the re-run reads the true clean-forced rate.
+
+**Closing obligation:** the 500-game census re-runs on the rebuilt jar
+(goal-space telemetry: goals/window, dedupe rate, `costmod`/
+`costmod_late`, clean-forced, nodecap) = **the final pre-D4 baseline**.
