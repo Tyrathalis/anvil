@@ -266,7 +266,7 @@ assets, obs schema version bump.
 | in-scope traffic budget | ~61/g ceiling, flag-sparse below it | census telemetry read pre-training |
 | enumeration primitives | engine arithmetic only; `getAIPlayableMana` BANNED | never (the trap rule) |
 | `GOAL_MAX` option-list cap (§12) | 16 incl. `auto` (defensive) | goal truncation > 0.5% of consequential windows |
-| DFS node budget (§12) | 200,000 | `nodecap` > 1% of scoped windows (probe measured 0.2%) |
+| DFS node budget (§12) | 2,000,000 (re-pinned from 200k — the 1% gate fired at 1.25% on the first paygoals census; nodecap on the goal surface = degraded representative, never a censored option list) | `nodecap` > 1% of scoped windows |
 
 ## 12. Pre-D4 revisit amendments (2026-08-19, PINNED at the revisit session)
 
@@ -301,8 +301,13 @@ with source classes (≤11 observed), not compositions:
 
 **Enumeration:** the DFS runs node-budget-bounded (no class cap) and
 keeps a running **per-goal argmax** — for each goal, the composition
-minimizing its objective (taps of `k` / phyrexian life), deterministic
-lexicographic plan-key tie-break. Goals whose argmax compositions are
+minimizing its objective (taps of `k` / phyrexian life); ties break by
+**spread** (minimize the max taps of any single class — the
+max-entropy residual, keeping every non-goal axis as open as
+possible; build-time refinement with recorded reason: pure lex-key
+tie-break can represent "spare the dork" as a degenerate double-tap
+of one land class when a spread payment exists), then lexicographic
+plan-key. Goals whose argmax compositions are
 identical **dedupe into one option** (labeled with the joined goal
 names); the surfaced list is outcome-distinct by construction. The
 chosen goal's composition executes through the unchanged
