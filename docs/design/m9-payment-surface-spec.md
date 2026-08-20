@@ -207,6 +207,28 @@ adjusted-vs-raw detection → out-of-scope v1 + `costmod` kv);
 forced-marker cleanup (meaningful only on unmodified costs). Census
 re-run after the revisit pins = the final pre-D4 baseline.**
 
+**TAIL-PROBE READ (2026-08-19, `run-20260819-paytail`, 60 games, same
+decks/seeds as the census's first 12 pairs; fork `c4ddbc0ff4` —
+`-Danvil.pay.tailK=64` telemetry-only, truncation-cause split +
+`srcclasses`/`nodes` kvs; reader `scripts/payment_tail_read.py`):**
+the true class-count tail is FAT and the cap is not the fix —
+consequential quantiles p50 5 / p75 16 / p90 55 / p95 censored at 64
+(124 windows = 6.2% of scoped still hit the raised cap; the tail goes
+past 64). Coverage: K=8 fully enumerates 62% of consequential windows,
+K=16 75%, K=32 85% — no plausible K closes it. **Cause: assignment
+combinatorics, not source diversity** — on the over-8 set, distinct
+source classes p50 6 / p90 8 / max 11 while payment classes run 26–64+
+(classes-per-srcclass p50 4.5 / p90 9.1): the handful of residual
+types is fixed, the multiset compositions over them explode. DFS cost
+is a non-issue (nodes p50 105 / p90 1,625 on the explosive set;
+nodecap 4/1,995) — the constraint is interface width, not enumeration
+compute. Population replicates the census (conseq rate 0.6927 vs
+0.6943). **Design implication for the revisit session: the decision
+object should scale with SOURCE classes (≤11 observed), not with
+compositions — a residual-goal / preservation-set decision (or, as
+the cheap fallback, residual-diversity-pruned K=8 selection); raising
+K is measured out.**
+
 ## 9. Model side (built at rung 3 / D4 — recorded here for interface
 completeness)
 
