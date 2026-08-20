@@ -408,6 +408,66 @@ def _static_applies(valid: str, activator: str, static_seat: int, seat: int,
 MANA_ABILITY_SA = re.compile(r"Add \{")
 
 
+class SourceViews(NamedTuple):
+    """Affordability source units from the seat's own observation. Each
+    PERMANENT taps once: its abilities are choose-one alternatives, so a
+    host contributes max-amount units of the union of every color its
+    AVAILABLE abilities can make (optimistic). Three nested availability
+    views (v2, sick-aware — `sick` IS emitted for battlefield creatures,
+    ADR-0063 addendum):
+      now  — unconditional abilities usable this turn
+      cond — + spend-restricted / board-cost production (RestrictValid,
+             tapXType): applicability unsettleable from the obs
+      full — + tap-production on summoning-sick hosts (unusable in fact:
+             payable only here => knowably unaffordable via sickness)"""
+
+    now: list
+    cond: list
+    full: list
+    chained: bool
+    var_amount: bool
+    unknown_untapped: int
+
+
+def source_views(obs: dict, seat: int, table: dict[str, CardInfo]) -> SourceViews:
+    src_now: list[frozenset] = []
+    src_cond: list[frozenset] = []
+    src_full: list[frozenset] = []
+    chained_avail = var_amount_avail = False
+    unknown_untapped = 0
+    for e in obs.get("ents", []):
+        if e.get("c") != seat:
+            continue
+        ez = e.get("z")
+        if ez not in ("battlefield", "hand"):
+            continue
+        info = table.get(e.get("n", ""))
+        if info is None:
+            if ez == "battlefield" and not e.get("tap"):
+                unknown_untapped += 1
+            continue
+        abz = [u for u in info.prod if u.zone == ez]
+        tapped, sick = bool(e.get("tap")), bool(e.get("sick"))
+
+        def _collapse(view: list, out: list) -> None:
+            if view:
+                allcolors = frozenset().union(*(u.colors for u in view))
+                out.extend([allcolors] * max(u.amount for u in view))
+
+        usable = [u for u in abz if not (u.needs_tap and (tapped or sick))]
+        _collapse([u for u in usable if not u.conditional], src_now)
+        _collapse(usable, src_cond)
+        _collapse([u for u in abz if not (u.needs_tap and tapped)], src_full)
+        if any(u.variable for u in usable):
+            # variable-amount production that could actually be activated
+            # this turn (tapped/sick hosts can't rescue affordability)
+            var_amount_avail = True
+        if info.chained and ez == "battlefield" and not tapped:
+            chained_avail = True
+    return SourceViews(src_now, src_cond, src_full, chained_avail,
+                       var_amount_avail, unknown_untapped)
+
+
 def classify_window(cen: dict, dec: dict, table: dict[str, CardInfo],
                     corroborated: bool = True) -> dict:
     """One vetoed (or validation) window -> verdict record. `corroborated`:
@@ -499,50 +559,10 @@ def classify_window(cen: dict, dec: dict, table: dict[str, CardInfo],
         except (KeyError, IndexError, TypeError, ValueError):
             extra = 0
 
-    # -- affordability from the seat's own observation. Each PERMANENT taps
-    # once: its abilities are choose-one alternatives, so a host contributes
-    # max-amount units of the union of every color its AVAILABLE abilities
-    # can make (optimistic). Three nested availability views (v2, sick-aware
-    # — `sick` IS emitted for battlefield creatures, ADR-0063 addendum):
-    #   now  — unconditional abilities usable this turn
-    #   cond — + spend-restricted / board-cost production (RestrictValid,
-    #          tapXType): applicability unsettleable from the obs
-    #   full — + tap-production on summoning-sick hosts (unusable in fact:
-    #          payable only here => knowably unaffordable via sickness)
-    src_now: list[frozenset] = []
-    src_cond: list[frozenset] = []
-    src_full: list[frozenset] = []
-    chained_avail = var_amount_avail = False
-    unknown_untapped = 0
-    for e in obs.get("ents", []):
-        if e.get("c") != seat:
-            continue
-        ez = e.get("z")
-        if ez not in ("battlefield", "hand"):
-            continue
-        info = table.get(e.get("n", ""))
-        if info is None:
-            if ez == "battlefield" and not e.get("tap"):
-                unknown_untapped += 1
-            continue
-        abz = [u for u in info.prod if u.zone == ez]
-        tapped, sick = bool(e.get("tap")), bool(e.get("sick"))
-
-        def _collapse(view: list, out: list) -> None:
-            if view:
-                allcolors = frozenset().union(*(u.colors for u in view))
-                out.extend([allcolors] * max(u.amount for u in view))
-
-        usable = [u for u in abz if not (u.needs_tap and (tapped or sick))]
-        _collapse([u for u in usable if not u.conditional], src_now)
-        _collapse(usable, src_cond)
-        _collapse([u for u in abz if not (u.needs_tap and tapped)], src_full)
-        if any(u.variable for u in usable):
-            # variable-amount production that could actually be activated
-            # this turn (tapped/sick hosts can't rescue affordability)
-            var_amount_avail = True
-        if info.chained and ez == "battlefield" and not tapped:
-            chained_avail = True
+    views = source_views(obs, seat, table)
+    src_now, src_cond, src_full = views.now, views.cond, views.full
+    chained_avail, var_amount_avail = views.chained, views.var_amount
+    unknown_untapped = views.unknown_untapped
 
     # cost-modifying statics anywhere on the battlefield (tapped ones too)
     raise_total, raise_unq, reduce_present = 0, False, False

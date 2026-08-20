@@ -146,6 +146,17 @@ run-battery telemetry afterward.
 
 ## D2 — the affordability probe pair (mechanism, no fork delta)
 
+**D2a RESOLVED 2026-08-19
+([ADR-0064](../decisions/ADR-0064-d2a-affordability-probe.md)): gate
+PASS on the high branch — `[STATE] ⊕ cand` holdout AUC 0.8809 ≥ 0.75,
+margin over explicit obs-arithmetic +0.0378 ≥ 0.03; transfer 0.8967
+argmax / 0.8917 elevated (no refit). The veto gap is
+behavioral/interface; D2b SKIPPED per the pinned routing. The finding
+inside: on the auto-payer-artifact stratum the arithmetic arm is chance
+(0.5385) while the trunk reads 0.8422 — the model partially predicts
+the engine payer's own willingness refusals; banked as a D3 design
+input. D3 (engine capability audit first) is next.**
+
 Mirrors the ADR-0042 B-1/B-2 probe discipline: measure before building.
 
 - **D2a — frozen-trunk affordability probe:** can affordability (will
