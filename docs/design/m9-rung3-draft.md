@@ -49,11 +49,30 @@ decision trail; the list above is authoritative where they differ.
   precedent); no new head — Option A's intent preserved. `pay_`
   param prefix allowlisted in `load_compat`; the server advertises the
   tag only when the ckpt carries pay_ params (`has_combat` precedent).
-- **Next build piece: the certification harness** (4 parts mapped:
-  fork-side `PayDirective` + bounded-horizon scorer; Python
-  census-provenance shim + `certify` verb; hazard: census replay under
-  the harness draws seed-derived AI profiles — the shim must pin
-  census-identical conditions).
+- **Certification harness BUILT and smoke-proven end-to-end (2026-08-20):**
+  fork `28eac88c37` (`PayDirective` per-Game directive + `CensusRun
+  -certify` with window-time reshuffle determinization, K paired across
+  arms, roll 0 = true continuation, t+2 horizon stop; 17 fork tests
+  green) + Anvil `payment_certify.py` (plan/lanes/read; lane-script
+  provenance shim; per-shape paired predicates, k-roll consistency,
+  **directed_ok-only certification** — salvaged arms are unverified by
+  definition). Jobs contract: the fork parser takes exactly
+  `JAVA_JOB_FIELDS`; lane job files strip provenance. **Smoke (8 jobs,
+  105 rows): window fire rate 100%** — census replay determinism +
+  the provenance shim PROVEN.
+- **OPEN FINDING (next session's first item): directed-execution
+  salvage 52% on certify arms, and 100% on the forced_chain family —
+  all six mined forced windows are the same card (Black Panther, Hope
+  Enduring) and every directed arm salvages.** Suspects: the v0
+  count-based chain admissibility over-admitting colored-infeasible
+  plans, executor activation ordering, or the forced family being
+  enumerator over-admission (which would contaminate the §12c
+  clean-forced channel — D5's collapse read cares). The spec §7
+  salvage gate (>1%) has its first data. Certification of the 126-job
+  set is BLOCKED on this diagnosis; the blocker_pressure shape
+  meanwhile executes directed_ok cleanly (its 0/2 smoke certifications
+  are margin-below-threshold on true continuations — the k=8 full run
+  answers whether that's noise or absent effects).
 
 ## 1. What rung 3 owes (from the plan)
 

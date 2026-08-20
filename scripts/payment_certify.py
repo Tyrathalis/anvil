@@ -169,13 +169,16 @@ def read(args) -> None:
         for a in arms:
             if a == 0:
                 continue
+            # only faithfully-executed arms certify: a salvage means the
+            # composition partially failed and auto completed — the drill's
+            # "do X" is unverified (salvage rate is its own finding, spec §7)
             paired = [
                 (_score(shape, _axes(r, seat), _axes(b, seat)))
                 for r, b in zip(
                     sorted(rows[(jid, a)], key=lambda x: x["roll"]),
                     sorted(base_rolls, key=lambda x: x["roll"]),
                 )
-                if r["fired"]
+                if r["fired"] and r.get("exec") == "directed_ok"
             ]
             if not paired:
                 continue
@@ -202,6 +205,11 @@ def _prov(job: dict) -> dict:
     return {k: job[k] for k in ("job", "source", "g", "seed", "p", "t", "sa", "tags")}
 
 
+# the Java-side jobs contract (CensusRun -certify's flat parser accepts
+# EXACTLY these; provenance stays in the master jobs file, joined at read)
+JAVA_JOB_FIELDS = ("job", "seed", "deck1", "deck2", "p", "t", "sa", "ord", "arms", "k", "horizon")
+
+
 def lanes(args) -> None:
     """Split jobs across N lane scripts invoking the certify CLI."""
     jobs = [json.loads(x) for x in open(args.jobs)]
@@ -211,7 +219,7 @@ def lanes(args) -> None:
         jf = outdir / f"certify-lane-{i}.jobs.jsonl"
         with open(jf, "w") as f:
             for j in chunk:
-                f.write(json.dumps(j) + "\n")
+                f.write(json.dumps({k: j[k] for k in JAVA_JOB_FIELDS}) + "\n")
         sh = outdir / f"certify-lane-{i}.sh"
         sh.write_text(
             "#!/bin/sh\nset -e\n"
