@@ -51,6 +51,10 @@ TAG_TASK = {
     "mtg.number": "number",
     "mtg.attack": "attack",  # M2 D5 combat declarations
     "mtg.block": "block",
+    # "mtg.pay_mana_class" is RESERVED (M9 D3 §3c, m9-payment-surface-spec):
+    # absent here => the server declines and the worker's local echo is AUTO
+    # (GrpcBridge special-cases the tag), i.e. today's behavior exactly. The
+    # "pay_class" task lands with the payment sub-head (D3 rung 3 / D4).
 }
 
 
