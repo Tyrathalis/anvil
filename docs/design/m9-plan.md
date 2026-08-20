@@ -337,9 +337,16 @@ Three rungs, strictly ordered:
    motivating I+I+Signet board (exactly ONE class: the chain is the
    only payment): consequential now also fires on the FORCED window
    (`|classes| ≥ 1 ∧ ¬auto-payable`; widens-only, trap-safe; `forced`
-   telemetry marker; day-zero bit-identity preserved). Remaining:
-   Python-side obs reader for the new window + the census
-   consequential-rate read (needs a branch jar + pool decks).**
+   telemetry marker; day-zero bit-identity preserved). Python side landed same
+   day (payment_read.py + obs round-trip + the decline-echo fix).
+   **Census read DONE (2026-08-19, `run-20260819-payflag`, 500 games):
+   consequential 20.79/g (budget ✓); TRUNCATION GATE FIRED (0.3911 vs
+   0.05; monotone in turn, wide-board combinatorics); zero-class +
+   forced windows = the cost-modified family (delve/affinity — raw
+   `toPay` vs `CostAdjustment`); CME ×144 guard-caught → fixed
+   `f98a555a95`. Pre-D4 revisit session CHARTERED: K_MAX/truncation
+   design + cost-modified scoping + forced-marker cleanup, then the
+   census re-runs as the final pre-D4 baseline (spec §8 read block).**
    - **Consequential-payment flag:** engine-side detection that a
      payment window has ≥2 payment classes with different residuals
      (colors held, snow, ability-relevant permanents, chained

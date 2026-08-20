@@ -192,6 +192,21 @@ enumeration+telemetry with bridging disabled (telemetry-only mode) so
 the consequential rate is readable on heuristic play — the
 pre-training read rung 2 owes.
 
+**READ (2026-08-19, `run-20260819-payflag`, 500 games, branch jar
+`3e3dfbd6…`/`eb774b5d03`):** scoped 29.9/g; **consequential 0.6943 =
+20.79/g** (bridge-tax budget comfortable); forced 32 (0.21% of scoped,
+cost-mod-confounded); **truncation 0.3911 vs the 0.05 gate — FIRED**
+(monotone in turn: 0.000 t<5 → 0.591 t25+; truncated windows 11.5
+atoms vs 6.0; histogram bimodal 4,325@1 / 4,233@8-capped / 284@0).
+`enumerr` CME ×144 fixed (`f98a555a95`). Zero-class + forced dominated
+by the cost-modified family (delve/affinity/alt-zone — the controller's
+`toPay` is the raw mana part; `CostAdjustment.adjust` applies inside
+`payComputerCosts`). **Pre-D4 revisit session CHARTERED (three coupled
+pins): K_MAX/truncation design; cost-modified-window scoping (likely
+adjusted-vs-raw detection → out-of-scope v1 + `costmod` kv);
+forced-marker cleanup (meaningful only on unmodified costs). Census
+re-run after the revisit pins = the final pre-D4 baseline.**
+
 ## 9. Model side (built at rung 3 / D4 — recorded here for interface
 completeness)
 
