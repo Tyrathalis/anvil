@@ -239,8 +239,12 @@ def lanes(args) -> None:
             for j in chunk:
                 f.write(json.dumps({k: j[k] for k in JAVA_JOB_FIELDS}) + "\n")
         sh = outdir / f"certify-lane-{i}.sh"
+        # cwd must be the fork's forge-gui (res bundles resolve relative to
+        # it; a wrong cwd dies in FModel.initialize on the locale bundle)
+        gui = Path(args.jar).resolve().parent.parent.parent / "forge-gui"
         sh.write_text(
             "#!/bin/sh\nset -e\n"
+            f"cd '{gui}'\n"
             f"nice -n 19 java -Xms1g -Xmx2g -XX:ActiveProcessorCount=2 -jar '{args.jar}' "
             f"census -f Commander -paytelemetry -certify '{jf}' "
             f"-certout '{outdir}/certify-lane-{i}.out.jsonl'\n"
