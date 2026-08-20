@@ -66,6 +66,12 @@ def main() -> None:
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--seed-base", type=int, default=20260704)
     p.add_argument(
+        "--paytelemetry",
+        action="store_true",
+        help="M9 D3 payment-surface flag telemetry (m9-payment-surface-spec §8); "
+        "trajectory-perturbing like -obs — a telemetry census, not a comparable-traffic one",
+    )
+    p.add_argument(
         "--out",
         type=Path,
         default=REPO / f"data/census/run-{_dt.date.today().strftime('%Y%m%d')}-dcpool",
@@ -91,6 +97,7 @@ def main() -> None:
         "games_per_pair": a.games_per_pair,
         "seed_base": a.seed_base,
         "workers": a.workers,
+        "paytelemetry": a.paytelemetry,
     }
     (a.out / "run.json").write_text(json.dumps(run_meta, indent=2))
 
@@ -107,6 +114,7 @@ def main() -> None:
             script_lines.append(
                 f"nice -n 19 java -Xms1g -Xmx2g -XX:ActiveProcessorCount=2 "
                 f"-jar '{jar}' census -d '{d1}' '{d2}' -f Commander "
+                f"{'-paytelemetry ' if a.paytelemetry else ''}"
                 f"-n {a.games_per_pair} -s {seed} -o '{out}.tmp' "
                 f"&& mv '{out}.tmp' '{out}'"
             )
