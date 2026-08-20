@@ -75,8 +75,17 @@ attackers/blockers (M2 D5 constructs).
 
 **Excluded families, by strategic weight:**
 
-1. **Payment composition** (`payManaCost` ~120/g, `chooseColor` ~17/g) —
+1. **Payment composition** (`payManaCost` 189/g total: ~73/g
+   mana-ability zero-mana/nested windows, ~61/g cast/activation
+   `effect=false` — the M9 v1 scope — ~54/g `effect=true`;
+   `chooseColor` ~17/g; re-measured 2026-08-19 at the D3 session) —
    dork/color/chain residuals. **M9 §3c, in flight.**
+   1a. **Resolution-effect payments** (`payManaCost` `effect=true`,
+   ~54/g — pay-or-suffer during resolution, often opponent's turn) —
+   deferred OUT of M9 v1 (D3 pin 2026-08-19: zero contribution to the
+   veto-collapse read, different genre). Queued at priority 3 on the
+   m9-plan **payment-completion queue** (no-silent-loss routing at M10
+   scoping); the whether-to-pay confirm is a separate callback already.
 2. **Mid-resolution object choices** (`chooseSingleEntityForEffect`,
    `chooseCardsForEffect`, `chooseCardsToDiscard`, …) — tutor and fetch
    targets, discard/sac picks. In a tutor-defined format this is the
@@ -88,8 +97,13 @@ attackers/blockers (M2 D5 constructs).
 4. **Cost-composition cousins** (`chooseCardsForConvokeOrImprovise`
    ~28/g where live, `chooseCardsToDelve`, `payCombatCost`) — the same
    residual logic as §3c payment classes (which creature taps, which
-   card leaves the graveyard). M9 D3's enumeration must record its
-   stance: in, or explicitly out.
+   card leaves the graveyard). **Stance recorded (D3 pin 2026-08-19):
+   OUT of M9, graftable** — the §3c class abstraction is written as a
+   resource-commitment set so these attach without redesign; their
+   callbacks are already `SELECT_K` on the wire, so the deferred cost
+   is model-side only. Queued at priority 2 on the m9-plan
+   **payment-completion queue** (no-silent-loss routing at M10 scoping
+   — §3b may outrank it, but only as a recorded decision).
 5. **Trigger ordering** (`orderSimultaneousSa`/`orderAndPlay…` ~12.6/g,
    100% of games) — ETB/death-trigger stacking. Unscheduled candidate.
 6. **Modal choice** (`chooseModeForAbility`, both interception points) —
