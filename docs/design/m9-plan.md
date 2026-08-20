@@ -347,6 +347,22 @@ Three rungs, strictly ordered:
    `f98a555a95`. Pre-D4 revisit session CHARTERED: K_MAX/truncation
    design + cost-modified scoping + forced-marker cleanup, then the
    census re-runs as the final pre-D4 baseline (spec §8 read block).**
+   **Revisit session RESOLVED same day (spec §12, three pins + the tail
+   probe that decided them):** tail probe (`run-20260819-paytail`, 60
+   games, K raised to 64) measured cap-raising OUT — consequential
+   class-count p90 = 55, tail past 64, explosion = assignment
+   combinatorics over ≤11 source classes — so **the decision object is
+   now a preservation GOAL** (`spare(k)` min-taps per source class +
+   `min_life` on phyrexian; per-goal argmax, spread-then-lex tie-break,
+   outcome dedupe; wire unchanged); chained-composition reachability
+   via spare-goals TEST-PROVEN (no explicit chain goal needed);
+   costmod out-of-scope v1 (two-pronged detector); `forced` gated on
+   `¬costmod`. Built on fork `531dafdff4`, suite 14/14, Python 209.
+   **FINAL PRE-D4 BASELINE PINNED (`run-20260819-paygoals2`, 500 games,
+   ALL GATES PASS): consequential 15.99/g, goal truncation 0.0000 (max
+   9 options), nodecap 0.0073 (after the 200k→2M re-pin cleared a
+   1.25% first-run fire), forced 6 clean, costmod 25.48% leak-zero
+   (refinement = queue item 4).**
    - **Consequential-payment flag:** engine-side detection that a
      payment window has ≥2 payment classes with different residuals
      (colors held, snow, ability-relevant permanents, chained
@@ -471,6 +487,15 @@ In priority order:
    resolution, often opponent's turn; whether-to-pay confirm is a
    separate callback), so it needs its own probe-then-build round per
    the §3c template, not a bolt-on. Largest deferred traffic slice.
+4. **Costmod detector refinement — per-spell applicability** *(added
+   2026-08-20 at the paygoals2 baseline read)*: the §12b static prong
+   is presence-scoped (any ReduceCost static in play flags every
+   window for that player) and absorbed **25.48% of in-scope traffic**
+   with a measured leak of ZERO — conservative-correct for v1 but
+   inflated; per-spell applicability (CostAdjustment `checkRequirement`
+   logic) would return most of that surface to the model. Cheapest
+   item after #2; pairs naturally with the cousins work since both
+   touch `CostAdjustment`.
 
 Ledger cross-reference: items 1a and 4 in the anvil-design-v2 §3d′
 coverage ledger point here; this queue is the scheduling view, the

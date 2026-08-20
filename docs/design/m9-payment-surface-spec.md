@@ -340,3 +340,22 @@ cost-mod-confounded; the re-run reads the true clean-forced rate.
 **Closing obligation:** the 500-game census re-runs on the rebuilt jar
 (goal-space telemetry: goals/window, dedupe rate, `costmod`/
 `costmod_late`, clean-forced, nodecap) = **the final pre-D4 baseline**.
+
+**FINAL PRE-D4 BASELINE (2026-08-19/20, `run-20260819-paygoals2`, 500
+games, fork `531dafdff4`, NODE_BUDGET 2M — ALL GATES PASS):** scoped
+22.5/g; **consequential 15.99/g** (down from the K_MAX-era 20.79/g —
+single-outcome windows no longer count; bridge tax ~1.6%); **goal
+truncation 0.0000** (option list p50 2, max 9, vs GOAL_MAX 16);
+**nodecap 82 = 0.0073 of scoped** (gate 0.01; the 200k→2M re-pin
+cleared the 1.25% fire, 141→82 windows, all late-game wide boards
+where degradation = representative quality, never a censored option);
+**forced 6 clean** (vs 32 cost-mod-confounded pre-§12); zero-option 35
+(all telemetry-visible); **costmod 3,850 = 0.2548 of in-scope-shape,
+`costmod_late` leak = 0** — the static detector over-covers as
+designed; the ~25% surface loss is presence-scoping inflation and its
+refinement (per-spell applicability) is routed BY NAME as
+payment-completion queue item 4 (m9-plan). The intermediate
+200k-budget run (`run-20260819-paygoals`, same seeds) fired the
+nodecap gate at 0.0125 and is superseded by this read;
+`run-20260819-paytail` (probe) and `run-20260819-payflag` (K_MAX era)
+remain the design-evidence trail.
