@@ -135,3 +135,70 @@ conservatism). The veto guard has been halting on knowable-affordability
 probing: the D5 comparison curve now has both a baseline level AND the
 runaway signature the payment head is predicted to remove. Validity bar
 held 0.973–0.988 across all climb checkpoints.
+
+## Addendum (2026-08-19, same day): instrument v2 — the sickness claim was
+## backwards; baseline RE-PINNED (gate verdict unchanged, slightly stronger)
+
+**The correction.** Finding 3's claim "summoning sickness — public at the
+table, ABSENT from the obs schema" is **wrong**: `ObsSnapshot.java` emits
+`sick:1` from the engine's `isSick()` for battlefield creatures
+(observation-schema-v1 line 62), and the transform feeds it as entity
+feature #5. The v1 instrument was written on the absent-belief and
+*guessed* sickness wherever it could explain a veto. User-prompted
+spot-checks against the raw observations showed the guesses were wrong in
+both directions:
+
+- `tap_ability_sickness` (261 windows): 12/12 spot-checked hosts entered
+  the battlefield turns before the veto, `sick=0` — never sickness;
+  228/261 were `no_shape_fit` (outside the gate) and the rest are
+  auto-payer/realizer artifacts.
+- `payable_needs_creatures` (468 gate-relevant windows): the needed
+  creature sources WERE flagged `sick=1` in the majority (8/14 spot-check,
+  ~52% at scale) — genuinely unaffordable AND visible in the model's own
+  input: these belong in `knowable`. ~25% turned out payable only through
+  spend-restricted / board-cost production (Delighted Halfling
+  `RestrictValid$`, Urza `tapXType` — a previously unmodeled family),
+  ~13% pure `obs_says_payable` artifact.
+
+**Instrument v2 (sick-aware; 32 unit tests, suite 198 green):** production
+units carry `needs_tap`/`conditional`/`zone`; affordability is computed
+over three nested views (usable-now ⊆ +conditional ⊆ +sick) yielding new
+verdicts `knowable/sickness_short`, `knowable/ability_sick`,
+`uncertain/conditional_production`; the two guessing branches are retired;
+`ActivationZone$ Hand` mana (Simian Spirit Guide) now counts from hand and
+never from battlefield; tapped hosts keep non-tap-cost abilities; a
+first-pass regression (tapped/sick variable sources blocking knowable
+verdicts) was caught by the v1→v2 window diff and fixed —
+variable-amount downgrades now require an activatable source.
+
+**Re-pinned result (v2; first-attempt, mana-relevant; Wilson 95% CIs):**
+
+| population | n | knowable (v1→v2) | CI95 v2 | knowable-veto rate (v1→v2) |
+| --- | --- | --- | --- | --- |
+| sampled | 2,476 | 0.5347 → **0.5392** | [0.520, 0.559] | 0.0583 → **0.0588** |
+| argmax | 6,025 | 0.5029 → **0.5097** | [0.497, 0.522] | 0.0429 → **0.0435** |
+| argmax_stock | 18,057 | 0.5282 → **0.5336** | [0.526, 0.541] | 0.0466 → **0.0470** |
+| elevated | 27,421 | 0.5993 → **0.6044** | [0.599, 0.610] | 0.0680 → **0.0686** |
+
+Gate PASS everywhere, fractions up ~0.5pp: correcting the guess moved mass
+INTO knowable, as the conservative-lower-bound construction promised.
+**The D4/D5 collapse baseline is superseded: 0.0588 sampled / 0.0435
+argmax.** Validity bar improved or held in every population (main
+0.986–0.991; climb 0.9846–0.9897 vs v1's 0.9731 low). Climb rider v2:
+kvr 0.0588 → 0.0561 → 0.0535 → 0.0578 → **0.1049** at the i011 halt —
+the flat-then-double signature is unchanged.
+
+**Consequences, amended:**
+
+- Finding 3's "sickness absent from the obs schema: a representation gap
+  for D2a/D3" is WITHDRAWN — sickness is present in the input and D3's
+  class design may use it as-is. The not_knowable mass is now purely
+  auto-payer willingness/interface families (obs_says_payable, X,
+  phyrexian, mana-ability routing).
+- New named uncertain family `conditional_production` (~1–2% of gate
+  mass): spend-restricted (`RestrictValid$`, 186 pool-folder cards) and
+  board-cost (`tapXType`) production — a real enumeration input for D3
+  (restricted mana is a payment-class residual distinction).
+- v1 outputs retained at `data/runs/veto-knowability-m9d1{,-climb}-v1`
+  (43M, regenerable: v1 script in git + stores kept) — re-price at the
+  M9 close stale-data pass.

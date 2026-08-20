@@ -51,7 +51,11 @@ and the closeout ADR records it as such.
 - **Boundary discipline: ONE boundary event.** The §3c fork delta
   rides the queued next-boundary bundle (upstream rebase + multi-format
   model-side enablement + copy-state divergence forensics + the
-  fork-index store-namespace fix from run17 iter-2), held until the
+  fork-index store-namespace fix from run17 iter-2 + obs choice-state
+  emission — "as enters, choose a color/card" state is public at the
+  table, engine-side `getChosenColor()` exists, and the obs never
+  carries it: Utopia-Sprawl-class enablers are imperceivable without
+  it; found at the D2a session 2026-08-19), held until the
   engine changes are ready. D1/D2 run on the current era — both are
   era-scoped instruments anyway. (The queued 2-arm campaign trim is
   likely MOOT — the forced-seq campaign belongs to the retired
@@ -69,13 +73,16 @@ and the closeout ADR records it as such.
 ## D1 — the veto knowability decomposition (entry instrument + theory premise check)
 
 **RESOLVED 2026-08-19
-([ADR-0063](../decisions/ADR-0063-m9-d1-veto-knowability.md)): gate
-PASS in all four populations — knowable 0.5347 sampled / 0.5029 argmax
-/ 0.5282 stock / 0.5993 elevated (lower bounds; validity bar
-0.986–0.993). The premise stands; collapse baseline = knowable-veto
-rate 0.0583 sampled / 0.0429 argmax. The elevated population is MORE
-knowable (generic_short 31%→49%) — the veto climb happened in the
-knowable channel.**
+([ADR-0063](../decisions/ADR-0063-m9-d1-veto-knowability.md)); baseline
+RE-PINNED same day under instrument v2 (sick-aware — the ADR's
+"sickness absent from the obs schema" claim was backwards; `sick` IS
+emitted and fed to the model; see the ADR addendum): gate PASS in all
+four populations — knowable 0.5392 sampled / 0.5097 argmax / 0.5336
+stock / 0.6044 elevated (lower bounds; validity bar 0.986–0.991). The
+premise stands; **collapse baseline = knowable-veto rate 0.0588
+sampled / 0.0435 argmax (v2)**. The elevated population is MORE
+knowable — the veto climb happened in the knowable channel; the i011
+guard-halt near-doubles the knowable-veto rate (0.1049).**
 
 **Question:** of the vetoes the current policy actually eats, what
 fraction are *knowable-from-public* (the acting seat had enough public
@@ -152,7 +159,8 @@ Mirrors the ADR-0042 B-1/B-2 probe discipline: measure before building.
   low accuracy ⇒ affordability is a genuine representation gap that
   the §3c surface must expose.
 - **D2b — affordability aux head in-loop (conditional on D2a reading
-  predictable):** wire the aux prediction target into a short training
+  a representation GAP — routing pinned below, inverting the draft's
+  conditional):** wire the aux prediction target into a short training
   run (aux only — no action-space change, no fork delta) and read the
   veto trajectory against the D1 baseline. This is the *minimal*
   version of "payment-aware." If aux affordability alone collapses
@@ -160,13 +168,54 @@ Mirrors the ADR-0042 B-1/B-2 probe discipline: measure before building.
   is written — and the D5 strength question sharpens to "does payment
   *control* (not just awareness) move strength."
 
-**Pre-registered gates (PIN AT DESIGN — D2 session):** D2a
-accuracy/AUC threshold vs a public-features-only baseline **[PIN]**;
-D2b veto-collapse margin on the knowable subset **[PIN]**. Neither
-gate blocks D3 — the payment surface is funded on the ADR-0062
-routing regardless — but both readings are recorded premises the
-closeout ADR must reconcile: a D2b that already collapses vetoes
-changes what D5's veto read can attribute.
+**D2a pins (PINNED at the D2 session, 2026-08-19, pre-data):**
+
+- **Label:** will-the-engine-veto on the chosen cast — positives =
+  first-attempt `unpayable` vetoes, negatives = engine-accepted
+  first-attempt casts (exactly the D2b aux target and the D4/D5
+  metric; timing excluded — not affordability; other veto reasons
+  reported descriptively, never in the primary fit). Headline number
+  on the raw engine label; AUC additionally **stratified by the D1
+  instrument verdict** (knowable / auto-payer artifact / uncertain) —
+  the artifact stratum is the auto-payer blind spot and D3 consumes
+  the stratified table.
+- **Substrate:** `[STATE] ⊕ candidate-entity token` primary — both
+  are trunk outputs, the exact pair the pointer head consumes
+  (recorded extension of the M6 probe-on-`[STATE]` rule to
+  per-candidate questions); `[STATE]`-only reported alongside as the
+  literal-rule arm.
+- **Baseline ladder** (the "public-features-only baseline" slot):
+  base rate → cost-pips-only → obs-arithmetic (the v2 instrument's
+  own verdict + untapped-source counts as explicit features) →
+  `[STATE]` → `[STATE] ⊕ cand`. Claiming "the trunk carries
+  affordability" additionally requires beating the obs-arithmetic
+  arm by **≥ 0.03 AUC** (the ADR-0043 reconstruction discipline:
+  arithmetic the trunk merely re-encodes is not a finding).
+- **Gate:** held-out AUC on `[STATE] ⊕ cand` **≥ 0.75** ⇒ the trunk
+  carries the ingredients, the gap is behavioral/interface; **≤
+  0.60** ⇒ genuine representation gap the §3c surface must expose;
+  between ⇒ both readings priced at a checkpoint session.
+- **D2b routing (pinned pre-data):** high branch (≥ 0.75) ⇒ **D2b is
+  SKIPPED** — an aux head predicting what the trunk already encodes
+  teaches nothing new; the missing piece is the behavioral incentive,
+  which only the §3c surface supplies; the short run is saved (the
+  forfeited secondary falsification — "mere awareness collapses
+  vetoes" — is noted deliberately: the theory predicts a no-op there
+  at a full run-slot's cost). Low branch (≤ 0.60) ⇒ D2b funded as a
+  genuine representation intervention (partial-unfreeze precedent
+  ADR-0044 applies). Between ⇒ the checkpoint session routes.
+- **Populations/split:** fit + holdout on the sampled trio (the
+  training distribution), game-grouped deterministic split
+  (standing); transfer reads (no refit) on argmax and elevated.
+  Labels from the **v2 sick-aware instrument** windows (ADR-0063
+  addendum — the D1 baseline re-pin).
+
+If D2b runs, its veto-collapse margin on the knowable subset is
+pinned at its own launch **[PIN]**. Neither gate blocks D3 — the
+payment surface is funded on the ADR-0062 routing regardless — but
+both readings are recorded premises the closeout ADR must reconcile:
+a D2b that already collapses vetoes changes what D5's veto read can
+attribute.
 
 All standing training rules apply from birth to D2b: clips/hinge at
 birth (ADR-0056), auto-calibrated weights instrumented + guarded +
@@ -188,14 +237,20 @@ Three rungs, strictly ordered:
    - **Consequential-payment flag:** engine-side detection that a
      payment window has ≥2 payment classes with different residuals
      (colors held, snow, ability-relevant permanents, chained
-     activation available). Non-consequential windows never bridge —
+     activation available) — or different *yields*: a
+     Utopia-Sprawl-boosted forest taps for 2, so different-yield taps
+     are distinct classes by definition (pinned at the D2a session,
+     2026-08-19). Non-consequential windows never bridge —
      `payManaCost` is ~120 calls/game and the 2.6% bridge tax survives
      only if the flag keeps the surface sparse. Telemetry ships with
      the flag: consequential-window rate per game (the surface's own
      census, read before the model side is trained).
    - **Payment-class collapse:** legality-derived enumeration (the
      requirement above), interchangeable payments collapsed into
-     classes, decide over classes.
+     classes, decide over classes. The enumeration design session must
+     record its stance on the cost-composition cousins
+     (convoke/improvise/delve — same residual logic, different
+     callbacks; design-doc §3 ledger item 4): in, or explicitly out.
    - **Bridge protocol addition:** one new answer shape (class index
      over an enumerated list + `auto`), micro-step invariant
      preserved. Boundary obligations per standing rules: forkcheck
@@ -290,6 +345,16 @@ attempt and inherits the full-run slot.
   0.01/window wherever the recipe carries it.
 - BC-imitation of `ComputerUtilMana` payment choices (dropped at
   design, above).
+- **Combo-enabler valuation (Utopia Sprawl triggers, Earthcraft untap
+  chains, going infinite):** user direction 2026-08-19 — M9 owes these
+  the *perception floor* only (rules text in embeddings ✓, attachments
+  in obs ✓, choice-state = the boundary rider above; Earthcraft-style
+  activations are already expressible through the SA interface today).
+  Valuation is NOT hand-held via interface classes — it arrives later
+  as targeted Grindstone drill families once the perception floor is
+  proven (D2a genre: probe first, teach second). Named post-M9 drill
+  candidate; Earthcraft/Sprawl/Wild Growth/Arbor Elf are all in pool
+  `cf2ca6ba` (Squirrel Nest is not — no in-pool infinite-squirrels).
 - Pool/content growth beyond what the boundary bundle's multi-format
   enablement itself lands.
 

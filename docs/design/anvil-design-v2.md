@@ -59,6 +59,66 @@ Naive auto-yield either barely fires (pass-only-when-nothing-legal) or bakes heu
 ### 3c. Mana payment (audit fix)
 Engine auto-payment as the default action; policy override via a payment-choice sub-head **only when the engine flags the choice as consequential** (multiple payment classes with different residuals — colors held, snow, ability-relevant permanents). Interchangeable payments collapse into classes; decide over classes. Which-lands-to-tap is downstream of which line you're on, so plan-then-execute (§3a) answers most cases.
 
+### 3d′ (ledger). Decision-surface coverage — what the model cannot yet answer
+
+*(Added 2026-08-19 at the M9 D2a session. Motivation: §3c's veto account
+proved an interface exclusion can masquerade as a training-signal problem
+for three milestones. This ledger names every decision family the engine
+asks that the model cannot currently answer, so each future expansion is a
+routing decision, not a rediscovery. Traffic = DC-pool census,
+`data/census/run-20260704-dcpool`.)*
+
+**Model-decided today:** priority CastPlans (targets/X injected on the SA;
+optional costs surface in the candidate set by protocol design), mulligan
+*keep*, optional-trigger yes/no, binary/number one-fielders,
+attackers/blockers (M2 D5 constructs).
+
+**Excluded families, by strategic weight:**
+
+1. **Payment composition** (`payManaCost` ~120/g, `chooseColor` ~17/g) —
+   dork/color/chain residuals. **M9 §3c, in flight.**
+2. **Mid-resolution object choices** (`chooseSingleEntityForEffect`,
+   `chooseCardsForEffect`, `chooseCardsToDiscard`, …) — tutor and fetch
+   targets, discard/sac picks. In a tutor-defined format this is the
+   largest excluded class by game impact: the model casts, the heuristic
+   resolves. Expansion shape: one generic entity-set answer over the
+   observation — the pointer decoder's native operation. Unscheduled.
+3. **Attention/stops** (`autoPassCancel` ~39/g) — §3b, **named M10
+   candidate.**
+4. **Cost-composition cousins** (`chooseCardsForConvokeOrImprovise`
+   ~28/g where live, `chooseCardsToDelve`, `payCombatCost`) — the same
+   residual logic as §3c payment classes (which creature taps, which
+   card leaves the graveyard). M9 D3's enumeration must record its
+   stance: in, or explicitly out.
+5. **Trigger ordering** (`orderSimultaneousSa`/`orderAndPlay…` ~12.6/g,
+   100% of games) — ETB/death-trigger stacking. Unscheduled candidate.
+6. **Modal choice** (`chooseModeForAbility`, both interception points) —
+   spec'd in the §3 preamble, cut at M1 rung 1; its absence is already
+   measured as the `no_shape_fit` veto family. Re-entry rides any
+   CastPlan-executor revision.
+7. **Library ordering** (scry/surveil, `orderMoveToZoneList`) —
+   compounding card-selection edge. Unscheduled.
+8. **Replacement/static ordering + counter type**
+   (`chooseSingleReplacementEffect` 9.6/g, `chooseSingleStaticAbility`
+   9.1/g, `chooseCounterType`) — occasionally pivotal. Low priority.
+9. **Open-vocabulary naming** (`chooseCardName`) — Pithing-Needle class;
+   natural belief-head consumer; needs a name-ranking answer shape (the
+   encoder's card-embedding table already ranks names). Unscheduled.
+10. **Mulligan bottoming** (`tuckCardsViaMulligan`) — keep is
+    model-decided, tuck is not; cheap completion, needs a card-subset
+    answer. Unscheduled.
+11. **Concession** — §3d, designed and gated, not yet built.
+
+**Capability floors (representation, not decision windows):** choice-state
+obs emission ("as enters, choose" results — boundary-bundle rider,
+2026-08-19); the belief head (§4, machinery parked since M2);
+revealed-info memory beyond the `HISTORY_K` window.
+
+**Standing rule:** every expansion follows the §3c template — probe the
+premise, build behind an engine capability audit, attribute with its own
+pre-registered read. One decision surface per milestone (the M9 lesson:
+attribution dies at two).
+
 ### 3d. Concession & degenerate endings
 - Engine-side: repetition detection via the canonicalization hash (recurring canonical state, no progress delta); CR-compliant loop handling (mandatory loops draw, optional loops shortcut with declared iteration counts) enforced as caps and shortcuts, never simulated at length. Turn/decision caps with **cap-aware reward design** — draws must not be exploitable by a stalling leader.
 - Model-side: concede as an ordinary decision over the loop-detector feature. Scores exactly as a loss (no discount); small per-decision time cost makes conceding hopeless positions weakly preferred — a real compute rebate at self-play scale. **Gated behind a confidence threshold, disabled in early training** (self-sealing-error risk: a miscalibrated critic conceding winnable positions never generates corrective data), and audited by rolling out sampled conceded positions and measuring regret. Game-1 information-denial concession is a separate, retained decision.

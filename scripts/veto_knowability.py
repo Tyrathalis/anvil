@@ -16,8 +16,12 @@ affordability from that observation alone: untapped battlefield sources
 scripts (ManaCost + `A:AB$ Mana ... Produced$`, basic-land subtypes,
 tokenscripts), commander tax from `cmdcast`. OPTIMISTIC arithmetic by
 design: phyrexian pips payable via life, Combo/Any/ColorIdentity treated
-as any color, summoning sickness invisible-in-obs so creature sources
-count — optimism only strengthens "unaffordable" verdicts, so
+as any color. v2 (ADR-0063 addendum) is sick-aware: `sick` IS in the obs
+schema, so tap-production on summoning-sick hosts is excluded from the
+usable view and payable-only-with-sick-sources is KNOWABLE
+(`sickness_short`); spend-restricted / board-cost production
+(RestrictValid, tapXType) is a separate conditional view resolving to
+`uncertain`. Optimism only strengthens "unaffordable" verdicts, so
 `knowable` classifications are conservative and disagreements
 ("obs says payable, engine vetoed") land OUTSIDE the knowable numerator.
 Windows the arithmetic cannot settle (unparsed costs, chained
@@ -56,6 +60,7 @@ import sys
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 import zstandard
 
@@ -165,12 +170,23 @@ def can_pay(cost: Cost, sources: list[frozenset], extra_generic: int = 0) -> boo
 # ---------------------------------------------------------------- card table
 
 
+class ProdUnit(NamedTuple):
+    """One mana ability's production (v2, sick-aware instrument)."""
+
+    colors: frozenset
+    amount: int
+    variable: bool
+    needs_tap: bool  # {T}/{Q} in the activation cost — summoning-sickness-gated
+    conditional: bool  # RestrictValid$ spend restriction or tapXType board cost
+    zone: str  # "battlefield" (default) or "hand" (ActivationZone$ Hand)
+
+
 @dataclass
 class CardInfo:
     name: str
     cost: Cost
     types: str = ""
-    prod: list = field(default_factory=list)  # frozensets — tap-only production
+    prod: list = field(default_factory=list)  # ProdUnit entries
     chained: bool = False  # has a mana ability whose activation costs mana
     multiface: bool = False
     altcost: bool = False  # S:Mode$ AlternativeCost — printed cost unreliable
@@ -216,13 +232,19 @@ def _parse_face(lines: list[str], multiface: bool) -> CardInfo | None:
                 for kv in (p.strip() for p in line[2:].split("|"))
                 if "$" in kv
             )
+            azone = parts.get("ActivationZone", "Battlefield").strip()
+            if azone not in ("Battlefield", "Hand"):
+                continue  # command/graveyard-activated mana — out of scope
             acost = parts.get("Cost", "").strip()
-            needs_mana = not all(
-                NONMANA_COST.match(t) for t in acost.split() if t
-            ) if acost else False
+            tokens = [t for t in acost.split() if t]
+            needs_mana = not all(NONMANA_COST.match(t) for t in tokens)
             if needs_mana:
                 chained = True
                 continue
+            needs_tap = any(t in ("T", "Q") for t in tokens)
+            conditional = ("RestrictValid" in parts) or any(
+                t.startswith("tapXType<") for t in tokens
+            )
             produced = parts.get("Produced", "Any").strip()
             amt_s = parts.get("Amount", "1").strip()
             amount, variable = (int(amt_s), False) if amt_s.isdigit() else (1, True)
@@ -240,13 +262,15 @@ def _parse_face(lines: list[str], multiface: bool) -> CardInfo | None:
                 colors = frozenset(produced)
             else:
                 colors = ANY_COLOR  # Special/Defined variants — optimistic
-            prod.append((colors, amount, variable))
+            prod.append(ProdUnit(colors, amount, variable, needs_tap,
+                                 conditional, azone.lower()))
     if not name:
         return None
     # basic land subtypes grant intrinsic abilities (scripts carry no A: line)
     for sub, col in BASIC_PROD.items():
         if types and sub in types.split():
-            prod.append((frozenset(col), 1, False))
+            prod.append(ProdUnit(frozenset(col), 1, False, True, False,
+                                 "battlefield"))
     return CardInfo(name, parse_mana_cost(cost_s), types, prod, chained,
                     multiface, altcost, keywords, raises, reduces)
 
@@ -428,21 +452,21 @@ def classify_window(cen: dict, dec: dict, table: dict[str, CardInfo],
         return {"verdict": "not_knowable", "why": "timing_unexplained", "card": name}
 
     # -- determine the cost being attempted
-    ability_sick_plausible = False
     if kind == "ability":
         cost, free = cost_from_sa(sa)
         # a {T}-cost ability from an already-tapped battlefield host is
         # unaffordable on its face, no mana arithmetic needed
         if "T" in free and zone == "battlefield" and ent.get("tap"):
             return {"verdict": "knowable", "why": "source_tapped", "card": name}
+        if "T" in free and zone == "battlefield" and ent.get("sick"):
+            # {T} ability on a summoning-sick host — unusable, and the obs
+            # carries the flag (v2: `sick` IS in the schema, ADR-0063 addendum)
+            return {"verdict": "knowable", "why": "ability_sick", "card": name}
         if MANA_ABILITY_SA.search(sa.split(".", 1)[0]):
             # a mana-ability pick rejected by the realizer — rules-payable,
             # the interface can't route it (ADR-0062 artifact family)
             return {"verdict": "not_knowable", "why": "interface_mana_ability",
                     "card": name}
-        if ("T" in free and zone == "battlefield"
-                and card and "Creature" in card.types.split()):
-            ability_sick_plausible = True  # summoning sickness not in obs
         if cost is None:
             cost = Cost()  # no brace cost — non-mana activation, payable
     else:  # spell cast
@@ -476,28 +500,48 @@ def classify_window(cen: dict, dec: dict, table: dict[str, CardInfo],
             extra = 0
 
     # -- affordability from the seat's own observation. Each PERMANENT taps
-    # once: its abilities are choose-one alternatives, so it contributes
-    # max-amount units of the union of every color it can make (optimistic).
-    sources: list[frozenset] = []
-    noncreature_sources: list[frozenset] = []
+    # once: its abilities are choose-one alternatives, so a host contributes
+    # max-amount units of the union of every color its AVAILABLE abilities
+    # can make (optimistic). Three nested availability views (v2, sick-aware
+    # — `sick` IS emitted for battlefield creatures, ADR-0063 addendum):
+    #   now  — unconditional abilities usable this turn
+    #   cond — + spend-restricted / board-cost production (RestrictValid,
+    #          tapXType): applicability unsettleable from the obs
+    #   full — + tap-production on summoning-sick hosts (unusable in fact:
+    #          payable only here => knowably unaffordable via sickness)
+    src_now: list[frozenset] = []
+    src_cond: list[frozenset] = []
+    src_full: list[frozenset] = []
     chained_avail = var_amount_avail = False
     unknown_untapped = 0
     for e in obs.get("ents", []):
-        if e.get("z") != "battlefield" or e.get("c") != seat or e.get("tap"):
+        if e.get("c") != seat:
+            continue
+        ez = e.get("z")
+        if ez not in ("battlefield", "hand"):
             continue
         info = table.get(e.get("n", ""))
         if info is None:
-            unknown_untapped += 1
+            if ez == "battlefield" and not e.get("tap"):
+                unknown_untapped += 1
             continue
-        if info.prod:
-            allcolors = frozenset().union(*(c for c, _, _ in info.prod))
-            units = [allcolors] * max(a for _, a, _ in info.prod)
-            sources.extend(units)
-            if "Creature" not in info.types.split():
-                noncreature_sources.extend(units)
-            if any(v for _, _, v in info.prod):
-                var_amount_avail = True
-        if info.chained:
+        abz = [u for u in info.prod if u.zone == ez]
+        tapped, sick = bool(e.get("tap")), bool(e.get("sick"))
+
+        def _collapse(view: list, out: list) -> None:
+            if view:
+                allcolors = frozenset().union(*(u.colors for u in view))
+                out.extend([allcolors] * max(u.amount for u in view))
+
+        usable = [u for u in abz if not (u.needs_tap and (tapped or sick))]
+        _collapse([u for u in usable if not u.conditional], src_now)
+        _collapse(usable, src_cond)
+        _collapse([u for u in abz if not (u.needs_tap and tapped)], src_full)
+        if any(u.variable for u in usable):
+            # variable-amount production that could actually be activated
+            # this turn (tapped/sick hosts can't rescue affordability)
+            var_amount_avail = True
+        if info.chained and ez == "battlefield" and not tapped:
             chained_avail = True
 
     # cost-modifying statics anywhere on the battlefield (tapped ones too)
@@ -519,14 +563,14 @@ def classify_window(cen: dict, dec: dict, table: dict[str, CardInfo],
                 if _static_applies(valid, act, e.get("c"), seat, card):
                     reduce_present = True
 
-    if can_pay(cost, sources, extra):
+    if can_pay(cost, src_now, extra):
         # optimistic arithmetic says payable, the engine said unpayable —
         # unpayability has no hidden causes, so attribute to the named
         # public mechanisms in confidence order
         if corroborated and raise_total:
             taxed = Cost(cost.generic + raise_total, cost.pips, cost.twobrid,
                          cost.twobrid_colors, cost.phyrexian, cost.x, cost.snow)
-            if not can_pay(taxed, sources, extra):
+            if not can_pay(taxed, src_now, extra):
                 # a visible tax static closes the gap and the engine agrees
                 return {"verdict": "knowable", "why": "statics_tax", "card": name}
         if corroborated and (raise_unq or raise_total):
@@ -536,14 +580,11 @@ def classify_window(cen: dict, dec: dict, table: dict[str, CardInfo],
             return {"verdict": "not_knowable", "why": "autopayer_phyrexian", "card": name}
         if cost.x:
             return {"verdict": "not_knowable", "why": "autopayer_xcost", "card": name}
-        if ability_sick_plausible:
-            return {"verdict": "not_knowable", "why": "tap_ability_sickness", "card": name}
-        if not can_pay(cost, noncreature_sources, extra):
-            # payable only WITH creature sources => summoning sickness (not in
-            # the obs schema) may explain the veto — the dork-residual bucket
-            return {"verdict": "not_knowable", "why": "payable_needs_creatures",
-                    "card": name}
         return {"verdict": "not_knowable", "why": "obs_says_payable", "card": name}
+    if can_pay(cost, src_cond, extra):
+        # payable only through spend-restricted / board-cost production —
+        # whether the restriction admits THIS cast is unsettleable here
+        return {"verdict": "uncertain", "why": "conditional_production", "card": name}
     if reduce_present:
         # a visible cost reducer could make this affordable after all
         return {"verdict": "uncertain", "why": "reducecost_in_play", "card": name}
@@ -553,11 +594,15 @@ def classify_window(cen: dict, dec: dict, table: dict[str, CardInfo],
         return {"verdict": "uncertain", "why": "variable_amount_source", "card": name}
     if unknown_untapped:
         return {"verdict": "uncertain", "why": "unknown_battlefield_card", "card": name}
+    if can_pay(cost, src_full, extra):
+        # only counting tap-production on summoning-sick hosts rescues it —
+        # unaffordable in fact, and the obs sick flags say so (v2)
+        return {"verdict": "knowable", "why": "sickness_short", "card": name}
     # knowable — subtag: colorblind arithmetic distinguishes colors- vs
     # generic-short (treat every pip as generic and recheck)
     total_pips = len(cost.pips) + len(cost.twobrid_colors)
     colorblind = Cost(generic=cost.generic + total_pips)
-    sub = "colors_short" if can_pay(colorblind, sources, extra) else "generic_short"
+    sub = "colors_short" if can_pay(colorblind, src_full, extra) else "generic_short"
     return {"verdict": "knowable", "why": sub, "card": name}
 
 
@@ -638,8 +683,9 @@ def cmd_classify(args):
     out = ROOT / args.out
     out.mkdir(parents=True, exist_ok=True)
     rng = random.Random(20260819)
-    meta = {"pops": {}, "pin": {"gate": 0.50, "basis": "first-attempt, mana-relevant",
-                                "validity_bar": 0.95}}
+    meta = {"instrument": "v2-sick-aware", "pops": {},
+            "pin": {"gate": 0.50, "basis": "first-attempt, mana-relevant",
+                    "validity_bar": 0.95}}
     with open(out / "windows.jsonl", "w") as wf, open(out / "validation.jsonl", "w") as vf:
         for pop, dirs in args.pops:
             meta["pops"][pop] = dirs
