@@ -120,10 +120,25 @@ class AnvilNet(nn.Module):
         self.blk_query = nn.Linear(2 * d_model, d_model)
         self.blk_key = nn.Linear(d_model, d_model)
         self.blk_none = nn.Parameter(torch.randn(d_model) / d_model**0.5)
+        # payment sub-head params (M9 rung 3, Option A — no new head, the
+        # pointer path scores goal options): a per-task option-0 bias (init
+        # +2.0 on pay_class = argmax-auto at init with ~10-12% sampled
+        # exploration; zero for every other task) and a ZERO-init goal-kind
+        # embedding added into pay candidates' keys (zero = day-zero logits
+        # unchanged; the ent_proj zero-pad precedent). The pay_ prefix keeps
+        # pre-M9 checkpoints loadable at these inits.
+        from anvil.training.dataset import PAY_KINDS
 
-    # params new at M2 D5 (combat heads); absent from older checkpoints and
-    # allowed missing on load — they keep their fresh init
-    _D5_PREFIXES = ("atk_", "blk_", "cmb_")
+        self.pay_bias = nn.Parameter(torch.zeros(len(TASKS)))
+        self._pay_task = TASKS["pay_class"]
+        with torch.no_grad():
+            self.pay_bias[TASKS["pay_class"]] = 2.0
+        self.pay_kind_emb = nn.Embedding(len(PAY_KINDS), d_model)
+        nn.init.zeros_(self.pay_kind_emb.weight)
+
+    # params new at M2 D5 (combat heads) / M9 rung 3 (pay_*); absent from
+    # older checkpoints and allowed missing on load — they keep their fresh init
+    _D5_PREFIXES = ("atk_", "blk_", "cmb_", "pay_")
 
     def load_compat(self, state: dict) -> None:
         """Load a checkpoint state_dict across the D5 boundary: task_emb grew
@@ -181,8 +196,24 @@ class AnvilNet(nn.Module):
                 )
             )
             k_cand = k_cand + sa * (batch["cand_sa"] >= 0).unsqueeze(-1)  # PASS/pad: none
+        pk = batch.get("cand_paykind")
+        if pk is not None:
+            # payment goal options (M9 rung 3): entless options (life/pool-
+            # only plans) drop the aliased row-0 gather; the zero-init
+            # goal-kind embedding joins the key. No-op for every other task
+            # (pk = -1 everywhere) and for pre-M9 batches (field absent).
+            ispay = pk >= 0
+            k_cand = k_cand * ~(ispay & (batch["cand_rows"] < 0)).unsqueeze(-1)
+            k_cand = k_cand + self.pay_kind_emb(pk.clamp(min=0)) * ispay.unsqueeze(-1)
         logits = (q * k_cand).sum(-1) / k.shape[-1] ** 0.5  # (B,C)
         pass_logit = self.pass_head(state) + pass_delta  # (B,1)
+        task = batch.get("task")
+        if task is not None:
+            # option-0 auto bias, pay_class ONLY (M9 rung 3: +2.0 init). The
+            # task mask keeps every other task's pass logit — value AND
+            # gradient — exactly as before this param existed.
+            ispay_item = (task == self._pay_task).float().unsqueeze(-1)
+            pass_logit = pass_logit + self.pay_bias[task].unsqueeze(-1) * ispay_item
         logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)  # slot 0 = PASS
         return logits.masked_fill(~batch["cand_mask"], -1e9)
 

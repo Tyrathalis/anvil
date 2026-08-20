@@ -18,6 +18,7 @@ transform.history_tokens.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ from anvil.encoder.transform import HISTORY_K, assemble
 from anvil.training.dataset import (
     COMBAT_COUNT_MAX,
     KINDS,
+    PAY_KINDS,
     PRIORITY,
     T_MAX,
     TASKS,
@@ -51,10 +53,11 @@ TAG_TASK = {
     "mtg.number": "number",
     "mtg.attack": "attack",  # M2 D5 combat declarations
     "mtg.block": "block",
-    # "mtg.pay_mana_class" is RESERVED (M9 D3 §3c, m9-payment-surface-spec):
-    # absent here => the server declines and the worker's local echo is AUTO
-    # (GrpcBridge special-cases the tag), i.e. today's behavior exactly. The
-    # "pay_class" task lands with the payment sub-head (D3 rung 3 / D4).
+    # M9 §3c (rung 3): the payment goal decision. The server additionally
+    # gates this tag on the ckpt carrying the pay_ params (server.has_pay,
+    # the has_combat precedent) — a pre-M9 ckpt declines and the worker's
+    # local echo stays AUTO (GrpcBridge pins the tag's echo to 0).
+    "mtg.pay_mana_class": "pay_class",
 }
 
 
@@ -118,6 +121,7 @@ class Featurizer:
         cand_rows = [-1]
         cand_sa = [-1]
         cand_kind = [-1]
+        cand_paykind = [-1]
         cand_first_opt = [-1]  # per candidate: FIRST matching wire-option index
         ctx_row = -1
         num_lo, num_hi = 0, X_CLASSES - 1
@@ -142,6 +146,28 @@ class Featurizer:
                 cand_rows.append(r)
                 cand_sa.append(self.sa_vocab.id(key[1]))
                 cand_kind.append(KINDS.get(o.get("kind"), KINDS["other"]))
+                cand_first_opt.append(i)
+        elif task == "pay_class":
+            # M9 §3c goal options (m9-payment-surface-spec §12a / rung-3 pins).
+            # Option 0 = {"auto":true} rides the PASS slot. Each goal option
+            # keys on ONE representative tapped entity (lowest id; life/pool-
+            # only plans tap nothing -> row -1, the model keys on the goal-kind
+            # embedding alone) plus the label's "gk" goal-kind code. Positional:
+            # every wire option occupies a candidate slot even when its
+            # entities miss the obs join — the answer index space is the wire's.
+            for i, lab in enumerate(dec.get("opts") or []):
+                if i == 0:
+                    continue
+                try:
+                    o = json.loads(lab)
+                except (TypeError, ValueError):
+                    o = {}
+                ents = o.get("ents") or []
+                cand_rows.append(row_of.get(min(ents), -1) if ents else -1)
+                cand_sa.append(-1)
+                cand_kind.append(-1)
+                gk = o.get("gk") or []
+                cand_paykind.append(int(gk[0]) if gk else PAY_KINDS["spare_other"])
                 cand_first_opt.append(i)
         elif task == "trigger":
             m = _HOST_ID.search(args.get("host") or "")
@@ -177,6 +203,7 @@ class Featurizer:
             "cand_rows": torch.tensor(cand_rows, dtype=torch.int64),
             "cand_sa": torch.tensor(cand_sa, dtype=torch.int64),
             "cand_kind": torch.tensor(cand_kind, dtype=torch.int64),
+            "cand_paykind": torch.tensor(cand_paykind, dtype=torch.int64),
             "label": torch.tensor(0, dtype=torch.int64),
             "label_row": torch.tensor(-1, dtype=torch.int64),
             "tgt_kind": torch.from_numpy(np.full(T_MAX + 1, -1, dtype=np.int64)),

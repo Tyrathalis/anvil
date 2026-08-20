@@ -30,6 +30,8 @@ _TASK_HEADS = {
     "number": ("num",),
     "attack": ("atk", "cnt", "atk_tgt"),
     "block": ("blk", "cnt"),
+    # M9 rung 3: the payment goal decision is choice-only — no targets, no X
+    "pay_class": ("choice",),
 }
 
 
@@ -116,6 +118,12 @@ def mu_record(g: int, s: int, task: str, ex: dict, aux: dict, out: dict) -> dict
             lp["x"] = float(out["logp_x"][0])
             ent["tgt"] = float(out["ent_tgt"][0])
             ent["x"] = float(out["ent_x"][0])
+    elif task == "pay_class":
+        # choice-only (M9 rung 3): option 0 = auto, i>0 = goal options; the
+        # tgt/x factors never record — payment answers carry no targets.
+        rec["c"] = int(out["choice"][0])
+        lp["choice"] = float(out["logp_choice"][0])
+        ent["choice"] = float(out["ent_choice"][0])
     elif task in ("mull_keep", "trigger", "binary"):
         rec["b"] = int(bool(out["bool"][0]))
         lp["bool"] = float(out["logp_bool"][0])

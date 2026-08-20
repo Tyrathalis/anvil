@@ -44,6 +44,9 @@ MODEL_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number"
 # advertised only when the checkpoint carries TRAINED combat heads —
 # load_compat fresh-inits them for pre-D5 checkpoints, which must never serve
 COMBAT_TAGS = "mtg.attack,mtg.block"
+# advertised only when the checkpoint carries the pay_ params (M9 rung 3) —
+# pre-M9 checkpoints must decline so the worker's echo answers AUTO
+PAY_TAGS = "mtg.pay_mana_class"
 
 
 class _Batcher:
@@ -161,6 +164,10 @@ class ModelBackend:
         # trained combat heads present? (D5 checkpoints; pre-D5 ones get
         # fresh-init heads from load_compat and must not serve combat tags)
         self.has_combat = any(k.startswith(("atk_", "blk_", "cmb_")) for k in ckpt["model"])
+        # pay_ params present? (M9 rung 3; same never-serve-fresh-init rule —
+        # except pay_bias's +2.0 init is BY DESIGN safe, so the gate is about
+        # the untrained pointer keys, not the bias)
+        self.has_pay = any(k.startswith("pay_") for k in ckpt["model"])
         self.net = build_net(
             cfg["embed"], cfg["pool_manifest"], len(default_methods()), n_sa=self.n_sa
         ).to(device)
@@ -265,6 +272,11 @@ class ModelBackend:
             resp.construct.attack_map.CopyFrom(self._attackmap(out, aux))
         elif task == "block":
             resp.construct.block_map.CopyFrom(self._blockmap(out, aux))
+        elif task == "pay_class":
+            # SELECT_ONE over {auto} ∪ goal options: choice 0 = auto = wire
+            # index 0; goal candidates are positional (cand_first_opt)
+            c = int(out["choice"][0])
+            resp.index = 0 if c == 0 else aux["cand_first_opt"][c]
         elif task in ("mull_keep", "trigger", "binary"):
             resp.flag = bool(out["bool"][0])
         elif task == "number":
@@ -596,7 +608,11 @@ def main() -> None:
         args.tags
         if args.tags is not None
         else (
-            (MODEL_TAGS + ("," + COMBAT_TAGS if backend.has_combat else ""))
+            (
+                MODEL_TAGS
+                + ("," + COMBAT_TAGS if backend.has_combat else "")
+                + ("," + PAY_TAGS if backend.has_pay else "")
+            )
             if args.mode == "model"
             else DEFAULT_TAGS
         )

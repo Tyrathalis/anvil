@@ -31,6 +31,30 @@ surface + the final pre-D4 baseline `run-20260819-paygoals2`);
 Original [PIN] markers below are retained with their proposals for the
 decision trail; the list above is authoritative where they differ.
 
+**Build status + one recorded refinement (2026-08-20, same day):**
+- **Sub-head BUILT and test-pinned** (Anvil `pay_class` task end-to-end:
+  featurizer/collate/model/sampling/RL-gates/server tag gating;
+  `tests/test_pay_class.py` 4/4 — day-zero argmax=auto holds ON the
+  trained D5-era checkpoint, mu round-trip exact, load_compat keeps the
+  +2.0/zero inits; fork `667564a97d` emits per-goal kind codes).
+- **Refinement (recorded reason):** reconnaissance showed the pointer
+  key carries NO label text (candidates score as entity-row ⊕
+  sa-descriptor; `cand_sa` stays −1 by the sa_vocab pin), so pure
+  Option A would distinguish options only by one representative tapped
+  entity — and life/pool-only plans tap nothing. Added: a **zero-init
+  `pay_kind` embedding** (6-code vocab, fork label field `"gk"`:
+  pay / spare_creature / spare_land / spare_artifact / spare_other /
+  min_life) folded into pay candidates' keys, entless options key on it
+  alone. Zero-init ⇒ day-zero logits unchanged (the ent_proj zero-pad
+  precedent); no new head — Option A's intent preserved. `pay_`
+  param prefix allowlisted in `load_compat`; the server advertises the
+  tag only when the ckpt carries pay_ params (`has_combat` precedent).
+- **Next build piece: the certification harness** (4 parts mapped:
+  fork-side `PayDirective` + bounded-horizon scorer; Python
+  census-provenance shim + `certify` verb; hazard: census replay under
+  the harness draws seed-derived AI profiles — the shim must pin
+  census-identical conditions).
+
 ## 1. What rung 3 owes (from the plan)
 
 Two artifacts, both built BEFORE any run: the **payment drill evalset**

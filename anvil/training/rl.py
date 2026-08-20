@@ -42,8 +42,10 @@ def composite_logp(fwd: dict, batch: dict, temperature: float = 1.0) -> dict:
     terms plus the total — the per-head split is what the mu tripwire
     compares record-by-record.
     """
-    is_priority = batch["task"] == TASKS["priority"]
-    label = torch.where(is_priority, batch["label"], torch.full_like(batch["label"], -1))
+    # pointer-choice tasks: priority + pay_class (M9 rung 3) — both label the
+    # policy_logits choice; pay_class never sets tgt/x labels
+    is_pointer = (batch["task"] == TASKS["priority"]) | (batch["task"] == TASKS["pay_class"])
+    label = torch.where(is_pointer, batch["label"], torch.full_like(batch["label"], -1))
     lp_choice = _gather_lp(fwd["policy_logits"], label, temperature)
 
     # target slots: teacher-forced logits at labeled slots, cast windows only
@@ -88,6 +90,10 @@ def apply_mu_labels(ex: dict, rec: dict) -> dict:
 
     n_i = ex["entities"].shape[0]
     task = rec["task"]
+    if task == "pay_class":
+        # choice-only (M9 rung 3): the goal pick IS the whole answer
+        ex["label"] = torch.tensor(rec["c"], dtype=torch.int64)
+        return ex
     if task == "priority":
         c = rec["c"]
         ex["label"] = torch.tensor(c, dtype=torch.int64)
@@ -140,8 +146,8 @@ def composite_entropy(fwd: dict, batch: dict) -> torch.Tensor:
         lp = torch.log_softmax(logits.float(), dim=-1)
         return (-(lp.exp() * lp).sum(-1)) * ok.float()
 
-    is_priority = batch["task"] == TASKS["priority"]
-    ent = cat_ent(fwd["policy_logits"], is_priority & (batch["label"] >= 0))
+    is_pointer = (batch["task"] == TASKS["priority"]) | (batch["task"] == TASKS["pay_class"])
+    ent = cat_ent(fwd["policy_logits"], is_pointer & (batch["label"] >= 0))
     ent = ent + cat_ent(fwd["tgt_logits"], batch["tgt_labels"] >= 0).sum(-1)
     ent = ent + cat_ent(fwd["x_logits"], batch["x_val"] >= 0)
 
@@ -214,6 +220,8 @@ def mu_matches(ex: dict, rec: dict) -> bool:
     n_i = ex["entities"].shape[0]
     p = ex["players"].shape[0]
     task = rec["task"]
+    if task == "pay_class":
+        return 0 <= rec["c"] < ex["cand_rows"].shape[0]
     if task == "priority":
         if not (0 <= rec["c"] < ex["cand_rows"].shape[0]):
             return False

@@ -113,6 +113,26 @@ TASKS = {
     "number": 5,
     "attack": 6,
     "block": 7,
+    # M9 §3c (rung 3): the payment goal decision. Deliberately ABSENT from
+    # TASK_OF_METHOD — straight RL only (the M9 design pin: no
+    # BC-from-heuristic; auto-answered windows are exactly where the
+    # heuristic is least trustworthy). The RL loader reads the task from mu
+    # records; the BC loader and the Ante ledger never see payment windows.
+    "pay_class": 8,
+}
+
+# M9 rung 3: goal-kind codes for payment options (the "gk" field the fork
+# emits per goal in the option label). The pointer key carries no label
+# text and cand_sa stays -1 (sa_vocab pinned untouched), so this small
+# vocab is how goal semantics reach the model (zero-init embedding —
+# day-zero logits unchanged).
+PAY_KINDS = {
+    "pay": 0,
+    "spare_creature": 1,
+    "spare_land": 2,
+    "spare_artifact": 3,
+    "spare_other": 4,
+    "min_life": 5,
 }
 TASK_OF_METHOD = {
     PRIORITY: "priority",
@@ -637,6 +657,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         "cand_rows": torch.full((b, c), -1, dtype=torch.int64),
         "cand_sa": torch.full((b, c), -1, dtype=torch.int64),
         "cand_kind": torch.full((b, c), -1, dtype=torch.int64),
+        "cand_paykind": torch.full((b, c), -1, dtype=torch.int64),
         "cand_mask": torch.zeros(b, c, dtype=torch.bool),
         "globals": torch.stack([x["globals"] for x in batch]),
         "players": torch.stack([x["players"] for x in batch]),
@@ -684,6 +705,8 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         out["cand_rows"][i, :ci] = x["cand_rows"]
         out["cand_sa"][i, :ci] = x["cand_sa"]
         out["cand_kind"][i, :ci] = x["cand_kind"]
+        if "cand_paykind" in x:  # absent from pre-M9 loader examples
+            out["cand_paykind"][i, :ci] = x["cand_paykind"]
         out["cand_mask"][i, :ci] = True
         ai, mi = x["cmb_rows"].shape[0], x["blk_atk_rows"].shape[0]
         if ai:
