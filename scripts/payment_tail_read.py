@@ -31,7 +31,6 @@ import json
 import sys
 from collections import Counter
 
-
 PINNED_K = 8  # the spec §11 wire cap the probe is evidence about
 
 

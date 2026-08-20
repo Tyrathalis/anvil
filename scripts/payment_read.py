@@ -28,7 +28,6 @@ import json
 import sys
 from collections import Counter
 
-
 # The D3 scope-pin budget: in-scope (cast/activation, effect=false) traffic
 # measured 2026-08-19 on run-20260704-dcpool. The consequential rate must
 # land well under this for the 2.6% bridge tax to survive.
