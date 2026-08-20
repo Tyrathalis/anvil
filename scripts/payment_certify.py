@@ -139,10 +139,16 @@ def _score(shape: str, ax: dict, base: dict) -> float:
 def read(args) -> None:
     jobs = {j["job"]: j for j in map(json.loads, open(args.jobs))}
     rows: dict[tuple, list] = defaultdict(list)  # (job, arm) -> [roll rows]
+    exec_n: dict[str, int] = defaultdict(int)
+    why_n: dict[str, int] = defaultdict(int)  # salvage failure points (exec_why)
     for line in open(args.certout):
         r = json.loads(line)
         if r.get("ev") == "certify":
             rows[(r["job"], r["arm"])].append(r)
+            if r["arm"] > 0 and r.get("fired"):
+                exec_n[r.get("exec", "?")] += 1
+                if r.get("exec_why"):
+                    why_n[r["exec_why"]] += 1
 
     certified, stats = [], defaultdict(int)
     for jid, job in jobs.items():
@@ -199,6 +205,18 @@ def read(args) -> None:
     print(f"certified {stats['certified']} / {len(jobs)} jobs -> {args.out}")
     for k, v in sorted(stats.items()):
         print(f"  {k:<18} {v}")
+    n_directed = sum(exec_n.values())
+    n_salvage = exec_n.get("directed_salvage", 0) + exec_n.get("directed_fail", 0)
+    if n_directed:
+        rate = n_salvage / n_directed
+        gate = "FIRED" if rate > 0.01 else "ok"
+        print(f"  salvage gate (>1%): {rate:.4f} on {n_directed} directed rows [{gate}]")
+        for k, v in sorted(exec_n.items()):
+            print(f"    {k:<18} {v}")
+    if why_n:
+        print("  salvage failure points (exec_why):")
+        for k, v in sorted(why_n.items(), key=lambda kv: -kv[1])[:12]:
+            print(f"    {v:>5}  {k}")
 
 
 def _prov(job: dict) -> dict:

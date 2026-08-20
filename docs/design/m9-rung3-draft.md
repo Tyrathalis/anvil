@@ -60,19 +60,28 @@ decision trail; the list above is authoritative where they differ.
   `JAVA_JOB_FIELDS`; lane job files strip provenance. **Smoke (8 jobs,
   105 rows): window fire rate 100%** — census replay determinism +
   the provenance shim PROVEN.
-- **OPEN FINDING (next session's first item): directed-execution
-  salvage 52% on certify arms, and 100% on the forced_chain family —
-  all six mined forced windows are the same card (Black Panther, Hope
-  Enduring) and every directed arm salvages.** Suspects: the v0
-  count-based chain admissibility over-admitting colored-infeasible
-  plans, executor activation ordering, or the forced family being
-  enumerator over-admission (which would contaminate the §12c
-  clean-forced channel — D5's collapse read cares). The spec §7
-  salvage gate (>1%) has its first data. Certification of the 126-job
-  set is BLOCKED on this diagnosis; the blocker_pressure shape
-  meanwhile executes directed_ok cleanly (its 0/2 smoke certifications
-  are margin-below-threshold on true continuations — the k=8 full run
-  answers whether that's noise or absent effects).
+- **Salvage finding RESOLVED (2026-08-20,
+  [ADR-0066](../decisions/ADR-0066-certify-salvage-host-exclusivity.md)):
+  enumerator over-admission — the DFS tracked availability per CLASS,
+  feasibility is per HOST CARD.** A dual's two mana abilities live in
+  two classes that both pick the lowest-id copy first, so any
+  two-color plan committed the same physical card twice
+  (count-feasible; executor-infeasible at the second `canPlay`).
+  Fixed fork-side (`37bde8051e`: `usedHosts` in the DFS + reason-coded
+  salvage `exec_why` + dual-land regression test; suite 15/15).
+  **Re-smoke: salvage 0.0000 on 64 directed rows [gate ok] —
+  blocker_pressure 64/64 `directed_ok`; the forced family is GONE
+  (jobs 0–5 enumerate zero options — all six "forced" windows were
+  phantoms, the auto-payer was right to refuse).** Consequences: the
+  §12c clean-forced claim is falsified for this census ("forced 6
+  CLEAN" = 6 phantoms); the paygoals2 consequential read (15.99/g) is
+  inflated one-sidedly by phantom options. **Routing: re-run the
+  500-game paytelemetry census on the fixed jar → re-mine → re-plan
+  the certification set; the existing 126-job plan is stale** (6 dead
+  forced jobs + option-index misalignment wherever an option list
+  shrank). The blocker_pressure 0/2 smoke certifications remain
+  margin-below-threshold on true continuations — the k=8 full run
+  answers whether that's noise or absent effects.
 
 ## 1. What rung 3 owes (from the plan)
 
