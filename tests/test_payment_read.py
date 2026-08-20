@@ -64,6 +64,51 @@ def test_read_aggregates(tmp_path):
     assert "TRUNCATION GATE EXCEEDED" in report(s)
 
 
+def test_read_goal_era(tmp_path):
+    """§12 goal-era records: goals/plans kvs, the costmod scope boundary +
+    its retrospective leak backstop, nodecap gate — and the old class-era
+    truncation banner never fires on goal records."""
+    lines = [
+        json.dumps({"ev": "start", "g": 0, "seed": 1}),
+        # telemetry-mode goal records
+        json.dumps({"g": 0, "m": "payManaCost", "effect": False, "goals": 1, "plans": 1,
+                    "conseq": False, "forced": False, "trunc": False, "nodecap": False,
+                    "atoms": 3, "srcclasses": 1, "nodes": 12}),
+        json.dumps({"g": 0, "m": "payManaCost", "effect": False, "goals": 3, "plans": 40,
+                    "conseq": True, "forced": False, "trunc": False, "nodecap": False,
+                    "atoms": 9, "srcclasses": 5, "nodes": 900}),
+        # §12b: statically detected cost-modified window — out of scope, never enumerated
+        json.dumps({"g": 0, "m": "payManaCost", "effect": False, "costmod": True}),
+        # §12b retrospective backstop: 0 plans yet auto paid (static-detector leak)
+        json.dumps({"g": 0, "m": "payManaCost", "by": "auto", "effect": False, "goals": 0,
+                    "plans": 0, "conseq": False, "trunc": False, "nodecap": False,
+                    "costmod_late": True}),
+        # nodecap window: degraded surface, logged
+        json.dumps({"g": 0, "m": "payManaCost", "effect": False, "goals": 2, "plans": 130,
+                    "conseq": True, "forced": True, "trunc": False, "nodecap": True,
+                    "atoms": 14, "srcclasses": 8, "nodes": 200001}),
+    ]
+    p = tmp_path / "goal.jsonl"
+    p.write_text("\n".join(lines) + "\n")
+    s = read([str(p)])
+
+    assert s["goal_era_records"] == 4
+    assert s["scoped_windows"] == 4
+    assert s["costmod"] == 1
+    assert s["costmod_rate"] == 0.2  # 1 of 5 in-scope-shape windows
+    assert s["costmod_late"] == 1
+    assert s["nodecap"] == 1
+    assert s["nodecap_rate"] == 0.25
+    assert s["consequential"] == 2
+    assert s["forced"] == 1
+    assert s["class_hist"] == {0: 1, 1: 1, 2: 1, 3: 1}  # goals-per-window
+    assert s["plans_hist"] == {0: 1, 1: 1, 40: 1, 65: 1}  # 130 clamps to the >64 bin
+    r = report(s)
+    assert "NODECAP GATE EXCEEDED" in r  # 0.25 > 0.01, loudly
+    assert "GOAL TRUNCATION" not in r    # no goal-cap truncation in the fixture
+    assert "K_MAX" not in r              # the retired banner never fires goal-era
+
+
 def test_read_handles_legacy_census(tmp_path):
     """Files from runs without -paytelemetry (all pre-M9 census) parse fine
     and report zero telemetry coverage."""

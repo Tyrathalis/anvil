@@ -17,6 +17,11 @@ Usage: payment_read.py <census.jsonl> [more.jsonl ...] [--json]
 
 Telemetry fields are additive kv on the standing payManaCost census record —
 files from runs without -paytelemetry parse fine and report zero coverage.
+
+Dual-era (2026-08-19 §12 revisit): goal-era records carry "goals"/"plans"
+(+ costmod/costmod_late/nodecap — the §12b scope boundary and its leak
+backstop); pre-§12 records carry "classes" and read against the retired
+K_MAX gate. The option histogram is goals-per-window in the goal era.
 """
 
 import json
@@ -28,8 +33,14 @@ from collections import Counter
 # measured 2026-08-19 on run-20260704-dcpool. The consequential rate must
 # land well under this for the 2.6% bridge tax to survive.
 IN_SCOPE_BUDGET_PER_GAME = 61.0
-# Pinned truncation revisit gate (spec §11).
+# Pinned truncation revisit gate (spec §11) — CLASS-era records only
+# (pre-§12 jars); the gate fired 2026-08-19 and the K_MAX surface was
+# replaced by goals.
 TRUNCATION_GATE = 0.05
+# Goal-era gates (spec §12/§11 as amended): the GOAL_MAX defensive cap
+# should ~never bind; the node budget binds rarely (probe: 0.2%).
+GOAL_TRUNCATION_GATE = 0.005  # of consequential windows
+NODECAP_GATE = 0.01           # of scoped windows
 
 
 def read(paths: list[str]) -> dict:
@@ -41,7 +52,12 @@ def read(paths: list[str]) -> dict:
     conseq = 0
     forced = 0
     trunc = 0
-    class_hist: Counter[int] = Counter()
+    goal_era = 0      # §12 records ("goals" kv present)
+    costmod = 0       # §12b out-of-scope windows (static detector)
+    costmod_late = 0  # §12b retrospective backstop (static-detector leak)
+    nodecap = 0
+    plans_hist: Counter[int] = Counter()  # true composition counts (65 = >64)
+    class_hist: Counter[int] = Counter()  # goal-era: options; class-era: classes
     atoms_sum = 0
     picks: Counter[str] = Counter()  # bridged answers: "auto" or "class"
     execs: Counter[str] = Counter()  # directed_ok / directed_salvage / directed_fail
@@ -63,18 +79,32 @@ def read(paths: list[str]) -> dict:
                 if r.get("effect"):
                     effect_true += 1
                     continue
-                if "classes" not in r:
+                if r.get("costmod"):
+                    # spec §12b: cost-modified windows are out-of-scope v1 —
+                    # counted at the flag, never enumerated/bridged.
+                    costmod += 1
+                    continue
+                if "goals" not in r and "classes" not in r:
                     zero_skipped += 1
                     continue
                 scoped += 1
-                class_hist[int(r["classes"])] += 1
+                if "goals" in r:  # §12 goal-era record
+                    goal_era += 1
+                    class_hist[int(r["goals"])] += 1
+                    plans_hist[min(int(r.get("plans", 0)), 65)] += 1
+                    if r.get("nodecap"):
+                        nodecap += 1
+                    if r.get("costmod_late"):
+                        costmod_late += 1
+                else:  # pre-§12 class-era record
+                    class_hist[int(r["classes"])] += 1
                 atoms_sum += int(r.get("atoms", 0))
                 if r.get("trunc"):
                     trunc += 1
+                if r.get("forced"):
+                    forced += 1
                 if r.get("conseq"):
                     conseq += 1
-                    if r.get("forced"):
-                        forced += 1
                 pick = r.get("pick")
                 if pick is not None:
                     picks["auto" if pick == "auto" else "class"] += 1
@@ -98,6 +128,13 @@ def read(paths: list[str]) -> dict:
         "forced_rate": forced / scoped if scoped else 0.0,
         "truncated": trunc,
         "truncation_rate": trunc / conseq if conseq else 0.0,
+        "goal_era_records": goal_era,
+        "costmod": costmod,
+        "costmod_rate": costmod / (scoped + costmod) if (scoped + costmod) else 0.0,
+        "costmod_late": costmod_late,
+        "nodecap": nodecap,
+        "nodecap_rate": nodecap / scoped if scoped else 0.0,
+        "plans_hist": dict(sorted(plans_hist.items())),
         "class_hist": dict(sorted(class_hist.items())),
         "atoms_mean": atoms_sum / scoped if scoped else 0.0,
         "picks": dict(picks),
@@ -119,20 +156,40 @@ def report(stats: dict) -> str:
         f"  forced windows       {stats['forced']} "
         f"(rate {stats['forced_rate']:.4f} of scoped)",
         f"  truncated            {stats['truncated']} "
-        f"(rate {stats['truncation_rate']:.4f} of consequential; gate {TRUNCATION_GATE})",
-        f"  class histogram      {stats['class_hist']}",
+        f"(rate {stats['truncation_rate']:.4f} of consequential)",
+        f"  option histogram     {stats['class_hist']}",
         f"  atoms mean           {stats['atoms_mean']:.1f}",
     ]
+    goal_era = stats["goal_era_records"] > 0
+    if goal_era:
+        lines.append(f"  costmod (out-of-scope §12b) {stats['costmod']} "
+                     f"(rate {stats['costmod_rate']:.4f} of in-scope-shape)")
+        lines.append(f"  costmod_late (leak)  {stats['costmod_late']} (expected ~0)")
+        lines.append(f"  nodecap              {stats['nodecap']} "
+                     f"(rate {stats['nodecap_rate']:.4f} of scoped; gate {NODECAP_GATE})")
+        lines.append(f"  plans histogram      {stats['plans_hist']}")
     if stats["picks"]:
         lines.append(f"  bridged picks        {stats['picks']}")
     if stats["execs"]:
         lines.append(f"  exec outcomes        {stats['execs']}")
     if stats["float_residue_windows"]:
         lines.append(f"  FLOAT RESIDUE        {stats['float_residue_windows']} windows (expected ~0)")
-    if stats["truncation_rate"] > TRUNCATION_GATE:
+    if goal_era:
+        if stats["truncation_rate"] > GOAL_TRUNCATION_GATE:
+            lines.append(
+                f"  ** GOAL TRUNCATION GATE EXCEEDED ({stats['truncation_rate']:.4f} > "
+                f"{GOAL_TRUNCATION_GATE}) — GOAL_MAX bound before D4 (spec §12a) **"
+            )
+        if stats["nodecap_rate"] > NODECAP_GATE:
+            lines.append(
+                f"  ** NODECAP GATE EXCEEDED ({stats['nodecap_rate']:.4f} > "
+                f"{NODECAP_GATE}) — node budget revisited before D4 (spec §12a) **"
+            )
+    elif stats["truncation_rate"] > TRUNCATION_GATE:
         lines.append(
             f"  ** TRUNCATION GATE EXCEEDED ({stats['truncation_rate']:.4f} > "
-            f"{TRUNCATION_GATE}) — the K_MAX cap design is revisited before D4 (spec §11) **"
+            f"{TRUNCATION_GATE}) — class-era records; the K_MAX surface was "
+            f"replaced by goals at the §12 revisit (2026-08-19) **"
         )
     return "\n".join(lines)
 
