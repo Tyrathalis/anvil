@@ -96,6 +96,7 @@ MONITOR_SERIES = [
     ("rl.mean.kl_mu", "kl_mu"),
     ("census.veto_rate", "veto rate"),
     ("census.first_veto_rate", "first-veto rate"),
+    ("census.pay_deviation_rate", "pay deviation (sampled)"),
     ("census.casts_per_game", "casts/game"),
     ("rl.mean.rej", "rejected/traj"),
     ("rl.mean.seq_raw", "seq_raw"),
@@ -178,6 +179,13 @@ def monitor_curves(run_dir: Path) -> tuple[list[str], dict]:
             anomalies.append(
                 f"veto rate range {min(vr):.3f}-{max(vr):.3f} > 2x median "
                 "(limit-cycle shape, ADR-0049 read 1)"
+            )
+        pd_ = [y for y in series["pay deviation (sampled)"] if y is not None]
+        if pd_ and max(pd_) > 0.5:
+            anomalies.append(
+                f"pay deviation reached {max(pd_):.3f} sampled (> 0.5; the +2.0 "
+                "auto-bias init lands ~0.10-0.12 — runaway-deviation shape, "
+                "check whether drills agree before trusting the run)"
             )
         numbers.update(kl_mu=kl, entropy=ent, veto_range=(min(vr), max(vr)) if vr else None)
     return anomalies, numbers

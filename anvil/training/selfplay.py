@@ -481,10 +481,20 @@ def _census_tallies(run_dirs) -> dict:
                         c["reask_rescued"] += 1
                     else:
                         c["first_cast"] += 1
+            if r.get("m") == "payManaCost" and r.get("pick") is not None:
+                # M9 rung 3 (§3c goal surface): sampled payment-deviation
+                # tally — the D4 probe's cheapest signal. Argmax deviation is
+                # NOT derivable here (generation samples); it rides the
+                # drill-eval pass.
+                c["pay_windows"] += 1
+                if r.get("pick") != "auto":
+                    c["pay_deviate"] += 1
             for k in ("dropped", "forced"):
                 if r.get(k):
                     c[f"combat_{k}"] += r[k]
     c["veto_rate"] = round(c["veto"] / max(1, c["veto"] + c["cast"]), 4)
+    if c["pay_windows"]:
+        c["pay_deviation_rate"] = round(c["pay_deviate"] / c["pay_windows"], 4)
     # M3 D1: chain-independent basis — each window contributes exactly one
     # first attempt (census "reask" marks attempts > 0 only), so re-ask chains
     # can't inflate this the way they inflate veto_rate. Done-when #1 reads it.
