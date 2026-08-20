@@ -317,7 +317,17 @@ Three rungs, strictly ordered:
    `AI:RemoveDeck:All` cards are revealed, not stripped — Signet-class
    cards sit in decks as auto-payer blanks the payment head can
    unlock (pool carries the class: Boros Signet et al.).**
-2. **The fork delta (rides the boundary bundle):**
+2. **The fork delta (rides the boundary bundle):** **Design PINNED
+   2026-08-19 —
+   [m9-payment-surface-spec.md](m9-payment-surface-spec.md)** (hook /
+   atoms + source-class signatures / legality-derived DFS enumeration
+   with chained admissibility / flag = `|classes| ≥ 2` / wire =
+   `SELECT_ONE` + new tag `mtg.pay_mana_class`, ZERO proto change —
+   recorded simplification of this rung's "one new answer shape" /
+   float-then-apply executor with reason-coded failure semantics,
+   never-a-veto / telemetry incl. census telemetry-only mode /
+   `K_MAX = 8`, truncation logged, 5% revisit gate). Build on fork
+   branch `m9-payment-surface`, merges only at the bundle.
    - **Consequential-payment flag:** engine-side detection that a
      payment window has ≥2 payment classes with different residuals
      (colors held, snow, ability-relevant permanents, chained
