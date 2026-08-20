@@ -327,7 +327,19 @@ Three rungs, strictly ordered:
    float-then-apply executor with reason-coded failure semantics,
    never-a-veto / telemetry incl. census telemetry-only mode /
    `K_MAX = 8`, truncation logged, 5% revisit gate). Build on fork
-   branch `m9-payment-surface`, merges only at the bundle.
+   branch `m9-payment-surface`, merges only at the bundle. **Fork side
+   BUILT 2026-08-19 (`e857277117`): enumerator + directed executor +
+   controller hook + `mtg.pay_mana_class` bridging (observation rides
+   `selectOne` unchanged) + census telemetry-only mode
+   (`-paytelemetry`, generator `REC_OVERRIDES` hook, regen verified
+   surgical); payment suite 13/13. Flag rule AMENDED at the wiring
+   session — the wiring test caught the draft `≥2` rule failing the
+   motivating I+I+Signet board (exactly ONE class: the chain is the
+   only payment): consequential now also fires on the FORCED window
+   (`|classes| ≥ 1 ∧ ¬auto-payable`; widens-only, trap-safe; `forced`
+   telemetry marker; day-zero bit-identity preserved). Remaining:
+   Python-side obs reader for the new window + the census
+   consequential-rate read (needs a branch jar + pool decks).**
    - **Consequential-payment flag:** engine-side detection that a
      payment window has ≥2 payment classes with different residuals
      (colors held, snow, ability-relevant permanents, chained

@@ -97,12 +97,27 @@ rule):**
 
 ## 4. The consequential flag
 
-`consequential(window) := in-scope ∧ |classes| ≥ 2`. Nothing else —
-residual/yield distinctions are already inside the class definition, so
-the flag falls out of enumeration for free. Non-consequential windows
-never bridge; the flag ships with its own census telemetry (§8) and the
-consequential-window rate is **read from a census run before any model
-side trains** (m9-plan rung-2 text).
+`consequential(window) := in-scope ∧ (|classes| ≥ 2 ∨ (|classes| ≥ 1 ∧
+¬auto-payable))`.
+
+**AMENDED at the wiring session (2026-08-19; the wiring test caught the
+draft rule failing its own motivating example):** the I+I+Signet board
+has exactly ONE class — the chain is the *only* payment — so the draft
+`|classes| ≥ 2` rule never bridged exactly the forced-chain windows the
+surface was built for. The second disjunct (the **forced window**: at
+least one class exists and `ComputerUtilMana` cannot construct any
+payment) closes it. The auto-payability probe is auto-payer-derived but
+only ever WIDENS the surface — never filters classes — so the
+interface-trap direction is safe. Day-zero bit-identity holds: the
+bridged forced window offers `{auto, class}`, and the auto-biased init
+answers `auto`, failing exactly as today. Forced windows carry a
+`forced` telemetry marker.
+
+Otherwise the flag falls out of enumeration for free —
+residual/yield distinctions are already inside the class definition.
+Non-consequential windows never bridge; the flag ships with its own
+census telemetry (§8) and the consequential-window rate is **read from
+a census run before any model side trains** (m9-plan rung-2 text).
 
 ## 5. Wire
 

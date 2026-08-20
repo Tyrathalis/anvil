@@ -42,6 +42,13 @@ DEC_OVERRIDES = {
     "chooseSpellAbilityToPlay": "Obs.decPriority(getGame(), getPlayer())",
 }
 
+# M9 D3: methods whose CENSUS record routes through a hand-owned helper (the
+# generated file stays logic-free). payManaCost carries the payment-surface
+# flag telemetry when -paytelemetry is on (m9-payment-surface-spec.md §8).
+REC_OVERRIDES = {
+    "payManaCost": "PaymentTelemetry.rec(getGame(), getPlayer(), toPay, sa, prompt, effect)",
+}
+
 
 def split_params(paramstr: str) -> list[tuple[str, str]]:
     """Split a parameter list at depth-0 commas; return (type, name) pairs."""
@@ -125,6 +132,7 @@ def main() -> None:
         # the answer joined at exit for non-void ones. Game passed to both so
         # stale threads (post hard-cap) can't write into the next game's frame.
         dec_call = DEC_OVERRIDES.get(name, f'Obs.dec(getGame(), getPlayer(), "{name}"{kv_str})')
+        rec_call = REC_OVERRIDES.get(name, f'Census.rec(getGame(), getPlayer(), "{name}"{kv_str})')
         if ret == "void":
             tail = f"        {dec_call};\n        super.{name}({call_args});\n"
         else:
@@ -137,7 +145,7 @@ def main() -> None:
         body.append(
             f"    @Override\n"
             f"    {decl} {{\n"
-            f'        Census.rec(getGame(), getPlayer(), "{name}"{kv_str});\n'
+            f"        {rec_call};\n"
             f"{tail}"
             f"    }}\n"
         )
