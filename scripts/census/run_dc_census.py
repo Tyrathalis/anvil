@@ -72,6 +72,14 @@ def main() -> None:
         "trajectory-perturbing like -obs — a telemetry census, not a comparable-traffic one",
     )
     p.add_argument(
+        "--pair",
+        action="append",
+        default=[],
+        help="explicit 'deck1.dck,deck2.dck' pair (repeatable); overrides the "
+        "pool schedule — hand-built drill-deck runs (m9-rung3-draft "
+        "hand-built section). Pairs cycle to satisfy --pairs.",
+    )
+    p.add_argument(
         "--out",
         type=Path,
         default=REPO / f"data/census/run-{_dt.date.today().strftime('%Y%m%d')}-dcpool",
@@ -83,7 +91,11 @@ def main() -> None:
     jar = sorted((FORGE_DIR / "forge-gui-desktop/target").glob("*-jar-with-dependencies.jar"))[-1]
     a.out.mkdir(parents=True, exist_ok=True)
 
-    pairs = pair_schedule([d["file"] for d in manifest["decks"]], a.pairs, a.seed_base)
+    if a.pair:
+        base = [tuple(x.split(",")) for x in a.pair]
+        pairs = [base[i % len(base)] for i in range(a.pairs)]
+    else:
+        pairs = pair_schedule([d["file"] for d in manifest["decks"]], a.pairs, a.seed_base)
     run_meta = {
         "pool_version": manifest["pool_version"],
         "fork_commit": subprocess.run(

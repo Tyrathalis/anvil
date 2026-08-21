@@ -151,6 +151,34 @@ predicate. Decisions:
    signet×signet) measure family window rates before the certify
    batch is planned.
 
+**Probe results + the forced-family pin (2026-08-21, user-decided):**
+- **Phyrexian: WORKS.** hb-phy self-pair = 1.00 consequential
+  phyrexian windows/game (~50× the DC census 0.02/g; Skrelv/Pod/Gut
+  Shot/Spellskite all firing). One deck fix en route: the alphabetical
+  instant fill picked a PumpAll-class card that hit the AI's
+  per-creature attack-simulation timeout — instants re-curated to
+  single-target AI-simple picks (hb-phy v2). Generation run
+  `run-20260821-handbuilt` (150 games, pair-*.jsonl + lane provenance
+  via `run_dc_census.py --pair`, new flag): **113 phyrexian
+  candidates mined → certify4 batch, all 113 jobs.**
+- **Forced/Signet: the mining premise is FALSIFIED — structurally,
+  not by luck.** 0 forced windows in 30 games on a signet-stuffed
+  28-land deck: the forced flag fires only when a cast is ATTEMPTED,
+  and the heuristic's cast decision consults the same auto-payer that
+  cannot see the chain (the ADR-0065 blind spot upstream of the
+  window). Heuristic play cannot reach forced windows with ANY deck;
+  paygoals3's forced 0.0000 was the same fact. **Pin (user): the
+  forced family DEFERS BY NAME to the D4 midpoint re-mine** — the
+  model's own play (legality-derived CastPlan executor + exploration)
+  walks into forced boards naturally; mine its stores, certify through
+  the standing harness. The pre-run evalset ships without forced;
+  ADR-0065's `DirectedPaymentAuditTest` (4/4) stays the engine-side
+  proof; `pay_deviation` telemetry on forced windows is the live D4
+  readout. The cast-directive alternative (directed attempts on
+  board-structure-mined states) was declined as pre-D4 fork scope;
+  revisit only if the D4 re-mine comes up empty. hb-signet.dck stays
+  banked (a candidate D4-era drill deck under model play).
+
 ## 1. What rung 3 owes (from the plan)
 
 Two artifacts, both built BEFORE any run: the **payment drill evalset**
