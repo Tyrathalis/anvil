@@ -190,6 +190,27 @@ deferred to the D4 re-mine (above), and the §12a pool-tie board is
 re-typed an enumerator residual (a lex-hidden plan has no arm to
 certify — fork-test genre, routed to the D4 gate session), not a drill.
 
+**D4 accuracy scorer BUILT (2026-08-21, same session):** fork certify
+**OBSERVE mode** (`116476eebb`: `"mode":"observe"` jobs + `-obsout` —
+replay to the window with census-identical construction, emit ONE
+schema-v1 obs dec record carrying the EXACT serve-time option labels
+(`PlayerControllerAnvil.paymentOptionLabels`, shared code path —
+scorer/serve parity by construction), direct nothing, stop at horizon
+0; payment suite 21/21) + `scripts/payment_drill_score.py`
+(plan/lanes/score, 3 tests): observe jobs renumbered from the evalset
+of record (obs store game idx = job id; batch job ids collide),
+score = decode lane obs frames directly → standing `pay_class`
+featurize → ckpt argmax → **per-(shape × kind) accuracy, positive and
+auto-correct never blended**; loud exclusion classes (window miss;
+`option_mismatch` = observe-time option count ≠ certify-time count,
+the cross-era enumeration-drift guard — a shifted list makes the
+banked best-arm index unaddressable). Known recorded skew: observe
+frames carry an empty history ring (census games have no prior
+bridged decisions); D4-era model play will carry real hist — the
+census-mined-drill distribution caveat, not a scorer defect. First
+read = day-zero calibration on the ckpt of record (expected: every
+pick auto ⇒ positive 0%, auto-correct 100%).
+
 ## 1. What rung 3 owes (from the plan)
 
 Two artifacts, both built BEFORE any run: the **payment drill evalset**
