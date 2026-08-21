@@ -116,6 +116,14 @@ def main() -> None:
         "seeds (requires --obs and --rollout-k)",
     )
     la.add_argument(
+        "--fork-ns",
+        type=int,
+        default=None,
+        help="store-namespace ordinal for fork-session synthetic game ids "
+        "(M9 boundary: unique per source store within a selection; the "
+        "planner assigns and the manifest records it)",
+    )
+    la.add_argument(
         "--force-branch",
         action="store_true",
         help="forced-branch paired rollouts (M7 D2): act/hold "

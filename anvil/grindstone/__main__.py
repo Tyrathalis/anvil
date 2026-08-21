@@ -60,7 +60,7 @@ def plan(a: argparse.Namespace) -> None:
         by_store[r["store"]].append(r)
 
     arms = []
-    for store, srows in sorted(by_store.items()):
+    for fork_ns, (store, srows) in enumerate(sorted(by_store.items())):
         run_dir = RUNS_DIR / store
         run_json = run_dir / "run.json"
         if not run_json.exists():
@@ -87,6 +87,10 @@ def plan(a: argparse.Namespace) -> None:
         arms.append(
             {
                 "store": store,
+                # M9 boundary: per-source-store fork-id namespace (AnvilRun
+                # -forkns) — synthetic fork ids unique ACROSS source stores
+                # in one selection (the run17 iter-2 MultiStore collision)
+                "fork_ns": fork_ns,
                 "source_run": str(run_dir),
                 "drillfile": str(drillfile),
                 "pairs_file": str(pairs),
@@ -177,6 +181,8 @@ def _launch_arms(
             cmd += ["--drill-stop"]
         if fork_obs:
             cmd += ["--fork-obs"]
+            if arm.get("fork_ns") is not None:
+                cmd += ["--fork-ns", str(arm["fork_ns"])]
         if force_seq:
             cmd += ["--force-seq", str(force_seq)]
             if seq_arms:

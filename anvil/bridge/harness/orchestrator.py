@@ -195,6 +195,10 @@ class Run:
         if m.get("fork_obs"):
             # M4 D3: completions become store frames of their own
             cmd += ["-forkobs"]
+        if m.get("fork_ns") is not None:
+            # M9 boundary: store-namespaced fork ids (run17 iter-2 cross-store
+            # collision) — the planner assigns ns per source store
+            cmd += ["-forkns", str(m["fork_ns"])]
         if m.get("force_branch"):
             # M7 D2: act/hold paired branches at drilled fork points
             cmd += ["-forcebranch"]
@@ -408,6 +412,7 @@ def launch(a) -> Path:
         "drill_source": str(a.drill_file) if getattr(a, "drill_file", None) else None,
         "drill_stop": getattr(a, "drill_stop", False),
         "fork_obs": getattr(a, "fork_obs", False),
+        "fork_ns": getattr(a, "fork_ns", None),
         "force_branch": getattr(a, "force_branch", False),
         "force_seq": getattr(a, "force_seq", None),
         "seq_arms": getattr(a, "seq_arms", None),

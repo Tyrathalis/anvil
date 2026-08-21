@@ -390,3 +390,22 @@ def test_evalset_stratifies_and_holds_out(tmp_path, src_arm):
     assert pm["ckpt"] == m["ckpt"] and pm["arms"][0]["n_drills"] == 5
     baseline = [json.loads(l) for l in (es / "baseline.jsonl").open()]
     assert {b["g"] for b in baseline} == {1, 2, 3, 5, 6}
+
+
+def test_plan_assigns_fork_namespaces(tmp_path, src_arm):
+    """M9 boundary: each source store gets a distinct fork_ns (sorted-store
+    ordinal) so fork-session synthetic ids are unique across stores in one
+    MultiStore join (the run17 iter-2 collision class)."""
+    runs = src_arm.parent
+    arm2 = runs / "srcarm-s2-20260729-000000"
+    arm2.mkdir()
+    (arm2 / "run.json").write_text(json.dumps(SRC_CFG))
+    (arm2 / "pairs.txt").write_text("dc-1 dc-2\n")
+
+    rows = [
+        {"store": src_arm.name, "g": 5, "seed": 1, "crash_from_turn": 9},
+        {"store": arm2.name, "g": 5, "seed": 2, "crash_from_turn": 7},
+    ]
+    m = _plan(_curation(tmp_path, rows), tmp_path / "plan")
+    ns_of = {a["store"]: a["fork_ns"] for a in m["arms"]}
+    assert ns_of == {src_arm.name: 0, arm2.name: 1}
