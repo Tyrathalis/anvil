@@ -211,6 +211,33 @@ census-mined-drill distribution caveat, not a scorer defect. First
 read = day-zero calibration on the ckpt of record (expected: every
 pick auto ⇒ positive 0%, auto-correct 100%).
 
+**Day-zero scorer read (2026-08-21, `run-20260821-observe`, 290/293
+scored): the "+2.0 ⇒ argmax stays auto at init" pin is APPROXIMATE on
+real windows — measured day-zero argmax deviation 8.3% on iter-019
+(24/290; d5-combat 27.6% — monotone in trunk quality).** Mechanism
+verified, not a scorer artifact: the bias IS applied (zeroing it moves
+option-0's logit by exactly 2.0); the PASS anchor's raw score is
+context-dependent and often strongly negative on payment windows
+(spot-checked −2.43 raw where entity options score ~+0.24), so
+pass+2.0 loses to the trained pointer on ~8% of drill windows. The
+original "day-zero argmax=auto" measurement used 6 synthetic windows
+grafted onto priority contexts (higher pass affinity) — optimistic.
+**Banked day-zero baselines (ckpt of record iter-019): positive
+accuracy 2/68 = 2.9% (deviation luck), auto-correct 204/222 = 91.9%;
+per-shape table in `score-dayzero-iter019.jsonl`.** Coverage: 3/293
+`option_mismatch` (all b1/b2 — cross-era enumeration drift on the
+ADR-0067 jar WITHOUT salvage: dedupe-group shifts; the guard's exact
+target class), 0 window misses. **Routed to the D4 gate session as
+pre-registered inputs:** (1) the argmax pay_deviation curve starts at
+~8% on consequential windows, NOT 0 — the deviation-rate floor gate
+("leaves auto at all") is trivially satisfied at day zero and must be
+re-posed as movement-from-baseline; (2) bias-magnitude decision
+(keep +2.0 and use these banked baselines vs raise toward argmax-clean
+day zero at exploration cost — D5 boundary bit-identity is a WIRE
+property and unaffected either way); (3) the 3 era-drifted drills stay
+excluded at score time (re-certify on the current jar only if the D4
+read needs them).
+
 ## 1. What rung 3 owes (from the plan)
 
 Two artifacts, both built BEFORE any run: the **payment drill evalset**
