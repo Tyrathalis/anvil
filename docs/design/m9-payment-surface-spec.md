@@ -262,7 +262,7 @@ assets, obs schema version bump.
 | --- | --- | --- |
 | ~~`K_MAX` classes~~ | ~~8 (+`auto`)~~ **SUPERSEDED by §12** (gate fired 0.3911, tail probe measured cap-raising out) | — |
 | plan-size cap | shards + 2 activations | truncation telemetry, same gate |
-| chained admissibility | greedy net-gain ordering | executor `directed_salvage` rate > 1% |
+| chained admissibility | ~~greedy net-gain ordering~~ **color-aware executor-order replay (ADR-0067, 2026-08-21: the count-based check admitted color-starved chains incl. self-payment — the certify2/3 Arena-of-Glory salvage family); shares `EXEC_ORDER` with the executor; backtracking budget 20k/plan, exhaust ⇒ admit** | executor `directed_salvage` rate > 1% |
 | in-scope traffic budget | ~61/g ceiling, flag-sparse below it | census telemetry read pre-training |
 | enumeration primitives | engine arithmetic only; `getAIPlayableMana` BANNED | never (the trap rule) |
 | `GOAL_MAX` option-list cap (§12) | 16 incl. `auto` (defensive) | goal truncation > 0.5% of consequential windows |
