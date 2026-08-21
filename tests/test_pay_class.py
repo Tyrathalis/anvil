@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-STORE = Path("data/trajectories/d3pilot-20260704-175219")
+STORE = Path("data/trajectories/pilotv2-20260821-155339")  # bundle-jar fixture (M9 boundary)
 EMBED = Path("data/embeddings/cf2ca6ba-qwen3.safetensors")
 CKPT = Path("data/training/d5-combat/last.pt")
 

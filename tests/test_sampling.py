@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-STORE = Path("data/trajectories/d3pilot-20260704-175219")
+STORE = Path("data/trajectories/pilotv2-20260821-155339")  # bundle-jar fixture (M9 boundary)
 EMBED = Path("data/embeddings/cf2ca6ba-qwen3.safetensors")
 CKPT = Path("data/training/d5-combat/last.pt")
 
@@ -239,7 +239,9 @@ def test_mu_roundtrip_temperature(net_and_feat):
 def test_mu_roundtrip_combat(net_and_feat):
     net, feat = net_and_feat
     checked_a = checked_b = 0
-    wins = _windows({"declareAttackers", "declareBlockers"}, n=40, games=120)
+    wins = _windows({"declareBlockers"}, n=10, games=120) + _windows(
+        {"declareAttackers", "declareBlockers"}, n=40, games=120
+    )  # blocks are ~9:1 outnumbered in the pilotv2 fixture — scan them directly
     for dec, header, prior in wins:
         task = "attack" if dec["m"] == "declareAttackers" else "block"
         ex_probe, _ = feat.example(_wire(dec, prior), header, task)
