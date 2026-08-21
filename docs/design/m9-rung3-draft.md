@@ -328,6 +328,12 @@ addition]**.
 
 ## 4. D4 gate slots this draft feeds (pin at the D4 session, values open)
 
+**PINNED 2026-08-21 at the D4 gate session — values live in
+[m9-plan](m9-plan.md) D4** (FUND = positive ≥7/68 with auto-correct
+≥85% same-iteration; CLEAN NEGATIVE = argmax deviation <2% + positive
+≤4/68; deviation floor demoted to diagnostic; bias stays +2.0). The
+slots below are retained for the decision trail.
+
 - deviation-rate floor **[PIN]** — "the head leaves auto at all" (the
   cheap signal; ~zero deviation + flat drills = clean negative).
 - drill-accuracy movement **[PIN]** — primary funding readout, on the

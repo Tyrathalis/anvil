@@ -413,13 +413,80 @@ baseline) with pre-registered signals, cheapest first:
 3. **Payment drill accuracy** on the D3 evalset — the primary funding
    readout.
 
-**Pre-registered gate (PIN AT DESIGN — D4 session, before launch):**
-drill-accuracy movement **[PIN]** and/or deviation-rate floor
-**[PIN]** ⇒ the full run is funded (D5). Flat drills + ~zero deviation
-⇒ a clean negative on the formulation for a fraction of a run's cost;
-the closeout records it and the checkpoint session routes (candidates:
-formulation variant, or straight to the §3a second act with the
-payment surface held as infrastructure).
+**Pre-registered gate (PINNED 2026-08-21, D4 gate session —
+supersedes the [PIN] slots):** the day-zero scorer read measured
+argmax deviation 8.3% at init (the "+2.0 ⇒ argmax=auto" pin is
+approximate on real windows — rung-3 draft), so the original
+"leaves auto at all" deviation floor is trivially satisfied and
+CANNOT fund. It is **demoted to diagnostic** and the gate re-posed
+as movement-from-baseline:
+
+- **FUND (⇒ D5): positive-drill argmax accuracy ≥ 7/68 (~10.3%)** at
+  any accepted iteration — ≥5 net newly-correct drills over the
+  day-zero 2/68, ~2.5× the binomial SE (~2pp) — **with auto-correct
+  ≥ 85% (≥189/222) at that same iteration.** Rationale for the
+  asymmetry: positive drills are the only population that can show
+  capability the auto-payer structurally lacks (the funding
+  question); auto-correct starts near-saturated (91.9%) from the
+  +2.0 init and can only show the deviates-wrongly failure mode — a
+  guardrail, never a target, never blended.
+- **CLEAN NEGATIVE:** argmax deviation on consequential windows
+  **< 2%** (collapse-to-always-auto, the named failure mode) with
+  positive accuracy never leaving noise (**≤ 4/68**) across the
+  probe — the formulation negative at a fraction of a run's cost;
+  the closeout records it and the checkpoint session routes
+  (candidates: formulation variant — Option B dedicated-embedding
+  head is the recorded fallback — or straight to the §3a second act
+  with the payment surface held as infrastructure).
+- **Between the lines = discuss-zone:** recorded, the read session
+  adjudicates; nothing auto-promotes.
+- **Baselines:** drill-window numbers = the banked day-zero scores
+  (`run-20260821-observe/score-dayzero-iter019.jsonl`: positive
+  2.9%, auto-correct 91.9%, argmax deviation 8.3%); live-window
+  `pay_deviation` telemetry baselines at the run's own iter-0 (no
+  pre-run number exists for it; argmax and sampled read separately
+  per the ADR-0063 lesson). Per-iteration drill curves are
+  near-free — the observe frames are ckpt-independent, so every
+  accepted iteration gets scored.
+
+**Gate-session decisions (2026-08-21), recorded with the pins:**
+
+1. **Auto-bias stays +2.0.** The 8.3% day-zero deviation is a
+   readout-framing problem fully absorbed by movement-from-baseline;
+   the PASS anchor's raw score is context-dependent (−2.43
+   spot-checked) so no scalar guarantees argmax-clean anyway; and
+   raising it starves the ~10–12% sampled exploration D4's sparse
+   deviation reward depends on (+3.0 already rejected on those
+   grounds at rung 3). D5 boundary bit-identity is a wire property,
+   unaffected either way.
+2. **paygoals4 NOT run — the bound accepted.** paygoals3's 15.28/g
+   stands as an upper bound (the ADR-0067 fix only removes plans;
+   salvage was 0.22% of directed rows); its only operational role
+   (bridge-tax budget, ~1.6%) has slack, and the post-boundary
+   re-baseline census supersedes the number anyway. The D4 midpoint
+   re-mine works from D4's own stores.
+3. **Pool-tie residual (§12a lex-hidden `min_life` plan) deferred BY
+   NAME = payment-completion queue item 5** (below). No enumerator
+   change pre-D5: any enumeration change de-syncs the certification
+   jar from the training jar (`option_mismatch` drift is exactly the
+   guard's target class; the phy shape's floor margin is 3).
+4. **Post-boundary evalset revalidation pass joins the boundary
+   obligations** (done-when 3): re-run the observe lanes on the
+   bundle jar (~35 min), count `option_mismatch` drift exclusions,
+   re-check shape floors, re-bank the day-zero scores on the
+   post-boundary init. The 3 already-drifted b1/b2 drills stay
+   score-excluded (re-certify only if the D4 read needs them).
+5. **Forced family = D4 midpoint re-mine (user pin restated from
+   2026-08-21):** the pre-run evalset ships without forced (mining
+   under heuristic play is structurally impossible — the ADR-0065
+   blind spot sits upstream of the window); `pay_deviation` on
+   forced windows is the live readout; at the run midpoint, mine the
+   run's own stores — with an hb-signet self-pair generation run
+   under the D4 checkpoint as the accelerant if natural traffic is
+   thin — and certify through the standing harness. Resulting drills
+   form a **D4-era addendum set scored separately, never
+   retroactively part of the 7/68 gate.** An empty re-mine even with
+   hb-signet ⇒ revisit the declined cast-directive alternative.
 
 ## D5 — the full run + the standing gate
 
@@ -496,6 +563,15 @@ In priority order:
    logic) would return most of that surface to the model. Cheapest
    item after #2; pairs naturally with the cousins work since both
    touch `CostAdjustment`.
+5. **Pool-tie enumerator residual — the lex-hidden `min_life` plan**
+   *(added 2026-08-21 at the D4 gate session; re-typed from drill
+   candidate at the certify4 read)*: on pool-tie boards the
+   life-payment plan hides behind the spread-then-lex tie-break, so
+   the option never surfaces and has no arm to certify — a narrow
+   perceptual hole, fork-test genre. Fix + regression test land on
+   the next payment-family touch (pairs with items 2/4), **never
+   mid-era** — enumeration changes de-sync the certification jar
+   from the training jar (the gate-session decision 3 rationale).
 
 Ledger cross-reference: items 1a and 4 in the anvil-design-v2 §3d′
 coverage ledger point here; this queue is the scheduling view, the
@@ -543,8 +619,11 @@ ledger is the capability view.
 2. D2a/D2b probe readings recorded (ADR), premises reconciled forward.
 3. The boundary event lands as ONE bundle (rebase + §3c surface +
    store-namespace fix + multi-format + forensics; 2-arm trim landed
-   or explicitly retired), with forkcheck certification and the
-   re-baseline read.
+   or explicitly retired), with forkcheck certification, the
+   re-baseline read, and the payment-evalset revalidation pass
+   (observe lanes re-run on the bundle jar; drift exclusions counted;
+   shape floors re-checked; day-zero scores re-banked — D4 gate
+   session decision 4).
 4. D4 probe resolved against its pre-registered gate, either
    direction, with an ADR.
 5. One full training run (D5 payment, or D6 plan-latent on the
