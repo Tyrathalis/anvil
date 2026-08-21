@@ -272,7 +272,7 @@ def test_undecodable_frame_quarantined(tmp_path):
         for r in [
             {
                 "k": "game",
-                "sv": 1,
+                "sv": 2,
                 "g": 0,
                 "seed": 1,
                 "fmt": "Commander",

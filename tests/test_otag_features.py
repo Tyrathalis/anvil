@@ -11,7 +11,7 @@ GROUPS_OF = {
     "Basalt Monolith": frozenset({"ramp", "combo"}),
 }
 
-HEADER = {"sv": 1, "players": [{"name": "A", "cmd": []}, {"name": "B", "cmd": []}]}
+HEADER = {"sv": 2, "players": [{"name": "A", "cmd": []}, {"name": "B", "cmd": []}]}
 
 
 def _dec(ents):

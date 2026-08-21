@@ -26,9 +26,9 @@ def _wire_hist(prior, now_pos, k=8):
 
 
 def _priority_windows(n=40):
-    from anvil.store.trajectories import open_store
+    from tests.conftest import era_store
 
-    store = open_store(str(STORE))
+    store = era_store(STORE)
     got = []
     for g in store.game_indices()[:30]:
         traj = store.game(g)
@@ -128,9 +128,9 @@ def test_featurizer_matches_loader_and_act_matches_forward():
 
 
 def _combat_windows(n=40):
-    from anvil.store.trajectories import open_store
+    from tests.conftest import era_store
 
-    store = open_store(str(STORE))
+    store = era_store(STORE)
     got = []
     for g in store.game_indices()[:60]:
         traj = store.game(g)
@@ -232,8 +232,9 @@ def test_combat_featurizer_matches_loader():
 
 def test_load_compat_zero_pads_cmd_tax_column():
     """M3 D1 ckpt boundary: pre-D1 checkpoints (17 entity features) load with
-    a ZERO last ent_proj column — zero weight = the new cmd_tax input cannot
-    influence outputs, so old checkpoints serve byte-identically."""
+    ZERO-padded new ent_proj columns — zero weight = inputs appended after
+    the save (cmd_tax at M3 D1, the 7 cho_* columns at the M9 boundary)
+    cannot influence outputs, so old checkpoints serve byte-identically."""
     if not CKPT.exists():
         pytest.skip("no local checkpoint")
     import torch
@@ -253,5 +254,5 @@ def test_load_compat_zero_pads_cmd_tax_column():
     net.load_compat(ckpt["model"])
     w = net.assemble.ent_proj.weight
     saved_cols = ckpt["model"]["assemble.ent_proj.weight"].shape[1]
-    assert w.shape[1] - saved_cols == len(ENTITY_FEATURES) - 17 == 1
+    assert w.shape[1] - saved_cols == len(ENTITY_FEATURES) - 17 == 8
     assert (w[:, saved_cols:] == 0).all()

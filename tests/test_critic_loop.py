@@ -31,12 +31,13 @@ def _arrays_equal(a, b) -> bool:
 
 @pytest.fixture(scope="module")
 def feat_and_game():
+    from tests.conftest import era_store
+
     from anvil.bridge.featurize import Featurizer
-    from anvil.store.trajectories import open_store
     from anvil.training.dataset import default_methods
     from anvil.training.rl import game_trajectories
 
-    store = open_store(str(STORE))
+    store = era_store(STORE)
     stem = str(EMBED).removesuffix(".safetensors")
     feat = Featurizer(stem, default_methods())
     for g in store.game_indices():

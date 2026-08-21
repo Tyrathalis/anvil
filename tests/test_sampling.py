@@ -19,9 +19,9 @@ pytestmark = pytest.mark.skipif(
 
 
 def _windows(methods_filter, n=25, games=60):
-    from anvil.store.trajectories import open_store
+    from tests.conftest import era_store
 
-    store = open_store(str(STORE))
+    store = era_store(STORE)
     got = []
     for g in store.game_indices()[:games]:
         traj = store.game(g)

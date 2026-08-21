@@ -26,7 +26,7 @@ STATICS = {
     "Grizzly Bears": CardStatic(cmc=2.0, is_land=False, has_x=False),
 }
 
-HEADER = {"sv": 1, "players": [{"name": "A", "cmd": ["Cmdr A"]}, {"name": "B", "cmd": ["Cmdr B"]}]}
+HEADER = {"sv": 2, "players": [{"name": "A", "cmd": ["Cmdr A"]}, {"name": "B", "cmd": ["Cmdr B"]}]}
 
 
 def _dec(ents, players=None, s=1):
@@ -214,7 +214,7 @@ def test_eliminated_opponent_excluded():
         {"life": 7, "hand": 4, "lib": 60, "cmdcast": [0]},
         {"life": 0, "hand": 0, "lib": 0, "lost": 1, "cmdcast": [3]},
     ]
-    header = {"sv": 1, "players": HEADER["players"] + [{"name": "C", "cmd": ["Cmdr B"]}]}
+    header = {"sv": 2, "players": HEADER["players"] + [{"name": "C", "cmd": ["Cmdr B"]}]}
     v = derived_features(_dec(ENTS, players=players), header, 0, STATICS)
     assert _feat(v, "race_life_diff") == 3.0  # vs the living opponent
     assert _feat(v, "cmd_tax_opp") == 0.0  # lost seat's casts ignored

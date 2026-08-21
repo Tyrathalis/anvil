@@ -56,6 +56,18 @@ ENTITY_FEATURES = [
     "count",
     "hidden",
     "cmd_tax",
+    # v2 choice-state (boundary bundle 2026-08-21): the numeric-expressible
+    # slice of the "cho" kv — appended, so pre-boundary checkpoints load
+    # through load_compat's ent_proj zero-pad byte-identically. Types/named
+    # cards stay text-only (in "cho", dedup-visible, not featurized —
+    # recorded residual in the boundary ADR).
+    "cho_col_w",
+    "cho_col_u",
+    "cho_col_b",
+    "cho_col_r",
+    "cho_col_g",
+    "cho_num",
+    "has_cho",
 ]
 GLOBAL_FEATURES = [
     "turn",
@@ -80,8 +92,10 @@ PLAYER_SCALE = np.array([1 / 40, 1 / 8, 1 / 100, 1 / 4, 1 / 10, 1], dtype=np.flo
 # v3: zone stays an index (a vocab question, not a scale one) but /8 for
 # conditioning; damage/P/T ~0-13; count is the dedup multiset size
 # v4: cmd_tax is generic mana (2 per prior cast, typically 0-8)
+# v2-schema tail: cho color bits binary; cho_num typically 0-10; has_cho binary
 ENTITY_SCALE = np.array(
-    [1 / 8, 1, 1, 1, 1, 1, 1, 1 / 10, 1 / 10, 1 / 10, 1, 1, 1, 1, 1, 1 / 5, 1, 1 / 10],
+    [1 / 8, 1, 1, 1, 1, 1, 1, 1 / 10, 1 / 10, 1 / 10, 1, 1, 1, 1, 1, 1 / 5, 1, 1 / 10]
+    + [1, 1, 1, 1, 1, 1 / 10, 1],
     dtype=np.float32,
 )
 
@@ -265,6 +279,17 @@ def assemble(
                 if ent["z"] == "command" and not ent.get("tok")
                 else 0.0
             ),
+        ]
+        cho = ent.get("cho") or {}
+        cho_cols = {c.lower() for c in (cho.get("col") or [])}
+        feats += [
+            1.0 if "white" in cho_cols else 0.0,
+            1.0 if "blue" in cho_cols else 0.0,
+            1.0 if "black" in cho_cols else 0.0,
+            1.0 if "red" in cho_cols else 0.0,
+            1.0 if "green" in cho_cols else 0.0,
+            float(cho.get("num", 0)),
+            1.0 if cho else 0.0,
         ]
         groups[key] = [name, feats, 1]
 

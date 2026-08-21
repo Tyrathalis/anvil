@@ -28,7 +28,10 @@ import zstandard
 
 _SEAT = re.compile(r"\((\d+)\)")  # "Anvil(2)-dc-864160" / "Heur(1)-..." -> seat
 
-OBS_SCHEMA_VERSION = 1
+# v2 at the M9 boundary bundle (2026-08-21): entity choice-state kv ("cho")
+# + the payment-window kv blessed. The strict equality check below IS the
+# era gate — sv=1 stores are pre-boundary and never mix with v2 ingest.
+OBS_SCHEMA_VERSION = 2
 TRAJECTORIES_DIR = Path(__file__).parents[2] / "data/trajectories"
 
 

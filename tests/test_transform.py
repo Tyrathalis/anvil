@@ -16,7 +16,7 @@ from anvil.encoder.transform import ENTITY_FEATURES, ENTITY_SCALE, VocabError, a
 def _header():
     return {
         "k": "game",
-        "sv": 1,
+        "sv": 2,
         "g": 0,
         "seed": 1,
         "fmt": "Commander",
@@ -201,3 +201,34 @@ def test_cmd_tax_mirror_and_missing_fields():
     # no cmd/cmdcast anywhere: column is all zeros, assemble doesn't raise
     out2 = assemble(_dec(ents), _header())
     assert (out2["entities"][:, col] == 0.0).all()
+
+
+def test_choice_state_featurized_and_dedup_split():
+    """Obs v2 "cho" kv (M9 boundary): the numeric slice (chosen colors, chosen
+    number, presence) lands in the appended entity feature columns, and two
+    otherwise-identical permanents with different choices dedup separately."""
+    ents = [
+        {"e": 1, "n": "Utopia Sprawl", "z": "battlefield", "c": 0,
+         "cho": {"col": ["green"], "num": 3}},
+        {"e": 2, "n": "Utopia Sprawl", "z": "battlefield", "c": 0,
+         "cho": {"col": ["white"]}},
+        {"e": 3, "n": "Utopia Sprawl", "z": "battlefield", "c": 0},
+    ]
+    out = assemble(_dec(ents), _header())
+    assert len(out["entity_names"]) == 3  # cho differences split the multiset
+    col_g = ENTITY_FEATURES.index("cho_col_g")
+    col_w = ENTITY_FEATURES.index("cho_col_w")
+    num = ENTITY_FEATURES.index("cho_num")
+    has = ENTITY_FEATURES.index("has_cho")
+    rows = {tuple(round(float(x), 6) for x in r) for r in out["entities"]}
+    by_flags = {}
+    for r in out["entities"]:
+        by_flags[(float(r[col_g]), float(r[col_w]))] = r
+    green = by_flags[(1.0, 0.0)]
+    white = by_flags[(0.0, 1.0)]
+    none = by_flags[(0.0, 0.0)]
+    assert float(green[num]) == pytest.approx(3 * ENTITY_SCALE[num])
+    assert float(green[has]) == 1.0
+    assert float(white[has]) == 1.0
+    assert float(none[has]) == 0.0 and float(none[num]) == 0.0
+    assert len(rows) == 3
