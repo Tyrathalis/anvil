@@ -317,7 +317,15 @@ def evalset(args) -> None:
     meta.json, not silently dropped or silently kept."""
     from datetime import date
 
-    batches, positives, autocorrects, held = [], [], [], []
+    # --retire BATCH:JOB=REASON — a drill removed by name after external
+    # re-adjudication (e.g. a held row whose re-run verdict changed).
+    # Recorded in meta.json, never silently dropped.
+    retire: dict[str, str] = {}
+    for spec in getattr(args, "retire", None) or []:
+        key, reason = spec.split("=", 1)
+        retire[key] = reason
+
+    batches, positives, autocorrects, held, retired = [], [], [], [], []
     seen: dict[tuple, str] = {}  # window key -> batch, dup = loud failure
     for spec in args.batch:
         name, files = spec.split("=", 1)
@@ -341,7 +349,9 @@ def evalset(args) -> None:
                     raise SystemExit(
                         f"duplicate window across batches ({seen[key]} vs {name}): {key}")
                 seen[key] = name
-                if row["job"] in suspect:
+                if f"{name}:{row['job']}" in retire:
+                    retired.append({**row, "retired_why": retire[f"{name}:{row['job']}"]})
+                elif row["job"] in suspect:
                     held.append({**row, "held_why": sorted(suspect[row["job"]])})
                     n_held += 1
                 else:
@@ -378,6 +388,8 @@ def evalset(args) -> None:
         "floor": {"per_shape": args.floor, "met": floors},
         "held": [{k: h[k] for k in ("batch", "job", "kind", "shape", "sa", "held_why")}
                  for h in held],
+        "retired": [{k: r[k] for k in ("batch", "job", "kind", "shape", "sa", "retired_why")}
+                    for r in retired],
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
     print(f"evalset {out.name}: positive {len(positives)} {meta['counts']['positive']}")
@@ -385,6 +397,9 @@ def evalset(args) -> None:
     for h in held:
         print(f"  HELD {h['batch']} job {h['job']} ({h['kind']}, {h['shape']}): "
               f"{'; '.join(h['held_why'])}")
+    for r in retired:
+        print(f"  RETIRED {r['batch']} job {r['job']} ({r['kind']}, {r['shape']}): "
+              f"{r['retired_why']}")
     for s, ok in floors.items():
         print(f"  floor {s:<18} {'ok' if ok else 'MISS (top-up night, not a redesign)'}")
 
@@ -414,6 +429,9 @@ def main() -> None:
     e.add_argument("--out", required=True, help="evalset-of-record directory")
     e.add_argument("--floor", type=int, default=10,
                    help="per-shape positive floor (evalset-assembly pin 3)")
+    e.add_argument("--retire", action="append", default=[],
+                   help="BATCH:JOB=REASON — drop a drill by name after external "
+                        "re-adjudication; recorded in meta.json (repeatable)")
     e.set_defaults(fn=evalset)
     n = sub.add_parser("lanes")
     n.add_argument("--jobs", required=True)

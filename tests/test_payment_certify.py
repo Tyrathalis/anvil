@@ -212,6 +212,30 @@ def test_evalset_merges_and_holds_salvage_suspect_jobs(tmp_path):
     assert meta["held"][0]["job"] == 9 and meta["held"][0]["batch"] == "b2"
 
 
+def test_evalset_retires_by_name_with_reason(tmp_path):
+    """--retire BATCH:JOB=REASON drops the drill (even a salvage-suspect one)
+    and records it in meta.json — the re-adjudication path, never silent."""
+    certout = tmp_path / "b1.out.jsonl"
+    rows = [_row(0, 0, 0), _row(0, 1, 0, exec_="directed_ok"),
+            _row(3, 0, 0), _row(3, 1, 0, exec_="directed_salvage")]
+    certout.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    cf = tmp_path / "b1.certified.jsonl"
+    cf.write_text(json.dumps(_drill(0, "/r/pair-000.jsonl", sa="A")) + "\n")
+    af = tmp_path / "b1.ac.jsonl"
+    af.write_text(json.dumps(_drill(3, "/r/pair-001.jsonl",
+                                    kind="auto_correct", sa="B")) + "\n")
+    out = tmp_path / "es"
+    pc.evalset(SimpleNamespace(batch=[f"b1={certout},{cf},{af}"], out=str(out),
+                               floor=1, retire=["b1:3=re-adjudicated: failed_predicate"]))
+    assert open(out / "held-drills.jsonl").read() == ""  # retired, not held
+    assert open(out / "autocorrect-drills.jsonl").read() == ""
+    meta = json.loads((out / "meta.json").read_text())
+    assert meta["retired"] == [{"batch": "b1", "job": 3, "kind": "auto_correct",
+                               "shape": "blocker_pressure", "sa": "B",
+                               "retired_why": "re-adjudicated: failed_predicate"}]
+    assert [p["job"] for p in map(json.loads, open(out / "positive-drills.jsonl"))] == [0]
+
+
 def test_evalset_fails_loud_on_duplicate_windows(tmp_path):
     """The same window arriving from two batches is a planning-exclusion
     breach — the merge refuses rather than double-counting a drill."""
