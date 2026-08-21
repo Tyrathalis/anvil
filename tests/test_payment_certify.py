@@ -161,6 +161,76 @@ def test_plan_exclude_and_counts(tmp_path):
     assert shapes == {"blocker_pressure"}  # forced quota zeroed
 
 
+def _drill(job, source, kind="positive", shape="blocker_pressure", sa="Spell", t=9):
+    d = {"job": job, "source": source, "g": 0, "seed": 1000, "p": "Census(1)-dc-1",
+         "t": t, "sa": sa, "tags": [shape], "shape": shape, "kind": kind,
+         "best": 0 if kind == "auto_correct" else 1, "margin": 5.0, "k": 8}
+    if kind == "auto_correct":
+        d["worst"] = 2
+        d["margin"] = -5.0
+    return d
+
+
+def test_evalset_merges_and_holds_salvage_suspect_jobs(tmp_path):
+    """A drill whose job carried ANY fired non-directed_ok arm lands in
+    held-drills.jsonl with the exec_why (its verdict rests on an unverified
+    arm) — clean drills merge with batch provenance; meta counts both."""
+    def _mk_batch(name, drills, ac, salvage_job=None):
+        certout = tmp_path / f"{name}.out.jsonl"
+        rows = []
+        for d in drills + ac:
+            rows.append(_row(d["job"], 0, 0))
+            rows.append(_row(d["job"], 1, 0, exec_="directed_ok"))
+            if d["job"] == salvage_job:
+                r = _row(d["job"], 2, 0, exec_="directed_salvage")
+                r["exec_why"] = "costs:Arena of Glory#4@5"
+                rows.append(r)
+        certout.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+        cf = tmp_path / f"{name}.certified.jsonl"
+        cf.write_text("".join(json.dumps(d) + "\n" for d in drills))
+        af = tmp_path / f"{name}.ac.jsonl"
+        af.write_text("".join(json.dumps(d) + "\n" for d in ac))
+        return f"{name}={certout},{cf},{af}"
+
+    b1 = _mk_batch("b1", [_drill(0, "/r/pair-000.jsonl", sa="A")], [])
+    b2 = _mk_batch("b2", [_drill(7, "/r/pair-001.jsonl", sa="B")],
+                   [_drill(9, "/r/pair-002.jsonl", kind="auto_correct", sa="C")],
+                   salvage_job=9)
+    out = tmp_path / "evalset-v1"
+    pc.evalset(SimpleNamespace(batch=[b1, b2], out=str(out), floor=2))
+
+    pos = [json.loads(x) for x in open(out / "positive-drills.jsonl")]
+    assert [(p["batch"], p["job"]) for p in pos] == [("b1", 0), ("b2", 7)]
+    assert open(out / "autocorrect-drills.jsonl").read() == ""  # held, not merged
+    held = [json.loads(x) for x in open(out / "held-drills.jsonl")]
+    assert len(held) == 1 and held[0]["job"] == 9
+    assert held[0]["held_why"] == ["costs:Arena of Glory#4@5"]
+    meta = json.loads((out / "meta.json").read_text())
+    assert meta["counts"]["positive"] == {"blocker_pressure": 2}
+    assert meta["counts"]["held"] == {"blocker_pressure": 1}
+    assert meta["floor"]["met"] == {"blocker_pressure": True}
+    assert meta["held"][0]["job"] == 9 and meta["held"][0]["batch"] == "b2"
+
+
+def test_evalset_fails_loud_on_duplicate_windows(tmp_path):
+    """The same window arriving from two batches is a planning-exclusion
+    breach — the merge refuses rather than double-counting a drill."""
+    def _mk(name, drill):
+        certout = tmp_path / f"{name}.out.jsonl"
+        certout.write_text(json.dumps(_row(drill["job"], 0, 0)) + "\n")
+        cf = tmp_path / f"{name}.certified.jsonl"
+        cf.write_text(json.dumps(drill) + "\n")
+        af = tmp_path / f"{name}.ac.jsonl"
+        af.write_text("")
+        return f"{name}={certout},{cf},{af}"
+
+    same = _drill(0, "/r/pair-000.jsonl", sa="A")
+    b1, b2 = _mk("b1", same), _mk("b2", {**same, "job": 3})
+    import pytest
+    with pytest.raises(SystemExit, match="duplicate window"):
+        pc.evalset(SimpleNamespace(batch=[b1, b2], out=str(tmp_path / "es"), floor=2))
+
+
 def test_read_rejects_inconsistent_rolls(tmp_path):
     """A margin that flips sign across rolls fails the consistency gate —
     no certification from noise."""

@@ -304,6 +304,91 @@ def lanes(args) -> None:
     print(f"wrote {args.n} lane scripts under {outdir}")
 
 
+def evalset(args) -> None:
+    """Merge certified batches into the evalset of record (one directory:
+    positive-drills.jsonl + autocorrect-drills.jsonl + held-drills.jsonl +
+    meta.json). Each --batch is NAME=certout,certified,autocorrect.
+
+    Holds (never merges) any drill whose job carried a fired arm that did
+    NOT execute directed_ok: the drill's verdict then rests on at least one
+    unverified arm (an auto-correct's "auto is best" claim, or a positive's
+    best-arm identity). ADR-0066 standing rule: deterministic per-arm
+    salvage means suspect the enumerator — the row is routed by name in
+    meta.json, not silently dropped or silently kept."""
+    from datetime import date
+
+    batches, positives, autocorrects, held = [], [], [], []
+    seen: dict[tuple, str] = {}  # window key -> batch, dup = loud failure
+    for spec in args.batch:
+        name, files = spec.split("=", 1)
+        certout, certified_f, autocorrect_f = files.split(",")
+        # jobs whose non-auto arms ever fired without a faithful execution
+        suspect: dict[int, set] = defaultdict(set)
+        jobs_seen = set()
+        for line in open(certout):
+            r = json.loads(line)
+            if r.get("ev") != "certify":
+                continue
+            jobs_seen.add(r["job"])
+            if r["arm"] > 0 and r.get("fired") and r.get("exec") != "directed_ok":
+                suspect[r["job"]].add(r.get("exec_why") or r.get("exec", "?"))
+        n_held = 0
+        for f, sink in ((certified_f, positives), (autocorrect_f, autocorrects)):
+            for line in open(f):
+                row = {**json.loads(line), "batch": name}
+                key = _window_key(row)
+                if key in seen:
+                    raise SystemExit(
+                        f"duplicate window across batches ({seen[key]} vs {name}): {key}")
+                seen[key] = name
+                if row["job"] in suspect:
+                    held.append({**row, "held_why": sorted(suspect[row["job"]])})
+                    n_held += 1
+                else:
+                    sink.append(row)
+        batches.append({"name": name, "certout": certout, "jobs": len(jobs_seen),
+                        "held": n_held})
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    for fname, rows in (("positive-drills.jsonl", positives),
+                        ("autocorrect-drills.jsonl", autocorrects),
+                        ("held-drills.jsonl", held)):
+        with open(out / fname, "w") as f:
+            for r in rows:
+                f.write(json.dumps(r) + "\n")
+
+    def _by_shape(rows):
+        d = defaultdict(int)
+        for r in rows:
+            d[r["shape"]] += 1
+        return dict(sorted(d.items()))
+
+    floors = {s: n >= args.floor for s, n in _by_shape(positives).items()}
+    meta = {
+        "version": out.name,
+        "created": date.today().isoformat(),
+        "census": str(Path(batches[0]["certout"]).resolve().parent),
+        "thresholds": {"margin": MARGIN, "consistent": CONSISTENT,
+                       "horizon": HORIZON, "shape_k": SHAPE_K},
+        "batches": batches,
+        "counts": {"positive": _by_shape(positives),
+                   "autocorrect": _by_shape(autocorrects),
+                   "held": _by_shape(held)},
+        "floor": {"per_shape": args.floor, "met": floors},
+        "held": [{k: h[k] for k in ("batch", "job", "kind", "shape", "sa", "held_why")}
+                 for h in held],
+    }
+    (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+    print(f"evalset {out.name}: positive {len(positives)} {meta['counts']['positive']}")
+    print(f"  auto-correct {len(autocorrects)} {meta['counts']['autocorrect']}")
+    for h in held:
+        print(f"  HELD {h['batch']} job {h['job']} ({h['kind']}, {h['shape']}): "
+              f"{'; '.join(h['held_why'])}")
+    for s, ok in floors.items():
+        print(f"  floor {s:<18} {'ok' if ok else 'MISS (top-up night, not a redesign)'}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -323,6 +408,13 @@ def main() -> None:
     r.add_argument("--autocorrect-out", default=None,
                    help="auto-correct drill output (default: autocorrect-drills.jsonl beside --out)")
     r.set_defaults(fn=read)
+    e = sub.add_parser("evalset")
+    e.add_argument("--batch", action="append", required=True,
+                   help="NAME=certout.jsonl,certified.jsonl,autocorrect.jsonl (repeatable)")
+    e.add_argument("--out", required=True, help="evalset-of-record directory")
+    e.add_argument("--floor", type=int, default=10,
+                   help="per-shape positive floor (evalset-assembly pin 3)")
+    e.set_defaults(fn=evalset)
     n = sub.add_parser("lanes")
     n.add_argument("--jobs", required=True)
     n.add_argument("--jar", required=True)
