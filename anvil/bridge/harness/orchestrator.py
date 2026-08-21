@@ -34,6 +34,7 @@ import time
 from pathlib import Path
 
 from anvil.bridge.harness.seeds import game_seed
+from anvil.store.trajectories import OBS_SCHEMA_VERSION
 
 FORGE_DIR = Path(os.environ.get("FORGE_DIR", Path.home() / "Everything/Projects/forge"))
 FORGE_GUI_DIR = FORGE_DIR / "forge-gui"
@@ -57,9 +58,16 @@ def _git(repo: Path, *args: str) -> str:
 
 
 def _find_jar() -> Path:
-    jars = sorted((FORGE_DIR / "forge-gui-desktop/target").glob("*-jar-with-dependencies.jar"))
+    # newest-mtime, not alphabetical: an ADR-0059-class hazard — a stale
+    # lower-versioned jar sorts before a fresh one and silently wins
+    jars = sorted(
+        (FORGE_DIR / "forge-gui-desktop/target").glob("*-jar-with-dependencies.jar"),
+        key=lambda p: p.stat().st_mtime,
+    )
     if not jars:
         sys.exit(f"no forge jar under {FORGE_DIR}/forge-gui-desktop/target — build the fork first")
+    if len(jars) > 1:
+        print(f"WARNING: multiple candidate jars in target/ — using newest: {jars[-1]}", file=sys.stderr)
     return jars[-1]
 
 
@@ -402,7 +410,7 @@ def launch(a) -> Path:
         "tags": a.tags,
         "nice": not a.calibrated,
         "obs": a.obs,
-        "obs_schema": 1 if a.obs else None,
+        "obs_schema": OBS_SCHEMA_VERSION if a.obs else None,
         "census": getattr(a, "census", False),
         "bridge_seats": getattr(a, "bridge_seats", None),
         "reask": getattr(a, "reask", False),
