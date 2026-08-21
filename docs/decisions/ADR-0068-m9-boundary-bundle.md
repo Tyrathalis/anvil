@@ -106,14 +106,25 @@ verdict on each queued item, and the era-scoping consequences.
   never-cast/never-seen-vs-pool-census check (run-analysis-protocol
   boundary row).]
 - **Evalset revalidation pass (`run-20260821-revalidation`, observe lanes
-  on the bundle jar):** [PENDING — window-miss count, option_mismatch
-  drift count vs the 3 known b1/b2 exclusions, shape floors re-check
-  (bp 13 / ch 26 / phy 13 / wc 17 at floors 10/10/10/10), day-zero scores
-  re-banked on the post-boundary init. Prediction on record: the ent/state
-  zero-pads leave iter-019's outputs unchanged up to BLAS reduction-order
-  ulps (zero weight ⇒ the new inputs cannot contribute), so the re-banked
-  numbers should reproduce positive 2.9% / auto-correct 91.9% / deviation
-  8.3% modulo exact-tie flips; a material difference is a finding.]
+  on the bundle jar): DONE 2026-08-21.** 293 jobs → 278 scored.
+  **option_mismatch = the SAME 3 jobs as day-zero (9/119/138, b1/b2) — no
+  NEW enumeration drift: the rebase did not move payment enumeration on
+  any surviving window.** NEW exclusion class: **12 window misses (4.1%;
+  4 positive, 8 auto-correct)** — same-seed replays that no longer reach a
+  bridged consequential window on the rebased engine (the known replay-
+  drift class, dose above the ~1–2% wall-clock prior — plausibly upstream
+  game-logic changes shifting heuristic lines; miss jobs recorded in the
+  score rows, excluded not re-labeled). **Compat prediction CONFIRMED
+  EXACTLY: all 278 windows scored in both eras produce IDENTICAL argmax
+  picks (0 flips)** — the zero-pads are behavior-clean in production, not
+  just in unit tests. **Re-banked post-boundary day-zero baselines
+  (`score-dayzero-iter019-v2.jsonl`): positive 2/64 (3.1%), auto-correct
+  196/214 (91.6%), argmax deviation 24/278 (8.6%)** — the same decisions
+  as the pre-boundary bank; percentage shifts are purely denominator.
+  Shape floors on surviving positives: bp 12 / ch 25 / phy 13 / wc 14 —
+  **all ≥ 10 ✓**. Gate arithmetic carries to the surviving population:
+  FUND = ≥7/64 positive (≥5 net over day-zero 2/64) with auto-correct
+  ≥85% (≥182/214) same-iteration; the D4 read notes the denominator.
 
 ## Consequences
 
