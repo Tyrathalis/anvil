@@ -95,10 +95,12 @@ verdict on each queued item, and the era-scoping consequences.
 ## below exists yet)
 
 - **Forkcheck certification (`run-20260821-m9boundary`, 500 games, default
-  mode):** [PENDING — clean/divergence counts, statics, crashes; compare
-  against the ADR-0059 corrected pre-boundary 11.2–11.4%. The divergence
-  rows become the copy-state forensics substrate (queued item, not
-  boundary-gating).]
+  mode): DONE 2026-08-21.** **450 clean / 50 divergence = 10.0%**, statics
+  0, crashes 0 — at/slightly below the ADR-0059 corrected pre-boundary
+  characterization (11.2–11.4%): the rebase did not degrade copy-state
+  fidelity. The 50 divergence rows are the copy-state forensics substrate
+  (queued item, not boundary-gating; the FIXED_HASH same-sequence triplet
+  on this jar is its next step, daytime run).
 - **Re-baseline (`m9-rebaseline` final_read, iter-019 via load_compat on
   the bundle jar, ~2,000 paired games):** [PENDING — the corrected read
   RE-PINS THE M9 GATE NUMBER; 0.5373 ± 0.0112 is reference-only. Riders:
