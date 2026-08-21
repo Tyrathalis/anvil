@@ -63,6 +63,28 @@ def test_blocker_join_is_bounded_to_two_turns(tmp_path):
     assert cands == []  # consequential but no tag ⇒ not a candidate
 
 
+def test_phyrexian_tag_fires_on_sa_join_with_choice(tmp_path):
+    """phyrexian tags by card-name join (census rows carry no per-option
+    labels) and only when ≥2 options exist (the min_life choice surfaced)."""
+    lines = [
+        {"ev": "start", "g": 0, "seed": 1},
+        {"g": 0, "t": 5, "ph": "MAIN1", "p": "P1", "m": "payManaCost", "effect": False,
+         "sa": "Dismember", "goals": 3, "plans": 4, "conseq": True, "forced": False, "atoms": 3},
+        # phyrexian card but a single option: no choice, no tag
+        {"g": 0, "t": 8, "ph": "MAIN1", "p": "P1", "m": "payManaCost", "effect": False,
+         "sa": "Gut Shot", "goals": 1, "plans": 1, "conseq": True, "forced": False, "atoms": 1},
+        # non-phyrexian card with choices: no tag
+        {"g": 0, "t": 9, "ph": "MAIN1", "p": "P1", "m": "payManaCost", "effect": False,
+         "sa": "Bear", "goals": 3, "plans": 3, "conseq": True, "forced": False, "atoms": 3},
+    ]
+    cands = mine_file(_write(tmp_path, lines), phy_sa=("Dismember", "Gut Shot"))
+    by_sa = {c["sa"]: c for c in cands}
+    assert "phyrexian" in by_sa["Dismember"]["tags"]
+    assert "Gut Shot" not in by_sa and "Bear" not in by_sa  # no tags at all
+    # without the list, no phyrexian tag ever
+    assert not any("phyrexian" in c["tags"] for c in mine_file(_write(tmp_path, lines)))
+
+
 def test_provenance_fields_survive(tmp_path):
     lines = [
         {"ev": "start", "g": 3, "seed": 20260820},

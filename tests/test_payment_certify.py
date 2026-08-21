@@ -212,6 +212,39 @@ def test_evalset_merges_and_holds_salvage_suspect_jobs(tmp_path):
     assert meta["held"][0]["job"] == 9 and meta["held"][0]["batch"] == "b2"
 
 
+def test_read_certifies_phyrexian_life_trade(tmp_path):
+    """phyrexian shape: the mana-vs-life trade scores life + development at
+    full weight — an arm that paid mana instead of life certifies on the
+    preserved-life margin."""
+    d = tmp_path / "run"
+    d.mkdir()
+    (d / "lane-0.sh").write_text(LANE)
+    cand = {"source": str(d / "pair-000.jsonl"), "g": 0, "seed": 1000, "t": 6,
+            "ph": "MAIN1", "p": "Census(1)-dc-1", "sa": "Dismember", "goals": 3,
+            "plans": 4, "conseq": True, "forced": False, "atoms": 3,
+            "tags": ["phyrexian"], "score": 50}
+    cf = d / "cands.jsonl"
+    cf.write_text(json.dumps(cand) + "\n")
+    jobs_f = tmp_path / "jobs.jsonl"
+    pc.plan(SimpleNamespace(candidates=str(cf), out=str(jobs_f), per_shape=40))
+    (job,) = [json.loads(x) for x in open(jobs_f)]
+    assert job["shape"] == "phyrexian" and job["k"] == 8
+
+    rows = []
+    for r in range(8):
+        # arm 0 = auto paid 4 life (life 26 vs opp 30); arm 1 paid mana,
+        # life preserved (30 vs 30): margin +4 on the life axis, consistent
+        rows.append(_row(job["job"], 0, r, life=(26, 30)))
+        rows.append(_row(job["job"], 1, r, exec_="directed_ok", life=(30, 30)))
+    certout = tmp_path / "cert.jsonl"
+    certout.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    out = tmp_path / "certified.jsonl"
+    pc.read(SimpleNamespace(jobs=str(jobs_f), certout=str(certout), out=str(out)))
+    (c,) = [json.loads(x) for x in open(out)]
+    assert c["shape"] == "phyrexian" and c["best"] == 1
+    assert c["margin"] == 4.0 and c["kind"] == "positive"
+
+
 def test_evalset_retires_by_name_with_reason(tmp_path):
     """--retire BATCH:JOB=REASON drops the drill (even a salvage-suspect one)
     and records it in meta.json — the re-adjudication path, never silent."""

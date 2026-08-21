@@ -20,6 +20,11 @@ Shape tags (the m9-plan named shapes):
                      color/source commitment constrained the second).
 - wide_choice      : ≥4 outcome-distinct options (rich decision, generic
                      fallback shape for coverage).
+- phyrexian        : the window's SA is on a known phyrexian-mana card
+                     (--phy-sa list; census rows carry no per-option
+                     labels, so the join is by card name) and ≥2 options
+                     exist (the min_life choice surfaced). The mana-vs-
+                     life family (§12a min_life goal).
 
 Score = weighted tag sum; output JSONL is provenance-traced (census file,
 game index, seed, turn, phase, sa) per the standing provenance rule.
@@ -31,10 +36,11 @@ import argparse
 import json
 from collections import defaultdict
 
-WEIGHTS = {"forced_chain": 100, "blocker_pressure": 10, "color_hold": 6, "wide_choice": 3}
+WEIGHTS = {"forced_chain": 100, "phyrexian": 50, "blocker_pressure": 10,
+           "color_hold": 6, "wide_choice": 3}
 
 
-def mine_file(path):
+def mine_file(path, phy_sa=()):
     """Two passes per file: index combat/payment events per (game, player),
     then tag windows via the short-horizon joins."""
     games = defaultdict(lambda: {"seed": None, "windows": [], "blocks": [], "pays": []})
@@ -76,6 +82,8 @@ def mine_file(path):
             tags = []
             if rec["forced"]:
                 tags.append("forced_chain")
+            if rec["goals"] >= 2 and any(rec["sa"].startswith(n) for n in phy_sa):
+                tags.append("phyrexian")
             if any(rec["t"] <= bt <= rec["t"] + 2 for bt in blocks_by_p.get(rec["p"], [])):
                 tags.append("blocker_pressure")
             if pays_by_pt[(rec["p"], rec["t"])] >= 2:
@@ -97,11 +105,19 @@ def main():
     ap.add_argument("census", nargs="+")
     ap.add_argument("--out", default=None)
     ap.add_argument("--top", type=int, default=0)
+    ap.add_argument("--phy-sa", default=None,
+                    help="file of phyrexian-mana card names (one per line) "
+                         "for the phyrexian shape tag")
     args = ap.parse_args()
+
+    phy_sa = ()
+    if args.phy_sa:
+        phy_sa = tuple(x.strip() for x in open(args.phy_sa)
+                       if x.strip() and not x.startswith("#"))
 
     cands = []
     for p in args.census:
-        cands.extend(mine_file(p))
+        cands.extend(mine_file(p, phy_sa=phy_sa))
     cands.sort(key=lambda c: (-c["score"], c["source"], c["g"], c["t"]))
     if args.top:
         cands = cands[: args.top]

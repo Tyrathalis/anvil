@@ -115,6 +115,42 @@ decision trail; the list above is authoritative where they differ.
    D4 accuracy scorer over certified+autocorrect (per-kind accuracy),
    merge batches 1+2 into the evalset of record.
 
+**Hand-built drill session (2026-08-21): mechanism = DRILL DECKS, not
+constructed board states.** The design-§6.6 fallback reads
+"hand-constructed **seeds**, same ddmin certification" — so the
+hand-built unit is a deck/scenario, played in REAL census games on the
+certification jar, with windows mined and certified through the
+standing harness unchanged. Provenance-to-a-real-game holds by
+construction; zero new machinery beyond a miner tag + one reader
+predicate. Decisions:
+1. **Two pool-only decks, both led by Najeela, the Blade-Blossom**
+   (5-color identity dissolves the commander color-identity constraint
+   entirely; pool-legal). Banked in `data/pool/decks/hb-{phy,signet}.dck`
+   + installed to the Forge store (the `launch --pool` gate only
+   verifies manifest decks — verified safe).
+   - `hb-phy`: all 8 pool phyrexian-mana cards
+     (`data/pool/phyrexian-cards-cf2ca6ba.txt`, pool-era-scoped scan) +
+     12 any-color/pain lands + 25 basics + 14 cheap instants
+     (hold-mana tension) + 40 cheap creatures.
+   - `hb-signet`: 20 chain sources (Signet-class mana-cost-activated
+     rocks incl. Boros Signet/Prismatic Lens/Springleaf Drum; all
+     `AI:RemoveDeck:All` = in-deck auto-payer blanks per ADR-0065 —
+     census decks are NOT stripped, verified) + 3 chain lands (incl.
+     Arena of Glory, the ADR-0067 family) + only 28 lands total +
+     36 double-pip 3–4-cmc spells → ¬auto-payable boards.
+2. **Miner `phyrexian` tag** (`--phy-sa` card list; census rows carry
+   no per-option labels so the join is by card name; fires only with
+   ≥2 options — the min_life choice surfaced). Weight 50. Banked
+   census scan: **10 natural consequential phyrexian windows in
+   paygoals3** (Skrelv 8, Birthing Pod 2) — at measured yields ~0–2
+   drills, confirming hand-built is needed for the 10–15 floor.
+3. **Reader `phyrexian` predicate pinned:** score = life + dev +
+   3·won (both sides of the mana-vs-life trade at full weight),
+   MARGIN 2.0, K=8. Plan order: forced_chain → phyrexian → the rest.
+4. Sizing is probe-first: 30-game self-pair probes (phy×phy,
+   signet×signet) measure family window rates before the certify
+   batch is planned.
+
 ## 1. What rung 3 owes (from the plan)
 
 Two artifacts, both built BEFORE any run: the **payment drill evalset**

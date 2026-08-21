@@ -35,8 +35,10 @@ from collections import defaultdict
 from pathlib import Path
 
 # per-shape (k rolls, margin threshold on the shape score)
-SHAPE_K = {"forced_chain": 1, "blocker_pressure": 8, "color_hold": 8, "wide_choice": 8}
-MARGIN = {"blocker_pressure": 2.0, "color_hold": 2.0, "wide_choice": 3.0}
+SHAPE_K = {"forced_chain": 1, "blocker_pressure": 8, "color_hold": 8,
+           "wide_choice": 8, "phyrexian": 8}
+MARGIN = {"blocker_pressure": 2.0, "color_hold": 2.0, "wide_choice": 3.0,
+          "phyrexian": 2.0}
 CONSISTENT = 0.75  # fraction of rolls agreeing in sign for a k>1 certification
 HORIZON = 2
 DEFAULT_PER_SHAPE = 40
@@ -93,7 +95,7 @@ def plan(args) -> None:
     # shapes; a multi-tag window fills the highest-priority shape's quota.
     # Quotas fill from the full ranked list — tag overlap must not starve
     # later shapes (the first cut sliced top-40 and color_hold got 1).
-    order = ["forced_chain", "blocker_pressure", "color_hold", "wide_choice"]
+    order = ["forced_chain", "phyrexian", "blocker_pressure", "color_hold", "wide_choice"]
     jobs = []
     for shape in [s for s in order if s in by_shape] + sorted(set(by_shape) - set(order)):
         added = 0
@@ -155,6 +157,11 @@ def _score(shape: str, ax: dict, base: dict) -> float:
         return d["life"] + d["creatures"] + 0.5 * d["power"] + 3 * d["won"]
     if shape == "color_hold":
         return d["dev"] + 0.5 * d["life"] + 3 * d["won"]
+    if shape == "phyrexian":
+        # mana-vs-life trade (§12a min_life): both sides of the trade count
+        # at full weight — a life payment that bought development scores the
+        # development, a mana payment that preserved life scores the life
+        return d["life"] + d["dev"] + 3 * d["won"]
     return max(d.values(), key=abs)  # wide_choice: dominant axis
 
 
