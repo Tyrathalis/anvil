@@ -179,6 +179,17 @@ predicate. Decisions:
   revisit only if the D4 re-mine comes up empty. hb-signet.dck stays
   banked (a candidate D4-era drill deck under model play).
 
+**certify4 read + final composition (2026-08-21, same session):**
+13/113 certified (11.5%; margins 2.0–41.5; Birthing Pod 9 / Gut Shot 3 /
+Spellskite 1) + 32 auto-correct; salvage 0.0000 on 2,944 directed rows.
+**Evalset of record re-merged: 69 positive (bp 13 / ch 26 / phy 13 /
+wc 17 — every shape ≥ the 10 floor) + 224 auto-correct** (b4 = the
+hand-built batch; b3:202 stays retired). The §2 composition table is
+CLOSED for the pre-D4 evalset with two recorded amendments: forced =
+deferred to the D4 re-mine (above), and the §12a pool-tie board is
+re-typed an enumerator residual (a lex-hidden plan has no arm to
+certify — fork-test genre, routed to the D4 gate session), not a drill.
+
 ## 1. What rung 3 owes (from the plan)
 
 Two artifacts, both built BEFORE any run: the **payment drill evalset**
