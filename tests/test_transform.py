@@ -232,3 +232,18 @@ def test_choice_state_featurized_and_dedup_split():
     assert float(white[has]) == 1.0
     assert float(none[has]) == 0.0 and float(none[num]) == 0.0
     assert len(rows) == 3
+
+
+def test_format_onehot_in_globals():
+    """Multi-format enablement (M9 boundary): the header's fmt becomes a
+    one-hot tail on the globals vector; unknown formats are loud."""
+    from anvil.encoder.transform import GLOBAL_FEATURES
+
+    out = assemble(_dec([{"e": 1, "n": "Sol Ring", "z": "battlefield", "c": 0}]), _header())
+    assert len(out["globals"]) == len(GLOBAL_FEATURES)
+    assert out["globals"][GLOBAL_FEATURES.index("fmt_commander")] == 1.0
+
+    bad = _header()
+    bad["fmt"] = "FreeForAll"
+    with pytest.raises(VocabError):
+        assemble(_dec([{"e": 1, "n": "Sol Ring", "z": "battlefield", "c": 0}]), bad)

@@ -31,6 +31,10 @@ class StateAssembler(nn.Module):
         super().__init__()
         self.ent_proj = nn.Linear(d_card + n_entity_features, d_model)
         self.state_proj = nn.Linear(n_global + n_players * n_player_features, d_model)
+        # input-layout split for load_compat: global-feature growth (fmt
+        # one-hot, M9 boundary) inserts columns at the END of the globals
+        # segment, mid-input for state_proj — the pad must insert, not append
+        self.n_global = n_global
         self.plan_tok = nn.Parameter(torch.zeros(1, d_model))  # [PLAN] latent (§3)
         self.method_emb = nn.Embedding(n_methods + 2, d_model // 2)  # +OOV +pad(-1)
         self.self_emb = nn.Embedding(2, d_model // 2)

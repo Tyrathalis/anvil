@@ -4,5 +4,6 @@
   "phases": ["UNTAP", "UPKEEP", "DRAW", "MAIN1", "COMBAT_BEGIN", "COMBAT_DECLARE_ATTACKERS",
              "COMBAT_DECLARE_BLOCKERS", "COMBAT_FIRST_STRIKE_DAMAGE", "COMBAT_DAMAGE",
              "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"],
-  "mana": ["W", "U", "B", "R", "G", "C"]
+  "mana": ["W", "U", "B", "R", "G", "C"],
+  "formats": ["Commander"]
 }

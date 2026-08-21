@@ -256,3 +256,13 @@ def test_load_compat_zero_pads_cmd_tax_column():
     saved_cols = ckpt["model"]["assemble.ent_proj.weight"].shape[1]
     assert w.shape[1] - saved_cols == len(ENTITY_FEATURES) - 17 == 8
     assert (w[:, saved_cols:] == 0).all()
+    # M9 boundary: the fmt one-hot column INSERTS at the end of the globals
+    # segment of state_proj — zero there, saved weights intact on both sides
+    sp = net.assemble.state_proj.weight
+    saved_sp = ckpt["model"]["assemble.state_proj.weight"]
+    grow = sp.shape[1] - saved_sp.shape[1]
+    assert grow >= 1
+    split = net.assemble.n_global - grow
+    assert (sp[:, split : net.assemble.n_global] == 0).all()
+    assert (sp[:, :split] == saved_sp[:, :split]).all()
+    assert (sp[:, net.assemble.n_global :] == saved_sp[:, split:]).all()

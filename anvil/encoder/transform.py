@@ -78,6 +78,13 @@ GLOBAL_FEATURES = [
     "day",
     "night",
     "stack_size",
+    # multi-format enablement (M9 boundary): format one-hot from the obs
+    # header's fmt via the vocab "formats" registry. One column per known
+    # format, appended — a NEW format appends its column + registry entry at
+    # its own dataset-boundary event (ADR-0018 chunking; load_compat
+    # zero-pads state_proj), and the pre-registered transfer probe runs when
+    # breadth actually opens.
+    "fmt_commander",
 ]
 # per player, self first then opponents in seat order
 PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_total", "lost"]
@@ -87,7 +94,10 @@ PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_
 # decisive signals (life differences) — measured on pilot-run1 as the
 # at-chance value head (value_diag_val: AUC 0.53 flat by turns-from-end,
 # pred std ~0.015). Binary flags stay 1.
-GLOBAL_SCALE = np.array([1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3], dtype=np.float32)
+GLOBAL_SCALE = np.array(
+    [1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3] + [1.0] * 1,  # + fmt one-hot columns
+    dtype=np.float32,
+)
 PLAYER_SCALE = np.array([1 / 40, 1 / 8, 1 / 100, 1 / 4, 1 / 10, 1], dtype=np.float32)
 # v3: zone stays an index (a vocab question, not a scale one) but /8 for
 # conditioning; damage/P/T ~0-13; count is the dedup multiset size
@@ -110,6 +120,20 @@ class Vocab:
         self.zones: dict[str, int] = {z: i for i, z in enumerate(raw["zones"])}
         self.phases: dict[str, int] = {p: i for i, p in enumerate(raw["phases"])}
         self.mana: list[str] = raw["mana"]
+        self.formats: dict[str, int] = {f: i for i, f in enumerate(raw["formats"])}
+        n_fmt_cols = sum(1 for f in GLOBAL_FEATURES if f.startswith("fmt_"))
+        if len(self.formats) != n_fmt_cols:
+            raise ValueError(
+                f"vocab formats ({len(self.formats)}) != GLOBAL_FEATURES fmt_ "
+                f"columns ({n_fmt_cols}) — a format addition appends BOTH, at "
+                "a dataset boundary (ADR-0018)"
+            )
+
+    def fmt(self, f: str) -> int:
+        try:
+            return self.formats[f]
+        except KeyError:
+            raise VocabError(f"unknown format {f!r}") from None
 
     def zone(self, z: str) -> int:
         try:
@@ -165,6 +189,13 @@ def _dedup_key(ent: dict[str, Any], name: str | None) -> str:
     keyed["_atk"] = "atk" in ent
     keyed["_blk"] = "blk" in ent
     return json.dumps(keyed, sort_keys=True)
+
+
+def _fmt_onehot(v: "Vocab", header: dict[str, Any]) -> list[float]:
+    """Format one-hot from the obs header (multi-format enablement, M9
+    boundary). Unknown formats are loud (VocabError) — never silent zeros."""
+    idx = v.fmt(header["fmt"])
+    return [1.0 if idx == i else 0.0 for i in range(len(v.formats))]
 
 
 HISTORY_K = 8  # last K action records as history tokens (m1-bc-plan D4 default)
@@ -324,7 +355,8 @@ def assemble(
                 1.0 if glob.get("day") == "day" else 0.0,
                 1.0 if glob.get("day") == "night" else 0.0,
                 float(len(obs.get("stack", []))),
-            ],
+            ]
+            + _fmt_onehot(v, header),
             dtype=np.float32,
         )
         * GLOBAL_SCALE

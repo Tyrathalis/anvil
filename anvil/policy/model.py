@@ -162,6 +162,19 @@ class AnvilNet(nn.Module):
             padded = cur_ep.new_zeros(cur_ep.shape)
             padded[:, : saved_ep.shape[1]] = saved_ep
             state = {**state, "assemble.ent_proj.weight": padded}
+        # M9 boundary: GLOBAL_FEATURES growth (fmt one-hot). The new columns
+        # sit at the END of the globals segment — mid-input for state_proj
+        # (players follow) — so the zero-pad INSERTS at that position. Zero,
+        # not fresh init: pre-boundary checkpoints serve byte-identically.
+        cur_sp = self.assemble.state_proj.weight
+        saved_sp = state.get("assemble.state_proj.weight")
+        if saved_sp is not None and saved_sp.shape[1] < cur_sp.shape[1]:
+            grow = cur_sp.shape[1] - saved_sp.shape[1]
+            split = self.assemble.n_global - grow  # end of the saved globals
+            padded = cur_sp.new_zeros(cur_sp.shape)
+            padded[:, :split] = saved_sp[:, :split]
+            padded[:, self.assemble.n_global :] = saved_sp[:, split:]
+            state = {**state, "assemble.state_proj.weight": padded}
         missing, unexpected = self.load_state_dict(state, strict=False)
         bad = [k for k in missing if not k.startswith(self._D5_PREFIXES)]
         if bad or unexpected:
