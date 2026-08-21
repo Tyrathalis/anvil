@@ -83,6 +83,38 @@ decision trail; the list above is authoritative where they differ.
   margin-below-threshold on true continuations — the k=8 full run
   answers whether that's noise or absent effects.
 
+**Evalset-assembly session pins (2026-08-20, user-decided):**
+1. **The 12-vs-120 gap closes by SCALING certification jobs, not by
+   touching thresholds or the census.** Measured basis: threshold sweep
+   to 1.0 yields only 12→16 (no mass under the bar — small true effects,
+   as the run read said); certified ranks-within-shape are spread across
+   the whole top-40 (bp 3/8/22, ch 26/36, wc 4/7/18/19/21/26/32) — miner
+   rank does NOT predict certifiability, so deeper pool cuts yield flat;
+   pool depth 1,496/3,895/1,964 per shape vs 40 used. **Batch 2 =
+   `certify2`: 600 jobs (bp 240 / ch 240 / wc 120, banked 120 windows
+   excluded), ~14.7k paired continuations, overnight on 4 lanes.**
+   Expected at measured yields (7.5%/5%/17.5%): ~50 new positive drills
+   → ~63 total.
+2. **Auto-correct drills ADOPTED as a protocol change, scored as a
+   SEPARATE metric.** Pinned reason: D4's failure modes are two-sided —
+   never-deviates AND deviates-wrongly; a job where every cleared
+   deviation consistently LOSES ≥ the same margin bar is
+   engine-adjudicated evidence that auto is the certified-best class.
+   Never blended into the headline accuracy: the +2.0 auto-bias init
+   scores ~100% on these at day zero and would inflate/desensitize the
+   readout. Reader emits `autocorrect-drills.jsonl` (batch 1: 29 —
+   bp 14 / ch 14 / wc 1, margins to −20.3).
+3. **Composition re-pinned yield-driven with a ~10-per-shape floor**
+   (the §2 30–50-per-shape targets are unreachable at measured yields
+   in one night; a floor miss triggers a top-up night, not a redesign).
+4. Reader fix (measured harmless on batch 1, 0 jobs affected): best arm
+   = best POSITIVE margin — a stronger negative arm no longer masks a
+   cleared positive one. Batch-1 re-read bit-identical (12/120).
+5. Still owed before D4: hand-built phyrexian drills (10–15, incl. the
+   pool-tie board) + hand-built forced/Signet boards (ADR-0065), the
+   D4 accuracy scorer over certified+autocorrect (per-kind accuracy),
+   merge batches 1+2 into the evalset of record.
+
 ## 1. What rung 3 owes (from the plan)
 
 Two artifacts, both built BEFORE any run: the **payment drill evalset**

@@ -56,11 +56,32 @@ def lane_index(census_dir: Path) -> dict:
     return out
 
 
+def _window_key(c: dict) -> tuple:
+    return (c["source"], c["g"], c["t"], c["sa"])
+
+
 def plan(args) -> None:
     census_dir = Path(args.candidates).parent
     lanes = lane_index(census_dir)
     if not lanes:
         raise SystemExit(f"no lane-*.sh next to {args.candidates} — provenance shim needs them")
+
+    # windows already certified in prior batches are excluded (scale runs
+    # take the NEXT slice of the ranked pool, never re-run a window)
+    seen: set[tuple] = set()
+    for prior in getattr(args, "exclude", None) or []:
+        for j in map(json.loads, open(prior)):
+            seen.add(_window_key(j))
+    if seen:
+        print(f"excluding {len(seen)} previously-planned windows")
+
+    # per-shape counts: --counts "blocker_pressure=240,color_hold=240"
+    # overrides --per-shape for the named shapes
+    counts: dict[str, int] = {}
+    for part in (getattr(args, "counts", None) or "").split(","):
+        if part:
+            s, n = part.split("=")
+            counts[s] = int(n)
 
     by_shape: dict[str, list] = defaultdict(list)
     for line in open(args.candidates):
@@ -73,13 +94,14 @@ def plan(args) -> None:
     # Quotas fill from the full ranked list — tag overlap must not starve
     # later shapes (the first cut sliced top-40 and color_hold got 1).
     order = ["forced_chain", "blocker_pressure", "color_hold", "wide_choice"]
-    jobs, seen = [], set()
+    jobs = []
     for shape in [s for s in order if s in by_shape] + sorted(set(by_shape) - set(order)):
         added = 0
+        quota = counts.get(shape, args.per_shape)
         for c in by_shape[shape]:
-            if added >= args.per_shape:
+            if added >= quota:
                 break
-            key = (c["source"], c["g"], c["t"], c["sa"])
+            key = _window_key(c)
             if key in seen:
                 continue
             seen.add(key)
@@ -150,7 +172,7 @@ def read(args) -> None:
                 if r.get("exec_why"):
                     why_n[r["exec_why"]] += 1
 
-    certified, stats = [], defaultdict(int)
+    certified, auto_correct, stats = [], [], defaultdict(int)
     for jid, job in jobs.items():
         arms = sorted(a for (j, a) in rows if j == jid)
         base_rolls = rows.get((jid, 0), [])
@@ -171,7 +193,8 @@ def read(args) -> None:
                 stats["failed_predicate"] += 1
             continue
 
-        best, best_margin = None, 0.0
+        cleared_pos: list[tuple] = []  # (mean, arm) clearing threshold+consistency
+        cleared_neg: list[tuple] = []
         for a in arms:
             if a == 0:
                 continue
@@ -190,19 +213,43 @@ def read(args) -> None:
                 continue
             mean = sum(paired) / len(paired)
             agree = sum(1 for s in paired if (s > 0) == (mean > 0)) / len(paired)
-            if abs(mean) >= MARGIN.get(shape, 2.0) and agree >= CONSISTENT and abs(mean) > abs(best_margin):
-                best, best_margin = a, mean
-        if best is not None and best_margin > 0:
-            certified.append({**_prov(job), "shape": shape, "best": best,
-                              "margin": round(best_margin, 3), "k": job["k"]})
+            if abs(mean) >= MARGIN.get(shape, 2.0) and agree >= CONSISTENT:
+                (cleared_pos if mean > 0 else cleared_neg).append((mean, a))
+        if cleared_pos:
+            # best = largest POSITIVE margin (a stronger negative arm on the
+            # same job must not mask a cleared positive one)
+            best_margin, best = max(cleared_pos)
+            certified.append({**_prov(job), "shape": shape, "kind": "positive",
+                              "best": best, "margin": round(best_margin, 3),
+                              "k": job["k"]})
             stats["certified"] += 1
         else:
             stats["failed_predicate"] += 1
+            if cleared_neg:
+                # auto-correct drill: every cleared deviation consistently
+                # LOSES to auto — engine-adjudicated evidence that auto is the
+                # certified-best class here (evalset-assembly pin 2026-08-20:
+                # D4's failure modes are two-sided — never-deviates AND
+                # deviates-wrongly; scored as a SEPARATE metric so the
+                # auto-biased init cannot inflate the headline accuracy)
+                worst_margin, worst = min(cleared_neg)
+                auto_correct.append({**_prov(job), "shape": shape,
+                                     "kind": "auto_correct", "best": 0,
+                                     "worst": worst,
+                                     "margin": round(worst_margin, 3),
+                                     "k": job["k"]})
+                stats["auto_correct"] += 1
 
     with open(args.out, "w") as f:
         for c in certified:
             f.write(json.dumps(c) + "\n")
+    ac_out = getattr(args, "autocorrect_out", None) or str(
+        Path(args.out).parent / "autocorrect-drills.jsonl")
+    with open(ac_out, "w") as f:
+        for c in auto_correct:
+            f.write(json.dumps(c) + "\n")
     print(f"certified {stats['certified']} / {len(jobs)} jobs -> {args.out}")
+    print(f"auto-correct {stats['auto_correct']} jobs -> {ac_out}")
     for k, v in sorted(stats.items()):
         print(f"  {k:<18} {v}")
     n_directed = sum(exec_n.values())
@@ -229,16 +276,20 @@ JAVA_JOB_FIELDS = ("job", "seed", "deck1", "deck2", "p", "t", "sa", "ord", "arms
 
 
 def lanes(args) -> None:
-    """Split jobs across N lane scripts invoking the certify CLI."""
+    """Split jobs across N lane scripts invoking the certify CLI. Lane
+    filenames derive from the jobs-file stem ("certify2-jobs.jsonl" ->
+    certify2-lane-*) so a second batch never clobbers a banked one."""
     jobs = [json.loads(x) for x in open(args.jobs)]
-    outdir = Path(args.jobs).parent
+    # absolute: the lane scripts cd to forge-gui before running the jar
+    outdir = Path(args.jobs).resolve().parent
+    prefix = Path(args.jobs).stem.removesuffix(".jobs").removesuffix("-jobs")
     for i in range(args.n):
         chunk = jobs[i:: args.n]
-        jf = outdir / f"certify-lane-{i}.jobs.jsonl"
+        jf = outdir / f"{prefix}-lane-{i}.jobs.jsonl"
         with open(jf, "w") as f:
             for j in chunk:
                 f.write(json.dumps({k: j[k] for k in JAVA_JOB_FIELDS}) + "\n")
-        sh = outdir / f"certify-lane-{i}.sh"
+        sh = outdir / f"{prefix}-lane-{i}.sh"
         # cwd must be the fork's forge-gui (res bundles resolve relative to
         # it; a wrong cwd dies in FModel.initialize on the locale bundle)
         gui = Path(args.jar).resolve().parent.parent.parent / "forge-gui"
@@ -247,7 +298,7 @@ def lanes(args) -> None:
             f"cd '{gui}'\n"
             f"nice -n 19 java -Xms1g -Xmx2g -XX:ActiveProcessorCount=2 -jar '{args.jar}' "
             f"census -f Commander -paytelemetry -certify '{jf}' "
-            f"-certout '{outdir}/certify-lane-{i}.out.jsonl'\n"
+            f"-certout '{outdir}/{prefix}-lane-{i}.out.jsonl'\n"
         )
         sh.chmod(0o755)
     print(f"wrote {args.n} lane scripts under {outdir}")
@@ -260,11 +311,17 @@ def main() -> None:
     p.add_argument("candidates")
     p.add_argument("--out", required=True)
     p.add_argument("--per-shape", type=int, default=DEFAULT_PER_SHAPE)
+    p.add_argument("--counts", default="",
+                   help="per-shape quota overrides, e.g. 'blocker_pressure=240,color_hold=240'")
+    p.add_argument("--exclude", action="append", default=[],
+                   help="prior jobs.jsonl whose windows are skipped (repeatable)")
     p.set_defaults(fn=plan)
     r = sub.add_parser("read")
     r.add_argument("--jobs", required=True)
     r.add_argument("--certout", required=True)
     r.add_argument("--out", required=True)
+    r.add_argument("--autocorrect-out", default=None,
+                   help="auto-correct drill output (default: autocorrect-drills.jsonl beside --out)")
     r.set_defaults(fn=read)
     n = sub.add_parser("lanes")
     n.add_argument("--jobs", required=True)
