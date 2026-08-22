@@ -609,6 +609,87 @@ recipe = run17's loop_config (the run11 lineage) EXCEPT where listed.
     concurrent with training (GPU contention); certification gets its
     own night through the standing harness.
 
+### D4 RESULT — `d6-run18`, 2026-08-21/22 (read session owes the ADR)
+
+8 iterations x 480 games, all accepted, zero guard halts, ~20 min/iter
+(3h wall-clock — no campaign, no arms). Recipe exactly as pinned above.
+
+**The gate read: DISCUSS ZONE. Neither branch fired.**
+
+| iter | argmax deviation (drill windows) | positive | auto-correct |
+| --- | --- | --- | --- |
+| day-zero | 0.0863 | 2/64 | 196/214 |
+| 0 | 0.1223 | 4/64 | 190/214 |
+| 1 | 0.1295 | 4/64 | 188/214 |
+| 2 | 0.0791 | 1/64 | 198/214 |
+| 3 | 0.0612 | 1/64 | 201/214 |
+| 4 | 0.0576 | 1/64 | 202/214 |
+| 5 | **0.0288** | 1/64 | 207/214 |
+| 6 | 0.0324 | 0/64 | 206/214 |
+| 7 | 0.0396 | 1/64 | 206/214 |
+
+- **FUND (>=7/64) never approached** — the maximum was 4/64, at
+  iterations 0-1, and it decayed from there.
+- **CLEAN NEGATIVE not satisfied either:** its positive half holds
+  everywhere (never above 4/64), but the deviation half requires
+  argmax deviation **< 2%** and the series bottomed at 0.0288 and
+  settled at 0.0396. The head did NOT collapse to always-auto.
+
+**What the run measured (the substantive finding).** The head deviated
+MORE than day-zero for two iterations (0.0863 -> 0.1295) with positive
+at its 4/64 maximum, then retreated monotonically while auto-correct
+climbed to 0.967 — well above its 0.916 baseline. Read together:
+**straight RL taught the head the MARGINAL statistic ("auto is usually
+right") rather than the CONDITIONAL discrimination ("here is where auto
+is wrong").** It learned to stop deviating where auto wins, and lost the
+deviations where deviating wins along with them.
+
+This is corroborated by an already-banked measurement rather than
+inferred: the certify-time margin distribution put over-threshold mass
+mostly NEGATIVE (directed deviations usually lose to auto in real play —
+the D3 sparse-consequential premise, measured at rung 3). Straight RL
+over trajectory returns finds exactly that gradient; the evalset's
+positive drills are by construction the rare exceptions it cannot feel.
+**The indicated layer is signal density / credit, not representation** —
+the same layer M6 landed on ([ADR-0049](../decisions/ADR-0049-flat-cycle-audit.md))
+and the same account ADR-0062 gave for vetoes.
+
+**The head moved — this is not a dose failure.** `pay_kind_emb` rms grew
+monotonically 0 -> 0.0337 across the run while `pay_bias` oscillated in a
+narrow band around its +2.0 init (min 1.9882, max 2.0065). The pin-2
+instrumentation did the job it was added for: "moved and did not help" is
+distinguishable from "never moved", and this run is the former. Pin 2 is
+also now measured rather than argued — the loop produced 676
+trajectories/iteration = **169 optimizer steps**, well under the 417
+estimated from run17 (no campaign), so at trunk lr the head would have
+displaced <=0.014 across the whole run; it reached 0.0096 in ONE
+iteration at 1e-3.
+
+**Live-window telemetry (pin 6, all healthy):** 5,383 consequential
+windows in 480 games (11.2/g); sampled deviation 0.0659 at iter-0 (the
+run's own live baseline) tracking 0.0616-0.0936 and ending 0.0439;
+**directed_fail 0.0028 and salvage 0.0028 of deviations** — the executor
+is as faithful in live play as at certification scale; residue 0.056 ->
+0.077 of deviations leave floating mana (the one number worth carrying
+forward as an over-tapping tell). Guards clean all 8 iterations;
+tripwire 2/1/0 per iteration, at the historical base rate (run12 hit 3
+in one iteration) and never the O(1) magnitude that indicates real skew.
+
+**Battery (exploratory per protocol):** behavioral delta 14.5% of the
+init's cast decisions changed, 75% cast->pass (the ADR-0049
+cast-suppression axis); hold-then-cast MOVED 0.237 -> 0.266 (>3se) —
+TOWARD the heuristic's 0.345, opposite to run16's 0.233 -> 0.182. A
+recorded confound for the drill read: some argmax movement on drill
+windows is trunk drift, not head learning.
+
+**Owed at the read session:** the ADR (done-when 4, either direction —
+here the discuss-zone adjudication), the routing decision (formulation
+variant = the Option B dedicated-embedding head, vs a density/credit
+attack on the same surface, vs holding the payment surface as
+infrastructure and going to the §3a second act), and the pin-12 forced
+family re-mine, which was deferred to post-run rather than run at the
+midpoint (GPU contention) and is now due against the run's own stores.
+
 ## D5 — the full run + the standing gate
 
 One training run, run-recipe design pinned at its own session (init,
