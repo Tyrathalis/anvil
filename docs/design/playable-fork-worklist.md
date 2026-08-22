@@ -888,7 +888,7 @@ reasonable fullscreen on an ultrawide. If narrow-window play matters later,
 a follow-up could widen the display area; that is upstream's layout choice,
 not something item 8 changed.
 
-## 9. Custom deck sleeves (requested 2026-08-22, user) — BUILT LOCALLY, SHARING UNWIRED
+## 9. Custom deck sleeves (requested 2026-08-22, user) — BUILT, INCLUDING SHARING
 
 Upstream already ships **card-art sleeves** (three commits by MostCromulent,
 June 2026, in our v16 sync): pick any card, its art becomes your sleeve, with a
@@ -927,23 +927,35 @@ renderers needed no changes at all — only the key-to-file resolution did.
   exists on either libgdx client, so the two ways in are a pasted link and
   dropping files into the sleeves folder, which the picker adopts on open.
 
-### Not built — sharing over the wire
+### Sharing over the wire
 
-The design (agreed 2026-08-22) is that peers exchange **validated bytes
-in-band, never addresses**. A URL field would make every client beacon to a
-host another player chose, and would not even deliver "everyone sees the same
-sleeve", since a server can vary bytes per requester. Content-addressing gives
-that property by construction.
+Peers exchange **validated bytes in-band, never addresses**. A URL field would
+make every client beacon to a host another player chose, and would not even
+deliver "everyone sees the same sleeve", since a server can vary bytes per
+requester. Content-addressing gives that property by construction.
 
-Remaining: a `SleeveBlobEvent`, the client send-on-select, the server relay
-(`broadcastExcept`), a per-slot rate limit, and a preference to decline other
-players' sleeves. `WireClassFilter` already allowlists the `forge.` prefix, so
-a new event class rides free; `maxWireArrayLength` is 1 MiB against a 256 KiB
-blob.
+- `SleeveBlobEvent` carries one sleeve, named by its own SHA-256.
+- Sending: `FGameClient` hands the bytes over just before the lobby update that
+  names them, once per sleeve per session.
+- Receiving: the server takes a blob only from a seat that owns one, only
+  within its rate (6 burst, one per 15s), and only if `SleeveExchange` accepts
+  it; accepted blobs relay to the other seats, never back to the sender.
+  Clients apply the same rules to what the host relays, gated on
+  `UI_ACCEPT_PEER_SLEEVES` (exposed in the libgdx settings screen).
+- `pushSleeves` covers what relaying cannot: the host is not a client, and a
+  late joiner needs the sleeves already in play. Tracked per peer.
 
-**Until this lands, online play falls back to the built-in sleeve for any
-custom sleeve a peer picked.** It degrades gracefully — nothing breaks — but
-the feature is local-only.
+Two things checked rather than assumed, both pinned by `SleeveWireTest`:
+
+- the wire class allowlist admits a `byte[]` as `"[B"` by its primitive-array
+  rule, proven on the real encoder/decoder — a false reject strands a game
+  rather than failing quietly;
+- every sent event is written to the network log via `toString`, so the event
+  names its size and never its content.
+
+**Still open:** the crop-offset drag for custom sleeves (they take the centre
+crop), and the Swing picker remains as an upstream-shaped contribution rather
+than a shipped surface.
 
 ### Standing note — why the guards are where they are
 
@@ -958,9 +970,10 @@ sits inside.
 
 ### Acceptance
 
-Local half user-verified in play 2026-08-22 on the libgdx client. Desktop
-suite 479 green. Android APK unverified — the SDK build-tools 35 / platform 35
-decision is still open (see the Chronicle D4 item).
+Local half user-verified in play 2026-08-22 on the libgdx client; shipped in
+the 2026-08-22 20:0x release (jar + APK), with the sharing wire landed after.
+Desktop suite 484 green. Multiplayer sharing is **not yet user-verified in
+play** — it needs two instances.
 
 ## Shared user store: the playable build and the research harness read the same decks
 
