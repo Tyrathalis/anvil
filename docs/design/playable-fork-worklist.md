@@ -971,9 +971,15 @@ sits inside.
 ### Acceptance
 
 Local half user-verified in play 2026-08-22 on the libgdx client; shipped in
-the 2026-08-22 20:0x release (jar + APK), with the sharing wire landed after.
-Desktop suite 484 green. Multiplayer sharing is **not yet user-verified in
-play** — it needs two instances.
+the 2026-08-22 releases (jar + APK). Desktop suite 484 green.
+
+**Sharing verified across two real processes** (`SleeveShareDriver`, 2026-08-22),
+each with its own `user.home` so neither side could be reading the other's
+store: the honest run put a byte-identical copy in the host's session directory
+while the host's own library did not exist, and a client claiming one sleeve's
+name while sending another's bytes was refused with *"the image does not match
+the sleeve it claims to be"*, writing nothing. The driver is kept for re-running
+it; its javadoc carries the recipe.
 
 ## Shared user store: the playable build and the research harness read the same decks
 
