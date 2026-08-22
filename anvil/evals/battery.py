@@ -97,6 +97,14 @@ MONITOR_SERIES = [
     ("census.veto_rate", "veto rate"),
     ("census.first_veto_rate", "first-veto rate"),
     ("census.pay_deviation_rate", "pay deviation (sampled)"),
+    # M9 D4 recipe pins 6-7: the payment head's failure channel, its own
+    # displacement from a known init, and the pre-registered drill readout.
+    ("census.pay_fail_rate", "pay directed_fail / deviation"),
+    ("census.pay_salvage_rate", "pay salvage / deviation"),
+    ("pay_head.bias", "pay_bias (init +2.0)"),
+    ("pay_head.kind_rms", "pay_kind_emb rms (init 0)"),
+    ("pay_drills.positive.acc", "pay drills: positive acc"),
+    ("pay_drills.auto_correct.acc", "pay drills: auto-correct acc"),
     ("census.casts_per_game", "casts/game"),
     ("rl.mean.rej", "rejected/traj"),
     ("rl.mean.seq_raw", "seq_raw"),

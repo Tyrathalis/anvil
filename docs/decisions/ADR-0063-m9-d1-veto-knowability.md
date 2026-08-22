@@ -202,3 +202,33 @@ the flat-then-double signature is unchanged.
 - v1 outputs retained at `data/runs/veto-knowability-m9d1{,-climb}-v1`
   (43M, regenerable: v1 script in git + stores kept) — re-price at the
   M9 close stale-data pass.
+
+## Addendum 2 (2026-08-21, D4 recipe session) — the argmax baseline is re-derived IN-ERA and TRANSFERS
+
+The collapse baseline above was measured pre-boundary; D4/D5's veto
+trajectory is post-boundary ([ADR-0068](ADR-0068-m9-boundary-bundle.md)), so
+the mechanism read would otherwise have compared across an era boundary — the
+exact hazard the era rule exists to prevent. Re-derivation cost nothing: the
+`m9-rebaselinearm-s0/s1` stores were already on disk with `obs_schema: 2` +
+census + argmax play over 1,999 games, which is precisely
+`veto_knowability.py`'s input contract. No new games were generated.
+
+**Result** (`data/runs/veto-knowability-m9-postboundary`, instrument v2):
+
+| population | n (mana-relevant, first-attempt) | knowable | CI95 | validity bar | knowable-veto rate |
+| --- | --- | --- | --- | --- | --- |
+| argmax (post-boundary) | 5,972 | **0.5064** | [0.4937, 0.5190] | 0.9934 | **0.0432** [0.0417, 0.0447] |
+| argmax (pre-boundary, v2) | 6,025 | 0.5097 | [0.497, 0.522] | 0.986–0.991 | 0.0435 |
+
+kvr denominator = first-attempt windows from the same stores' census
+(`first_veto + first_cast`): 3,024 / 69,977 post-boundary. The identical
+formula recomputes the pre-boundary store at 3,071 / 70,678 = 0.0435 — the
+ADR's own number to four places — so the two eras are comparable by
+construction, not by assumption.
+
+**Verdict: the boundary did not move the veto channel.** The pre-boundary
+reading is confirmed rather than superseded, and **D4/D5's argmax collapse
+baseline is 0.0432 in-era**. The sampled baseline is NOT re-derived here —
+it comes from D4's own iter-0, keeping argmax and sampled separate per this
+ADR's own lesson. Taxonomy is stable across the boundary (the `uncertain`
+families keep their shape; `conditional_production` 29 windows).

@@ -35,6 +35,7 @@ from anvil.training.notify import watch_unregister as _watch_unregister
 
 RUNS_DIR = Path("data/runs")
 TRAJ_DIR = Path("data/trajectories")
+REPO = Path(__file__).resolve().parents[2]
 
 
 def _auto_seg(pinned: int) -> int:
@@ -446,6 +447,77 @@ def replay_mixture(
     return stores, weights
 
 
+def _pay_head_stats(ckpt_path) -> dict:
+    """M9 D4 recipe pin 6 (second half): the payment head's own movement.
+
+    The probe's negative branch retires the formulation, so a negative has to
+    separate "the head moved and it didn't help" from "the head never moved"
+    (the latter routes to dose, not to the graveyard). pay_bias starts at
+    +2.0 and pay_kind_emb at exactly zero, so both series read as displacement
+    from a known origin. Diagnostic only — never guarded."""
+    try:
+        import torch
+
+        ck = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        m = ck["model"]
+        from anvil.training.dataset import TASKS
+
+        out = {}
+        if "pay_bias" in m:
+            out["bias"] = round(float(m["pay_bias"][TASKS["pay_class"]]), 4)
+        if "pay_kind_emb.weight" in m:
+            w = m["pay_kind_emb.weight"].float()
+            out["kind_rms"] = round(float(w.pow(2).mean().sqrt()), 5)
+        return out
+    except Exception as e:  # diagnostic only — never break the loop
+        return {"error": str(e)}
+
+
+def _pay_drill_score(ckpt_path, drill_dir, embed, out_path) -> dict:
+    """M9 D4 recipe pin 7: fold the payment-drill accuracy read into the loop.
+
+    The observe frames are checkpoint-INDEPENDENT (the fork replayed to the
+    window and banked the serve path's own option labels), so scoring an
+    iteration is an offline featurize+argmax over ~290 banked frames — cheap
+    enough to run every iteration, which makes the pre-registered gate
+    readable live in analysis.md instead of at post-mortem. Scores the ckpt
+    the iteration PRODUCED (the candidate), not the one it served."""
+    d = Path(drill_dir)
+    cmd = [
+        "uv",
+        "run",
+        "python",
+        str(REPO / "scripts" / "payment_drill_score.py"),
+        "score",
+        "--jobs",
+        str(d / "observe-jobs.jsonl"),
+        "--certout",
+        str(d / "observe-certout.jsonl"),
+        "--obs",
+        *[str(x) for x in sorted(d.glob("observe-lane-*.obs.zst"))],
+        "--ckpt",
+        str(ckpt_path),
+        "--embed",
+        str(embed),
+        "--out",
+        str(out_path),
+    ]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    except Exception as e:
+        return {"error": str(e)}
+    res: dict = {}
+    for line in r.stdout.splitlines():
+        t = line.split()
+        # "  positive     overall: 2/64 = 0.031"
+        if len(t) == 5 and t[1] == "overall:" and t[0] in ("positive", "auto_correct"):
+            n, d_ = t[2].split("/")
+            res[t[0]] = {"n": int(n), "d": int(d_), "acc": float(t[4])}
+    if not res:
+        res = {"error": (r.stderr or r.stdout)[-400:]}
+    return res
+
+
 def _census_tallies(run_dirs) -> dict:
     """Field semantics mirror scripts/arms_report.py: priority records carry
     veto (string reason) / pick=="pass" / else cast. Accepts one run dir or a
@@ -489,12 +561,32 @@ def _census_tallies(run_dirs) -> dict:
                 c["pay_windows"] += 1
                 if r.get("pick") != "auto":
                     c["pay_deviate"] += 1
+                    # M9 D4 recipe pin 6: the payment head's analogue of the
+                    # veto channel. The serve path reason-codes every directed
+                    # execution (directed_ok / directed_salvage /
+                    # directed_fail) and records the leftover float; none of it
+                    # was reaching the loop. TELEMETRY ONLY — deterrence-family
+                    # pricing is closed (ADR-0062) and a priced failure would
+                    # confound the probe. Spikes are anomaly-set entries.
+                    ex = r.get("exec")
+                    if ex:
+                        c[f"pay_{ex}"] += 1
+                    if r.get("float_residue"):
+                        c["pay_residue_windows"] += 1
+                        c["pay_residue_mana"] += int(r["float_residue"])
             for k in ("dropped", "forced"):
                 if r.get(k):
                     c[f"combat_{k}"] += r[k]
     c["veto_rate"] = round(c["veto"] / max(1, c["veto"] + c["cast"]), 4)
     if c["pay_windows"]:
         c["pay_deviation_rate"] = round(c["pay_deviate"] / c["pay_windows"], 4)
+    if c["pay_deviate"]:
+        # denominators are DEVIATIONS, not windows: auto picks never execute a
+        # directed plan, so folding them in would dilute the failure signal
+        # exactly where it matters (m9-plan D4 recipe pin 6).
+        c["pay_fail_rate"] = round(c["pay_directed_fail"] / c["pay_deviate"], 4)
+        c["pay_salvage_rate"] = round(c["pay_directed_salvage"] / c["pay_deviate"], 4)
+        c["pay_residue_rate"] = round(c["pay_residue_windows"] / c["pay_deviate"], 4)
     # M3 D1: chain-independent basis — each window contributes exactly one
     # first attempt (census "reask" marks attempts > 0 only), so re-ask chains
     # can't inflate this the way they inflate veto_rate. Done-when #1 reads it.
@@ -650,6 +742,16 @@ def main() -> None:
     )
     ap.add_argument("--epochs", type=int, default=1)
     ap.add_argument("--lr", type=float, default=1e-5)
+    ap.add_argument(
+        "--pay-lr",
+        type=float,
+        default=None,
+        help="M9 D4 (recipe pin 2): separate lr for the §3c payment params "
+        "(pay_ prefix); trunk keeps --lr. At ~417 optimizer steps/iteration "
+        "the fresh head cannot move at trunk lr — a probe that reads 'no "
+        "movement' would be measuring the step budget, not the formulation. "
+        "None = one group (v0 behavior).",
+    )
     ap.add_argument("--ent-weight", type=float, default=3e-3)
     ap.add_argument(
         "--ent-floor",
@@ -840,6 +942,20 @@ def main() -> None:
     )
     ap.add_argument("--drill-k", type=int, default=8, help="sampled completions per drill point")
     ap.add_argument(
+        "--pay-drill-dir",
+        default=None,
+        help="M9 D4 (recipe pin 7): observe-artifact directory of the payment "
+        "drill evalset (observe-jobs.jsonl + observe-certout.jsonl + "
+        "observe-lane-*.obs.zst). Set = score every iteration's produced ckpt "
+        "against the pre-registered gate; the frames are ckpt-independent so "
+        "this is an offline featurize+argmax, not a replay.",
+    )
+    ap.add_argument(
+        "--pay-drill-embed",
+        default=None,
+        help="embedding dir for --pay-drill-dir scoring (the ckpt's own embed)",
+    )
+    ap.add_argument(
         "--drill-replay-ckpt",
         default=None,
         help="PINNED mainline replay ckpt (the source games' "
@@ -871,6 +987,8 @@ def main() -> None:
         "--no-inhibit", action="store_true", help="skip the systemd-inhibit sleep holder"
     )
     args = ap.parse_args()
+    if args.pay_drill_dir and not args.pay_drill_embed:
+        ap.error("--pay-drill-dir requires --pay-drill-embed (the ckpt's embedding dir)")
     if args.drill_selection and not args.drill_replay_ckpt:
         ap.error(
             "--drill-selection requires --drill-replay-ckpt (the pinned source-game generator)"
@@ -1115,6 +1233,7 @@ def main() -> None:
                     str(train_dir),
                     "--lr",
                     str(args.lr),
+                    *(["--pay-lr", str(args.pay_lr)] if args.pay_lr is not None else []),
                     "--ent-weight",
                     str(args.ent_weight),
                     "--ent-floor",
@@ -1225,6 +1344,18 @@ def main() -> None:
             "flags": flags,
             "guard": guards,
         }
+        # ---- M9 D4 payment probe readouts (pins 6-7): head movement from its
+        # known init, and the drill accuracy of the ckpt this iteration
+        # produced. Both diagnostic — the gate is adjudicated at the read
+        # session, nothing here auto-promotes or halts ----
+        pay_head = _pay_head_stats(new_ckpt)
+        if pay_head:
+            row["pay_head"] = pay_head
+        if args.pay_drill_dir:
+            row["pay_drills"] = _pay_drill_score(
+                new_ckpt, args.pay_drill_dir, args.pay_drill_embed, it_dir / "pay-drills.jsonl"
+            )
+            print(f"[selfplay] pay drills iteration {k}: {row['pay_drills']}")
         monitor.write(json.dumps(row) + "\n")
         # ---- standing analysis battery (run-analysis-protocol.md): cheap
         # per-iteration pass — monitor curves + the holding row. Diagnostic
@@ -1255,6 +1386,11 @@ def main() -> None:
                 "veto_rate": census.get("veto_rate"),
                 "first_veto_rate": census.get("first_veto_rate"),
                 "casts_per_game": census.get("casts_per_game"),
+                # M9 D4: the live-window pay_deviation baseline the plan calls
+                # for (no pre-run number exists for it). RECORD-ONLY — the
+                # deviation tripwire is an anomaly-set entry, never a guard
+                # (rung-3 pin); guard_flags does not read this key.
+                "pay_deviation_rate": census.get("pay_deviation_rate"),
             }
         state.update(
             iteration=k + 1, ckpt=str(new_ckpt), start_index=state["start_index"] + args.games

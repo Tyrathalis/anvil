@@ -335,3 +335,61 @@ def test_drill_eval_phase_idempotent_and_picks_new_report(tmp_path, monkeypatch)
     # resume-idempotent: existing drill-eval.json short-circuits
     selfplay._drill_eval_phase(args, state, 9, it_dir)
     assert len(calls) == 1
+
+
+def test_census_payment_failure_telemetry(tmp_path):
+    """M9 D4 recipe pin 6: the payment head's failure channel reaches the
+    loop. Denominators are DEVIATIONS, not windows — auto picks never execute
+    a directed plan, so counting them would dilute exactly the signal that
+    matters. Telemetry only: nothing here is priced or guarded."""
+    import json as _json
+
+    from anvil.training.selfplay import _census_tallies
+
+    wd = tmp_path / "workers" / "inv-000"
+    wd.mkdir(parents=True)
+    m = "payManaCost"
+    lines = [
+        # two auto picks: counted as windows, invisible to every exec rate
+        {"by": "bridge", "m": m, "pick": "auto", "exec": None},
+        {"by": "bridge", "m": m, "pick": "auto"},
+        # four directed picks: ok / salvage / fail / ok-with-leftover-float
+        {"by": "bridge", "m": m, "pick": 1, "exec": "directed_ok", "float_residue": 0},
+        {"by": "bridge", "m": m, "pick": 2, "exec": "directed_salvage", "float_residue": 0},
+        {"by": "bridge", "m": m, "pick": 1, "exec": "directed_fail", "float_residue": 0},
+        {"by": "bridge", "m": m, "pick": 3, "exec": "directed_ok", "float_residue": 2},
+    ]
+    (wd / "census.jsonl").write_text("\n".join(_json.dumps(r) for r in lines) + "\n")
+
+    c = _census_tallies(tmp_path)
+    assert c["pay_windows"] == 6 and c["pay_deviate"] == 4
+    assert c["pay_deviation_rate"] == round(4 / 6, 4)
+    assert c["pay_directed_ok"] == 2
+    assert c["pay_directed_salvage"] == 1 and c["pay_directed_fail"] == 1
+    assert c["pay_fail_rate"] == 0.25 and c["pay_salvage_rate"] == 0.25
+    # residue is per-deviation too, and carries the mana count for magnitude
+    assert c["pay_residue_windows"] == 1 and c["pay_residue_mana"] == 2
+    assert c["pay_residue_rate"] == 0.25
+
+
+def test_pay_head_stats_reads_displacement_from_init(tmp_path):
+    """M9 D4 recipe pin 6 (second half): pay_bias starts at +2.0 and
+    pay_kind_emb at exactly zero, so both series read as displacement from a
+    known origin — that is what separates 'the head moved and it did not
+    help' from 'the head never moved' at the read session."""
+    from anvil.training.dataset import TASKS
+    from anvil.training.selfplay import _pay_head_stats
+
+    ck = tmp_path / "last.pt"
+    bias = torch.zeros(len(TASKS))
+    bias[TASKS["pay_class"]] = 2.0
+    torch.save({"model": {"pay_bias": bias, "pay_kind_emb.weight": torch.zeros(6, 8)}}, ck)
+    assert _pay_head_stats(ck) == {"bias": 2.0, "kind_rms": 0.0}
+
+    bias[TASKS["pay_class"]] = 1.25
+    torch.save({"model": {"pay_bias": bias, "pay_kind_emb.weight": torch.full((6, 8), 0.5)}}, ck)
+    assert _pay_head_stats(ck) == {"bias": 1.25, "kind_rms": 0.5}
+
+    # a checkpoint without the head is diagnostic-empty, never an exception
+    torch.save({"model": {}}, ck)
+    assert _pay_head_stats(ck) == {}

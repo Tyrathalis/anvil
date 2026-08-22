@@ -657,6 +657,18 @@ def main() -> None:
     )
     ap.add_argument("--out", required=True)
     ap.add_argument("--lr", type=float, default=1e-5)
+    ap.add_argument(
+        "--pay-lr",
+        type=float,
+        default=None,
+        help="separate lr for the M9 §3c payment params (pay_ prefix). "
+        "The loop takes one optimizer step per --traj-per-step "
+        "trajectories (~417/iteration at run17 volumes), so at the "
+        "trunk lr a fresh head displaces <=0.03 across a whole probe "
+        "run: pay_bias would sit at its +2.0 init and pay_kind_emb "
+        "would never reach the ~0.1 per-element scale its neighbours "
+        "carry. m9-plan D4 recipe pin 2. None = one group (v0).",
+    )
     ap.add_argument("--wd", type=float, default=0.0)
     ap.add_argument("--traj-per-step", type=int, default=4)
     ap.add_argument("--seg", type=int, default=256, help="windows per GPU pass")
@@ -828,7 +840,21 @@ def main() -> None:
         critic.eval()
         critic.requires_grad_(False)
 
-    opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd)
+    if args.pay_lr is None:
+        opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd)
+    else:
+        # M9 D4 recipe pin 2: the fresh §3c payment params need their own
+        # step size; the trunk keeps the pinned 1e-5 so policy drift is
+        # unchanged. Split by name so the grouping is auditable.
+        pay = [p_ for n_, p_ in net.named_parameters() if n_.startswith("pay_")]
+        rest = [p_ for n_, p_ in net.named_parameters() if not n_.startswith("pay_")]
+        if not pay:
+            raise ValueError("--pay-lr set but the net carries no pay_ params")
+        opt = torch.optim.AdamW(
+            [{"params": rest, "lr": args.lr}, {"params": pay, "lr": args.pay_lr}],
+            lr=args.lr,
+            weight_decay=args.wd,
+        )
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     rl_cfg = {
@@ -841,6 +867,7 @@ def main() -> None:
                 "ckpt",
                 "critic_ckpt",
                 "lr",
+                "pay_lr",
                 "traj_per_step",
                 "gamma",
                 "rho_bar",

@@ -157,3 +157,39 @@ def test_load_compat_pay_params_fresh_init(net_and_feat):
     assert float(net.pay_bias[TASKS["pay_class"]]) == 2.0
     assert float(net.pay_bias.abs().sum()) == 2.0  # zero for every other task
     assert float(net.pay_kind_emb.weight.abs().sum()) == 0.0
+
+
+def test_pay_param_group_splits_by_name(net_and_feat):
+    """M9 D4 recipe pin 2: the fresh payment params get their own step size
+    while the trunk keeps the pinned 1e-5. The loop takes ~417 optimizer steps
+    per iteration, so at trunk lr the head displaces <=0.03 across a whole
+    probe run — a false clean negative on the branch that retires the
+    formulation. Split is by name so the grouping stays auditable."""
+    import torch
+
+    net, _ = net_and_feat
+    pay = [n for n, _ in net.named_parameters() if n.startswith("pay_")]
+    assert set(pay) == {"pay_bias", "pay_kind_emb.weight"}
+
+    groups = [
+        {"params": [p for n, p in net.named_parameters() if not n.startswith("pay_")], "lr": 1e-5},
+        {"params": [p for n, p in net.named_parameters() if n.startswith("pay_")], "lr": 1e-3},
+    ]
+    opt = torch.optim.AdamW(groups, lr=1e-5, weight_decay=0.0)
+    # every parameter lands in exactly one group
+    assert sum(len(g["params"]) for g in opt.param_groups) == len(list(net.parameters()))
+    assert opt.param_groups[0]["lr"] == 1e-5 and opt.param_groups[1]["lr"] == 1e-3
+
+    # one coherent step moves the payment params ~100x further than the trunk
+    for p in net.parameters():
+        p.grad = torch.ones_like(p)
+    before = {n: p.detach().clone() for n, p in net.named_parameters()}
+    opt.step()
+    moved = {
+        n: float((p.detach() - before[n]).abs().max())
+        for n, p in net.named_parameters()
+        if p.grad is not None
+    }
+    assert moved["pay_bias"] == pytest.approx(1e-3, rel=0.05)
+    trunk = max(v for n, v in moved.items() if not n.startswith("pay_"))
+    assert trunk == pytest.approx(1e-5, rel=0.05)

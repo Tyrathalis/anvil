@@ -493,6 +493,122 @@ as movement-from-baseline:
    retroactively part of the 7/68 gate.** An empty re-mine even with
    hb-signet ⇒ revisit the declined cast-directive alternative.
 
+### D4 run recipe (PINNED 2026-08-21, recipe session)
+
+The gate above is unchanged; these are the run-shape pins. Standing
+recipe = run17's loop_config (the run11 lineage) EXCEPT where listed.
+
+1. **Init ckpt must be GRAFTED — launch blocker, not a preference.**
+   `d6-run11/iter-019` carries no `pay_` params, and the server gates
+   the payment tag on their presence (`has_pay`, server.py — the
+   never-serve-fresh-init rule); iteration 0 serves `--ckpt` directly,
+   so an ungrafted launch bridges ZERO payment windows at iter-0 (no
+   live iter-0 baseline, no `pay_class` examples in the first ingest,
+   the head appearing only from iter-1). Pre-launch step: build
+   `d4-init` = iter-019 through `build_net` + `load_compat` + save —
+   byte-equivalent to the in-memory state the day-zero drill scores
+   were banked on (positive 2/64, auto-correct 196/214, deviation
+   8.6%), so those baselines carry over unchanged. Critic needs no
+   graft.
+2. **`pay_` params get their own optimizer group at lr 1e-3; trunk
+   stays 1e-5.** Measured basis (not a preference): the loop takes one
+   optimizer step per `--traj-per-step` (4) trajectories — run17 ran
+   ~1,668 traj/iter = **~417 optimizer steps/iteration, ~3,300 over 8
+   iterations**. Adam displaces ≈lr/step under coherent sign, so at
+   1e-5 the payment-specific params move **≤0.03 total across the
+   whole run**: `pay_bias` would sit at its +2.0 init and
+   `pay_kind_emb` (6×512, zero-init) would never reach the 0.08–0.26
+   per-element scale every comparable embedding in the ckpt carries.
+   The probe would then be measuring trunk/pointer re-purposing with
+   the head pinned — a **false clean negative on a branch that retires
+   the formulation.** At 1e-3 coherent signal traverses the bias's
+   meaningful range in ~half the run while pure noise random-walks
+   only lr·sqrt(n) ≈ 0.06 across it. Over-shoot is already covered by
+   the pinned gate: a too-hot head shows as the auto-correct guardrail
+   breaking (<182/214) plus the casts-floor guard — detected, not
+   silently confounding. `--wd` stays 0.0 (verified default; nonzero
+   would passively erode the +2.0 bias every step regardless of
+   gradient).
+3. **NO lr sweep.** Three arms read against one pre-registered
+   threshold is the ADR-0058 counted-once trap in new costume, and it
+   triples a probe priced on being cheap. Bought instead with
+   instrumentation (pin 6): a negative must separate "the head moved
+   and it didn't help" (retires the formulation) from "the head never
+   moved" (routes to dose).
+4. **8 iterations × 480 games**, gate readable at any accepted
+   iteration (drill scoring is offline and ckpt-independent, so extra
+   iterations cost only wall-clock). Measured budget from run17
+   checkpoint mtimes: clean iterations 29–38 min wall-clock (`gen_s`
+   ~1,000–1,350s dominates; `train_s` ~230s; campaign overlapped
+   generation, so dropping it saves less than its 400s suggests) —
+   **~30 min/iter, ~4–4.5h for 8.** An evening, not an overnight;
+   headroom exists to widen games/iter if iter-0/1 telemetry reads
+   starved.
+5. **No drill campaign** (`--drill-selection` off). The standing asset
+   `drill-selection-m8-critic` is pre-boundary-era AND
+   payment-agnostic; regenerating standard curation costs a night and
+   tests curation, not payment. Named escalation if iter-0/1 deviation
+   telemetry reads starved: **payment-targeted forks** — the miner
+   already emits `{g, seed, t}` candidates that map onto the
+   `selection.jsonl` schema, so forking at consequential payment turns
+   would put K=8 dense credit exactly where the head fires. Recorded
+   consequence if taken: D4 then measures payment head *plus* payment
+   curriculum, and the attribution line moves accordingly.
+6. **Failure telemetry added, priced by NOTHING.** The serve path
+   already records `exec` (`directed_ok` / `directed_salvage` /
+   `directed_fail`) and `float_residue` per window
+   (PlayerControllerAnvil), but the loop aggregator counts only
+   `pay_windows`/`pay_deviate` — the payment head's analogue of the
+   veto channel is invisible in-loop. Add exec-code + residue counters
+   to the monitor row and battery series, plus the pin-3 head-movement
+   series (`pay_bias` value, `pay_kind_emb` RMS per iteration).
+   **No §6c-style pricing:** deterrence-family pricing is CLOSED at
+   ADR-0062 and a priced failure would confound the probe. Failure
+   spikes are anomaly-set entries, not guards (restating the rung-3
+   deviation-tripwire pin).
+7. **Drill scoring folds into the loop.** `payment_drill_score.py
+   score` runs post-iteration (offline featurize+argmax over ~290
+   banked observe frames, ~minutes) so the gate is readable live in
+   `analysis.md` rather than at post-mortem.
+8. **Arms and evalset-v4 drill-eval DROPPED for the probe.** D4 makes
+   no strength claim, fixed-subset arms carry the ADR-0058
+   counted-once trap, evalset-v4 is pre-boundary-era; both return at
+   D5. This is also where the wall-clock for pin 4's extra iterations
+   comes from.
+9. **Guards unchanged** (kl 0.06 / ent-floor 0.08 / veto-mult 1.5 /
+   casts-floor 0.8). Recorded reading: the veto guard is a CEILING and
+   M9 predicts vetoes fall, so it should not bind; **`casts-floor 0.8`
+   is the one that could halt the run on the very mechanism the probe
+   exists to observe** — if it fires, that is a read, not just a halt.
+10. **Veto-collapse baseline re-derived IN-ERA from existing data —
+    DONE at the recipe session, and it TRANSFERS.** The D1 baseline
+    (0.0588 sampled / 0.0435 argmax) is pre-boundary; D4's trajectory
+    is post-boundary, so the mechanism read would otherwise compare
+    across the era boundary. Free fix taken: `m9-rebaselinearm-s0/s1`
+    were already on disk with `obs_schema: 2` + census + argmax play
+    over 1,999 games — exactly `veto_knowability.py`'s inputs, no new
+    games. **Result (`data/runs/veto-knowability-m9-postboundary`,
+    instrument v2): knowable 0.5064 CI95 [0.4937, 0.5190] — gate PASS,
+    validity bar 0.9934 (vs the pre-boundary 0.986–0.991 band);
+    knowable-veto rate 3,024 / 69,977 first-attempt windows =
+    **0.0432 CI95 [0.0417, 0.0447]** vs the pre-boundary 0.0435 (the
+    same formula recomputes the pre-boundary store at 0.0435 exactly,
+    so the two are comparable by construction).** The boundary did not
+    move the veto channel: **the argmax collapse baseline for D4/D5 is
+    0.0432 in-era**, and the pre-boundary reading stands confirmed
+    rather than superseded. The sampled baseline still comes from D4's
+    own iter-0 (no argmax/sampled conflation — the ADR-0063 lesson).
+11. **Seed hygiene:** fresh seed base, `run.json` grepped for
+    collisions (standing M8 rule). Recorded scope note: the
+    re-baseline's 7.15pp seed-half anomaly binds fresh-seed
+    confirmation for near-gate *strength* reads only — it does not
+    touch drill reads, so it applies at D5, not here.
+12. **Midpoint re-mine logistics** (the pin-5 forced-family
+    obligation): midpoint = the first accepted iteration at or past
+    iteration 4; hb-signet self-pair generation runs in a gap, never
+    concurrent with training (GPU contention); certification gets its
+    own night through the standing harness.
+
 ## D5 — the full run + the standing gate
 
 One training run, run-recipe design pinned at its own session (init,
