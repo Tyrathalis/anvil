@@ -252,7 +252,15 @@ def holding_read(store_paths: list[str]) -> dict:
                 turn = obs["glob"].get("turn") if obs else None
                 if turn is None:
                     continue
-                spells = [o for o in opts if o.get("kind") == "spell" and o.get("e") is not None]
+                # M9 §3c: payment-window options are JSON label STRINGS on the
+                # wire (the pay_class tag), not option dicts — the first
+                # training run to generate them (d6-run18) crashed this read.
+                # Non-dict options belong to no spell window by construction.
+                spells = [
+                    o
+                    for o in opts
+                    if isinstance(o, dict) and o.get("kind") == "spell" and o.get("e") is not None
+                ]
                 if not spells:
                     continue
                 seat = dec["p"]
