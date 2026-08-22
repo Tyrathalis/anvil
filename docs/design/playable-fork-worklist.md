@@ -1379,6 +1379,28 @@ shipping builds to other people's machines.
 > green, mobile-dev boots clean; interactive pass pending (desktop-control
 > grant declined — verify at next game night). Upstream candidate: the
 > whole mechanism, plus the stale-name recompute.
+>
+> **Upstream sync PUBLISHED as v16 2026-08-21 (`291a866fa3`, version
+> `2.0.15-SNAPSHOT-08.22`; desktop + Android together): `playable` merged
+> onto upstream master `23c3d2a85d` — the same commit the research fork's
+> M9 boundary rebased onto — 218 upstream commits, upstream versionCode
+> bump 2.0.14→2.0.15.** Only 6 conflict hunks in 4 files, ALL resolved to
+> upstream: the v14 fixes (FTextField commit-only CHANGE + PlayerPanel
+> team-echo guards) are now merged upstream verbatim-but-rewrapped, and
+> upstream deliberately removed the iOS RGB565 card-texture downgrade +
+> Documents/cache AssetManager bypass (`640f4eede5`, `20f07a3441`) — the
+> fork's mipmap-for-rotated-cards concern survives via `getTextureFilter()`
+> on every platform we ship. Post-publish routine in full: published jar
+> sha256 = local (GH asset digest), stamps match, published manifest parses
+> through the shipped jar's own `DeltaManifest.parse` (55,003 files, commit
+> resolves on the fork), res raw-fetch spot-check hash-matches. Android APK
+> re-signed [v2,v3] same debug keystore; stale 2.0.14 APK asset deleted
+> from the release. **Release-pipeline bug found (twice in one session) and
+> fixed (`2dcb0bdfef`): both release scripts selected build artifacts by
+> alphabetical glob (`ls | head -1`), so with two version eras in `target/`
+> the STALE 2.0.14 jar/apk won over the fresh 2.0.15 build — the Android
+> script actually signed and staged the Aug-2 APK before the catch; both
+> now select newest-by-mtime.**
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
