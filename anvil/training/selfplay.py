@@ -27,6 +27,7 @@ import socket
 import subprocess
 import sys
 import time
+from io import TextIOWrapper
 from pathlib import Path
 
 from anvil.training.notify import notify as _shared_notify
@@ -894,6 +895,7 @@ def main() -> None:
     # file) block buffering held EVERY driver print in memory for run-8's
     # whole 36h — "===== iteration" markers, guard text — starving the log
     # watcher; subprocess output interleaved fine (own fds). Found 2026-07-25.
+    assert isinstance(sys.stdout, TextIOWrapper)
     sys.stdout.reconfigure(line_buffering=True)
     monitor = open(out / "monitor.jsonl", "a", buffering=1)
     (out / "loop_config.json").write_text(json.dumps(vars(args), indent=2))

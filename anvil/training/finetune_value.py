@@ -41,6 +41,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from anvil.torch.utils import get_torch_device
 from anvil.training.dataset import PriorityWindows, collate, default_methods
 from anvil.training.train import build_net
 from anvil.training.vram import park_for_cotenant
@@ -196,7 +197,7 @@ def main() -> None:
         ap.error("--seq-labels and --seq-stores go together")
 
     torch.manual_seed(a.seed)
-    device = "cuda"
+    device = get_torch_device()
     ck = torch.load(a.ckpt, map_location="cpu", weights_only=False)
     cfg = ck["config"]
     store = a.store or cfg["store"]
