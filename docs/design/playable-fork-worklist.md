@@ -888,6 +888,80 @@ reasonable fullscreen on an ultrawide. If narrow-window play matters later,
 a follow-up could widen the display area; that is upstream's layout choice,
 not something item 8 changed.
 
+## 9. Custom deck sleeves (requested 2026-08-22, user) — BUILT LOCALLY, SHARING UNWIRED
+
+Upstream already ships **card-art sleeves** (three commits by MostCromulent,
+June 2026, in our v16 sync): pick any card, its art becomes your sleeve, with a
+draggable crop, saved in the `.dck` header and a preference library. What was
+missing was using *your own image*.
+
+The architectural win: a custom sleeve is just another key in the existing
+sleeve-art pipeline. Because the key is an opaque string, deck-header
+persistence, the lobby wire, `PlayerView`/`TrackableProperty` and both
+renderers needed no changes at all — only the key-to-file resolution did.
+
+### Built
+
+- `CustomSleeves` (forge-core) — validation and identity. 256 KiB byte cap, a
+  PNG/JPEG magic-byte allowlist, and dimensions read from the header before
+  anything allocates a raster. Identity is the SHA-256 of the accepted bytes,
+  so a key names content rather than a location. `stem()` is the chokepoint
+  that stops a wire-supplied key becoming a path: 64 lowercase hex, nothing
+  else.
+- `probeSource` — the *source* budget (16 MB, 50 megapixels) as against the
+  *sleeve* budget. Both clients and both import paths gate on this one rule.
+- `SleeveStore` (forge-gui) — hash-named storage under `USER_DIR/sleeves`,
+  deliberately not `res/`, which the delta updater's orphan pass prunes.
+  Bounded download: time, declared length, and bytes actually read, with
+  redirects followed by hand so each hop's scheme is re-checked.
+- `SleeveExchange` (forge-gui) — the receiving half of sharing. Session
+  directory under the cache, capped at 32, cleared at startup, never the
+  library.
+- Desktop Swing: `SleeveImport` (ImageIO) + a Custom Sleeves section in the
+  lobby picker. **Not the shipped client** — kept as an upstream-shaped
+  contribution.
+- libgdx (the shipped client): `CustomSleeveArt` renders the texture whole
+  rather than cutting a card-art window out of it; `CustomSleeveImport`
+  mirrors the importer on Pixmap (PNG only, so oversize sources shrink rather
+  than lose quality); `CustomSleeveSelector` picks one. No system file picker
+  exists on either libgdx client, so the two ways in are a pasted link and
+  dropping files into the sleeves folder, which the picker adopts on open.
+
+### Not built — sharing over the wire
+
+The design (agreed 2026-08-22) is that peers exchange **validated bytes
+in-band, never addresses**. A URL field would make every client beacon to a
+host another player chose, and would not even deliver "everyone sees the same
+sleeve", since a server can vary bytes per requester. Content-addressing gives
+that property by construction.
+
+Remaining: a `SleeveBlobEvent`, the client send-on-select, the server relay
+(`broadcastExcept`), a per-slot rate limit, and a preference to decline other
+players' sleeves. `WireClassFilter` already allowlists the `forge.` prefix, so
+a new event class rides free; `maxWireArrayLength` is 1 MiB against a 256 KiB
+blob.
+
+**Until this lands, online play falls back to the built-in sleeve for any
+custom sleeve a peer picked.** It degrades gracefully — nothing breaks — but
+the feature is local-only.
+
+### Standing note — why the guards are where they are
+
+A custom sleeve is the only path by which a peer's bytes reach an image
+decoder, and on Android that decoder is stb_image: native C bundled in the
+APK, patched only when we rebump libgdx. Everything else the multiplayer trust
+model permits is memory-safe (a modified client lies; the host believes it).
+That is the whole reason for the format allowlist, the byte cap and the
+header-first dimension check — see
+[multiplayer-hardening.md](multiplayer-hardening.md) for the trust model this
+sits inside.
+
+### Acceptance
+
+Local half user-verified in play 2026-08-22 on the libgdx client. Desktop
+suite 479 green. Android APK unverified — the SDK build-tools 35 / platform 35
+decision is still open (see the Chronicle D4 item).
+
 ## Shared user store: the playable build and the research harness read the same decks
 
 Noticed on the instance's first real run (2026-07-27): Deck Manager shows the
