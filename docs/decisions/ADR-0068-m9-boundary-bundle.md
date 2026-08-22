@@ -1,7 +1,7 @@
 # ADR-0068: The M9 boundary event — one bundle
 
-- **Date:** 2026-08-21 (bundle landed; certification + re-baseline reads pending — see Status)
-- **Status:** accepted (reads IN FLIGHT: forkcheck + m9-rebaseline final_read fill §Reads below)
+- **Date:** 2026-08-21 (bundle landed, certified, and re-baselined same day)
+- **Status:** accepted
 - **Design-doc anchor:** m9-plan "Boundary discipline: ONE boundary event" + done-when 3
 
 ## Context
@@ -91,8 +91,7 @@ verdict on each queued item, and the era-scoping consequences.
 - `data/forkcheck/m8d1-proof` jars prune to results+meta once the
   m9-boundary forkcheck supersedes them (ADR-0060 note).
 
-## Reads (PENDING — each line fills in when its run completes; no number
-## below exists yet)
+## Reads
 
 - **Forkcheck certification (`run-20260821-m9boundary`, 500 games, default
   mode): DONE 2026-08-21.** **450 clean / 50 divergence = 10.0%**, statics
@@ -102,11 +101,23 @@ verdict on each queued item, and the era-scoping consequences.
   (queued item, not boundary-gating; the FIXED_HASH same-sequence triplet
   on this jar is its next step, daytime run).
 - **Re-baseline (`m9-rebaseline` final_read, iter-019 via load_compat on
-  the bundle jar, ~2,000 paired games):** [PENDING — the corrected read
-  RE-PINS THE M9 GATE NUMBER; 0.5373 ± 0.0112 is reference-only. Riders:
-  hygiene census, battery anomalies, seed-half consistency, the
-  never-cast/never-seen-vs-pool-census check (run-analysis-protocol
-  boundary row).]
+  the bundle jar): DONE 2026-08-21.** 1,999 games, 0 crashes, all
+  decisive, turns median 21. **Raw 0.5283 ± 0.0112, ante-corrected
+  0.5279 ± 0.0110 — THE M9 GATE NUMBER RE-PINS AT 0.5279 ± 0.0110**
+  (pre-boundary 0.5373 ± 0.0112 is reference-only; the −0.94pp cross-era
+  delta is not a verdict — boundary re-scale, ADR-0025 rule 3). Veto rate
+  0.1591 (first-attempt 0.1151); payment surface live in-loop at day-zero
+  init. **Battery anomaly recorded: seed-half disagreement 0.4925 vs
+  0.5640 (gap 7.15pp > 2× pooled SE 4.45pp — the run12 class, larger than
+  ADR-0055's 5.15pp flag).** Per the standing rules the flag is
+  exploratory, never verdict-generating, and the boundary re-pin is not a
+  promotion decision — the gate stands at the combined read; BUT the flag
+  binds forward: any D4/D5 read landing within ~1pp of this gate gets the
+  fresh-seed paired confirmation (the standing marginal-t tiebreaker) as
+  a matter of course, not discretion. The never-cast/never-seen
+  pool-census rider (run-analysis-protocol boundary row) did not run —
+  it remains unbuilt; still queued for its next natural run, noted here
+  so the omission is loud.
 - **Evalset revalidation pass (`run-20260821-revalidation`, observe lanes
   on the bundle jar): DONE 2026-08-21.** 293 jobs → 278 scored.
   **option_mismatch = the SAME 3 jobs as day-zero (9/119/138, b1/b2) — no
