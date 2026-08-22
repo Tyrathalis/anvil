@@ -48,7 +48,12 @@ and the closeout ADR records it as such.
   deviation reward is sparse, the head can collapse to always-auto —
   is why D4's probe reads drills and deviation telemetry, not just
   strength.
-- **Boundary discipline: ONE boundary event.** The §3c fork delta
+- **Boundary discipline: ONE boundary event.** **LANDED 2026-08-21
+  ([ADR-0068](../decisions/ADR-0068-m9-boundary-bundle.md)), all reads
+  complete same day: era `2f87180cdf`, gate re-pinned 0.5279 ± 0.0110
+  corrected, evalset revalidated (zero new drift; baselines re-banked
+  2/64 / 196/214, gate denominators carry), 2-arm trim retired, fidelity
+  10.0% (held). Done-when 3 SATISFIED.** The §3c fork delta
   rides the queued next-boundary bundle (upstream rebase + multi-format
   model-side enablement + copy-state divergence forensics + the
   fork-index store-namespace fix from run17 iter-2 + obs choice-state
