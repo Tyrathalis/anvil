@@ -749,6 +749,49 @@ iteration 9.
 stores, and evalset repair (phy/wc positives unreachable as constructed)
 before those 27 drills enter another denominator.
 
+### D4 CONTROL — `d6-run19`, 2026-08-23 ([ADR-0072](../decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md))
+
+The experiment ADR-0069 specified: run18 verbatim + a drill campaign, §3c on,
+nothing else changed. 12×480 planned, **GUARD HALT at iteration 10**
+(`veto_rate 0.3074 > 1.5× iter-0 (0.2029)`), 10 accepted.
+
+Campaign restored in-era, not literally: run17's selection is not replayable
+post-boundary (`_drill_phase` re-simulates from seed on the current jar), and
+the free in-era stock was gate-poisoned (`m9-rebaselinearm` runs at
+`final_read.py`'s default `seed_base 20260710`). Fresh stock via
+`cycle_stock.py` (1,999 games, 420 addressable) → `critic_select.py` → **320
+entries, run17's size**, ahead 0.1875.
+
+**ADR-0062's prediction fails on both halves.**
+
+| run | campaign | §3c | halt | slope i0–i7 | t | kvr i0→i7 |
+| --- | --- | --- | --- | --- | --- | --- |
+| run17 | Y | off | i11 | +0.00097 | +0.41 | flat |
+| run18 | N | on | none | −0.00762 | −7.55 | −33% |
+| **run19** | **Y** | **on** | **i10** | **−0.00008** | **−0.02** | **−3.7%** |
+
+No collapse (kvr CIs overlap; slope inside the drill-fed band ⇒ run18's
+decline was the missing campaign). Taxonomy repeats the inverted signature —
+`knowable:timing`, untouchable by §3c, −61.6%, hardest of any category, while
+`generic_short` ROSE +6.6%. No stability dividend — halted one iteration
+EARLIER than the §3c-off run17, at a higher threshold. Capability negative
+replicated at 2× head dose (selectivity 1.19, z = +1.13).
+
+**The finding that outranks the run:** `payment_certify.py` scores a
+`HORIZON = 2` board/tempo proxy, not game outcomes. The 69 certified positives
+establish a better board two turns later; **the winrate value of perfect
+payment play has never been measured**, and two training runs were spent
+against a ±1.1pp gate without it.
+
+**NEXT — the gating measurement, before any further §3c design: run the 69
+certified drills to GAME END** instead of the 2-turn horizon (69×K, existing
+machinery). Survives ⇒ the value is realizable and the model merely cannot
+find those windows (supervised conditional signal, ADR-0015 machinery parked
+since M2); evaporates ⇒ downstream squandering (the influence-surface
+hypothesis, localized) or a non-predictive proxy; never there ⇒ payment is not
+a strength lever at gate resolution and the surface is infrastructure
+permanently.
+
 ## D5 — the full run + the standing gate
 
 One training run, run-recipe design pinned at its own session (init,
@@ -894,12 +937,12 @@ ledger is the capability view.
    read vs the post-boundary baseline.
 6. The M9 closeout ADR records the strength verdict AND the mechanism
    verdict (veto collapse confirmed / falsified — falsification
-   explicitly first-class; **note as of the D4 read: the mechanism
-   verdict is currently neither — it is UNTESTED, because D4's
-   `drill_selection: None` pin removed the condition under which the
-   runaway occurs. Closing M9 without the ADR-0069 control run means
-   closing it with the mechanism question open, which must be said in
-   those words rather than recorded as a falsification**), routes the second act or M10, **and routes
+   explicitly first-class; **RESOLVED 2026-08-23 by the ADR-0069 control
+   run: the verdict is FALSIFIED — `d6-run19` restored the campaign and
+   the collapse did not occur (kvr −3.7%, CIs overlapping) nor did the
+   surface buy stability (guard halt at i10, one iteration earlier than
+   the §3c-off run17). The closeout records a falsification, which
+   ADR-0062 made explicitly first-class**), routes the second act or M10, **and routes
    every payment-completion-queue item by name** (scheduled, or
    re-deferred with a recorded reason — the queue's no-silent-loss
    rule).
