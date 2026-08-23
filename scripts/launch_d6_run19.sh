@@ -26,7 +26,8 @@
 # ADR-0063 v2 instrument, and the taxonomy split (a REAL §3c collapse is
 # concentrated in colors_short/generic_short and spares knowable:timing;
 # that is the discriminator run18 failed).
-#   §3c HOLDS THE CHANNEL   slope <= 0 with the campaign present, i.e.
+#   §3c HOLDS THE CHANNEL   slope <= 0 over i0-i7 with the campaign
+#                           present, i.e.
 #                           clearly outside the drill-fed family, AND the
 #                           decline concentrated in the mana categories.
 #   §3c DOES NOTHING        slope back in the drill-fed band (+0.001..
@@ -36,10 +37,18 @@
 #                           slot with the payment surface held as
 #                           infrastructure.
 #   Between                 discuss; nothing auto-promotes (D4's lesson).
-# NOTE: 8 iterations CANNOT establish runaway prevention — run16 and
-# run17 were also quiet through iteration 9 and halted at 16 and 11. This
-# run tests the SLOPE in the matched window, not the tail. Extending to
-# 12+ is a separate decision.
+# TWO READS, one run (12 iterations, user decision 2026-08-22):
+#   (a) THE MATCHED SLOPE, i0-i7 — the window run18 ran, so the campaign
+#       is the only delta. This is the primary read above.
+#   (b) THE TAIL, i8-i11 — the window where the runaway actually lives.
+#       run16 and run17 were both quiet through iteration 9 and halted at
+#       16 and 11; 8 iterations would have stopped just short of the only
+#       place the veto guard has ever fired. If the guard halts here, that
+#       is a READ (§3c does not buy stability), not a failed run. If it
+#       does NOT halt where run17 did, that is the stability claim getting
+#       its first positive evidence — still one run, still not proof.
+#   The tail is the half that cannot be recovered later without paying for
+#   the whole run again, which is why it is bought up front.
 #
 # Deltas vs d6-run18 (scripts/launch_d6_run18.sh) — campaign only:
 #   --drill-selection  data/runs/drill-selection-m9control/selection.jsonl
@@ -78,7 +87,7 @@
 #
 # Wall clock: ~35-45 min/iteration with the campaign (run18 was ~20 min
 # campaign-free; run17 carried ~1,000 extra trajectories/iteration) =>
-# ~5-6h for 8 iterations.
+# ~7-9h for 12 iterations. Overnight by design (user, 2026-08-22).
 #
 # Launch checklist: setsid nohup this script; the driver self-registers
 # watchd + holds the sleep inhibitor + notifies; ALSO arm the log monitor
@@ -88,7 +97,7 @@ cd "$(dirname "$0")/.."
 exec uv run python -m anvil.training.selfplay \
   --name d6-run19 \
   --ckpt data/training/d4-init/last.pt \
-  --iterations 8 --games 480 --games-per-pair 2 \
+  --iterations 12 --games 480 --games-per-pair 2 \
   --workers 8 --chunk 30 --port 50068 --seed-base 20261215 \
   --temperature 1.0 --replay 4 --fresh-weight 1.0 --replay-weight 0.33 \
   --rl-workers 12 --epochs 1 --lr 1e-05 --pay-lr 1e-03 \
