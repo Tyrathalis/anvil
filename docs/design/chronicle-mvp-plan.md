@@ -322,10 +322,60 @@ should be — tuning a fixed-weekly-income economy that is about to gain a
 variable income source is wasted work. The two-week dogfood clock effectively
 restarts when D6 lands, since the loop being dogfooded changes shape.
 
-**D6 — kitchen table + purse (the effort→reward sink).** *Promoted from
-"Stretch" 2026-08-22 by [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md);
+**D6 — kitchen table + purse (the effort→reward sink). BUILT 2026-08-22
+(fork `playable` @ `c647ba081e` headless + `92708b5452` screens); shared-file
+footprint ZERO, Chronicle suite 57 green, full desktop suite 506/0/11-skipped.**
+*Promoted from "Stretch" 2026-08-22 by [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md);
 the highest-value remaining Chronicle work, though explicitly not required to be
-the immediate next commit.* Deck editor wiring + ownership-legality over the
+the immediate next commit.*
+
+*Built (headless, `forge-gui/.../gamemodes/chronicle/`):* `ChronicleRival` +
+`ChronicleRoster` + `res/chronicle/rivals.txt` (5-kid seed cast);
+`ChronicleRivalPool` — a rival's collection is DERIVED, never stored, from
+(run seed, rival id, **pack index**) and deliberately not the day, so pack *i*
+is the same pack forever, day D+1's pool contains day D's, and the save stores
+nothing for it; pack *i* has a computable acquisition day and can only hold a
+product **released** by then, which is the entire difficulty model (a rival
+keeps what they bought, so the pool spreads across more and stronger sets as the
+timeline advances — `packsPerDay` is that kid's allowance and there is no power
+knob anywhere). `ChronicleDeckSource` = the ADR-0071 pool-in/deck-out seam;
+`ChronicleDeckBuilder` fences forge-core's generator against three things it
+doesn't do for us — it's **count-blind** (DeckGenPool keys by name, so one Lotus
+yields four) and gets clamped to owned counts, it picks colours at random and
+instead gets the two the collection is deepest in, and **basics aren't in the
+pool at all** (Forge's era sheets put none in 1993-94 boosters, so a pack-only
+rival owns zero lands) so they're supplied outside the collection in a period
+edition. Determinism came free: every forge-core generator routes randomness
+through `MyRandom`, exactly like `BoosterGenerator`. `ChronicleDecks`
+(reference-only; shortfall reported, never a silent rewrite of the player's
+deck), `ChronicleKitchen` (purse once per rival per played day; a loss doesn't
+burn the day), config knob `pursebaseCents`, run save/load + controller API.
+
+*Built (mobile):* home-screen Kitchen Table entry carrying the count of purses
+still uncollected today; `ChronicleKitchenScreen` (who's around, what they pay,
+your record, "Rematch (no money on it)" once collected); `ChronicleDeckScreen` +
+a small `IDeckController` routing the **stock** `FDeckEditor` into the run —
+decks live in the Chronicle save, NOT Forge's shared deck store (load-bearing:
+the playable build shares that store with the research harness, whose
+`launch --pool` gates on installed-deck content hashes); the editor's only hook
+is `setPlayerInventorySupplier` pointing the catalog at the collection, which is
+Quest's existing semantics and exactly the chosen legality.
+
+*`ChronicleMatch` needed NO shared-file change* — Adventure reports results via
+an `isMobileAdventureMode` branch inside `MatchController.finishGame()`; a second
+mode branch there is what the isolation convention exists to avoid, and
+`HostedMatch.setEndGameHook` + `getGame().getOutcome().isWinner(...)` makes it
+unnecessary. Two rules pinned at the table rather than inherited: **one game,
+not a match** (best-of-three is a tournament construct; also makes the purse
+unambiguous) and **ante forced OFF** — the global `UI_ANTE` preference must never
+reach this table, since ADR-0071 makes ante opt-in and the opt-in doesn't exist
+yet, so inheriting it would silently gamble the player's collection.
+
+*Not yet built / next:* the opt-in ante stake (with the Ante ledger accounting
+it); on-device verification of the whole loop; the paper's rival hooks
+(`ChronicleRoster.joiningOn` exists for the "new kid at the table" headline).
+*Open at tuning time:* the grind shape is live in code as the recommended
+default and is the thing dogfood must judge; cast size and growth rate. Deck editor wiring + ownership-legality over the
 printing×finish inventory (1993–94 casual play predates formats; the format
 resolver arrives with the tournament board), play against the AI, and a **purse**
 on the result. Deck editor, AI and match runner all already exist in Forge —
