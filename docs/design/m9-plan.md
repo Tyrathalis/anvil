@@ -690,6 +690,65 @@ infrastructure and going to the §3a second act), and the pin-12 forced
 family re-mine, which was deferred to post-run rather than run at the
 midpoint (GPU contention) and is now due against the run's own stores.
 
+### D4 READ — the adjudication (2026-08-22, [ADR-0069](../decisions/ADR-0069-d4-read-adjudication.md))
+
+**D4 RESOLVED, NEGATIVE.** Done-when 4 satisfied. The RESULT block above
+reproduces exactly from the raw stores; the read added three things.
+
+1. **The negative is a selectivity measurement, not a reading of curves.**
+   Argmax deviation split by drill kind: P(dev | positive) vs
+   P(dev | auto-correct) = 1.11 / 1.39 / 1.29 / 1.25 / 1.03 / 1.11 / 0.48 /
+   0.42 / 1.25 across dz–i7, 2-prop z never above +0.94, **pooled i0–i7
+   z = +0.75.** The head never acquired ANY discrimination between the two
+   populations. Corroborated: the positive-family deviation sets NEST
+   (jaccard 1.00 at equal size for i1-vs-i0 and i4-vs-i3; i2/i3 strict
+   subsets — pruned, never promoted) and precision-on-deviation is flat at
+   chance (13/39 = 33.3%). Training moved one global threshold down and
+   left the ordering untouched.
+
+2. **42% of the gate denominator could never move, and the threshold
+   encoded an unpriced precision assumption.** phyrexian (13) and
+   wide_choice (14) positives are 0-correct at every scored point
+   INCLUDING day-zero — 27 of 64 drills; the gate was contested on 37, and
+   the whole signal is color_hold plus one blocker_pressure drill at
+   i0/i1. Half the auto-correct climb is phyrexian (25/32 → 31/32) — the
+   family whose positives are permanently 0/13. At 33% precision, ≥ 7/64
+   needs ~21/64 positive deviations against an 11.7% auto-deviation
+   guardrail = **~2.8× selectivity, vs a measured max of 1.39.** FUND was
+   outside the channel's dynamic range by 2×.
+
+3. **Pre-registered signal 2 was never read. The read took it, then killed
+   it as evidence.** ADR-0063 v2 instrument on run18's own stores, four
+   iterations, no new games: kvr **0.0635 → 0.0621 → 0.0481 → 0.0425**
+   (−33%, CIs separated, validity 0.9885–0.9902), raw veto slope
+   −0.00762/iter at t = −7.55, the steepest in the ledger. Two checks kill
+   the attribution: (a) the ledger splits perfectly by campaign status —
+   every drill-fed run flat-to-rising (run11/13/16/17), every drill-free
+   run flat-to-falling (run7b −0.0044, run8 +0.0003, run9 −0.0059 at
+   t = −4.20) — and D4's recipe pinned `drill_selection: None`; (b) the
+   decline has no affordability signature — `knowable:timing`, which §3c
+   cannot touch, fell −51.6%, more than colors_short (−24.6%) or
+   generic_short (−35.4%). **ADR-0062's collapse prediction is UNTESTED;
+   D4's recipe made it untestable.** One category worsened:
+   `not_knowable:autopayer_xcost` +138% (17 → 38). Free confirmation:
+   ADR-0063's knowability premise holds in-era under sampled play at all
+   four points (0.519–0.606).
+
+**Routing recommendation (ADR-0069 §4, pending the user's call):** hold the
+payment surface as infrastructure and take the §3a second act (D6, which
+inherits the promotion slot), with ONE 3h control run first — run18's
+recipe with run17's drill campaign restored, §3c on — as the experiment
+that actually reads signal 2, under the condition that halted run16 at
+iteration 16 and run17 at iteration 11. Option B (dedicated-embedding
+`pay_kind` head) argued NOT indicated: it re-parameterizes a knob whose
+problem is absent conditional signal. **run18's 8 clean iterations do NOT
+establish runaway prevention** — run16/run17 were also quiet through
+iteration 9.
+
+**Still owed:** the pin-12 forced-family re-mine against d6-run18's own
+stores, and evalset repair (phy/wc positives unreachable as constructed)
+before those 27 drills enter another denominator.
+
 ## D5 — the full run + the standing gate
 
 One training run, run-recipe design pinned at its own session (init,
@@ -826,14 +885,21 @@ ledger is the capability view.
    (observe lanes re-run on the bundle jar; drift exclusions counted;
    shape floors re-checked; day-zero scores re-banked — D4 gate
    session decision 4).
-4. D4 probe resolved against its pre-registered gate, either
-   direction, with an ADR.
+4. **RESOLVED (2026-08-22, [ADR-0069](../decisions/ADR-0069-d4-read-adjudication.md)):**
+   D4 probe resolved against its pre-registered gate, either
+   direction, with an ADR. Landed NEGATIVE, via the read session's
+   adjudication of the discuss zone.
 5. One full training run (D5 payment, or D6 plan-latent on the
    negative branch) closed by the standing 2,000-game combined paired
    read vs the post-boundary baseline.
 6. The M9 closeout ADR records the strength verdict AND the mechanism
    verdict (veto collapse confirmed / falsified — falsification
-   explicitly first-class), routes the second act or M10, **and routes
+   explicitly first-class; **note as of the D4 read: the mechanism
+   verdict is currently neither — it is UNTESTED, because D4's
+   `drill_selection: None` pin removed the condition under which the
+   runaway occurs. Closing M9 without the ADR-0069 control run means
+   closing it with the mechanism question open, which must be said in
+   those words rather than recorded as a falsification**), routes the second act or M10, **and routes
    every payment-completion-queue item by name** (scheduled, or
    re-deferred with a recorded reason — the queue's no-silent-loss
    rule).
