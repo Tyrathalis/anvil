@@ -138,3 +138,82 @@ GA-evolved Legacy lists. Nothing to import, and importing would be wrong.
   is cheaper and matches the seed-integrity posture, but costs determinism if
   the generator ever changes — a versioned generator, or storing the pool, will
   be needed).
+
+---
+
+## Addendum (2026-08-22, same day): the grind shape resolved — two speeds
+
+The "Consequences" section above left the grind shape as the live open question
+and recommended one paying challenge per rival per day, with the recommendation
+explicitly not pinned. The user's counter-proposal is better and is now the
+decision:
+
+**Cash stays bounded; ante is unbounded.** The purse pays once per rival per
+played day exactly as built. Playing for keeps has no daily limit at all — it is
+priced in **risk instead of time**, which is a self-limiter a timer cannot be.
+
+### Why this is safe (checked against the implementation, not argued)
+
+- **By volume ante is a poor card source.** One card per won game; an hour at a
+  flawless 100% winrate is 4–10 cards, against 30 free cards a day from the
+  ration for two minutes of tapping. Roughly a fifth the rate.
+- **By rarity it is tighter than volume suggests, but still bounded.**
+  `Game.chooseCardsForAnte` picks a rarity **uniformly over the classes both
+  libraries share**, not weighted by card counts — so with a typical
+  {Common, Uncommon, Rare} spread it is about 1-in-3 that a rare is on the table,
+  versus 1-in-15 in a pack. An hour of flawless grinding ≈ a day's ration of
+  rares. Meaningful, gated behind actually winning, and symmetric: the player
+  stakes their own rares at the same rate.
+- **The rival's pool is a real, depleting resource** — the user's insight, and
+  the thing that makes the channel bounded without a counter.
+
+### The architectural consequence, and the mechanic that disappeared
+
+Rival collections were a pure function of the run seed with **zero save state**.
+Ante makes cards actually change hands, which breaks that. Resolved by
+persisting only a delta:
+
+    pool(rival, day) = derived(packs owned by day) − lostToPlayer + wonFromPlayer
+
+The derived base stays seed-pure; the delta is bounded by games actually played.
+
+**The catch-up mechanic the user asked about turns out to be unnecessary.** The
+derived term keeps growing on its own schedule, so a stripped rival recovers
+naturally as their allowance rolls in — no rubber band, nothing to tune, and no
+engagement-trap risk from a hidden difficulty spring. It also **bounds the
+world's card supply**: total cards extractable from a rival over a whole run can
+never exceed what their derived curve gave them, so an unlimited match channel
+cannot pull cards out faster than the release calendar puts them in. The
+scarcity engine and the pack-EV invariant both survive an unbounded channel.
+
+Two behaviours fall out for free: a stripped rival **plays a worse deck** (their
+deck regenerates from the depleted pool, so difficulty self-corrects in fiction),
+and **"running out of spares" is a real state** — a rival declines ante below
+`anteRivalFloorCards` rather than handing over their last playable.
+
+### Stakes: Forge's real ante, kept
+
+Both sides ante a **random card from their deck**, rarity-matched, basics
+excluded, winner takes both — Forge's built-in mechanic, consumed via
+`GameOutcome.AnteResult`. The player's best cards are therefore simultaneously
+their win condition and their collateral, which is period-authentic
+(ante-proofing a deck was a real practice) and a strong self-limiter. The loss
+is permanent: seed integrity forbids the reroll. A confirm dialog says so
+plainly before the cards are shuffled, and ante is **never** inherited from the
+global `UI_ANTE` preference.
+
+### Consequences of the addendum
+
+- ADR-0070's pin 8 is now answered on both halves: bounded income protects the
+  economy, unbounded risk satisfies "put more time in, get more out". Note the
+  deliberate asymmetry — **the grinder is pushed into the subtractive channel by
+  design**; risk is the price of unbounded.
+- **The provenance journal now records departures.** `ChronicleAcquisitionLog`
+  gains a `Source` enum (BOOSTER/STARTER/ANTE_WON/ANTE_LOST) keeping
+  `SealedItem.Kind`'s names so pre-ante saves load unchanged. An ante win takes
+  a first-pull ordinal — a card won off a rival can be the first copy ever owned.
+- The Ante module now accounts a real stake, which is what it was named for.
+- New tuning knob `anteRivalFloorCards` (seed 75). The numbers pass gains a
+  third axis alongside purse-per-difficulty.
+- **Still open for dogfood:** whether 1-in-3 rare stakes is too generous or too
+  punishing, and whether the floor should scale with the rival's tier.

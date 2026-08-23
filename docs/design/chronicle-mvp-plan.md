@@ -69,6 +69,10 @@ night, puzzles, prestige, languages: OUT.
    property of the design, not a stage-2 feature — and it outlives D6: if D6's
    purse doesn't satisfy it, the pin stands and the next candidate is scoped
    against it. Full reasoning + the open questions: [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md).
+   **Answered on both halves 2026-08-22** ([ADR-0071 addendum](../decisions/ADR-0071-d6-design-round.md)):
+   bounded cash income protects the economy, unbounded ante satisfies "put more
+   time in, get more out". Deliberate asymmetry — the grinder is pushed into the
+   *subtractive* channel by design; risk is the price of unbounded.
 
 ## Architecture decisions
 
@@ -371,11 +375,47 @@ unambiguous) and **ante forced OFF** — the global `UI_ANTE` preference must ne
 reach this table, since ADR-0071 makes ante opt-in and the opt-in doesn't exist
 yet, so inheriting it would silently gamble the player's collection.
 
-*Not yet built / next:* the opt-in ante stake (with the Ante ledger accounting
-it); on-device verification of the whole loop; the paper's rival hooks
-(`ChronicleRoster.joiningOn` exists for the "new kid at the table" headline).
-*Open at tuning time:* the grind shape is live in code as the recommended
-default and is the thing dogfood must judge; cast size and growth rate. Deck editor wiring + ownership-legality over the
+**ANTE BUILT same day (`111a441f74`) — the grind shape RESOLVED as two speeds**
+([ADR-0071 addendum](../decisions/ADR-0071-d6-design-round.md), user
+counter-proposal, better than the plan's recommendation): **cash stays bounded,
+ante is unbounded and priced in risk instead of time.** Checked against the
+implementation rather than argued — by volume ante is a poor card source (1 card
+per won game ≈ 4–10/hour flawless, vs 30 free cards/day from the ration), and
+`Game.chooseCardsForAnte` draws a rarity **uniformly over the classes both
+libraries share**, so ~1-in-3 games has a rare on the table (vs 1-in-15 in a
+pack) — meaningful, gated behind winning, and symmetric since the player stakes
+their own at the same rate. Self-limiting three ways rather than by a timer: you
+stake from your own deck, the rival's pool really depletes, and they decline
+below `anteRivalFloorCards`.
+
+*The architectural consequence, and a mechanic that disappeared:* rival pools
+were seed-pure with zero save state, and ante moves real cards. Resolved by
+persisting only a delta (`ChronicleRivalLedger`) —
+`pool = derived(packs by day) − lostToPlayer + wonFromPlayer`. **The catch-up
+mechanic proved unnecessary:** the derived term keeps growing on schedule, so a
+stripped rival recovers as their allowance rolls in — no rubber band, nothing to
+tune, no engagement-trap spring. It also **bounds the world's card supply**
+(total extractable ≤ the derived curve), so an unbounded match channel cannot
+outpace the release calendar and the scarcity engine survives. Free consequences:
+a stripped rival plays a worse deck (difficulty self-corrects in fiction), and
+"run out of spares" is a real, legible state.
+
+*Stakes:* Forge's real ante — random card from the deck, rarity-matched, basics
+excluded, winner takes both, via `GameOutcome.AnteResult`. Your best cards are
+both win condition and collateral (period-authentic; ante-proofing was real).
+Loss is permanent under seed integrity, so a confirm says so plainly, and ante
+is **never** inherited from the global `UI_ANTE` preference.
+
+*The journal now records departures.* `ChronicleAcquisitionLog` gains a `Source`
+enum (BOOSTER/STARTER/ANTE_WON/ANTE_LOST) keeping `SealedItem.Kind`'s names so
+pre-ante saves load unchanged; an ante win takes a first-pull ordinal. "Lost to
+Marcy, day 34" shows in the binder's provenance popup.
+
+*Not yet built / next:* on-device verification of the whole loop; the paper's
+rival hooks (`ChronicleRoster.joiningOn` exists, unused, for the "new kid at the
+table" headline). *Open at tuning time:* whether 1-in-3 rare stakes is too
+generous or too punishing; whether `anteRivalFloorCards` should scale with tier;
+cast size and growth rate. Deck editor wiring + ownership-legality over the
 printing×finish inventory (1993–94 casual play predates formats; the format
 resolver arrives with the tournament board), play against the AI, and a **purse**
 on the result. Deck editor, AI and match runner all already exist in Forge —
