@@ -621,9 +621,21 @@ Modules (headless-first per the platform verdict; libGDX screens on top):
 Candidate cheap rider: the **Ante pack-EV ledger stub** from day one (static
 buylist prices make EV computable; the ethics identity ships with the MVP).
 
-Stretch (kitchen table): deck editor wiring + ownership-legality only (no
-format resolver needed — 1993–94 casual play predates formats; that resolver
-arrives with the tournament board).
+~~Stretch (kitchen table)~~ **PROMOTED to MVP deliverable D6, 2026-08-22
+([ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md))**: deck
+editor wiring + ownership-legality only (no format resolver needed — 1993–94
+casual play predates formats; that resolver arrives with the tournament board),
+plus a **purse** on the result. *Why it moved:* the D5 dogfood measured the MVP
+loop as all-grants — ration and stipend on a timer, a buylist that pays less
+than packs cost by construction — with **no channel where invested time converts
+into progress**. That is now a pinned requirement above the MVP/stage line, not
+a stage-2 feature. Layer ordering below is unchanged: the battler, venues,
+tournaments and market keep their stage-2/3 positions; D6 is the cheap
+kitchen-table instantiation of the requirement, not an early draw-down of
+layer 2. Open at D6 design time: the purse's flavor (ante is period-authentic
+and namesake-appropriate but stakes the collection against the collection
+chase), how deck legality reads the inventory, and the variable-income knock-on
+to the numbers pass.
 
 Open tuning items: daily ration size (2–3 packs?), MSRP/buylist number pass,
 reveal-UX bar definition, dogfood exit criterion (proposal: the daily loop

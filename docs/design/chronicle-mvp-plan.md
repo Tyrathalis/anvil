@@ -16,7 +16,9 @@ Exactly the MVP slice spec v0 (sketch, 2026-07-31): content window 1993–94
 Alpha→Fallen Empires (9 booster releases + starters), thin economy (static
 buylist — rarity/era-flat + the 1994-desirability tier table — + LGS + seeded
 daily stock roll), identity = printing×finish
-(language dormant, condition never), kitchen-table play = stretch. Foils,
+(language dormant, condition never), ~~kitchen-table play = stretch~~
+**kitchen-table play PROMOTED to D6 (2026-08-22, [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md))
+— the dogfood measured the missing effort→reward channel.** Foils,
 battler, tournaments, market/circulation, trading sites, bulk lots, trade
 night, puzzles, prestige, languages: OUT.
 
@@ -55,6 +57,18 @@ night, puzzles, prestige, languages: OUT.
 7. **Prestige-proof save schema from day one:** run-id on the collection layer +
    a separate meta-progress blob. Prestige ("collection resets, meta persists")
    is far out, but it's a schema property — free now, painful to retrofit.
+
+## New pin from the D5 dogfood (user, 2026-08-22)
+
+8. **The mode must contain an effort→reward channel** — somewhere that
+   *invested time converts into progress*. Grants on a daily timer are not one.
+   The shipped MVP loop is all grants (ration, stipend) plus a buylist that
+   pays out less than packs cost by construction, so there is no action whose
+   reward scales with how much you put in; the dogfood named that as the thing
+   that ends the daily habit. This sits **above the MVP/stage line** — a
+   property of the design, not a stage-2 feature — and it outlives D6: if D6's
+   purse doesn't satisfy it, the pin stands and the next candidate is scoped
+   against it. Full reasoning + the open questions: [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md).
 
 ## Architecture decisions
 
@@ -186,6 +200,31 @@ badges, buylist total, Open another/Open all continuation. All pacing
 constants sit in one block atop `ChronicleRevealScene` — the dogfood tuning
 surface. Suite 34 green; mobile-dev jar boots clean. **The done-when stays
 open by design (experiential bar, author-judged; iterate through D5).**
+**Dogfood round-1 tear rework LANDED 2026-08-22 (`2177e66f6d`)** — two findings from
+the author's phone round, both in the tear, both real defects rather than taste:
+(1) *the gesture was not a swipe* — `pan()` accumulated `Math.abs(deltaX)`, so
+the return stroke added progress exactly like the pull did (a shake opened a
+pack; a half-swipe-and-back finished the tear instead of releasing it), nothing
+handled the finger lifting, and `TEAR_DRAGS_TO_OPEN` was 1.1 *screen widths* —
+physically uncoverable in one swipe, so `fling()` was the only real way in. Now:
+direction commits on first horizontal travel and only travel that way counts,
+pulling back closes it proportionally, `panStop` springs it shut on a short
+release, `fling` completes only along the committed axis+direction, and progress
+is measured from an anchor against absolute x (correct across lift-and-resume);
+one committed swipe over half the screen width opens a pack.
+(2) *the animation was a tilt, not a tear* — the strip above the tear line was
+one rigid quad slid right and rotated ≤7°. It is now 16 vertical columns, each
+whole until the tear reaches it then split at its own point on a stable per-pack
+zigzag, peeling with a lag from the gripped end so the split **propagates** as
+you pull; each column slides/rises/curls by its own progress, the fresh edge
+draws as one connected bright zigzag, and the peel follows the direction torn.
+New constants join the pacing block (`TEAR_SWIPE_FRACTION`, `TEAR_SEGMENTS`,
+`TEAR_JAG_FRACTION`, `TEAR_PEEL_LAG`, `TEAR_CURL_DEG`, `TEAR_LIFT_FRACTION`,
+`TEAR_SLIDE_FRACTION`, `TEAR_SPRING_RATE`, `TEAR_FLING_MIN`). Compiles clean;
+**on-device feel not yet verified** (held while `d6-run19` had the box).
+Register considered and NOT taken: a pixelated wrapper-dissolve — the retro-lo-fi
+north star admits it, but it reads digital against the period booster art it
+would be dissolving, and the D3 bar pinned a real paper tear.
 Residue: gather Pocket reference footage for the side-by-side.
 *Live round 1 CLOSED same evening (5 commits → `ba94fc4cfd`; devlog
 2026-08-01-session5):* dev-mode testing actions (home-screen day
@@ -255,26 +294,66 @@ expects + `assets.zip` 194M incl. `res/chronicle/` + shared
 as a 0-file plan). First boot downloads assets from the same URL. Caveat:
 android update offers gate on **>23h** build.txt delta (upstream rule);
 desktop-style strictly-newer is a 1-line fork change if dogfood cadence
-needs it. APK delivered via Syncthing (`~/Everything/Sync/Other`);
-on-device boot = the remaining done-when.
+needs it. APK delivered via Syncthing (`~/Everything/Sync/Other`).
+**DONE 2026-08-22: done-when met** — the author has been running the daily
+pack-opening loop on the phone (that round's findings are D3's tear rework and
+[ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md)). Recorded
+retroactively; the on-device boot was never written up when it happened.
 
-**D5 — dogfood + numbers.** Two weeks of real daily use by the author (on the
-phone, per the design's mobile-first lean), plus the tuning pass: ration size
-(2–3 packs?), MSRP/buylist/stipend table, allowance cadence (weekly lump vs
-daily). *Exit criterion:* the daily loop still feels good after ~2 weeks — then
-flip the visibility pref for friends (beta), and take the courtesy Discord
-float. A failed exit is design feedback for the sketch, not a death sentence.
+**D5 — dogfood + numbers. OPEN, round 1 read 2026-08-22.** Two weeks of real
+daily use by the author (on the phone, per the design's mobile-first lean), plus
+the tuning pass: ration size (2–3 packs?), MSRP/buylist/stipend table, allowance
+cadence (weekly lump vs daily). *Exit criterion:* the daily loop still feels good
+after ~2 weeks — then flip the visibility pref for friends (beta), and take the
+courtesy Discord float. A failed exit is design feedback for the sketch, not a
+death sentence.
 
-**Stretch — kitchen table.** Deck editor wiring + ownership-legality only
-(1993–94 casual play predates formats; the format resolver arrives with the
-tournament board). Build only if the slice lands early.
+*Round 1 (2026-08-22, phone):* three findings. Two were reveal-scene defects,
+fixed in D3 above (the abs-delta swipe; the tilt-instead-of-tear). The third is
+the design result and got its own ADR: **the loop has no effort→reward channel**
+(pin 8 / [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md)) —
+"nothing to do with the cards but look at them." It promotes the kitchen-table
+stretch to D6 and pushes the numbers pass behind it.
+
+**Ordering decided with the round-1 read (user):** the numbers pass is
+**deferred behind D6**. Ration size, stipend cadence and the MSRP/buylist tables
+are all still at their seed defaults, and a purse changes what every one of them
+should be — tuning a fixed-weekly-income economy that is about to gain a
+variable income source is wasted work. The two-week dogfood clock effectively
+restarts when D6 lands, since the loop being dogfooded changes shape.
+
+**D6 — kitchen table + purse (the effort→reward sink).** *Promoted from
+"Stretch" 2026-08-22 by [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md);
+the highest-value remaining Chronicle work, though explicitly not required to be
+the immediate next commit.* Deck editor wiring + ownership-legality over the
+printing×finish inventory (1993–94 casual play predates formats; the format
+resolver arrives with the tournament board), play against the AI, and a **purse**
+on the result. Deck editor, AI and match runner all already exist in Forge —
+this is wiring plus an economy line, not new machinery. Period fidelity holds
+and constrains it: kitchen-table play in 1993–94 is period-correct; it is
+venues, organized play and tournament income that would be anachronistic, and
+those stay out (stage 2/3, sketch layer ordering unchanged).
+
+*Open design questions, to settle at D6 design time (from ADR-0070):*
+- **The purse's flavor.** Cash-for-a-kitchen-table-game is the easy build and
+  the weakest fiction. Candidates: ante (period-authentic, in the era's actual
+  rules, and what the Ante module is named for — but it stakes the collection,
+  which cuts against the collection chase); a trade rather than cash; or
+  reflavoring the allowance as chores-and-play. Undecided.
+- **How deck legality reads the collection** — whether a deck consumes or merely
+  references owned copies, and how duplicates across printings count.
+- **Economy knock-on.** Packs stay EV-negative (invariant untouched), but total
+  inflow stops being a fixed weekly constant, so the D5 numbers pass has to be
+  re-derived against a variable-income loop, and the Ante pack-EV ledger now has
+  a second income source to sit beside.
 
 ## Open items (tracked, not blocking)
 
 - ~~Reveal-UX bar definition~~ CLOSED 2026-07-31 (sketch "Reveal-UX bar v1";
   D3 above carries the operative form). Residue: gather Pocket reference
   footage at D3 build time.
-- Numbers pass: ration size, MSRP/buylist/stipend, allowance cadence (D5).
+- Numbers pass: ration size, MSRP/buylist/stipend, allowance cadence — **D5,
+  deferred behind D6** (a purse re-derives all of them; ADR-0070).
 - Stage-2+ design threads in the sketch: implementable market spec is now the
   only remaining design lift. Famous-card allowlist CLOSED to design
   2026-07-31 (sketch "Famous-card allowlist v0": path-shaping-only purpose,
