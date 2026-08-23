@@ -334,18 +334,66 @@ and constrains it: kitchen-table play in 1993–94 is period-correct; it is
 venues, organized play and tournament income that would be anachronistic, and
 those stay out (stage 2/3, sketch layer ordering unchanged).
 
-*Open design questions, to settle at D6 design time (from ADR-0070):*
-- **The purse's flavor.** Cash-for-a-kitchen-table-game is the easy build and
-  the weakest fiction. Candidates: ante (period-authentic, in the era's actual
-  rules, and what the Ante module is named for — but it stakes the collection,
-  which cuts against the collection chase); a trade rather than cash; or
-  reflavoring the allowance as chores-and-play. Undecided.
-- **How deck legality reads the collection** — whether a deck consumes or merely
-  references owned copies, and how duplicates across printings count.
-- **Economy knock-on.** Packs stay EV-negative (invariant untouched), but total
-  inflow stops being a fixed weekly constant, so the D5 numbers pass has to be
-  re-derived against a variable-income loop, and the Ante pack-EV ledger now has
-  a second income source to sit beside.
+**Design round DONE 2026-08-22 ([ADR-0071](../decisions/ADR-0071-d6-design-round.md)).**
+All three ADR-0070 questions settled, plus the two the build forced:
+
+1. **Purse = cash by default, ante = opt-in stake at a better payout.** Ante as
+   the *default* inverts the mode's core loop — everything in Chronicle is
+   accumulation, and ante makes the primary reward channel **subtractive from
+   the collection**, so a loss undoes earlier sessions (and seed integrity makes
+   it permanent). As a *choice* it is both period-accurate (playing for ante was
+   a decision, not the default) and adds a **risk** axis to effort→reward.
+2. **Opponent = a small cast of named rival collectors**, each with a seeded
+   collection that grows along the player's own timeline; the rival's deck is
+   generated from *that rival's* pool. Difficulty then rises with the era for
+   free, in fiction; the paper gains its first narrative content; and the
+   period-correct opponent genuinely is another kitchen-table player with a jank
+   collection. Rival acquisitions derive from (run seed, rival id, day index) —
+   seed integrity extends unchanged.
+3. **Legality = reference-only: decks borrow, they don't consume.** Per-deck copy
+   limits still apply. This is already what `DeckEditorConfig.usePlayerInventory()`
+   means in Quest, so it's the default behaviour of machinery we're reusing.
+   Reservation semantics rejected for now (would give duplicates real value, but
+   needs save-schema state + UI before the loop is proven).
+4. **Generation = `DeckGeneratorBase` over a `DeckGenPool`** built from the
+   relevant collection. Period `.thm` archetype files are an optional later
+   layer, not D6 scope.
+5. **Anvil is the designed long-run replacement** (sketch layer 3's sim probe →
+   Tutor's scorer). Not D6 work — but rival-deck construction goes behind a
+   narrow seam (pool in, deck out) so the swap costs nothing later.
+
+*Fork archaeology (ADR-0071): D6 needs no new machinery.* `DeckGeneratorBase`
+takes an arbitrary `PaperCard` pool (Chronicle's collection already is one);
+`FDeckEditor.DeckEditorConfig` exposes `getCardPool()` + `usePlayerInventory()`;
+`MatchController.hostMatch()` + `startMatch(...)` with
+`forge.adventure.scene.DuelScene` as the harvest template.
+
+*Finding of record:* **there is no corpus of period decklists, and that's
+historically correct** — 1993–94 predates published deck tech, and the earliest
+documented lists post-date the window's close at FEM. All three shipped Forge
+deck corpora are anachronistic for it (LDA archetype models cover
+Modern/Legacy/Historic/Pauper, and Legacy's archetypes are Sneak Show and
+Merfolk; the 505 quest precons are modern WotC precons; the 786 `geneticaidecks`
+are GA-evolved Legacy). Nothing to import, and importing would be wrong.
+
+*Still open — the live question, and where pin 8 gets tested:* **the grind
+shape.** Unbounded paying rematches are an income exploit and sit badly with the
+no-engagement-traps stance; a hard daily cap partly defeats pin 8. Recommended
+shape, to be **confirmed by dogfood rather than pinned**: one paying challenge
+per rival per in-game day, rematches always playable and always free but paying
+nothing, purse scaling with rival difficulty, cast growing with the timeline —
+so time converts into progress through *deck quality and harder opponents*, not
+repetition. Also open to build time: cast size and growth rate; whether a
+rival's pool is stored or regenerated from seed (cheaper, matches the seed
+posture, but needs a versioned generator).
+
+*Economy knock-on (unchanged from ADR-0070).* Packs stay EV-negative (invariant
+untouched), but total inflow stops being a fixed weekly constant in both amount
+and cadence, so the D5 numbers pass has to be re-derived against a
+variable-income loop — now with a second axis, purse-per-difficulty and the ante
+multiplier. The Ante ledger gets its first honest use: an opt-in stake is
+literally what the module was named for, and it should be accounted from the
+first commit.
 
 ## Open items (tracked, not blocking)
 
