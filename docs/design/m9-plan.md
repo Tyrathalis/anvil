@@ -794,6 +794,22 @@ permanently.
 
 ### The ceiling measurement — pins (PINNED 2026-08-24, pre-launch)
 
+**RESOLVED same day
+([ADR-0073](../decisions/ADR-0073-m9-ceiling-measurement.md), run
+`data/census/run-20260824-ceiling`): the proxy CONVERTS where it holds —
+recert-subset Δ = +12.5pp/window (z = +3.74), Spearman +0.465, branch (c)
+"never there" KILLED — and the aggregate ceiling is SUB-GATE on every
+measured bound (+0.52 to +0.73pp/game vs the ±1.1pp floor). The recert
+guard fired (44.6% < 70%) and was adjudicated as winner's-curse
+mis-calibration, not era drift (12/65 sign-flips; margin>0 set converts
++6.6pp z=+2.70). Routing user-adjudicated: payment = infrastructure, D6
+takes the promotion slot; supervised-conditional-signal = named M10
+candidate contingent on the window-rate bound (exhaustive sweep priced
+~one night, scheduling deferred by name to the D6 design session /
+closeout). Evalset-repair inputs now empirical: phyrexian value-free at
+game end (Δ = 0.0 exactly); wide_choice +7.5pp — repair is reachability,
+not existence.**
+
 **Instrument (zero Java delta — `CensusRun -certify`'s `HorizonStop` already
 stops at `t + horizon` OR natural game end, and rows carry `winner`/`ended`):**
 two job sets over the 69 evalset-of-record positives, identical except
