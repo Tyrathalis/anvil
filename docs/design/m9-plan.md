@@ -810,6 +810,23 @@ closeout). Evalset-repair inputs now empirical: phyrexian value-free at
 game end (Δ = 0.0 exactly); wide_choice +7.5pp — repair is reachability,
 not existence.**
 
+**Window-rate sweep (funded at the D6 design session 2026-08-24, user;
+pins PINNED pre-launch):** fresh in-era 500-game paytelemetry census
+(bundle jar, seed base 20500000, paygoals2's deck pairs) → miner tags the
+universe → **uniform sample of 600 tagged windows (rng 20260824)** → h2
+certification (standing instrument, unchanged thresholds) → rate read.
+**Primary (pinned): certifiable-positive rate with Wilson 95 CI ×
+tagged-windows/game × the ADR-0073 conversions (+4.62 central / +12.5
+upper) vs the ±1.1pp gate floor. M10 candidacy for the
+supervised-conditional-signal attack STANDS iff the upper-bound
+arithmetic's CI reaches the floor; falls otherwise.** Recorded frame
+assumption: untagged consequential windows are outside the universe (no
+predicate exists to certify them) — the rate is "certifiable by the
+standing taxonomy," a lower bound on broader payment value. Why the sweep
+can move the answer: only the top-ranked ~20% of the ~5,400-window tagged
+universe was ever adjudicated, and miner rank is measured non-predictive
+(paygoals3 read) — the mined 0.112/g could be several× low.
+
 **Instrument (zero Java delta — `CensusRun -certify`'s `HorizonStop` already
 stops at `t + horizon` OR natural game end, and rows carry `winner`/`ended`):**
 two job sets over the 69 evalset-of-record positives, identical except
@@ -881,6 +898,18 @@ decomposition + battery + the three M9-specific attributions:
    ADR-0033 cross-era rule).
 
 ## D6 — second act: the §3a turn-plan latent (tier 2)
+
+**Design session HELD 2026-08-24
+([m9-d6-plan-latent-spec.md](m9-d6-plan-latent-spec.md), user-approved
+forks): detached carry + dense aux supervision (emit once per turn at the
+first own-seat window, carry per (seat, turn), no BPTT); aux target
+decided by the R1 offline probe (action-summary vs end-of-turn delta,
+ADR-0043 margin discipline; forced-seq labels = the escalation, where the
+ADR-0058 chartered natural-timing formulation is routed); escape argument
++ pre-registered kill signal pinned per ADR-0073 decision 3; ADR-0053
+accepted as the ceiling evidence. Sequencing: R1 probe → build/graft →
+D4-shape probe run vs the kill signal → full run vs 0.5279 ± 0.0110 only
+if funded.**
 
 Pure model-side (the conditioning-token slot is reserved in the
 schema; no fork delta): at turn start and on regaining priority, the
