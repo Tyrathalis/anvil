@@ -792,6 +792,56 @@ hypothesis, localized) or a non-predictive proxy; never there ⇒ payment is not
 a strength lever at gate resolution and the surface is infrastructure
 permanently.
 
+### The ceiling measurement — pins (PINNED 2026-08-24, pre-launch)
+
+**Instrument (zero Java delta — `CensusRun -certify`'s `HorizonStop` already
+stops at `t + horizon` OR natural game end, and rows carry `winner`/`ended`):**
+two job sets over the 69 evalset-of-record positives, identical except
+`horizon` — one at the certification horizon 2 (the in-era re-certification
+arm) and one at horizon 999 (game end). Jobs reuse the **revalidation job ids
+and seeds** (`run-20260821-revalidation/score-dayzero-iter019-v2.jsonl`), so
+`rollSeed = f(seed, job, roll)` is identical across the two sets: each
+(job, arm, roll) pair is the SAME determinized trajectory truncated at two
+different points — the 2-turn proxy score and the game-end outcome are read
+off the same game. k = 8 (the certification pairing), all arms (the non-best
+arms are the free proxy-predictiveness scatter), bundle jar `2f87180cdf`.
+
+1. **Denominator (pre-registered):** drills whose best arm executes
+   `directed_ok` on ≥ 6 of 8 paired rolls in BOTH sets, arm-0 baseline
+   fired, both end-rows `ended` (clock/crash rolls excluded, counted).
+   Revalidation predicts ~64/69; a refire count < 55 ⇒ the read is
+   QUALIFIED as instrument drift and adjudicated at a session before
+   routing.
+2. **Primary read:** pooled per-drill mean paired game-end win-diff Δ =
+   win(best) − win(auto), win ∈ {1, 0.5 draw, 0}, equal drill weight,
+   SE clustered by drill (the drill is the sampling unit; counted once).
+3. **Branches (routing per ADR-0072 decision 6):**
+   - **SURVIVES:** Δ ≥ +5pp AND z ≥ 2 ⇒ per-window payment value is
+     realizable under heuristic continuation; the §3c program's next
+     design target is FINDING the windows (supervised conditional
+     signal, ADR-0015 machinery) — priced at M10 scoping, not auto-funded.
+   - **DOES NOT CONVERT:** Δ < +5pp or z < 2, with in-era
+     re-certification holding (≥ 70% of denominator drills still clear
+     their shape margin at horizon 2 in-era) ⇒ the ADR-0072 (b)/(c)
+     family: the 2-turn proxy advantage is not worth the gate's noise
+     floor at game end under heuristic play; **payment surface =
+     infrastructure permanently**, the payment-completion queue items
+     re-route accordingly at the closeout. The Spearman secondary
+     localizes (b) vs (c) for the record only — both route the same.
+   - **INSTRUMENT DRIFTED (guard, not a branch):** in-era
+     re-certification < 70% ⇒ the era moved under the evalset; no
+     routing claim; session adjudicates.
+4. **Secondaries (exploratory, never routing):** per-shape split (the
+   phy/wc defect diagnostic — doubles as the owed evalset-repair
+   read); Spearman(in-era 2-turn margin, win-diff) at drill level and
+   across all directed arms; gate-scale arithmetic — Δ × the mined
+   certified-window rate (56 mined positives / 500 games / seat as the
+   stated lower bound, b4 hand-built excluded) vs the ±1.1pp gate floor.
+5. **What this does NOT measure (recorded):** squandering by the
+   *model's* downstream play — continuation is heuristic in both arms.
+   A null here says the advantage does not convert under the engine's
+   own play; it cannot separate that from model-specific squandering.
+
 ## D5 — the full run + the standing gate
 
 One training run, run-recipe design pinned at its own session (init,
