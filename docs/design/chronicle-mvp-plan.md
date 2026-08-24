@@ -304,7 +304,8 @@ pack-opening loop on the phone (that round's findings are D3's tear rework and
 [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md)). Recorded
 retroactively; the on-device boot was never written up when it happened.
 
-**D5 — dogfood + numbers. OPEN, round 1 read 2026-08-22.** Two weeks of real
+**D5 — dogfood + numbers. OPEN; the two-week clock can start now that D6 is
+playable (2026-08-24). Round 1 read 2026-08-22.** Two weeks of real
 daily use by the author (on the phone, per the design's mobile-first lean), plus
 the tuning pass: ration size (2–3 packs?), MSRP/buylist/stipend table, allowance
 cadence (weekly lump vs daily). *Exit criterion:* the daily loop still feels good
@@ -327,8 +328,45 @@ variable income source is wasted work. The two-week dogfood clock effectively
 restarts when D6 lands, since the loop being dogfooded changes shape.
 
 **D6 — kitchen table + purse (the effort→reward sink). BUILT 2026-08-22
-(fork `playable` @ `c647ba081e` headless + `92708b5452` screens); shared-file
-footprint ZERO, Chronicle suite 57 green, full desktop suite 506/0/11-skipped.**
+(fork `playable` @ `c647ba081e` headless + `92708b5452` screens); VERIFIED IN
+PLAY 2026-08-24 — the author has built decks and played rival games on device.**
+Chronicle suite 71 green, full desktop suite 520/0/11-skipped. Shared-file
+footprint ended at three files (an `ItemManagerConfig` enum entry, an
+`SColumnUtil` column set, and a generic `ImageView` pile-by fix — all additive
+and upstreamable), having started at zero.
+
+*Getting from BUILT to PLAYABLE took four rounds of defects that only play could
+find (v18–v22; devlog [2026-08-23-session2](../devlog/2026-08-23-session2.md)),
+and the record matters more than the fixes:*
+- the tear peeled from the wrong edge (one inverted sign);
+- the editor crashed on open — `ColumnDef.NEW` ships null sort/display functions
+  ("functions will be set later"), so **every consumer must supply them via
+  `getColOverrides`**; reusing Quest's config without Quest's contract throws
+  before a card is drawn;
+- `ImageView`'s pile-by dereferenced the raw static `fnSort`, which any config
+  carrying NEW/PRICE/OWNED/DECKS can reach — **upstream candidate**, Quest
+  included;
+- Chronicle was borrowing `QUEST_EDITOR_POOL`, and `ItemManagerConfig` holds
+  *persisted* per-config view state, so the two modes silently reconfigured each
+  other → `CHRONICLE_DECK_POOL`;
+- **the empty catalog's root cause was ours:** `IDeckController.setEditor` must
+  also call `editor.notifyNewControllerModel()`. Without it `FDeckEditor.getDeck()`
+  stays null through construction, `CardManagerPage.initialize()` never calls
+  `onDeckChanged`, `needRefreshWhenShown` is never set, and `CatalogPage.refresh()`
+  never runs — an editor that opens cleanly and shows nothing, forever;
+- and a pre-D6 save showed no rivals because `rivals.txt` was the only Chronicle
+  data file introduced *after* that install's `assets.zip`.
+
+*Two conventions were born from that and belong with the architecture decisions
+above:* **(a)** small curated data that ships with a feature also ships inside
+the jar/APK as a classpath resource (res/ wins when present so the file stays
+moddable; a test pins the two copies byte-identical) — res/ arrives by asset
+delta and can lag the code that needs it, or never arrive at all; **(b)** a
+libGDX screen defect cannot be found by reading or tested from the desktop tree,
+so **drive the build**: isolated `-Duser.home`, `xdotool` for input,
+`import -window` for capture (the Wayland compositor screenshot cannot see the
+XWayland surface), and probe by writing to a file, because Forge's own logging
+stops at boot and console silence reads as "the code never ran".
 *Promoted from "Stretch" 2026-08-22 by [ADR-0070](../decisions/ADR-0070-chronicle-effort-reward-sink.md);
 the highest-value remaining Chronicle work, though explicitly not required to be
 the immediate next commit.*
