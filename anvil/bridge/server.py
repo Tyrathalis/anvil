@@ -168,6 +168,12 @@ class ModelBackend:
         # except pay_bias's +2.0 init is BY DESIGN safe, so the gate is about
         # the untrained pointer keys, not the bias)
         self.has_pay = any(k.startswith("pay_") for k in ckpt["model"])
+        # plan-carry params present? (M9 D6; the graft ckpt saves them even at
+        # zero-init, so the carry activates exactly when the ckpt was built
+        # for it — the has_pay/never-serve-fresh-init convention)
+        self.carry_plan = any(
+            k.startswith(("plan_", "assemble.plan_proj")) for k in ckpt["model"]
+        )
         self.net = build_net(
             cfg["embed"], cfg["pool_manifest"], len(default_methods()), n_sa=self.n_sa
         ).to(device)
@@ -192,6 +198,14 @@ class ModelBackend:
         # measurement, never training data (m7-plan D2 pin 3). Off, the
         # standing guard below raises as before.
         self.instrument = instrument
+        # D6 plan carry (m9-d6-plan-latent-spec §3): {(g, seat): (turn, vec)}.
+        # Emission = the first request of a (g, seat, turn) group (has_plan=0,
+        # the emitted out["plan"] is cached); later same-turn requests feed it
+        # back (has_plan=1). Wire-only fork headers (g<0) never carry — their
+        # g collides across streams. Capped FIFO: finished games just age out.
+        self.plan_carry: dict[tuple, tuple] = {}
+        self.plan_lock = threading.Lock()
+        self._plan_cap = 4096
         self.mu_file = None
         self.mu_lock = threading.Lock()
         if sample:
@@ -234,6 +248,21 @@ class ModelBackend:
             # the mu record and answer path need nothing special.
             self.counts["reask"] += 1
         ex, aux = self.feat.example(dec, header, task)
+        # D6 plan carry: inject the turn's cached plan (or flag emission)
+        plan_key, plan_emit = None, False
+        if self.carry_plan and header.get("g", -1) >= 0:
+            plan_key = (header["g"], dec.get("p", -1))
+            turn = dec.get("t", 0)
+            with self.plan_lock:
+                st = self.plan_carry.get(plan_key)
+            d_plan = self.net.assemble.plan_tok.shape[-1]
+            if st is not None and st[0] == turn:
+                ex["plan_vec"] = st[1]
+                ex["has_plan"] = 1.0
+            else:
+                ex["plan_vec"] = self.torch.zeros(d_plan)
+                ex["has_plan"] = 0.0
+                plan_emit = True
         delta = self.pass_delta if task == "priority" else 0.0
         if req.forbid_decline and task == "priority":
             # M7 forced-branch act ask: mask the pass logit so the sampled/
@@ -263,6 +292,14 @@ class ModelBackend:
                 ex, task, self.temperature, seed=noise_seed(game_seed or 0, dec["s"])
             )
         out = self.batcher.submit(ex, delta, noise)
+        if plan_emit and plan_key is not None:
+            with self.plan_lock:
+                self.plan_carry[plan_key] = (
+                    dec.get("t", 0),
+                    out["plan"][0].float().cpu(),
+                )
+                while len(self.plan_carry) > self._plan_cap:
+                    self.plan_carry.pop(next(iter(self.plan_carry)))
         if self.sample and not wire_fork:
             self._write_mu(header["g"], dec, task, ex, aux, out)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)

@@ -245,6 +245,45 @@ argument for headroom, not a quantified per-game ceiling; if D6 reads
 strength-neutral WITH high reliance and healthy aux, a quantified
 ceiling measurement becomes the next question, not another run.
 
+## Build/graft rung — BUILT 2026-08-25 (spec §8 step 2)
+
+Full suite 242 green (236 standing + 6 new in `test_plan_latent.py`);
+`rl.py --plan` integration smoke on `d6-run18-i000` clean (w_plan
+calibrated 0.00125 at plan_frac 0.1, tripwire 0 violations, pass-0 9.7%
+of wall). Landed:
+
+- **Model:** `StateAssembler.plan_proj` (zero-init, gated by `has_plan`) +
+  `plan_act_head`/`plan_delta_head`; `act()` exposes the emitted plan;
+  `load_compat` allows plan params missing. Day-zero bit-identity
+  test-pinned three ways (keys absent / gate closed / proj untrained);
+  the wire-connected and gradient-reaches-proj cases test-pinned too.
+- **Collate:** `plan_vec`/`has_plan` optional keys (absent ⇒ omitted ⇒
+  static-token path).
+- **Serve:** `ModelBackend` carry `{(g, seat): (turn, vec)}`, gated on the
+  ckpt carrying plan params (`carry_plan`, the has_pay convention);
+  emission = first answered request of the (g, seat, turn) group; g<0
+  fork headers never carry; capped FIFO eviction. *(Owed: a carry test
+  against a plan-bearing ckpt — trivial now `d6-plan-init` exists.)*
+- **Loop:** `game_trajectories(plan=True)` marks + JOINT targets
+  (sa-vocab ids + 3 bits; delta axes clamped ±20 at birth, lockstep with
+  `plan_probe.py`); loader side tensors (dim-0 aligned, OOM-slice-safe);
+  `plan_pass0` (materialize-once, both passes); aux term in pass B at
+  emission rows; w_plan calibration + `plan_share` + `plan_rms`
+  telemetry (the w_seq/ADR-0057 pattern, `--plan-w` carries iteration-0's
+  value forward); **tripwire recomputes the head's carry under the REF
+  net** — otherwise it would measure pass-0 net drift, not serve/loader
+  drift. `--plan` off = byte-identical to pre-D6.
+- **Graft:** `scripts/graft_plan_init.py` →
+  `data/training/d6-plan-init/last.pt` — plan params at design init
+  (proj rms 0.0 verified), **pay params STRIPPED** (ADR-0073 routing:
+  the D6 runs never advertise the pay tag; attribution stays
+  pure-latent).
+
+**Next: the recipe session** — probe-run funding gate + kill-signal
+numerics (§7) pinned pre-launch; driver flag threading + guard wiring;
+day-zero reliance/aux baselines banked on `d6-plan-init`; the serve
+carry test.
+
 ## Explicitly out of D6 v1
 
 - In-graph BPTT through the carry (recorded fallback; GPU-hostile,

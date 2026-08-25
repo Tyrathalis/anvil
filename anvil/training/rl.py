@@ -334,7 +334,79 @@ def rejected_events(
     return n
 
 
-def game_trajectories(store, feat, g: int, full_vis: bool = False, penalty_grouping: str = "first"):
+PLAN_DELTA_AXES = ("own_life", "opp_life", "own_hand", "own_board", "own_creatures", "own_power")
+PLAN_DELTA_CLAMP = 20.0  # clips at birth (ADR-0056 genre)
+
+
+def _plan_axes(obs: dict, seat: int) -> dict:
+    """End-of-turn delta axes (m9-d6-plan-latent-spec §5, target c) — the
+    plan_probe.py definitions, kept in lockstep with the R1 instrument."""
+    pl = obs["players"]
+    o = 1 - seat
+    bf = [e for e in obs.get("ents") or [] if e.get("c") == seat and e.get("z") == "battlefield"]
+    cr = [e for e in bf if e.get("pt")]
+    return {
+        "own_life": pl[seat].get("life", 0),
+        "opp_life": pl[o].get("life", 0),
+        "own_hand": pl[seat].get("hand", 0),
+        "own_board": len(bf),
+        "own_creatures": len(cr),
+        "own_power": sum(e["pt"][0] for e in cr),
+    }
+
+
+def _plan_annotate(traj, by_seat: dict, feat) -> None:
+    """D6 plan-latent marks + emission targets (m9-d6-plan-latent-spec §4/§5).
+
+    Marks every mu-covered window with its turn and turn-first flag (the
+    emission point = the first mu-covered window of a (seat, turn) group —
+    the training-side mirror of the serve carry's first-answered-request);
+    attaches the JOINT aux targets (ADR-0074) to emission windows: realized
+    sa-vocab action ids + 3 summary bits, and same-seat next-turn delta
+    axes. Keys are loader-private (underscored — collate never sees them)."""
+    acts: dict[tuple, dict] = {}
+    for dec in traj.decisions:
+        p, t = dec.get("p"), dec.get("t", 0)
+        if t < 1:
+            continue
+        a = acts.setdefault((p, t), {"ids": set(), "bits": [0.0, 0.0, 0.0]})
+        if dec.get("m") == "chooseSpellAbilityToPlay" and dec.get("ret"):
+            for r in dec["ret"]:
+                kind = r.get("kind")
+                if kind == "land":
+                    a["bits"][0] = 1.0
+                elif kind == "ability":
+                    a["bits"][1] = 1.0
+                if r.get("sa"):
+                    a["ids"].add(feat.sa_vocab.id(r["sa"]))
+        if dec.get("m") == "declareAttackers":
+            a["bits"][2] = 1.0
+    for p, items in by_seat.items():
+        emis: dict[int, dict] = {}
+        prev_t = None
+        for ex, _rec, _rej, _fv in items:
+            t = ex["_plan_turn"]
+            ex["_plan_first"] = t != prev_t
+            if t != prev_t:
+                emis[t] = ex
+            prev_t = t
+        for t, ex in emis.items():
+            a = acts.get((p, t), {"ids": set(), "bits": [0.0, 0.0, 0.0]})
+            ex["_plan_act_ids"] = sorted(a["ids"])
+            ex["_plan_bits"] = a["bits"]
+            nxt = emis.get(t + 1)
+            if nxt is not None and "_plan_axes" in ex and "_plan_axes" in nxt:
+                ex["_plan_delta"] = [
+                    max(-PLAN_DELTA_CLAMP, min(PLAN_DELTA_CLAMP,
+                        nxt["_plan_axes"][k] - ex["_plan_axes"][k]))
+                    for k in PLAN_DELTA_AXES
+                ]
+
+
+def game_trajectories(
+    store, feat, g: int, full_vis: bool = False, penalty_grouping: str = "first",
+    plan: bool = False,
+):
     """Per-seat mu-covered trajectories of one stored game, serve-identical
     windows via the featurizer path (store_wire_hist -> Featurizer.example ->
     apply_mu_labels).
@@ -380,8 +452,13 @@ def game_trajectories(store, feat, g: int, full_vis: bool = False, penalty_group
             ex_fv = (
                 feat.example(wire, traj.header, rec["task"], full_vis=True)[0] if full_vis else None
             )
+            if plan:
+                ex["_plan_turn"] = dec.get("t", 0)
+                ex["_plan_axes"] = _plan_axes(dec["obs"], dec["p"])
             by_seat.setdefault(dec["p"], []).append((ex, rec, rej, ex_fv))
         prior.append(dec)
+    if plan:
+        _plan_annotate(traj, by_seat, feat)
     return [
         (
             p,
@@ -474,6 +551,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         full_vis: bool = False,
         seg: int = 256,
         penalty_grouping: str = "first",
+        plan: bool = False,
     ):
         self.stores = stores
         self.weights = weights
@@ -483,6 +561,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         self.epochs = epochs
         self.full_vis = full_vis
         self.penalty_grouping = penalty_grouping
+        self.plan = plan
         # Collate WORKER-SIDE at exactly the learner's seg size (2026-07-26).
         # Yielding per-window example dicts shipped ~20 tensors x hundreds of
         # windows x2 (masked + fv) through the DataLoader's shm+pickle path for
@@ -521,6 +600,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                     g,
                     full_vis=self.full_vis,
                     penalty_grouping=self.penalty_grouping,
+                    plan=self.plan,
                 )
                 if skip is not None:
                     yield {"skip": skip, "g": g}
@@ -537,12 +617,42 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                 for seat, exs, reward, rej, exs_fv in trajs:
                     plain = [e for e, _ in exs]
                     n = max(1, self.seg)
+                    segs = [collate(plain[i : i + n]) for i in range(0, len(plain), n)]
+                    if self.plan:
+                        # D6 side tensors (the seqlabels post-collate pattern,
+                        # aligned on dim 0 so OOM slicing keeps them in step);
+                        # act-target width = sa vocab + OOV + 3 summary bits,
+                        # the plan_act_head contract
+                        width = len(feat.sa_vocab) + 1 + 3
+                        for s, i in zip(segs, range(0, len(plain), n)):
+                            chunk = plain[i : i + n]
+                            T = len(chunk)
+                            s["plan_turn"] = torch.tensor(
+                                [e.get("_plan_turn", -1) for e in chunk], dtype=torch.int64
+                            )
+                            s["plan_first"] = torch.tensor(
+                                [bool(e.get("_plan_first")) for e in chunk]
+                            )
+                            act = torch.zeros(T, width)
+                            delta = torch.zeros(T, len(PLAN_DELTA_AXES))
+                            dvalid = torch.zeros(T)
+                            for j, e in enumerate(chunk):
+                                if e.get("_plan_first"):
+                                    for sid in e.get("_plan_act_ids", []):
+                                        act[j, sid] = 1.0
+                                    act[j, -3:] = torch.tensor(e.get("_plan_bits", [0.0] * 3))
+                                    if "_plan_delta" in e:
+                                        delta[j] = torch.tensor(e["_plan_delta"])
+                                        dvalid[j] = 1.0
+                            s["plan_act_tgt"] = act
+                            s["plan_delta_tgt"] = delta
+                            s["plan_delta_valid"] = dvalid
                     yield {
                         "g": g,
                         "seat": seat,
                         "reward": reward,
                         "t_len": len(plain),
-                        "segs": [collate(plain[i : i + n]) for i in range(0, len(plain), n)],
+                        "segs": segs,
                         "segs_fv": [collate(exs_fv[i : i + n]) for i in range(0, len(exs_fv), n)],
                         # mu_step: which checkpoint generated these mu
                         # records — the recompute tripwire only applies
@@ -553,6 +663,43 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                         "rej": torch.tensor(rej, dtype=torch.float32),
                         "mu_logp": torch.tensor([r["logp"] for _, r in exs], dtype=torch.float32),
                     }
+
+
+@torch.no_grad()
+def plan_pass0(net, segs: list, dev: str) -> None:
+    """D6 detached carry, the materialize-once answer to the two-pass loop
+    (m9-d6-plan-latent-spec §4): recompute each turn's emission vector with
+    `net` at the turn-first rows (has_plan absent there — serve parity) and
+    attach plan_vec/has_plan to every segment. Segments are one seat's
+    trajectory in order, so a turn spanning segments still finds its
+    emission in the trajectory-wide dict. Attached tensors are dim-0
+    aligned — OOM slicing in forward_segments keeps them in step."""
+    d = net.assemble.plan_tok.shape[-1]
+    vecs: dict[int, torch.Tensor] = {}
+    for s in segs:
+        idx = s["plan_first"].nonzero(as_tuple=True)[0]
+        if not idx.numel():
+            continue
+        sub = {
+            k: v[idx].to(dev)
+            for k, v in s.items()
+            if torch.is_tensor(v) and k not in ("plan_vec", "has_plan")
+        }
+        with torch.autocast(dev, dtype=torch.bfloat16):
+            out = net(sub)
+        for j, row in enumerate(idx.tolist()):
+            vecs[int(s["plan_turn"][row])] = out["plan"][j].float().cpu()
+    for s in segs:
+        T = s["plan_turn"].shape[0]
+        pv = torch.zeros(T, d)
+        hp = torch.zeros(T)
+        for row in range(T):
+            t = int(s["plan_turn"][row])
+            if not bool(s["plan_first"][row]) and t in vecs:
+                pv[row] = vecs[t]
+                hp[row] = 1.0
+        s["plan_vec"] = pv
+        s["has_plan"] = hp
 
 
 def make_forward_segments(dev: str, seg: int):
@@ -767,6 +914,29 @@ def main() -> None:
     )
     ap.add_argument("--seq-clip", type=float, default=0.25, help="advantage clip (at birth)")
     ap.add_argument(
+        "--plan",
+        action="store_true",
+        help="D6 plan latent (m9-d6-plan-latent-spec): detached per-turn "
+        "carry (pass-0 emission vectors fed to both passes) + the joint "
+        "aux term at emission rows. Off = byte-identical to pre-D6.",
+    )
+    ap.add_argument(
+        "--plan-frac",
+        type=float,
+        default=0.0,
+        help="target share of PG loss magnitude for the plan-aux term "
+        "(w_plan calibrated over --plan-calib-steps, then frozen and "
+        "logged — the w_seq pattern; driver carries iteration-0's "
+        "value forward via --plan-w)",
+    )
+    ap.add_argument(
+        "--plan-w",
+        type=float,
+        default=0.0,
+        help="explicit w_plan (skips calibration; the --seq-w lesson)",
+    )
+    ap.add_argument("--plan-calib-steps", type=int, default=50)
+    ap.add_argument(
         "--seq-margin",
         type=float,
         default=6.0,
@@ -906,6 +1076,7 @@ def main() -> None:
         full_vis=critic is not None,
         seg=args.seg,
         penalty_grouping=args.penalty_grouping,
+        plan=args.plan,
     )
     loader = torch.utils.data.DataLoader(
         ds,
@@ -949,6 +1120,18 @@ def main() -> None:
     calib_steps = 0
     share_pg = share_seq = 0.0
     share_traj = share_steps = 0
+    # D6 plan-aux calibration/telemetry (the w_seq pattern, ADR-0057 rules:
+    # instrumented + guarded + recalibrated per invocation unless --plan-w
+    # carries the iteration-0 value forward via loop_state)
+    w_plan = None
+    if args.plan:
+        w_plan = args.plan_w if args.plan_w else (None if args.plan_frac else 0.0)
+    plan_calib_raw = 0.0
+    plan_calib_pg = 0.0
+    plan_calib_traj = 0
+    plan_calib_steps = 0
+    plan_share_raw = plan_share_pg = 0.0
+    plan_share_traj = 0
     kl_aborted = False
 
     # step continues from the init checkpoint: monotonic across the whole
@@ -1007,6 +1190,12 @@ def main() -> None:
         win_count += t_len
         tphase = time.monotonic()
 
+        if args.plan:
+            # pass 0: current-net emission vectors, detached, fed to BOTH
+            # passes (materialized once — the two-pass constraint)
+            plan_pass0(net, segs, dev)
+            tphase = tick("plan_pass0", tphase)
+
         # ---- pass A (no grad): values + logp_pi for targets/ratios ----
         # §6f: with a critic, values come from the frozen full-vis net on the
         # fv windows (baseline AND bootstrap — asymmetric V-trace); the policy
@@ -1035,6 +1224,13 @@ def main() -> None:
         # ---- mu recompute tripwire (sampled): serve/loader drift detector ----
         if n_traj % args.tripwire_every == 1 and item.get("mu_step") == ref_ckpt.get("step"):
             head = segs[:1]  # the first pre-collated segment
+            if args.plan:
+                # serve computed the carry under the BEHAVIOR net — the ref
+                # recompute must too, or the tripwire measures pass-0's net
+                # drift instead of serve/loader drift
+                head = [{k: v for k, v in segs[0].items()
+                         if k not in ("plan_vec", "has_plan")}]
+                plan_pass0(ref, head, dev)
             n_head = head[0]["label"].shape[0]
             ((seg, fwd),) = forward_segments(ref, head, grad=False)
             lp_ref = composite_logp(fwd, seg, temperature=float(item.get("mu_tau", 1.0)))[
@@ -1067,6 +1263,7 @@ def main() -> None:
         # ---- pass B (grad): policy gradient + value + entropy ----
         off = 0
         traj_pg = 0.0
+        traj_plan = 0.0
         for seg, fwd in forward_segments(net, segs, grad=True):
             b = seg["label"].shape[0]
             adv = pg_adv[off : off + b].to(dev)
@@ -1080,9 +1277,36 @@ def main() -> None:
             )
             ent_mean = ent.sum() / t_len  # also the monitor's ent metric
             ent_pen = entropy_hinge(ent, args.ent_floor, b, t_len)
+            # ---- D6 plan-aux term (joint per ADR-0074): emission rows only.
+            # BCE is bounded; delta targets are clamped at birth. During
+            # calibration (w_plan None) the term is measured, never applied.
+            plan_term = None
+            if args.plan:
+                fidx = seg["plan_first"].nonzero(as_tuple=True)[0]
+                if fidx.numel():
+                    pvec = fwd["plan"][fidx]
+                    act_l = F.binary_cross_entropy_with_logits(
+                        net.plan_act_head(pvec).float(),
+                        seg["plan_act_tgt"][fidx],
+                        reduction="mean",
+                    )
+                    dval = seg["plan_delta_valid"][fidx].bool()
+                    if dval.any():
+                        dpred = net.plan_delta_head(pvec[dval]).float()
+                        dl = F.smooth_l1_loss(
+                            dpred, seg["plan_delta_tgt"][fidx][dval], reduction="mean"
+                        )
+                    else:
+                        dl = act_l.new_zeros(())
+                    plan_term = act_l + dl
+                    traj_plan += float(plan_term.detach())
+                    acc["plan_act"] = acc.get("plan_act", 0.0) + float(act_l.detach())
+                    acc["plan_delta"] = acc.get("plan_delta", 0.0) + float(dl.detach())
             loss = (
                 pg_loss + args.value_weight * v_loss + args.ent_weight * ent_pen
             ) / args.traj_per_step
+            if plan_term is not None and w_plan:
+                loss = loss + w_plan * plan_term / args.traj_per_step
             loss.backward()
             acc["pg"] = acc.get("pg", 0.0) + float(pg_loss)
             traj_pg += float(pg_loss)
@@ -1109,6 +1333,16 @@ def main() -> None:
             # the driver guards on the iteration mean
             share_pg += abs(traj_pg)
             share_traj += 1
+        if args.plan:
+            # same invariant discipline for the plan-aux weight (ADR-0057)
+            if w_plan is None:
+                plan_calib_raw += abs(traj_plan)
+                plan_calib_pg += abs(traj_pg)
+                plan_calib_traj += 1
+            else:
+                plan_share_raw += abs(traj_plan)
+                plan_share_pg += abs(traj_pg)
+                plan_share_traj += 1
 
         if n_traj % args.traj_per_step == 0:
             # ---- C-seq step (ADR-0054): calibrate w_seq over the first
@@ -1158,6 +1392,24 @@ def main() -> None:
                     acc["seq_aux"] = acc.get("seq_aux", 0.0) + aux_raw
                     share_seq += raw
                     share_steps += 1
+            if args.plan and w_plan is None and plan_calib_traj:
+                plan_calib_steps += 1
+                if plan_calib_steps >= args.plan_calib_steps:
+                    mean_pg = plan_calib_pg / max(plan_calib_traj, 1)
+                    raw = plan_calib_raw / max(plan_calib_traj, 1)
+                    w_plan = args.plan_frac * mean_pg / max(raw, 1e-4)
+                    cal = {
+                        "w_plan": w_plan,
+                        "plan_frac": args.plan_frac,
+                        "mean_abs_pg_per_traj": mean_pg,
+                        "plan_raw_at_calib": raw,
+                        "calib_steps": plan_calib_steps,
+                        "calib_traj": plan_calib_traj,
+                    }
+                    (out_dir / "plan_calibration.json").write_text(
+                        json.dumps(cal, indent=1) + "\n"
+                    )
+                    print(f"[rl] w_plan calibrated: {cal}")
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             opt.step()
             opt.zero_grad(set_to_none=True)
@@ -1181,6 +1433,14 @@ def main() -> None:
                     )
                 share_pg = share_seq = 0.0
                 share_traj = share_steps = 0
+                plan_share = None
+                if args.plan and w_plan and plan_share_traj and plan_share_pg > 0:
+                    plan_share = round(
+                        w_plan * (plan_share_raw / plan_share_traj)
+                        / (plan_share_pg / plan_share_traj), 5,
+                    )
+                plan_share_raw = plan_share_pg = 0.0
+                plan_share_traj = 0
                 row = {
                     "step": step,
                     "traj": n_traj,
@@ -1190,6 +1450,22 @@ def main() -> None:
                     # loss share); w_seq is the frozen calibration
                     **({"w_seq": round(w_seq, 6)} if w_seq is not None else {}),
                     **({"seq_share": seq_share} if seq_share is not None else {}),
+                    **({"w_plan": round(w_plan, 6)} if args.plan and w_plan is not None else {}),
+                    **({"plan_share": plan_share} if plan_share is not None else {}),
+                    **(
+                        {
+                            # the ADR-0069 pin-3 separator: "moved" vs "never
+                            # moved" for the consumption wire
+                            "plan_rms": round(
+                                float(
+                                    net.assemble.plan_proj.weight.detach()
+                                    .square().mean().sqrt()
+                                ), 6,
+                            )
+                        }
+                        if args.plan
+                        else {}
+                    ),
                     "skips": dict(skips),
                     "tripwire_viol": tripwire_viol,
                     "win_per_s": round(win_count / wall, 1),

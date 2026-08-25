@@ -697,6 +697,17 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
     out["blk_label"] = torch.full((b, A), -1, dtype=torch.int64)
     out["blk_atk_rows"] = torch.full((b, M), -1, dtype=torch.int64)
     out["blk_atk_mask"] = torch.zeros(b, M, dtype=torch.bool)
+    # D6 plan carry (optional keys, serve + rl loader; absent from BC-era
+    # example dicts — when no example in the batch carries them the keys are
+    # omitted entirely and the assembler takes the static-token path)
+    if any("plan_vec" in x for x in batch):
+        d_plan = next(x["plan_vec"].shape[0] for x in batch if "plan_vec" in x)
+        out["plan_vec"] = torch.zeros(b, d_plan)
+        out["has_plan"] = torch.zeros(b)
+        for i, x in enumerate(batch):
+            if "plan_vec" in x:
+                out["plan_vec"][i] = x["plan_vec"]
+                out["has_plan"][i] = float(x.get("has_plan", 0.0))
     for i, x in enumerate(batch):
         ni, ci = x["entities"].shape[0], x["cand_rows"].shape[0]
         out["entities"][i, :ni] = x["entities"]

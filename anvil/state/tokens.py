@@ -36,6 +36,12 @@ class StateAssembler(nn.Module):
         # segment, mid-input for state_proj — the pad must insert, not append
         self.n_global = n_global
         self.plan_tok = nn.Parameter(torch.zeros(1, d_model))  # [PLAN] latent (§3)
+        # D6 (m9-d6-plan-latent-spec §2): carried plan vector enters through a
+        # ZERO-init projection gated by has_plan — day-zero outputs are
+        # bit-identical to the static token until the emission loss trains it
+        self.plan_proj = nn.Linear(d_model, d_model)
+        nn.init.zeros_(self.plan_proj.weight)
+        nn.init.zeros_(self.plan_proj.bias)
         self.method_emb = nn.Embedding(n_methods + 2, d_model // 2)  # +OOV +pad(-1)
         self.self_emb = nn.Embedding(2, d_model // 2)
         self.hist_proj = nn.Linear(d_model, d_model)
@@ -57,6 +63,9 @@ class StateAssembler(nn.Module):
         htok = self.hist_proj(torch.cat([method, selfsame], dim=-1)) + self.hist_pos
 
         plan = self.plan_tok.expand(b, 1, -1)
+        pv = batch.get("plan_vec")
+        if pv is not None and pv.numel():
+            plan = plan + (self.plan_proj(pv) * batch["has_plan"].unsqueeze(-1)).unsqueeze(1)
         tokens = torch.cat([state, plan, ent, htok], dim=1)
         pad = torch.cat(
             [

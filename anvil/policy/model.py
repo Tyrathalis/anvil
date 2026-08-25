@@ -135,10 +135,20 @@ class AnvilNet(nn.Module):
             self.pay_bias[TASKS["pay_class"]] = 2.0
         self.pay_kind_emb = nn.Embedding(len(PAY_KINDS), d_model)
         nn.init.zeros_(self.pay_kind_emb.weight)
+        # D6 plan-latent aux heads (m9-d6-plan-latent-spec §2, ADR-0074 joint
+        # selection): emission supervision on out[:, 1] at turn-first windows.
+        # plan_act_head = multi-hot over the SA vocab (+OOV) + 3 summary bits
+        # (land_played / any_ability / attacked); plan_delta_head = the six
+        # end-of-turn delta axes. Both only ever touched by the aux loss.
+        self.plan_act_head = nn.Linear(d_model, (n_sa + 1 if n_sa else 1) + 3)
+        self.plan_delta_head = nn.Sequential(
+            nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, 6)
+        )
 
-    # params new at M2 D5 (combat heads) / M9 rung 3 (pay_*); absent from
+    # params new at M2 D5 (combat heads) / M9 rung 3 (pay_*) / M9 D6
+    # (plan_* aux heads + the assembler's carry projection); absent from
     # older checkpoints and allowed missing on load — they keep their fresh init
-    _D5_PREFIXES = ("atk_", "blk_", "cmb_", "pay_")
+    _D5_PREFIXES = ("atk_", "blk_", "cmb_", "pay_", "plan_", "assemble.plan_proj.")
 
     def load_compat(self, state: dict) -> None:
         """Load a checkpoint state_dict across the D5 boundary: task_emb grew
@@ -498,6 +508,7 @@ class AnvilNet(nn.Module):
         cmb = self._combat_outputs(state, ent_out, batch)
         return {
             "choice": choice,
+            "plan": out[:, 1],  # D6 serve carry: the emitted plan vector
             "tgt_picks": torch.stack(picks, dim=1),
             "x_cls": x_cls,
             "n_ent": n_ent,
