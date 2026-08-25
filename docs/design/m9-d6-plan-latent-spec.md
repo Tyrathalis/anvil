@@ -196,6 +196,17 @@ before any dump ran):**
   formulation (ADR-0058) lives HERE as an aux-target variant if the
   self-supervised targets prove insufficient — recorded so the charter
   is routed, not lost.
+- **v2 target direction (user-endorsed 2026-08-25, from the run20
+  iteration-1 veto read): SEQUENCING + RESOURCES in the plan
+  representation.** The v1 target is an order-free action bag, so the
+  conditioning raises attempt-priors at every window of the turn — the
+  bounce-off-the-oracle mechanism. v2 candidates: ordered first-k
+  actions (arrival-indexed, not multi-hot) + a resource-schedule
+  component (end-of-turn untapped/floating, or
+  affordability-at-execution per intended action — which would pull the
+  trunk's measured cost knowledge, D2a AUC 0.881, INTO the conditioning
+  channel instead of leaving it incidental). Adjudicated at the run20
+  read session against the v1 results.
 
 ### §6 Telemetry from birth (priced by nothing)
 
