@@ -127,6 +127,11 @@ those competencies, it is building their substrate.
 
 ## Planning-ceiling measurement — fork map (2026-08-25 design session)
 
+*→ The full pre-registration spec is drafted:
+[m10-ceiling-spec.md](m10-ceiling-spec.md) (DRAFT status; five named
+adjudication knobs pending user sign-off, thresholds pinned pre-data at
+the launch commit).*
+
 *The obligation-1 instrument. Fork list laid out and discussed with the
 user 2026-08-25; leanings recorded below are user positions, pinned
 formally at the pre-registration commit before any rollout runs.*
