@@ -87,6 +87,19 @@ rule, ADR-0073): directed-best selected on rolls 0–3, scored on rolls
 at launch after the instrument smoke; structure pinned here). The
 certification horizon is part of the claim's type (ADR-0072).
 
+### Stage 1b — horizon-sensitivity side-sample (added 2026-08-25, the
+h2-bias mitigation)
+
+ADR-0053 measured deferral value COMPOUNDING with horizon (−2.6pp at
+N=2 → −6.1pp at N=4), so an h2 certifier is structurally biased
+against hold-shaped schedules — the interaction-mana class. Mitigation:
+**100 of the 600 sampled turns (same rng) are additionally certified at
+horizon 4.** Read: certification-rate and margin deltas h2→h4, split
+by arm shape (hold-bearing vs not). If h4 certifies materially more
+(threshold pinned at launch), the rate carries an h4-informed
+correction band and the conversion population is revisited at the read
+session before the verdict closes. ~7% budget add.
+
 ### Stage 2 — conversion (game end)
 
 Positives re-run to natural game end, same job ids and seeds — the
