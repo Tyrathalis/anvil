@@ -13,7 +13,13 @@
 #             pass-0 + joint aux (ADR-0074), reliance readout per accepted
 #             iteration on the pinned fixed store, KILL SIGNAL armed from
 #             accepted-iteration 4 (spec §7 numerics; exit 4 + PLAN-KILL).
-#   --plan-lr 1e-3 (trunk 1e-5 — the pay-lr arithmetic verbatim).
+#   --plan-lr 1e-3 for the aux HEADS (trunk 1e-5); --plan-proj-lr 1e-4 for
+#             the consumption proj (iter-0 amendment: the proj gets dense
+#             PG at every carried window — at 1e-3 the policy left the
+#             behavior policy at ~100x recipe speed and the kl guard bound
+#             at iteration 0 with kl 0.07 BEFORE the aux even activated;
+#             flip was already 2.6% and aux BCE 1.79->0.29 in that one
+#             iteration, so the channel needs no starvation compensation).
 #   --plan-frac 0.1, per-iteration recalibration (ADR-0057 default; no
 #             --plan-carry-w).
 #   8 x 480, no arms, no drill campaign, no payment drill scoring.
@@ -43,7 +49,7 @@ exec uv run python -m anvil.training.selfplay \
   --workers 8 --chunk 30 --port 50067 --seed-base 20270825 \
   --temperature 1.0 --replay 4 --fresh-weight 1.0 --replay-weight 0.33 \
   --rl-workers 12 --epochs 1 --lr 1e-05 \
-  --plan --plan-lr 1e-03 --plan-frac 0.1 \
+  --plan --plan-lr 1e-03 --plan-proj-lr 1e-04 --plan-frac 0.1 \
   --ent-weight 0.003 --ent-floor 0.08 --rl-seg 128 \
   --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult 1.5 \
   --guard-casts-floor 0.8 --guard-plan-share 0.3 \

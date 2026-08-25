@@ -946,6 +946,14 @@ def main() -> None:
         "negative is uninterpretable (spec §2 pins 1e-3)",
     )
     ap.add_argument(
+        "--plan-proj-lr",
+        type=float,
+        default=None,
+        help="separate (slower) lr for assemble.plan_proj — the consumption "
+        "wire gets dense PG gradient every carried window and needs no "
+        "starvation compensation; default = --plan-lr",
+    )
+    ap.add_argument(
         "--seq-margin",
         type=float,
         default=6.0,
@@ -1026,7 +1034,16 @@ def main() -> None:
     if args.pay_lr is not None:
         groups.append(("pay_", args.pay_lr))
     if args.plan_lr is not None:
-        groups.append((("plan_", "assemble.plan_proj"), args.plan_lr))
+        # run20 iter-0 amendment: the aux HEADS keep --plan-lr (dense aux
+        # signal, no kl path once measured), but the consumption proj gets
+        # its own slower group — it receives dense PG at every carried
+        # window, so at 1e-3 the policy left the behavior policy at ~100x
+        # recipe speed and the kl guard bound at iteration 0 (rms 0.0039 in
+        # 9 steps, kl 0.07 pre-aux). ADR-0069's starved-param arithmetic
+        # never applied to it.
+        groups.append(("plan_", args.plan_lr))
+        groups.append(("assemble.plan_proj", args.plan_proj_lr
+                       if args.plan_proj_lr is not None else args.plan_lr))
     if not groups:
         opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd)
     else:

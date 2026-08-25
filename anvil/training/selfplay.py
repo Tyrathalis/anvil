@@ -771,6 +771,14 @@ def main() -> None:
         default=1e-3,
         help="lr group for the plan params (spec §2 — the pay-lr rationale)",
     )
+    ap.add_argument(
+        "--plan-proj-lr",
+        type=float,
+        default=1e-4,
+        help="lr for the consumption proj alone (run20 iter-0 amendment: "
+        "dense PG reaches it every carried window; at 1e-3 the kl guard "
+        "bound at iteration 0)",
+    )
     ap.add_argument("--plan-frac", type=float, default=0.1,
                     help="target aux share of PG mass (w_plan calibration)")
     ap.add_argument(
@@ -1283,6 +1291,8 @@ def main() -> None:
                             "--plan",
                             "--plan-lr",
                             str(args.plan_lr),
+                            "--plan-proj-lr",
+                            str(args.plan_proj_lr),
                             *(
                                 ["--plan-w", str(state["plan_w"])]
                                 if state.get("plan_w")

@@ -243,6 +243,23 @@ aux_delta_l1 0.638):**
   Behavioral axes (hold-then-cast, within-turn dithering) exploratory,
   never gating.
 
+**run20 iteration-0 amendment (2026-08-25, guard halt adjudicated same
+session):** the kl guard (0.06) bound at iteration 0 with kl 0.0695 at
+the FIRST metrics flush — before w_plan was calibrated, aux measure-only
+— while `plan_rms` hit 0.0039 in 9 optimizer steps. Diagnosis: the
+consumption proj receives dense PG gradient at every carried window, so
+at lr 1e-3 the policy left the behavior policy at ~100× recipe speed;
+ADR-0069's starved-param arithmetic (the 1e-3 justification) never
+applied to a densely-fed input projection. The iteration's OTHER signals
+were the opposite of the payment pathology: argmax_flip 2.6% at
+iteration 0 (the FUND threshold, though guards unclean), aux BCE
+1.79 → 0.29 within the iteration, tripwire silent. **Amendment
+(guards-preserving, not guard-loosening): the proj gets its own group at
+1e-4 (`--plan-proj-lr`); the aux heads keep 1e-3 (post-activation kl was
+flat — the aux path is not the kl source). Relaunched; the rejected
+iteration re-runs (generation stores reusable — iter-0 serve is
+bit-identical under the zero proj).**
+
 ### §8 Sequencing & the strength read
 
 1. **R1 aux-target probe** (offline, ~a session) → pins the target.
