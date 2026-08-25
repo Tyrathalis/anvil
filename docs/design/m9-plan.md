@@ -1056,7 +1056,15 @@ ledger is the capability view.
    adjudication of the discuss zone.
 5. One full training run (D5 payment, or D6 plan-latent on the
    negative branch) closed by the standing 2,000-game combined paired
-   read vs the post-boundary baseline.
+   read vs the post-boundary baseline. **RESOLVED AS SUPERSEDED
+   (2026-08-25, user decision, [ADR-0077](../decisions/ADR-0077-m9-closeout.md)):
+   the milestone's own measurements closed every branch — the payment
+   ceiling read (ADR-0073) + the replicated capability negative killed
+   the D5 run; the v1 probe verdict (ADR-0076) killed the D6 v1 run;
+   and v2's coherent experiment is M10's unified resource-scheduling
+   competency, not a plan-only run against an unmeasured ceiling. No
+   promotion; ckpt of record stays `d6-run11/iter-019` at
+   0.5279 ± 0.0110 post-boundary.**
 6. The M9 closeout ADR records the strength verdict AND the mechanism
    verdict (veto collapse confirmed / falsified — falsification
    explicitly first-class; **RESOLVED 2026-08-23 by the ADR-0069 control
@@ -1067,4 +1075,10 @@ ledger is the capability view.
    ADR-0062 made explicitly first-class**), routes the second act or M10, **and routes
    every payment-completion-queue item by name** (scheduled, or
    re-deferred with a recorded reason — the queue's no-silent-loss
-   rule).
+   rule). **RESOLVED (2026-08-25,
+   [ADR-0077](../decisions/ADR-0077-m9-closeout.md)): M9 CLOSED. Both
+   verdicts recorded (mechanism FALSIFIED; strength: no promotion,
+   done-when 5 superseded with reason); M10 chartered around the
+   unified resource-scheduling competency; queue items 2/4/5 scheduled
+   into M10's actuation build, item 3 re-deferred with reason, pin-12
+   re-mine retired with reason.**
