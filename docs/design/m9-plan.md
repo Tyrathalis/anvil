@@ -827,6 +827,19 @@ can move the answer: only the top-ranked ~20% of the ~5,400-window tagged
 universe was ever adjudicated, and miner rank is measured non-predictive
 (paygoals3 read) — the mined 0.112/g could be several× low.
 
+**RESOLVED same night (`rate-read.json`, ADR owed after the stage-2
+conversion read): certifiable rate 19/600 = 3.17% [2.04, 4.89] Wilson 95
+over a 10.15 windows/game tagged universe ⇒ 0.321 [0.207, 0.497]
+certifiable windows/game — ~3× the mined bound. Perfect-play arithmetic:
+central (+4.62pp/window) = +1.49pp/game [+0.96, +2.29], REACHES the
+floor; upper (+12.5pp) = +4.02pp/game [+2.58, +6.21], CI entirely above
+the floor ⇒ per the pinned rule, M10 CANDIDACY STANDS.** Executor
+faithful at scale a third time (salvage 0.0000 / 15,128 directed rows).
+Caveat in flight: both conversion factors are borrowed from the evalset
+population; a stage-2 game-end pass on the 19 uniform-sample positives
+(cheap — the sweep's own rows are the h2 arm by rollSeed identity)
+measures the conversion directly and completes the arithmetic.
+
 **Instrument (zero Java delta — `CensusRun -certify`'s `HorizonStop` already
 stops at `t + horizon` OR natural game end, and rows carry `winner`/`ended`):**
 two job sets over the 69 evalset-of-record positives, identical except
