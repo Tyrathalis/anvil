@@ -216,6 +216,65 @@ terrain, own-turn stratum (22,241 turn-groups, 11.1/game):
   selection at K rolls must split selection from scoring (select on
   half the rolls, score on the other half) or the ceiling inflates.
 
+## v2 actuation surface — latent vs emitted schedule (ADJUDICATED 2026-08-25: SOFT EMISSION)
+
+The three-way fork, discussed and decided at the 2026-08-25 design
+session (user adjudication):
+
+1. **Pure latent** (v1 shape, better target) — schedule exists only as
+   aux supervision. REJECTED as v2's shape: the invalid-schedule
+   penalty, replan semantics, Mentor narration, and direct supervision
+   on schedule-valued labels (ceiling best-arms, ADR-0075 universe) all
+   need the schedule to exist as an object; a latent's plan is
+   unfalsifiable, against the engine-adjudicates-every-claim invariant.
+2. **SOFT EMISSION — ADOPTED.** The schedule is decoded as a
+   first-class engine-checkable object (ordered actions + payment
+   assignments) and consumed through the VALIDATED conditioning
+   channel; the per-window policy keeps authority and can deviate.
+   Deviation/follow/invalid-step rates become first-class telemetry
+   (the ADR-0069 discrimination-statistic family) and the fund/kill
+   signals get direct behavioral readouts.
+3. **Hard execution** (schedule executor, halt-at-veto + replan) —
+   NOT rejected, STAGED: a serve-time mode unlocked later by measured
+   follow/validity rates, never a training-time bet.
+
+**The user's adjudicating argument (recorded): interaction
+robustness.** Instant-speed interaction is common in high-level play;
+a hard-executed plan that is abandoned and regenerated the moment an
+opponent interacts makes counterspell handling a kludge. The elegant
+shape is a plan that is a viewable, MODIFIABLE object at each step —
+where the model can implicitly or explicitly hold up mana for its own
+interaction and mitigations — and whose value does not depend on the
+board progressing exactly as predicted. All plausibly buildable
+latent-only, but EMISSION makes it assessable (the second recorded
+reason: we can measure follow/deviation/validity only on an explicit
+object).
+
+Sub-forks opened under soft emission (pinned at the build's design
+sessions):
+
+- **Schedule vocabulary:** pointer-over-candidates + payment-assignment
+  slots (strong lean — the CastPlan lesson: legality-derived
+  enumeration took cast vetoes 65%→~5%; pointer decoding makes invalid
+  schedules mis-scheduled resources, never nonsense, and makes the
+  knowability gate computable at emission via source_views/can_pay).
+- **Re-emission cadence:** once-per-turn vs revise-on-priority. USER
+  LEANING (2026-08-25, from the interaction argument): the plan as a
+  persistent revisable object at each step — the design doc's fuller
+  recurrence — held against its recompute cost (the v1 deferral
+  reason); the cadence pin must price serve wall-clock.
+- **Conditioning ingestion:** how the decoded schedule feeds the
+  policy (embedding of the decoded object vs schedule tokens).
+- **Validity predicate:** note that "affordability-at-execution per
+  intended action" — one of the two v2 resource-component candidates —
+  IS the validity predicate; that aux-component fork and this one are
+  plausibly the same decision.
+- **Shape-review axis (obligation 5, sharpened):** a validity-rewarded
+  schedule head may learn trivially-valid SHORT schedules (the
+  scheduling analogue of probing). "Schedule ambition" telemetry
+  (scheduled resource utilization vs realized) instruments this from
+  birth.
+
 ## Open forks for the design round (none adjudicated)
 
 - Charter ranking: unified competency vs §3b stops vs sequenced both.
@@ -224,7 +283,10 @@ terrain, own-turn stratum (22,241 turn-groups, 11.1/game):
   ADR-0074).
 - Actuation advertisement shape: how the payment capability surfaces
   in the action schema (re-advertised tag per
-  capabilities-over-fallback).
+  capabilities-over-fallback) — now partially constrained by the
+  soft-emission adjudication above: payment assignments ride the
+  emitted schedule's slots; the per-window advertisement is the
+  residual question.
 - Read protocol: what "read as one competency" means for the gate —
   the standing 2,000-game paired read is the strength instrument;
   what is the competency instrument, and what certification horizon
