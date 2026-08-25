@@ -937,6 +937,15 @@ def main() -> None:
     )
     ap.add_argument("--plan-calib-steps", type=int, default=50)
     ap.add_argument(
+        "--plan-lr",
+        type=float,
+        default=None,
+        help="separate lr for the D6 plan params (plan_ heads + "
+        "assemble.plan_proj) — the --pay-lr rationale verbatim: at "
+        "trunk lr the zero-init proj never leaves init and a clean "
+        "negative is uninterpretable (spec §2 pins 1e-3)",
+    )
+    ap.add_argument(
         "--seq-margin",
         type=float,
         default=6.0,
@@ -1010,18 +1019,30 @@ def main() -> None:
         critic.eval()
         critic.requires_grad_(False)
 
-    if args.pay_lr is None:
+    # Named lr groups for fresh param families (D4 recipe pin 2 / D6 spec §2
+    # — the ADR-0069 arithmetic: at trunk lr a fresh head displaces ≤~0.03
+    # across a whole probe run and a clean negative is uninterpretable).
+    groups = []
+    if args.pay_lr is not None:
+        groups.append(("pay_", args.pay_lr))
+    if args.plan_lr is not None:
+        groups.append((("plan_", "assemble.plan_proj"), args.plan_lr))
+    if not groups:
         opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd)
     else:
-        # M9 D4 recipe pin 2: the fresh §3c payment params need their own
-        # step size; the trunk keeps the pinned 1e-5 so policy drift is
-        # unchanged. Split by name so the grouping is auditable.
-        pay = [p_ for n_, p_ in net.named_parameters() if n_.startswith("pay_")]
-        rest = [p_ for n_, p_ in net.named_parameters() if not n_.startswith("pay_")]
-        if not pay:
-            raise ValueError("--pay-lr set but the net carries no pay_ params")
+        param_groups, taken = [], set()
+        for prefix, lr in groups:
+            named = [
+                (n_, p_) for n_, p_ in net.named_parameters()
+                if n_.startswith(prefix) and n_ not in taken
+            ]
+            if not named:
+                raise ValueError(f"lr group {prefix} set but the net carries no such params")
+            taken.update(n_ for n_, _ in named)
+            param_groups.append({"params": [p_ for _, p_ in named], "lr": lr})
+        rest = [p_ for n_, p_ in net.named_parameters() if n_ not in taken]
         opt = torch.optim.AdamW(
-            [{"params": rest, "lr": args.lr}, {"params": pay, "lr": args.pay_lr}],
+            [{"params": rest, "lr": args.lr}, *param_groups],
             lr=args.lr,
             weight_decay=args.wd,
         )
@@ -1038,6 +1059,11 @@ def main() -> None:
                 "critic_ckpt",
                 "lr",
                 "pay_lr",
+                "plan",
+                "plan_lr",
+                "plan_frac",
+                "plan_w",
+                "plan_calib_steps",
                 "traj_per_step",
                 "gamma",
                 "rho_bar",

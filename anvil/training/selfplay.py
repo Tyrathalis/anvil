@@ -606,6 +606,7 @@ def guard_flags(
     veto_mult: float = 1.5,
     casts_floor: float = 0.8,
     seq_share_max: float | None = None,
+    plan_share_max: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -625,6 +626,11 @@ def guard_flags(
         # calibration invariant (~10%); the halt-worthy failure is the
         # term outgrowing its weight, which precedes the kl symptom
         flags.append(f"guard: seq_share {ss} > {seq_share_max}")
+    ps = m.get("plan_share")
+    if plan_share_max is not None and ps is not None and ps > plan_share_max:
+        # the D6 twin of the seq-share guard: the aux term outgrowing its
+        # calibrated weight precedes the kl symptom
+        flags.append(f"guard: plan_share {ps} > {plan_share_max}")
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
         if ent is not None and ent0 and ent > ent_mult * ent0:
@@ -751,6 +757,41 @@ def main() -> None:
         "the fresh head cannot move at trunk lr — a probe that reads 'no "
         "movement' would be measuring the step budget, not the formulation. "
         "None = one group (v0 behavior).",
+    )
+    ap.add_argument(
+        "--plan",
+        action="store_true",
+        help="M9 D6 (m9-d6-plan-latent-spec): serve the plan carry (the "
+        "ckpt must be plan-grafted — d6-plan-init) and train the joint "
+        "aux term; per-iteration reliance readout + kill signal armed.",
+    )
+    ap.add_argument(
+        "--plan-lr",
+        type=float,
+        default=1e-3,
+        help="lr group for the plan params (spec §2 — the pay-lr rationale)",
+    )
+    ap.add_argument("--plan-frac", type=float, default=0.1,
+                    help="target aux share of PG mass (w_plan calibration)")
+    ap.add_argument(
+        "--plan-carry-w",
+        action="store_true",
+        help="carry iteration-0's w_plan for the whole run instead of the "
+        "ADR-0057 default per-iteration recalibration (the --seq-carry-w "
+        "twin)",
+    )
+    ap.add_argument(
+        "--guard-plan-share",
+        type=float,
+        default=0.3,
+        help="halt if the iteration-mean plan_share exceeds this — 3x the "
+        "0.1 target (the seq-share guard twin)",
+    )
+    ap.add_argument(
+        "--plan-reliance-store",
+        default="data/trajectories/d6-run18-i000-20260821-205317",
+        help="the PINNED fixed population for the per-iteration reliance "
+        "readout (comparable series; day-zero banked on it)",
     )
     ap.add_argument("--ent-weight", type=float, default=3e-3)
     ap.add_argument(
@@ -1234,6 +1275,23 @@ def main() -> None:
                     "--lr",
                     str(args.lr),
                     *(["--pay-lr", str(args.pay_lr)] if args.pay_lr is not None else []),
+                    # D6 plan latent (m9-d6-plan-latent-spec): carry + joint
+                    # aux; w_plan calibrated once at iteration 0 and carried
+                    # via loop_state (the --seq-w lesson)
+                    *(
+                        [
+                            "--plan",
+                            "--plan-lr",
+                            str(args.plan_lr),
+                            *(
+                                ["--plan-w", str(state["plan_w"])]
+                                if state.get("plan_w")
+                                else ["--plan-frac", str(args.plan_frac)]
+                            ),
+                        ]
+                        if args.plan
+                        else []
+                    ),
                     "--ent-weight",
                     str(args.ent_weight),
                     "--ent-floor",
@@ -1329,6 +1387,7 @@ def main() -> None:
             veto_mult=args.guard_veto_mult,
             casts_floor=args.guard_casts_floor,
             seq_share_max=args.guard_seq_share,
+            plan_share_max=args.guard_plan_share if args.plan else None,
         )
         row = {
             "iteration": k,
@@ -1356,6 +1415,27 @@ def main() -> None:
                 new_ckpt, args.pay_drill_dir, args.pay_drill_embed, it_dir / "pay-drills.jsonl"
             )
             print(f"[selfplay] pay drills iteration {k}: {row['pay_drills']}")
+        # ---- M9 D6 reliance readout (spec §6, per iteration, fixed
+        # population) — diagnostic in the row; the KILL SIGNAL (spec §7,
+        # numerics pinned at the recipe session) is the ONLY reader that
+        # acts, and only from accepted-iteration 4 on ----
+        if args.plan:
+            rel_out = it_dir / "plan-reliance.json"
+            subprocess.run(
+                [
+                    sys.executable, "scripts/plan_reliance.py",
+                    "--ckpt", str(new_ckpt),
+                    "--store", args.plan_reliance_store,
+                    "--out", str(rel_out),
+                ],
+                check=False,
+            )
+            if rel_out.exists():
+                row["plan_reliance"] = json.loads(rel_out.read_text())
+                print(f"[selfplay] plan reliance iteration {k}: "
+                      f"flip {row['plan_reliance']['argmax_flip']} "
+                      f"bce {row['plan_reliance']['aux_act_bce']} "
+                      f"rms {row['plan_reliance']['plan_rms']}")
         monitor.write(json.dumps(row) + "\n")
         # ---- standing analysis battery (run-analysis-protocol.md): cheap
         # per-iteration pass — monitor curves + the holding row. Diagnostic
@@ -1410,6 +1490,38 @@ def main() -> None:
         if args.seq_carry_w and seq_runs and "seq_w" not in state and cal_path.exists():
             state["seq_w"] = json.loads(cal_path.read_text())["w_seq"]
             print(f"[selfplay] w_seq calibrated at run start: {state['seq_w']:.6g} (carried)")
+        pcal_path = train_dir / "plan_calibration.json"
+        if args.plan_carry_w and args.plan and "plan_w" not in state and pcal_path.exists():
+            state["plan_w"] = json.loads(pcal_path.read_text())["w_plan"]
+            print(f"[selfplay] w_plan calibrated at run start: {state['plan_w']:.6g} (carried)")
+        # ---- D6 KILL SIGNAL (spec §7, recipe-session numerics): from the
+        # 4th ACCEPTED iteration, if the carry has never flipped ≥0.5% of
+        # carried argmax decisions AND the aux act-BCE has plateaued
+        # (< 2% relative improvement over the last two accepted
+        # iterations), the formulation is dead — halt, record, notify ----
+        if args.plan and "plan_reliance" in row:
+            series = state.setdefault("plan_reliance_series", [])
+            series.append({
+                "iteration": k,
+                "argmax_flip": row["plan_reliance"]["argmax_flip"],
+                "aux_act_bce": row["plan_reliance"]["aux_act_bce"],
+            })
+            if len(series) >= 4:
+                max_flip = max(s["argmax_flip"] for s in series)
+                bce_now = series[-1]["aux_act_bce"]
+                bce_prev2 = series[-3]["aux_act_bce"]
+                if max_flip < 0.005 and bce_now > 0.98 * bce_prev2:
+                    msg = (
+                        f"PLAN KILL (spec §7): max argmax_flip {max_flip:.4f} < 0.005 "
+                        f"over {len(series)} accepted iterations AND aux plateaued "
+                        f"(bce {bce_now:.4f} vs {bce_prev2:.4f} two iterations back)"
+                    )
+                    (it_dir / "PLAN-KILL").write_text(msg + "\n")
+                    state_path.write_text(json.dumps(state, indent=2))
+                    print(f"[selfplay] !!! {msg}")
+                    _notify(f"anvil {args.name}: PLAN KILL iter {k}", msg)
+                    _watch_unregister(args.name)
+                    sys.exit(4)
         state_path.write_text(json.dumps(state, indent=2))
 
         # ---- arms (argmax serve, paired seeds, both seat assignments) ----

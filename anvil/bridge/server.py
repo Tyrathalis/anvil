@@ -248,21 +248,7 @@ class ModelBackend:
             # the mu record and answer path need nothing special.
             self.counts["reask"] += 1
         ex, aux = self.feat.example(dec, header, task)
-        # D6 plan carry: inject the turn's cached plan (or flag emission)
-        plan_key, plan_emit = None, False
-        if self.carry_plan and header.get("g", -1) >= 0:
-            plan_key = (header["g"], dec.get("p", -1))
-            turn = dec.get("t", 0)
-            with self.plan_lock:
-                st = self.plan_carry.get(plan_key)
-            d_plan = self.net.assemble.plan_tok.shape[-1]
-            if st is not None and st[0] == turn:
-                ex["plan_vec"] = st[1]
-                ex["has_plan"] = 1.0
-            else:
-                ex["plan_vec"] = self.torch.zeros(d_plan)
-                ex["has_plan"] = 0.0
-                plan_emit = True
+        plan_key, plan_emit = self._plan_inject(ex, header, dec)
         delta = self.pass_delta if task == "priority" else 0.0
         if req.forbid_decline and task == "priority":
             # M7 forced-branch act ask: mask the pass logit so the sampled/
@@ -293,13 +279,7 @@ class ModelBackend:
             )
         out = self.batcher.submit(ex, delta, noise)
         if plan_emit and plan_key is not None:
-            with self.plan_lock:
-                self.plan_carry[plan_key] = (
-                    dec.get("t", 0),
-                    out["plan"][0].float().cpu(),
-                )
-                while len(self.plan_carry) > self._plan_cap:
-                    self.plan_carry.pop(next(iter(self.plan_carry)))
+            self._plan_store(plan_key, dec.get("t", 0), out["plan"][0].float().cpu())
         if self.sample and not wire_fork:
             self._write_mu(header["g"], dec, task, ex, aux, out)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
@@ -332,6 +312,31 @@ class ModelBackend:
                     self.counts["num_clamped"] += 1
                 resp.value = v
         return resp
+
+    def _plan_inject(self, ex: dict, header: dict, dec: dict) -> tuple:
+        """D6 carry lookup (m9-d6-plan-latent-spec §3): fills ex's
+        plan_vec/has_plan and returns (key, emit). Emission = no cached
+        vector for this (g, seat, turn); wire-fork headers (g<0) never
+        carry (their g collides across streams)."""
+        if not self.carry_plan or header.get("g", -1) < 0:
+            return None, False
+        key = (header["g"], dec.get("p", -1))
+        turn = dec.get("t", 0)
+        with self.plan_lock:
+            st = self.plan_carry.get(key)
+        if st is not None and st[0] == turn:
+            ex["plan_vec"] = st[1]
+            ex["has_plan"] = 1.0
+            return key, False
+        ex["plan_vec"] = self.torch.zeros(self.net.assemble.plan_tok.shape[-1])
+        ex["has_plan"] = 0.0
+        return key, True
+
+    def _plan_store(self, key: tuple, turn: int, vec) -> None:
+        with self.plan_lock:
+            self.plan_carry[key] = (turn, vec)
+            while len(self.plan_carry) > self._plan_cap:
+                self.plan_carry.pop(next(iter(self.plan_carry)))
 
     def _write_mu(self, g: int, dec: dict, task: str, ex: dict, aux: dict, out: dict) -> None:
         """One behavior-policy record (M2 D6) -> mu.jsonl, joined at ingest

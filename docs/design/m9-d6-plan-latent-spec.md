@@ -215,9 +215,33 @@ remains at its day-zero noise floor while the aux holdout metric has
 plateaued, the formulation is dead** — the policy is ignoring a latent
 that has nothing left to learn to say. Halt, record the negative, route
 at a session (v2 recurrence, forced-seq target, or D6 closes negative
-and M9 closes on the D4/D6 double negative). Numeric floors (noise band
-from day-zero jitter) pinned at the run-recipe session, before launch —
-the D4 discipline.
+and M9 closes on the D4/D6 double negative).
+
+**Numerics (PINNED at the recipe session 2026-08-25, pre-launch;
+day-zero banked on `d6-plan-init` over the pinned fixed population
+`d6-run18-i000`, 40 traj / 10,629 carried windows: reliance_l1 and
+argmax_flip EXACTLY 0.0 — live bit-identity — aux_act_bce 0.7105 ≈ ln 2,
+aux_delta_l1 0.638):**
+
+- **Instrument:** `scripts/plan_reliance.py`, run by the driver per
+  accepted iteration on the fixed store (comparable series; readout in
+  monitor.jsonl `plan_reliance`).
+- **KILL (driver-automatic, exit 4, `PLAN-KILL` marker):** from the 4th
+  accepted iteration — max argmax_flip over all accepted iterations
+  **< 0.005** (the carry never flips 1-in-200 greedy decisions) AND
+  aux_act_bce plateaued (**< 2% relative improvement vs two accepted
+  iterations back**). Both conditions, conservatively conjunctive.
+- **FUND (⇒ the D5-slot full run; human-adjudicated at the read,
+  nothing auto-promotes):** argmax_flip **≥ 0.02** at any accepted
+  iteration with guards clean AND aux_act_bce **≤ 0.8 × day-zero**
+  (≤ 0.568) — the latent is behaviorally live and the emission
+  informative. Grounding for 0.02: the D4 payment head at its
+  most-moved shifted ~3–4% of drill-window argmax; a consumed latent
+  should reach half that on ~10k carried windows (binomial SE ≈ 0.001 —
+  20σ from the floor).
+- **Between = discuss-zone**, session adjudicates (the D4 pattern).
+  Behavioral axes (hold-then-cast, within-turn dithering) exploratory,
+  never gating.
 
 ### §8 Sequencing & the strength read
 

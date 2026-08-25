@@ -163,6 +163,70 @@ def test_plan_proj_receives_gradient(net_and_batch):
     net.zero_grad(set_to_none=True)
 
 
+def test_serve_carry_semantics():
+    """The stub-driven carry contract (m9-d6-plan-latent-spec §3): emission
+    on first sight of a (g, seat, turn), feed-back within the turn, reset
+    on turn advance, no carry for fork headers or ungated backends."""
+    import threading
+    import types
+
+    import torch
+
+    from anvil.bridge.server import ModelBackend
+
+    stub = types.SimpleNamespace(
+        carry_plan=True,
+        plan_carry={},
+        plan_lock=threading.Lock(),
+        _plan_cap=4,
+        torch=torch,
+        net=types.SimpleNamespace(
+            assemble=types.SimpleNamespace(plan_tok=torch.zeros(1, 8))
+        ),
+    )
+    inject = lambda ex, g, p, t: ModelBackend._plan_inject(  # noqa: E731
+        stub, ex, {"g": g}, {"p": p, "t": t}
+    )
+    ex = {}
+    key, emit = inject(ex, 5, 0, 3)
+    assert emit and key == (5, 0) and ex["has_plan"] == 0.0
+    ModelBackend._plan_store(stub, key, 3, torch.ones(8))
+    ex2 = {}
+    key2, emit2 = inject(ex2, 5, 0, 3)
+    assert not emit2 and ex2["has_plan"] == 1.0 and ex2["plan_vec"].sum() == 8
+    ex3 = {}
+    _, emit3 = inject(ex3, 5, 0, 4)  # turn advanced -> fresh emission
+    assert emit3 and ex3["has_plan"] == 0.0
+    _, emit4 = inject({}, 5, 1, 3)  # other seat -> own emission
+    assert emit4
+    key5, emit5 = inject({}, -1, 0, 3)  # fork header -> never carries
+    assert key5 is None and not emit5
+    stub.carry_plan = False
+    key6, _ = inject({}, 5, 0, 3)  # ungated backend -> no-op
+    assert key6 is None
+    # cap eviction is FIFO and bounded
+    stub.carry_plan = True
+    for g in range(6):
+        ModelBackend._plan_store(stub, (g, 0), 1, torch.zeros(8))
+    assert len(stub.plan_carry) == 4
+
+
+def test_carry_gating_on_ckpt_params():
+    """carry_plan mirrors has_pay: on iff the ckpt saves plan params.
+    d6-plan-init must gate ON and also carry NO pay params (ADR-0073
+    infrastructure routing — the D6 runs never advertise the pay tag)."""
+    import torch
+
+    grafted = Path("data/training/d6-plan-init/last.pt")
+    if not grafted.exists():
+        pytest.skip("d6-plan-init not present")
+    keys = torch.load(grafted, map_location="cpu", weights_only=False)["model"].keys()
+    assert any(k.startswith(("plan_", "assemble.plan_proj")) for k in keys)
+    assert not any(k.startswith("pay_") for k in keys)
+    src = torch.load(CKPT, map_location="cpu", weights_only=False)["model"].keys()
+    assert not any(k.startswith(("plan_", "assemble.plan_proj")) for k in src)
+
+
 def test_collate_plan_keys_optional(net_and_batch):
     import torch
 

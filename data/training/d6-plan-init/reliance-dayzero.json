@@ -1,0 +1,12 @@
+{
+  "ckpt": "data/training/d6-plan-init/last.pt",
+  "store": "data/trajectories/d6-run18-i000-20260821-205317",
+  "n_traj": 40,
+  "n_carried": 10629,
+  "reliance_l1": 0.0,
+  "argmax_flip": 0.0,
+  "aux_act_bce": 0.71046,
+  "aux_delta_l1": 0.638136,
+  "vec_std": 0.200506,
+  "plan_rms": 0.0
+}
