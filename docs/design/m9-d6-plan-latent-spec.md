@@ -207,6 +207,22 @@ before any dump ran):**
   trunk's measured cost knowledge, D2a AUC 0.881, INTO the conditioning
   channel instead of leaving it incidental). Adjudicated at the run20
   read session against the v1 results.
+- **The unification framing (user, same discussion, for the M10 table):
+  turn planning and payment handling are ONE competency — within-turn
+  resource scheduling — split across two surfaces by our architecture.**
+  The human prior: most turn planning is sequencing to fully use the
+  turn's resources (a mana rock effectively costs 1 cast-before-use, 2
+  otherwise; holding up interaction mana; activation-cost lands). The
+  project's evidence already converges on it: ADR-0065's motivating
+  Signet-chain board, the auto-payer-blank card class, i1's 288
+  `chained_source_available` veto windows, the color_hold/blocker
+  drill shapes. Coherent M10 candidate shape: schedule-bearing plan
+  target (v2) + payment actuation (re-advertised tag per the
+  capabilities-over-fallback direction) + the ADR-0075 supervised
+  conditional labels, trained and READ as one competency. Corollary
+  (user): each capability surface reveals its own training-data
+  requirements — rare-decision competencies need targeted data, and
+  which data only becomes visible after the surface opens.
 
 ### §6 Telemetry from birth (priced by nothing)
 
