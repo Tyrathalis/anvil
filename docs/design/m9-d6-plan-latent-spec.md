@@ -156,6 +156,32 @@ result routes to the forced-seq escalation or kills D6 at a session.
 Exact thresholds pinned at the probe launch (base rates unknown until
 measured; the structure and margin discipline are pinned here).
 
+**R1 pins (PINNED 2026-08-24 at probe build, PRE-DATA — same session,
+before any dump ran):**
+
+- **Population:** `d6-run18-i000` + `i001` mirror stores (post-boundary,
+  generation from the grafted init — nearest to ckpt-of-record
+  behavior), both seats, every (seat, turn ≥ 1) group whose first
+  own-seat window carries an obs. Trunk = `d6-run11/iter-019` frozen.
+- **Split:** deterministic game-grouped 80/20 (standing).
+- **Arm ladder:** base rate → obs-arithmetic (pinned explicit set: turn,
+  per-seat life/hand/lib/commander-cast, per-controller battlefield
+  total/creature/power/untapped counts, command-zone count) → `[STATE]`
+  → `[STATE] ⊕ [PLAN]`.
+- **(a) action summary:** multi-hot over a probe-local vocab (top-256 sa
+  strings, ≥50 train support) + 3 summary bits (land_played,
+  any_ability, attacked). Metric: macro-AUC over qualifying classes.
+  **Gate: `[STATE] ⊕ [PLAN]` ≥ obs-arithmetic + 0.03 AND ≥ 0.60
+  absolute.**
+- **(c) end-of-turn delta:** own/opp life, own hand, own battlefield
+  count, own creatures, own power — same-seat next-turn-group first obs
+  minus emission obs. Metric: mean held-out Spearman over the six axes.
+  **Gate: ≥ obs-arithmetic + 0.05 AND ≥ 0.15 absolute.**
+- **Selection:** both clear ⇒ joint multi-task aux; one ⇒ that one;
+  **neither ⇒ NO build** — escalation session (forced-seq target) or D6
+  closes negative. Read counted once; any exploratory slicing reported,
+  never gating.
+
 - **Escalation (recorded, not v1):** ADR-0053's act−hold plan-segment
   advantages via the carried forced-seq campaign machinery — the
   value-aligned target, at campaign cost. The chartered natural-timing
