@@ -1,10 +1,11 @@
 # M10 planning/scheduling ceiling measurement — pre-registration spec
 
-*Status: DRAFT FOR ADJUDICATION (2026-08-25 design session). Structure
-follows the fork map ([m10-plan.md](m10-plan.md)) with user leanings
-applied; the named knobs (§Adjudication) need user sign-off, and exact
-thresholds marked "at launch" are pinned in the launch commit PRE-DATA
-(the R1/ratesweep discipline). Anchors:
+*Status: **ADJUDICATED (user, 2026-08-25)** — all five knobs accepted
+as drafted (knob (a) after the recorded power walkthrough + the stage-1b
+amendment). Remaining pre-launch: the `-forceschedule` build + smoke,
+then the launch commit pins θ, the h4-delta threshold, the seed base,
+and the sampling rng PRE-DATA (the R1/ratesweep discipline). Structure
+follows the fork map ([m10-plan.md](m10-plan.md)). Anchors:
 [ADR-0073](../decisions/ADR-0073-m9-ceiling-measurement.md) (the genre),
 [ADR-0075](../decisions/ADR-0075-window-rate-sweep.md) (the two-stage
 pattern this mirrors), [ADR-0053](../decisions/ADR-0053-sequence-probe-resolution.md)
@@ -168,12 +169,19 @@ fork proper carries zero delta.
 - Horizons beyond the turn for the directive (N-turn persistent
   schedules — v2 recurrence territory).
 
-## Adjudication knobs (user sign-off before the launch commit)
+## Adjudication record (user, 2026-08-25 — all five accepted)
 
-a. Two-stage shape (h2 certification → game-end conversion) vs
-   direct single-stage — the power argument above.
-b. The canonical arm list (six named above).
-c. Schedule-consistent directed payment as the joint executor rule
-   (deterministic, no arm blowup).
-d. Funding threshold numbers (2×-floor structure above).
-e. Budget scale (~109k h2 rollouts; 2–3 nights).
+a. Two-stage shape (h2 certification → game-end conversion) —
+   ACCEPTED after the power walkthrough: direct measurement's noise
+   floor (±5–7pp/game at feasible budgets) sits above the 1.1–2.2pp
+   decision band; two-stage resolves ~±2pp on the same compute and
+   measures the certified-window population the supervised-conditional
+   training path can actually teach. Stage 1b (h4 side-sample) added
+   as the h2-bias mitigation in the same discussion.
+b. Canonical arm list (six named) — ACCEPTED.
+c. Schedule-consistent directed payment as the joint executor rule —
+   ACCEPTED.
+d. Funding thresholds (2×-floor structure) — ACCEPTED.
+e. Budget (~109k h2 rollouts + stage 1b ~7% + stage 2; 2–3 nights,
+   nice'd, quiet-box stage 2) — ACCEPTED under the standing
+   overbudget direction.

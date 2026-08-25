@@ -127,10 +127,11 @@ those competencies, it is building their substrate.
 
 ## Planning-ceiling measurement — fork map (2026-08-25 design session)
 
-*→ The full pre-registration spec is drafted:
-[m10-ceiling-spec.md](m10-ceiling-spec.md) (DRAFT status; five named
-adjudication knobs pending user sign-off, thresholds pinned pre-data at
-the launch commit).*
+*→ The pre-registration spec is **ADJUDICATED** (user, 2026-08-25):
+[m10-ceiling-spec.md](m10-ceiling-spec.md) — two-stage h2-certify →
+game-end conversion + h4 side-sample, all five knobs accepted.
+Remaining pre-launch: `-forceschedule` build + smoke; θ / h4-threshold /
+seed-base / rng pinned at the launch commit pre-data.*
 
 *The obligation-1 instrument. Fork list laid out and discussed with the
 user 2026-08-25; leanings recorded below are user positions, pinned
