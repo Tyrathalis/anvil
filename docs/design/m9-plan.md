@@ -917,6 +917,15 @@ decomposition + battery + the three M9-specific attributions:
 
 ## D6 — second act: the §3a turn-plan latent (tier 2)
 
+**PROBE RESOLVED 2026-08-25
+([ADR-0076](../decisions/ADR-0076-d6-probe-read.md), `d6-run20`):
+mechanism VALIDATED (consumed in one iteration, FUND's letter met at
+accepted i1), v1's order-free target amplifies interface probing at
+compounding speed (veto 0.18→0.28→0.38) — no v1 promotion run; v2
+(sequencing + resources) routed; done-when 5 = an open closeout
+decision (v2-within-M9 vs close-and-carry to M10's unified
+resource-scheduling competency).**
+
 **Design session HELD 2026-08-24
 ([m9-d6-plan-latent-spec.md](m9-d6-plan-latent-spec.md), user-approved
 forks): detached carry + dense aux supervision (emit once per turn at the

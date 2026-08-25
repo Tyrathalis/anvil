@@ -1,5 +1,16 @@
 # M9 D6 — the §3a turn-plan latent: design spec (the promotion-slot attempt)
 
+> **PROBE RESOLVED 2026-08-25
+> ([ADR-0076](../decisions/ADR-0076-d6-probe-read.md), `d6-run20`, closed
+> at iteration 2 by user decision): the mechanism VALIDATES — consumed in
+> one iteration (flip 3.37% at accepted i1, FUND's letter met), aux
+> saturated (BCE 0.7105 → 0.002) — and the v1 order-free target amplifies
+> the interface-probing equilibrium at compounding speed (veto 0.18 →
+> 0.28 → 0.38, generic_short +165%, the ADR-0062 account through a third
+> independent channel at 10× drill-fed speed). No promotion run on v1;
+> v2 (sequencing + resources, below) is the routed successor; M9
+> done-when 5 flagged for the closeout session.**
+
 **Pinned:** 2026-08-24 (D6 design session; user-approved forks: detached
 carry + dense aux loss; probe-first aux-target selection; ADR-0053 accepted
 as the ceiling evidence; window-rate sweep funded in parallel).
