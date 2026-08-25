@@ -135,6 +135,14 @@ loader-side `groupby((p, t))` — no sampler change.
 
 ### §5 Aux target — probe rung R1 decides (pinned structure, pre-build)
 
+**R1 RESOLVED same day
+([ADR-0074](../decisions/ADR-0074-d6-r1-aux-target-probe.md), 20,191
+turn-groups): both gates PASS wide — (a) macro-AUC 0.9235 vs arith
+0.7528 (+0.171 vs the 0.03 pin), (c) mean Spearman 0.5665 vs 0.4462
+(+0.120 vs 0.05). Selection = JOINT multi-task. Free finding: the
+static [PLAN] readout already adds +0.016 AUC over [STATE] alone.
+Next rung: build/graft (§8 step 2).**
+
 Offline, on existing stores, before any model surgery — the D2a genre.
 Candidate targets, both computable from the trajectory per turn group:
 
