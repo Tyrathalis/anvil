@@ -39,13 +39,43 @@ own training-data requirements — rare-decision competencies need
 targeted data, and which data only becomes visible after the surface
 opens.
 
+**The substrate corollary (user, 2026-08-25 scoping discussion): the
+plan latent is plausibly the prerequisite for any downstream capability
+expansion to show its full potential.** A tutor-target head without a
+plan representation falls back on marginal card-quality ranking; a
+schedule-bearing plan latent is the natural conditioner for
+intent-driven tutoring (and for stops, modal choice, library ordering —
+the §3d′ families generally). This is the sequencing argument for
+keeping the unified competency as M10's headline while the coverage
+families queue behind measured ceilings: plan-first is not deferring
+those competencies, it is building their substrate.
+
 ## Named scoping alternatives (ranked at the design round, not silently displaced)
 
 - **§3b learnable stops** — the M8/M9 carry; biggest deferred
   episode-shrinkage lever (`autoPassCancel` top-5 traffic);
-  philosophically part of the interface family.
-- Anything the design round surfaces from the anvil-design-v2 §3d′
-  coverage ledger.
+  philosophically part of the interface family. Working read going
+  into the round (to be adjudicated, not assumed): an
+  episode-economics lever more than a strength lever, so it ranks
+  behind the charter — the design round records that ranking
+  explicitly.
+- **Mid-resolution object choices (§3d′ family 2) — NAMED at the
+  2026-08-25 scoping discussion (user-raised): tutor and fetch
+  targets, discard/sac picks** (`chooseSingleEntityForEffect`,
+  `chooseCardsForEffect`, …). The ledger's own rank: largest excluded
+  class by game impact in a tutor-defined format — the model casts,
+  the heuristic resolves. Answer shape is cheap (the pointer decoder's
+  native operation), but its ceiling is UNMEASURED and its raw signal
+  structure (rare windows × ~90-card branching) is the
+  marginal-vs-conditional collapse shape that killed the payment head
+  twice — the supervised-conditional machinery it would need does not
+  exist yet. Disposition agreed: not M10's build; gets the funded
+  ceiling probe below, and returns to the M11 table with a number.
+  Interaction recorded: intent-driven tutoring conditions on the plan
+  latent (the substrate corollary above), so the charter builds toward
+  it.
+- Anything else the design round surfaces from the anvil-design-v2
+  §3d′ coverage ledger.
 
 ## Design-round obligations (before any build — inherited pins)
 
@@ -65,6 +95,20 @@ opens.
 5. **Aux-target shape review**: an aux-target's shape is a behavioral
    prior (ADR-0076) — the v2 target's shape gets the same adversarial
    read v1 should have had.
+6. **Two named ceiling probes, funded at the 2026-08-25 scoping
+   discussion (user-agreed) — session-scale measurements riding the
+   design round, routing M11, not gating M10's build:**
+   - **Tutor/fetch-target ceiling** (§3d′ family 2): on mined
+     tutor/fetch windows, fork the state, force each of the top-k
+     candidate targets, roll out, read heuristic-vs-best delta — the
+     ADR-0073 genre on the ADR-0053 forced-branch machinery. Both
+     claims per the standing rule: per-window value AND gate-scale
+     value (traffic-weighted).
+   - **Resolution-effect payments ceiling** (`payManaCost`
+     `effect=true`, ~54/g): same genre on pay-or-suffer windows. This
+     IS the measured argument ADR-0077 requires before the item can be
+     re-deferred a second time — the probe result either schedules it
+     or re-defers it with the number attached.
 
 ## Scheduled in from the payment-completion queue (ADR-0077 routing)
 
@@ -78,7 +122,8 @@ opens.
 - **Resolution-effect payments** — RE-DEFERRED at ADR-0077 (own
   probe-then-build genre); on this table by name, and per the
   closeout it does not get re-deferred again without a measured
-  argument.
+  argument. **That argument is now funded: design-round obligation 6's
+  effect-payment ceiling probe supplies the number either way.**
 
 ## Open forks for the design round (none adjudicated)
 
@@ -115,7 +160,9 @@ opens.
 ## Done-when (drafted; the design round finalizes)
 
 1. Design round closed with an ADR: charter adjudicated, forks pinned,
-   ceiling measured, v2 target probed, kill signal pre-registered.
+   ceilings measured (planning leg + the two obligation-6 probes:
+   tutor targets, effect payments), v2 target probed, kill signal
+   pre-registered.
 2. The build lands with telemetry from birth and the probe-first
    discipline (D4-shape short run before any promotion run).
 3. One promotion-scale run closed by the standing 2,000-game combined
