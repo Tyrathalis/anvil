@@ -92,7 +92,15 @@ opens.
 - Read protocol: what "read as one competency" means for the gate —
   the standing 2,000-game paired read is the strength instrument;
   what is the competency instrument, and what certification horizon
-  does it carry (the type rule)?
+  does it carry (the type rule)? Candidate instrument shape from
+  community prior art (LordOfThePigs, Discord 2026-08-25): mean
+  per-decision gain BINNED BY pre-decision state score — his draft
+  version showed the skill gap exists only in the middle-difficulty
+  band (bad states improve under any agent, saturated states under
+  none), which is the same locus-of-signal structure as ADR-0024's
+  near-tie argument and M9's certifiable windows. A binned-gain curve
+  over payment/plan windows would make "where the competency lives"
+  a readable curve instead of a single number.
 - Supervised-conditional wiring: label ingestion path (Grindstone
   family vs direct aux) and its era-scoping.
 
