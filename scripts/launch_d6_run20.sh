@@ -37,6 +37,15 @@
 #                clean, aux_act_bce <= 0.568 (0.8x day-zero).
 #   Between      discuss-zone; the read session adjudicates.
 #
+# Iteration-1 amendment (user-approved 2026-08-25): veto-mult 1.5 -> 2.5 FOR
+# THIS PROBE. The latent's first consumed behavior is amplified knowable-veto
+# probing (i0->i1: first-attempt mana-relevant vetoes 1,381 -> 2,838,
+# knowable fraction 0.559 -> 0.615, generic_short +165% — the ADR-0062
+# interface artifact through the new channel at 10x historical speed). The
+# probe gates are orthogonal to veto rate; FUND's guards-clean clause reads
+# against THIS amended set; the veto trajectory under the latent is a
+# first-class secondary read for the closeout.
+#
 # Launch checklist: setsid nohup this script; the driver self-registers
 # watchd + notifies; ALSO arm the log monitor (GUARD HALT / PLAN KILL /
 # ANOMAL / KL ABORT / Traceback) with a 2h telemetry glance.
@@ -51,7 +60,7 @@ exec uv run python -m anvil.training.selfplay \
   --rl-workers 12 --epochs 1 --lr 1e-05 \
   --plan --plan-lr 1e-03 --plan-proj-lr 1e-04 --plan-frac 0.1 \
   --ent-weight 0.003 --ent-floor 0.08 --rl-seg 128 \
-  --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult 1.5 \
+  --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult 2.5 \
   --guard-casts-floor 0.8 --guard-plan-share 0.3 \
   --penalty 0.01 --penalty-grouping first --heur-frac 0.5 \
   --critic data/training/d6-run11/iter-019/critic/last.pt \

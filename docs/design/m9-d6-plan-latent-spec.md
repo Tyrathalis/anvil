@@ -258,7 +258,29 @@ iteration 0 (the FUND threshold, though guards unclean), aux BCE
 1e-4 (`--plan-proj-lr`); the aux heads keep 1e-3 (post-activation kl was
 flat — the aux path is not the kl source). Relaunched; the rejected
 iteration re-runs (generation stores reusable — iter-0 serve is
-bit-identical under the zero proj).**
+bit-identical under the zero proj). Operational lesson en route: a
+guard-halt relaunch after a RECIPE change must clear the rejected
+phase's artifacts first (the resume machinery's phase-reuse is right for
+crashes, wrong for amendments); the first relaunch re-evaluated the old
+train output bit-identically.**
+
+**Iteration-1 amendment (user-approved same day): veto guard 1.5× → 2.5×
+for this probe.** Under the split lr, iteration 0 accepted cleanly (kl
+0.0444, flip 1.77%, aux BCE 0.056) — then iteration 1 halted on the veto
+guard at 0.2768 vs 1.5×0.1815. The knowability decomposition
+(`data/runs/veto-knowability-run20`, both validity bars ≥0.98):
+first-attempt mana-relevant vetoes 1,381 → 2,838 (+105%), knowable
+fraction 0.559 → 0.615, **`generic_short` +165%**, `timing` FELL. **The
+latent's first consumed behavior is amplified affordability probing
+through the veto channel — the ADR-0062 interface account expressing
+through the new mechanism at ~10× the drill-fed runs' speed**, with
+ADR-0063's elevated-populations-are-more-knowable replicated. Probing is
+rational under auto-payment; pricing is closed (the M8 pincer); the
+guard was halting on rational-but-wasteful play. Amendment recorded:
+FUND's guards-clean clause reads against the amended set; **the veto
+trajectory under the latent is a first-class secondary read for the
+closeout** (does it saturate like the drill-fed band or compound?).
+Iteration 1's flip was 3.4% — above the FUND bar — pending clean guards.
 
 ### §8 Sequencing & the strength read
 
