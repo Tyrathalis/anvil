@@ -125,6 +125,97 @@ those competencies, it is building their substrate.
   argument. **That argument is now funded: design-round obligation 6's
   effect-payment ceiling probe supplies the number either way.**
 
+## Planning-ceiling measurement — fork map (2026-08-25 design session)
+
+*The obligation-1 instrument. Fork list laid out and discussed with the
+user 2026-08-25; leanings recorded below are user positions, pinned
+formally at the pre-registration commit before any rollout runs.*
+
+1. **Oracle definition:** enumerated/sampled turn-script arms
+   (empirical oracle, primary) + best-of-K policy resample (reachable
+   ceiling, secondary) — the (a)−(b) gap routes the data question
+   (large gap ⇒ right lines absent from the policy distribution ⇒
+   targeted drill families).
+2. **Schedule scope — USER LEANING (2026-08-25): directed payment is
+   IN the schedule** (the competency is joint, measure it jointly);
+   the auto-pay marginal stratum is RETAINED alongside — it supplies
+   the attribution split vs the measured +2.96pp payment leg and the
+   first super-additivity read on the compounding-surface hypothesis.
+3. **Population/rate:** uniform turn-group sampling (the ADR-0075
+   lesson at birth, never mined-only); ≤1-candidate-schedule turns
+   excluded from arms but counted in the rate denominator; mined
+   stratum exploratory only, winner's-curse-priced. Store: fresh
+   small generation from `d6-run11/iter-019` at the boundary bundle
+   preferred over veto-elevated run-18-era mirrors.
+4. **Horizon:** game-end conversion primary; the N-turn board/tempo
+   proxy read free off the same truncated trajectories
+   (`payment_ceiling.py` genre) — calibrates any future scheduling
+   certify proxy. Certification horizon typed at birth.
+5. **Divergence policy (forced-script arms), two layers kept
+   distinct:** (i) MEASUREMENT arms — degrade-to-auto-and-count with
+   a pre-registered void cap per arm (exhaustion precedent,
+   ADR-0053); divergence RATE is itself a free instrument
+   (schedule×payment entanglement). (ii) MODEL semantics — USER
+   DIRECTION (2026-08-25): long-run serve behavior is halt-at-veto
+   and REPLAN from the veto point; whether replan-at-veto or
+   push-through-degrade trains better in early eras is an OPEN fork
+   for the v2 actuation design, explicitly not settled by the
+   measurement's arm policy.
+6. **Invalid-schedule penalty — USER DIRECTION (2026-08-25): yes,
+   small, the §6c-veto-penalty rationale.** Design constraints from
+   standing evidence: KNOWABILITY-GATED (penalize knowably-invalid
+   schedule steps only — the deterrence-closed account, ADR-0062,
+   says punishing unknowable invalidity punishes rational probing;
+   the veto-knowability instrument v2 is the splitter) and
+   CALIBRATED under the ADR-0053 rule (a penalty never exceeds the
+   measured cost of the behavior it deters). Presupposes an explicit
+   schedule decode on the actuation surface — feeds the v2 target /
+   actuation co-design, adversarial shape review applies.
+7. **Budget — USER DIRECTION (2026-08-25): overbudget deliberately.**
+   No expectation that plans are compute-efficient during training;
+   early-cancel is for a clear null plus suspected implementation
+   error, not for cost. Quiet-box rule for the calibrated read.
+8. **Read:** pre-registered primary (paired best-vs-natural Δwr,
+   clustered by game, uniform population), gate-scale formula carrying
+   both claims, health guards priced for winner's curse on any
+   selected stratum, funding thresholds vs the payment leg pinned
+   pre-data. Binned-gain curve (the LordOfThePigs instrument) emitted
+   as the exploratory competency-instrument prototype.
+9. **Co-design dividend:** the arm representation (ordered actions +
+   hold-set + payment assignment + resource outcome) IS the v2
+   target's vocabulary; best-arm schedules become seed supervision
+   (the ceiling-drills.jsonl precedent).
+
+**Pre-instrument census — RUN 2026-08-25** (`scripts/schedule_census.py`
+→ `data/runs/schedule-census-m10/`; population `m9-rebaselinearm` s0+s1,
+1,999 games, model seat, post-boundary era, cost/affordability
+conventions shared with the veto-knowability v2 instrument). Headline
+terrain, own-turn stratum (22,241 turn-groups, 11.1/game):
+
+- **63.7% of own turns have ≥2 individually-affordable schedulable
+  actions** (~7.1 turns/game); 27.2% sit in the §15-bet 3–4-action
+  regime (~3.0/game); ~19% have ≥5 (enumeration-infeasible tail).
+- **31.6% of own turns are RESOURCE-BOUND** (affordable demand exceeds
+  mana capacity — the model cannot cast everything it can afford,
+  ~3.5 turns/game; half of all ≥2-affordable turns). Scheduling has
+  real terrain at 10–30× the payment window rate (0.11–0.32/g) — the
+  frequency-structure argument now carries a measured base.
+- **17.3% of own turns have an untapped chained (Signet-class) source**
+  — the ordering-sensitive board is common, supporting the joint
+  schedule×payment arm design (fork 2 user leaning).
+- Off-turn stratum (11.1 groups/game): 37.8% ≥2-affordable, 19.8%
+  resource-bound — the hold-up-interaction terrain is material too.
+- Instrument health: 18.5% of turns carry ≥1 cost-unresolvable
+  candidate (altcost/multiface/unparsed — arms must handle these
+  conservatively); mean realized casts 1.75/turn vs the larger
+  affordable set (the model already leaves resources unused).
+- **Arm-cap consequence:** ordered-subset space is 5/16/65 at n=2/3/4
+  and explodes ≥326 at n≥5 ⇒ full enumeration for n≤3 (52% of
+  ≥2-affordable turns), canonical-heuristic + sampled arms under a
+  ~16-arm cap above that. Winner's-curse note for the read: best-arm
+  selection at K rolls must split selection from scoring (select on
+  half the rolls, score on the other half) or the ceiling inflates.
+
 ## Open forks for the design round (none adjudicated)
 
 - Charter ranking: unified competency vs §3b stops vs sequenced both.
