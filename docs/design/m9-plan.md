@@ -835,10 +835,15 @@ central (+4.62pp/window) = +1.49pp/game [+0.96, +2.29], REACHES the
 floor; upper (+12.5pp) = +4.02pp/game [+2.58, +6.21], CI entirely above
 the floor ⇒ per the pinned rule, M10 CANDIDACY STANDS.** Executor
 faithful at scale a third time (salvage 0.0000 / 15,128 directed rows).
-Caveat in flight: both conversion factors are borrowed from the evalset
-population; a stage-2 game-end pass on the 19 uniform-sample positives
-(cheap — the sweep's own rows are the h2 arm by rollSeed identity)
-measures the conversion directly and completes the arithmetic.
+**Stage 2 RESOLVED same night
+([ADR-0075](../decisions/ADR-0075-window-rate-sweep.md)): direct
+conversion on the uniform population +9.21pp/window ± 4.26 (z = +2.16),
+19/19 faithful, recert 100% (fresh certifications don't regress —
+corroborating ADR-0073's winner's-curse adjudication) ⇒ completed
+arithmetic 0.321 × 9.21 ≈ +2.96pp/game, ~2.7× the gate floor,
+mid-bracket of the borrowed +1.49/+4.02. M10 CANDIDACY STANDS; the
+closeout routes the payment queue against a live candidate with a
+measured ≈ +3pp/game ceiling.**
 
 **Instrument (zero Java delta — `CensusRun -certify`'s `HorizonStop` already
 stops at `t + horizon` OR natural game end, and rows carry `winner`/`ended`):**
