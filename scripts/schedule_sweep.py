@@ -280,7 +280,7 @@ def lanes(args) -> None:
         sh.write_text(
             "#!/bin/sh\nset -e\n"
             f"cd '{gui}'\n"
-            f"nice -n 19 java -Xms2g -Xmx2g -XX:ActiveProcessorCount=2 "
+            f"nice -n 19 java -Xms3g -Xmx3g -XX:ActiveProcessorCount=2 "
             f"-XX:+ExitOnOutOfMemoryError "
             f"-jar '{Path(args.jar).resolve()}' anvil "
             f"-pairs '{Path(args.pairs).resolve()}' -gpp 5 -f Commander "
