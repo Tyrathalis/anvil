@@ -258,7 +258,7 @@ def sample(args) -> None:
 # ------------------------------------------------------------------- lanes
 
 def lanes(args) -> None:
-    plan = Path(args.plan)
+    plan = Path(args.plan).resolve()  # lane scripts run with cwd=forge-gui
     sched = plan / f"sched-{args.which}.tsv"
     lines = [ln for ln in sched.read_text().splitlines()
              if ln and not ln.startswith("#")]
