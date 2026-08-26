@@ -2,9 +2,14 @@
 
 *Status: **ADJUDICATED (user, 2026-08-25)** — all five knobs accepted
 as drafted (knob (a) after the recorded power walkthrough + the stage-1b
-amendment). Remaining pre-launch: the `-forceschedule` build + smoke,
-then the launch commit pins θ, the h4-delta threshold, the seed base,
-and the sampling rng PRE-DATA (the R1/ratesweep discipline). Structure
+amendment). **`-forceschedule` BUILT + mechanical smoke PASSED
+(2026-08-25 session 4** — serve-free local-oneshot rig,
+`scripts/schedule_smoke.py`: forced ordered casts both orders, hold-all,
+degrade-and-count + void, joint payment directed vs auto stratum,
+rollSeed pairing, re-run byte-determinism; semantics addendum below).
+Remaining pre-launch: the launch commit pins θ, the h4-delta threshold,
+the seed base, and the sampling rng PRE-DATA (the R1/ratesweep
+discipline), then the fresh census + the model-serve smoke. Structure
 follows the fork map ([m10-plan.md](m10-plan.md)). Anchors:
 [ADR-0073](../decisions/ADR-0073-m9-ceiling-measurement.md) (the genre),
 [ADR-0075](../decisions/ADR-0075-window-rate-sweep.md) (the two-stage
@@ -158,6 +163,59 @@ replayed end-to-end, directive traces validated, margins reproduced
 across a re-run (the ADR-0073 smoke precedent). Census/instrument
 code only — not the game path, no boundary implications; the research
 fork proper carries zero delta.
+
+## Instrument semantics as built (addendum, 2026-08-25 build session —
+## implementation details under the adjudicated structure, recorded so the
+## read session knows exactly what the executor did)
+
+The `-forceschedule` machinery (fork `ScheduleDirective` + AnvilRun sched
+rollouts + `PlayerControllerAnvil` hooks; `scripts/schedule_smoke.py` is
+the mechanics gate):
+
+- **Soft-emission execution**: a scheduled item is realized as a masked
+  single-candidate forced ask through the normal one-shot path — the
+  policy supplies targets/X; the directive never synthesizes a cast.
+  Labels match on the `Census.str` basis (the sa_vocab 60-char
+  truncation), identical on both the census-mining and matching sides.
+- **Land-first**: at the first quiescent main-phase window(s) with a land
+  option, the ask is masked to the land options with decline forbidden
+  (the policy picks WHICH land; a veto-exhaust settles the land question
+  without degrading). Rationale: natural play leads with the land ~always,
+  a burnt window risks phase advance, and the extra source only helps the
+  directed payment leg — ceiling-consistent.
+- **Window rule**: next item present → forced; absent at a quiescent
+  main window → DEGRADE (`degrade_why=absent`, fork-5); absent at a
+  non-actionable window (stack up / non-main phase) → force-pass, counted
+  `deferred`. Schedule exhausted (or hold-all) → force-pass the seat's
+  remaining turn-t priority windows. Combat declarations are NOT priority
+  windows — attacks/blocks stay with the policy on every arm.
+- **Joint payment selection**: at every in-scope payManaCost window on the
+  target turn (any bridged-tag config — the hook precedes the TAG_PAY_CLASS
+  gate), consequential windows pick the enumerated GoalOption maximizing
+  the count of remaining scheduled items payable in schedule order from the
+  residual capacity (pool minus plan spend + non-plan atoms, chained atoms
+  net of activation, executor order), tie-broken by residual flexibility
+  (sum of color-option bits over spare units) then option order; executed
+  float-then-apply. Costmod / non-consequential / enumeration-error windows
+  fall through to the normal path, reason-counted (`pay` kv on the row).
+  Feasibility optimism matches the census conventions (X=0, phyrexian
+  life-payable, remaining costs from last-seen candidate `getTotalMana`,
+  unknown costs uncounted).
+- **rollSeed** is keyed on (game seed, TARGET TURN, roll) — not the fork
+  counter — so stage 2's positive-subset re-runs reproduce stage-1
+  determinization exactly (the both-horizon identity).
+- **Row contract**: one labels row per completion,
+  `ev=sched / i / seed / fp / t / arm (0 = natural) / roll / rollseed /
+  crash / joint / sched_n / exec / void / deferred / degraded_at /
+  degrade_why / land / steps / pay{win,dir,salvage,fail,auto,costmod,err} /
+  stopped / ended / t_end / winner / snap{life,creatures,power,hand,lands} /
+  ms`; drift or seat mismatch at the fork emits one `skip` row and no
+  completions. Schedfile TSV contract:
+  `gameIdx \t turn \t horizon \t seat \t armId \t joint|auto \t label...`
+  (horizon 0 = stage-2 run-to-end; armId ≥ 1; no labels = hold-all).
+- **Smoke rig**: `-b local-oneshot` (random-legal through the one-shot
+  path, deterministic per seed) exercises the machinery serve-free; the
+  model-serve smoke rides the fresh census at launch.
 
 ## Explicitly out
 
