@@ -76,6 +76,14 @@ def main() -> None:
         help="write census logs (census.jsonl per worker; D8 veto/rung telemetry)",
     )
     la.add_argument(
+        "--paytelemetry",
+        action="store_true",
+        help="payment-surface telemetry (M9 D3 §3c: enumeration + flag kv on "
+        "every in-scope payManaCost). Trajectory-perturbing like --obs — "
+        "replays must run under the same flag; runs pin it (the M10 ceiling "
+        "census requires it for sweep replay parity)",
+    )
+    la.add_argument(
         "--bridge-seats",
         default=None,
         help="csv of bridged seat indices (mixed-seat D8 arms; default all seats)",

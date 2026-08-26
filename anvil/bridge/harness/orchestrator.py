@@ -179,6 +179,10 @@ class Run:
         if m.get("census"):
             # D8: veto reasons + disambiguation rungs live in the census log
             cmd += ["-census", str(wdir / "census.jsonl")]
+        if m.get("paytelemetry"):
+            # M9 D3 §3c payment-surface telemetry — trajectory-perturbing;
+            # the manifest pin is what makes sweep replays reproduce
+            cmd += ["-paytelemetry"]
         if m.get("bridge_seats") is not None:
             cmd += ["-bridgeseats", str(m["bridge_seats"])]
         if m.get("reask"):
@@ -412,6 +416,7 @@ def launch(a) -> Path:
         "obs": a.obs,
         "obs_schema": OBS_SCHEMA_VERSION if a.obs else None,
         "census": getattr(a, "census", False),
+        "paytelemetry": getattr(a, "paytelemetry", False),
         "bridge_seats": getattr(a, "bridge_seats", None),
         "reask": getattr(a, "reask", False),
         "rollout_k": getattr(a, "rollout_k", None),
