@@ -7,9 +7,11 @@ amendment). **`-forceschedule` BUILT + mechanical smoke PASSED
 `scripts/schedule_smoke.py`: forced ordered casts both orders, hold-all,
 degrade-and-count + void, joint payment directed vs auto stratum,
 rollSeed pairing, re-run byte-determinism; semantics addendum below).
-Remaining pre-launch: the launch commit pins θ, the h4-delta threshold,
-the seed base, and the sampling rng PRE-DATA (the R1/ratesweep
-discipline), then the fresh census + the model-serve smoke. Structure
+**Launch commit LANDED (same session): θ = 2.0 + composite formula, the
+1b flag = 1.25×/+3, seed base 20520825, sampling rng — the "Launch
+commit" section is the prose record, `scripts/sched_pins.py` the
+executable source.** Remaining pre-launch: the fresh 500-game census,
+the sweep planner, the model-serve smoke. Structure
 follows the fork map ([m10-plan.md](m10-plan.md)). Anchors:
 [ADR-0073](../decisions/ADR-0073-m9-ceiling-measurement.md) (the genre),
 [ADR-0075](../decisions/ADR-0075-window-rate-sweep.md) (the two-stage
@@ -216,6 +218,54 @@ the mechanics gate):
 - **Smoke rig**: `-b local-oneshot` (random-legal through the one-shot
   path, deterministic per seed) exercises the machinery serve-free; the
   model-serve smoke rides the fresh census at launch.
+
+## Launch commit (PINNED PRE-DATA, 2026-08-25 session 4 — the
+## R1/ratesweep discipline; `scripts/sched_pins.py` is the executable
+## single source, this section is the prose record)
+
+No census or sweep data existed when these were set. They are not tuned
+afterward; only demonstrated instrument error at the model-serve smoke
+can invalidate one, and any change re-pins loudly in both places.
+
+- **θ = 2.0** on the schedule h2 composite, with sign-consistency ≥ 0.75
+  over the scoring rolls (≥3 of 4 agreeing with the mean) — both
+  descended from the payment_certify precedent (MARGIN default 2.0,
+  CONSISTENT 0.75). **Composite (pinned formula, payer perspective,
+  paired vs the same-roll NATURAL row):**
+  `score = d_dev + 0.5·d_life + 0.5·d_power + 3·d_won`, with
+  `dev = creatures + lands − hand` (the certify axes in one blend:
+  color_hold's development core + blocker_pressure's life/power terms at
+  half weight + the shared won-weight 3; schedules have no shape
+  taxonomy, so one uniform composite replaces the per-shape scores).
+  Selection: argmax over directed arms of mean composite on rolls 0–3;
+  positivity: scoring-roll mean ≥ θ AND consistency, rolls 4–7 only.
+  Validity: a roll-pair counts only when both rows are non-crash; an arm
+  is a candidate only when non-void with ≥2 valid select and ≥2 valid
+  score pairs; degraded-but-partially-executed arms remain candidates
+  (divergence is part of the measured policy, fork 5).
+- **Stage-1b h4-delta threshold**: the flag fires iff h4-certified ≥
+  **1.25×** h2-certified on the 100 shared side-sample turns AND the net
+  gain is ≥ **+3 turns** (relative ratio guards the ADR-0053 compounding
+  direction; the absolute floor guards small-n noise). On fire, the rate
+  carries an h4-informed correction band and the conversion population
+  is revisited at the read session before the verdict closes.
+- **Census seed base = 20520825** (the named 2052xxxx block, suffix =
+  launch date; distinct from every 2026/2027-block base ever used).
+  Census: harness `-seedbase 20520825`, games 0–499, the paygoals2 pair
+  list (100 unique pairs × gpp 5; pairs file materialized at census
+  launch with its sha256 in the manifest per standing discipline),
+  bundle jar `2f87180cdf` + serve `d6-run11/iter-019`, obs sv=2 +
+  paytelemetry + census on. Rollout determinization is in-jar and
+  already pinned by the build (splitmix over game seed × TARGET TURN ×
+  roll — the stage-2 rollSeed identity).
+- **Sampling rng = `random.Random(20520825)`** in pinned draw order:
+  (1) the uniform 600 of eligible turn-groups (sorted (store, g, t)
+  enumeration order), (2) the 200-turn marginal-stratum subset of the
+  600, (3) the 100-turn h4 side-sample of the 600 — draws 2 and 3 are
+  independent subsets, overlap allowed (orthogonal purposes). Per-turn
+  arm-fill child rng for the n≥4 seeded-random ordered subsets:
+  `Random(20520825·1_000_003 + g·1_009 + t)` (iteration-order-
+  independent regeneration).
 
 ## Explicitly out
 
