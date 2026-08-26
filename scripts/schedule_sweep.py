@@ -61,9 +61,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sched_pins as pins  # noqa: E402
-from schedule_census import MANA_ABILITY_SA, cmc, resolve_cost  # noqa: E402
+from schedule_census import cmc, resolve_cost  # noqa: E402
 from veto_knowability import build_card_table, can_pay, source_views  # noqa: E402
-
 
 # ------------------------------------------------------------------ sample
 
