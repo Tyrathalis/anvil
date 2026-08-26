@@ -141,6 +141,9 @@ def eligible_turns(stores: list[str], table) -> tuple[list[dict], dict]:
                 rows.append({
                     "store": sname, "g": g, "t": t, "seat": seat,
                     "cands": [c for c in cands if c["afford"]],
+                    # census-convention strata inputs (exploratory reads):
+                    # capacity = now-sources; demand computable from cands
+                    "capacity": len(views.now),
                 })
     rows.sort(key=lambda r: (r["store"], r["g"], r["t"]))
     return rows, dict(frame)
