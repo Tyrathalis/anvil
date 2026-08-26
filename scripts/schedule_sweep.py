@@ -304,7 +304,7 @@ def main() -> None:
     sp.set_defaults(fn=sample)
     lp = sub.add_parser("lanes")
     lp.add_argument("--plan", required=True)
-    lp.add_argument("--which", choices=["h2", "h4"], required=True)
+    lp.add_argument("--which", choices=["h2", "h4", "end"], required=True)
     lp.add_argument("--lanes", type=int, default=8)
     lp.add_argument("--jar", required=True)
     lp.add_argument("--pairs", required=True)
