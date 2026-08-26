@@ -241,6 +241,120 @@ def stage2plan(args) -> None:
     print(f"{lines} stage-2 points -> {out / 'sched-end.tsv'}")
 
 
+def stage2(args) -> None:
+    """Game-end conversion read (spec Stage 2 + gate-scale arithmetic;
+    written BEFORE stage-2 data existed — the pre-registration
+    discipline). Primary: paired Δwr = win(selected arm) − win(natural)
+    over SCORING rolls only, pairs valid iff both rows ended (the
+    unended-roll guard); conversion CI clustered by game (game-level
+    means, cluster bootstrap). Gate-scale = certified-turns/game × Δwr,
+    three-row bracket vs the pinned funding thresholds. h2-proxy
+    validity: Spearman(stage-1 score_mean, per-turn Δwr)."""
+    import random as _random
+    out = Path(args.out)
+    positives = {(r["g"], r["t"]): r for r in map(
+        json.loads, open(out / "positives.jsonl"))}
+    turns = load_rows(args.labels)
+    frame = json.load(open(out / "frame.json"))
+    stage1 = json.load(open(out / "stage1-read.json"))
+    eligible_per_game = frame["eligible"] / 500.0
+
+    def win(r, seat):
+        w = r.get("winner", -1)
+        return 1.0 if w == seat else (0.0 if w == (1 - seat) else 0.5)
+
+    per_turn = []          # (g, t, dwr, n_pairs, score_mean)
+    stats = Counter()
+    for key, pos in sorted(positives.items()):
+        e = turns.get(key)
+        if e is None:
+            stats["missing"] += 1
+            continue
+        seat = pos["seat"]
+        arm_rows = e["arms"].get(pos["arm"], {})
+        nat = e["nat"]
+        pairs = []
+        for roll in pins.SCORE_ROLLS:
+            a, b = arm_rows.get(roll), nat.get(roll)
+            if a is None or b is None or a.get("crash") or b.get("crash"):
+                continue
+            if not (a.get("ended") and b.get("ended")):
+                stats["unended_pairs"] += 1
+                continue
+            pairs.append(win(a, seat) - win(b, seat))
+        if len(pairs) < pins.MIN_VALID_ROLLS:
+            stats["thin"] += 1
+            continue
+        stats["read"] += 1
+        per_turn.append({"g": key[0], "t": key[1],
+                         "dwr": sum(pairs) / len(pairs), "n": len(pairs),
+                         "score_mean": pos.get("score_mean")})
+    n = len(per_turn)
+    conv = sum(r["dwr"] for r in per_turn) / n if n else 0.0
+    # cluster bootstrap by game (pinned rng seed for reproducibility)
+    by_game = defaultdict(list)
+    for r in per_turn:
+        by_game[r["g"]].append(r["dwr"])
+    games = sorted(by_game)
+    rng = _random.Random(pins.SAMPLE_RNG_SEED)
+    boots = []
+    for _ in range(10000):
+        s = c = 0
+        for g in [games[rng.randrange(len(games))] for _ in games]:
+            s += sum(by_game[g])
+            c += len(by_game[g])
+        boots.append(s / c if c else 0.0)
+    boots.sort()
+    conv_lo, conv_hi = boots[249], boots[9749]
+    # Spearman(stage-1 h2 margin, game-end dwr) — the proxy-validity read
+    def ranks(v):
+        order = sorted(range(len(v)), key=lambda i: v[i])
+        rk = [0.0] * len(v)
+        for pos_, i in enumerate(order):
+            rk[i] = pos_
+        return rk
+    xs = [r["score_mean"] for r in per_turn if r["score_mean"] is not None]
+    ys = [r["dwr"] for r in per_turn if r["score_mean"] is not None]
+    rho = None
+    if len(xs) > 2:
+        rx, ry = ranks(xs), ranks(ys)
+        mx = sum(rx) / len(rx)
+        cov = sum((a - mx) * (b - mx) for a, b in zip(rx, ry))
+        vx = sum((a - mx) ** 2 for a in rx)
+        vy = sum((b - mx) ** 2 for b in ry)
+        rho = cov / (vx * vy) ** 0.5 if vx and vy else None
+    # gate-scale bracket: certified turns/game × conversion (pp/game)
+    rate, rate_lo, rate_hi = (stage1["rate"], stage1["rate_ci"][0],
+                              stage1["rate_ci"][1])
+    cpg = rate * eligible_per_game
+    bracket = {
+        "lower": rate_lo * eligible_per_game * conv_lo * 100,
+        "central": cpg * conv * 100,
+        "upper": rate_hi * eligible_per_game * conv_hi * 100,
+    }
+    floor_row = rate_lo * eligible_per_game * conv * 100
+    funded = bracket["central"] >= 2.2 and floor_row >= 1.1
+    band = not funded and (bracket["central"] >= 1.1 or bracket["upper"] >= 1.1)
+    report = {
+        "turns_read": n, "stats": dict(stats),
+        "conversion_dwr": round(conv, 4),
+        "conversion_ci": [round(conv_lo, 4), round(conv_hi, 4)],
+        "spearman_h2_vs_dwr": round(rho, 4) if rho is not None else None,
+        "certified_per_game": round(cpg, 3),
+        "eligible_per_game": round(eligible_per_game, 3),
+        "bracket_pp_per_game": {k: round(v, 3) for k, v in bracket.items()},
+        "floor_row_pp": round(floor_row, 3),
+        "verdict": "FUNDED" if funded else ("SESSION_ADJUDICATES" if band
+                                            else "CHARTER_REOPENS"),
+        "thresholds": {"point": 2.2, "floor": 1.1},
+    }
+    json.dump(report, open(out / "stage2-read.json", "w"), indent=2)
+    with open(out / "stage2-perturn.jsonl", "w") as f:
+        for r in per_turn:
+            f.write(json.dumps(r) + "\n")
+    print(json.dumps(report, indent=2))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="mode", required=True)
@@ -257,6 +371,10 @@ def main() -> None:
     s2 = sub.add_parser("stage2plan")
     s2.add_argument("--out", required=True)
     s2.set_defaults(fn=stage2plan)
+    s2r = sub.add_parser("stage2")
+    s2r.add_argument("--labels", nargs="+", required=True)
+    s2r.add_argument("--out", required=True)
+    s2r.set_defaults(fn=stage2)
     a = ap.parse_args()
     a.fn(a)
 
