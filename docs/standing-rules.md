@@ -104,6 +104,13 @@ silently delete.
 
 ## Engine, fork, and data hygiene
 
+- **Bridged JVMs leak one game graph per game unless AiCache is cleared
+  between games — chunk recycling is load-bearing**; never run a
+  bridged JVM unbounded without one or the other (upstream
+  `AiCache.dataMap` clears only on the heuristic AI priority path
+  bridged seats never take; heap-dump-proven at the M10 sweep OOM;
+  within-game clears = a boundary-event candidate
+  ([ADR-0078](decisions/ADR-0078-m10-ceiling-measurement.md))).
 - **Engine upgrades are dataset-boundary events**; the
   behavior-identical exemption is proven empirically (same seeds →
   identical forkcheck trace hashes), never argued
