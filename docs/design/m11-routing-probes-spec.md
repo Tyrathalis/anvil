@@ -1,4 +1,4 @@
-# M11-routing ceiling probes — tutor/fetch targets + resolution-effect payments (ADJUDICATED 2026-08-26)
+# M11-routing ceiling probes — tutor/fetch targets + resolution-effect payments (ADJUDICATED 2026-08-26; ENGINE DELTAS BUILT + PROVEN same day)
 
 *Design-round obligation 6 ([m10-plan.md](m10-plan.md)), funded by name
 at the 2026-08-25 scoping discussion: two session-scale ceiling
@@ -122,6 +122,47 @@ eval); the census is 500 self-play games, both seats the model.
   universe cannot be defined before that lands, and the true
   decline-legal rate sits anywhere in [0.36, 25.1]/seat-game. The
   plan's ~54/g raw figure was never the pay-or-suffer rate.
+
+## Engine deltas — BUILT 2026-08-26 (fork `07c28fcf8a`), one touch, three deltas
+
+- **`-forcechoice <tsv>`** — `ChoiceDirective` (the ScheduleDirective
+  WeakHashMap idiom) + an AnvilRun choice-rollout mode (NATURAL + arms
+  × K, target-turn-keyed paired rollSeeds, `ev:choice` labels rows
+  with directive trace + certify snapshot). Choicefile TSV:
+  `g \t turn \t seat \t horizon \t armId \t tutor|prevent \t action`.
+  **First-match semantics** at the target seat's first family window
+  of the target turn (family regex = the mining classifier VERBATIM —
+  the forced universe equals the mined universe by construction);
+  multi-window turns counted by `windowsSeen`. Forcing is BY INDEX
+  into the live candidate list (candidate identities recorded in the
+  row via `chosen`); index-out-of-bounds = fired-with-miss `idx_oob`,
+  natural continue.
+- **Pay/decline override** — `forcePrevent` at `payCostToPreventEffect`
+  bypasses `willPayUnlessCost` (force-pay = `canPayCost` +
+  `CostPayment.payComputerCosts`, the PlayerControllerAi path
+  verbatim; unaffordable = fired-with-miss `pay_unaffordable`);
+  decline returns false unpaid.
+- **Census telemetry extension** — `src` (host card) + `api` on
+  `payManaCost` thin rows and `payCostToPreventEffect` records (the
+  attribution gap closed); generated controller regenerated via a new
+  `FORCE_OVERRIDES` emission (only the three methods changed).
+- **Fork point / coverage (recorded cap):** the existing quiescent
+  own-MAIN1 fork trigger — windows on turns where the seat never
+  holds a MAIN1 window (~11–16% by phase distribution) are OUT of
+  coverage, loudly counted by skip rows + `fired:false`. Window
+  recurrence post-fork is stochastic per roll; `fired:false` rows are
+  the coverage instrument, void caps priced at launch.
+- **ADR-0025 proof (behavior-identical on the game path):** sched
+  mechanical smoke rerun on the new jar = mined schedfile IDENTICAL +
+  72/72 labels rows identical modulo ms vs the banked era-jar smoke;
+  census stream identical for all shared games except the declared
+  classes (1,200 src/api enrichments incl. 9 `d` stack-frame bumps
+  from the helper frame, 8 end-row ms fields). Zero unexpected diffs.
+- **`-forcechoice` mechanical smoke PASSED** (`scripts/choice_smoke.py`,
+  the schedule_smoke genre): index forcing picks distinct candidates
+  at the same window (arm 1 → Agatha's Soul Cauldron, arm 2 → Arcane
+  Signet), idx_oob miss, pay/decline both fire, rollSeed pairing,
+  natural-arm purity, re-run byte-determinism.
 
 ## Pinned at each launch, pre-data
 

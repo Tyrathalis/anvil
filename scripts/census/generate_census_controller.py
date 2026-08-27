@@ -47,6 +47,23 @@ DEC_OVERRIDES = {
 # flag telemetry when -paytelemetry is on (m9-payment-surface-spec.md §8).
 REC_OVERRIDES = {
     "payManaCost": "PaymentTelemetry.rec(getGame(), getPlayer(), toPay, sa, prompt, effect)",
+    # M11 mining-rung finding: 58% of these windows had an empty sa string —
+    # the enriched record adds host card + api (attribution).
+    "payCostToPreventEffect":
+        "ChoiceDirective.recPrevent(getGame(), getPlayer(), cost, sa, alreadyPaid, allPayers)",
+}
+
+# M11-routing probes (m11-routing-probes-spec.md): methods with a
+# -forcechoice directive hook — the generated wrapper asks ChoiceDirective
+# BEFORE super and short-circuits when the directive fires (null = natural).
+# The hook logic lives in ChoiceDirective; the generated file stays logic-free.
+FORCE_OVERRIDES = {
+    "chooseSingleEntityForEffect":
+        "ChoiceDirective.forceEntity(getGame(), getPlayer(), optionList, sa, title)",
+    "chooseSingleCardForZoneChange":
+        "ChoiceDirective.forceZoneChange(getGame(), getPlayer(), fetchList, sa, selectPrompt)",
+    "payCostToPreventEffect":
+        "ChoiceDirective.forcePrevent(getGame(), getPlayer(), cost, sa)",
 }
 
 
@@ -136,8 +153,19 @@ def main() -> None:
         if ret == "void":
             tail = f"        {dec_call};\n        super.{name}({call_args});\n"
         else:
+            force = ""
+            if name in FORCE_OVERRIDES:
+                ftype = "Boolean" if ret == "boolean" else ret
+                force = (
+                    f"        {ftype} __f = {FORCE_OVERRIDES[name]};\n"
+                    f"        if (__f != null) {{\n"
+                    f"            Obs.ret(getGame(), __s, __f);\n"
+                    f"            return __f;\n"
+                    f"        }}\n"
+                )
             tail = (
                 f"        long __s = {dec_call};\n"
+                f"{force}"
                 f"        {ret} __r = super.{name}({call_args});\n"
                 f"        Obs.ret(getGame(), __s, __r);\n"
                 f"        return __r;\n"
