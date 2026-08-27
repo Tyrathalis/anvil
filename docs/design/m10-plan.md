@@ -379,9 +379,12 @@ the 4th accepted iteration, symmetric with KILL onset).
   cost of the deterred behavior; sweep degraded-arm composite deltas
   = the measurement source). Magnitude at build.
 
-## Open forks for the design round (none adjudicated)
+## Open forks for the design round (ALL BUT ONE ADJUDICATED at the 2026-08-26 build design session)
 
-- Charter ranking: unified competency vs §3b stops vs sequenced both.
+- Charter ranking — **SETTLED ON CEILING GROUNDS
+  ([ADR-0078](../decisions/ADR-0078-m10-ceiling-measurement.md)): the
+  unified competency leads at ~6× threshold; §3b stops stay shelved**
+  (episode-economics lever, re-rankable at M11 scoping).
 - v2 resource-schedule component — **ADJUDICATED (user, 2026-08-26
   build design session): BOTH, joint multi-task, the R1 selection
   discipline.** Per-slot affordability-at-execution (the
@@ -445,20 +448,32 @@ the 4th accepted iteration, symmetric with KILL onset).
      structure to measurement (the marginal-attribution read, joint vs
      auto arms, is repeatable post-training to decompose the joint
      gain).
-- Read protocol: what "read as one competency" means for the gate —
-  the standing 2,000-game paired read is the strength instrument;
-  what is the competency instrument, and what certification horizon
-  does it carry (the type rule)? Candidate instrument shape from
-  community prior art (LordOfThePigs, Discord 2026-08-25): mean
-  per-decision gain BINNED BY pre-decision state score — his draft
-  version showed the skill gap exists only in the middle-difficulty
-  band (bad states improve under any agent, saturated states under
-  none), which is the same locus-of-signal structure as ADR-0024's
-  near-tie argument and M9's certifiable windows. A binned-gain curve
-  over payment/plan windows would make "where the competency lives"
-  a readable curve instead of a single number.
-- Supervised-conditional wiring: label ingestion path (Grindstone
-  family vs direct aux) and its era-scoping.
+- Read protocol — **THE ONE REMAINING FORK (prototype now in hand;
+  pin at the probe-launch session with the numerics).** The standing
+  2,000-game paired read stays the strength instrument; the competency
+  instrument's candidate shape (LordOfThePigs, Discord 2026-08-25:
+  per-decision gain binned by pre-decision state score) was
+  PROTOTYPED at the 2026-08-26 exploratory reads
+  ([m10-ceiling-exploratory-reads.md §6](m10-ceiling-exploratory-reads.md)):
+  the curve is readable, both critics agree (ρ=0.98), and it localized
+  the competency — conversion lives in behind/contested states
+  (v<0.45: +14.1pp vs +0.5pp above), matching his middle-band
+  structure, ADR-0024's near-tie argument, and M9's certifiable
+  windows. Remaining pin: population, bins, certification horizon
+  (the type rule), and whether the gate reads the curve or a scalar
+  from it.
+- Supervised-conditional wiring — **ADJUDICATED (user, 2026-08-26):
+  DIRECT AUX AT BIRTH, drill families as the named follow-on.**
+  Labeled census decisions ingest as BC-style supervised examples at
+  labeled windows (the M7 seqlabels-join wire shape); labels are
+  ERA-ASSETS (certification is policy-conditional under iter-019 —
+  era-scoped weighting at ingestion; the sweep machinery's second life
+  = a re-runnable LABEL MINT at boundaries/scale). Grindstone drill
+  families (fork the certified position during generation, supervise
+  the reproduced window) are routed BEHIND the birth telemetry per the
+  substrate corollary: the surface reveals its data gaps first, then
+  the drill economy targets them — drilling blind pre-reveal rejected.
+  Evalset repair (the 27 drills) rides in the same label-work batch.
 
 ## Explicitly out (inherited, unchanged)
 
