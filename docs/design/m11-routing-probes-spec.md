@@ -79,7 +79,10 @@ re-deferred a second time.*
 - **Engine delta owed:** force pay/decline at effect-payment windows —
   a knob on the existing payment executor path (float-then-apply
   machinery already brackets the window; the force is a decision
-  override, not a new payment path).
+  override, not a new payment path). **Plus (mining-rung finding): the
+  census payManaCost emission must first gain isCancellable + source
+  name + effect class — without it the forcing universe is
+  undefined.**
 
 ## Explicitly out
 
@@ -88,6 +91,37 @@ re-deferred a second time.*
   build question these numbers fund or kill).
 - Effect payments with nontrivial payment interiors beyond the
   census count (recorded, not forced, this round).
+
+## Mining-rung results (RUN 2026-08-26, `scripts/m11_mining.py` committed
+## pre-run at `9a1e2de` → `data/runs/m11-mining/`)
+
+Rate convention: per SEAT-game (/1000 — the gate-scale denominator at
+eval); the census is 500 self-play games, both seats the model.
+
+- **Probe T — the surface is live and the probe is genuinely open:**
+  `tutor_fetch` (Search-your-library class, ZoneChange only) 0.784
+  /seat-game, 744 forceable (ncand ≥ 2), 92.3% isOptional
+  (fetchland-dominated; candidate counts spread to 10+ — the k pin
+  should consider name-dedup compression for fetches). `dig`
+  (Look-at-the-top class, SingleEntity only) 0.336/seat-game, ~all
+  forceable, candidates mostly 2–5. **In-family forceable traffic
+  ≈ 1.08/seat-game — 3.4× the M9 payment window rate**; clearing the
+  pinned 2.25pp/game routing bar therefore needs ≈ +2pp per window,
+  which is exactly the forcing rung's question. The `other` stratum
+  (targeting/untap/equip, 4.7/seat-game) is out of family and stays
+  out. Multi-entity variants stay counted-only (566 events total).
+- **Probe P — the decline-legal split is TELEMETRY-BLOCKED:** of
+  25.06 effect-true windows/seat-game, only `text_optional` 0.36
+  /seat-game is knowably decline-legal from the current fields;
+  `empty_sa` 18.64 (clustered MAIN1 7,481 / CLEANUP 4,420) and
+  `phase_sa` 4.41 (`[Phase: player]` marker rows) cannot be
+  classified — `prompt` is always null and there is no
+  isCancellable/source field. **The engine-delta session therefore
+  gains a THIRD item: extend the census payManaCost emission with
+  isCancellable + source name + effect class** — the P forcing
+  universe cannot be defined before that lands, and the true
+  decline-legal rate sits anywhere in [0.36, 25.1]/seat-game. The
+  plan's ~54/g raw figure was never the pay-or-suffer rate.
 
 ## Pinned at each launch, pre-data
 
