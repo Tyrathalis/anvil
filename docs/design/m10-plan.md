@@ -85,6 +85,13 @@ those competencies, it is building their substrate.
 2. **v2 offline target probe** (the ADR-0074 pattern) — run INSIDE the
    design round so the target is co-designed with the actuation
    surface, not pinned before it (the ADR-0077 sequencing decision).
+   **RESOLVED 2026-08-26 ([ADR-0079](../decisions/ADR-0079-v2-target-probe.md)):
+   E (EOT resource summary) PASS +0.206 (4.1× margin), R (running
+   ledger) PASS +0.066, F (schedule feasibility) FAIL (−0.003 trunk
+   increment over a 0.807 cheap-feature baseline) ⇒ birth aux roster =
+   E+R; F's pre-registered fail path invoked (validity predicate on
+   R + the veto-knowability splitter); nonlinear F re-probe = a named
+   future instrument, never a silent reroute.**
 3. **Escape argument + pre-registered kill signal** for whatever
    conditioning channel ships (the D6 design-session discipline —
    carried; run20 proved the kill wiring earns its keep).
@@ -97,7 +104,15 @@ those competencies, it is building their substrate.
    read v1 should have had.
 6. **Two named ceiling probes, funded at the 2026-08-25 scoping
    discussion (user-agreed) — session-scale measurements riding the
-   design round, routing M11, not gating M10's build:**
+   design round, routing M11, not gating M10's build.**
+   **Spec ADJUDICATED 2026-08-26
+   ([m11-routing-probes-spec.md](m11-routing-probes-spec.md)): both
+   SELECT_ONE window classes for tutor/fetch; decline-legal forcing
+   only for effect payments; routing threshold pinned at the ADR-0078
+   funding-threshold scale; engine deltas (`-forcechoice` +
+   pay/decline override) sequenced after the v2 target probe read,
+   one Java session, mining rungs in between. Fresh-era rates
+   measured: effect=true 50.12/g; tutor class ~11.7/g pre-filter.**
    - **Tutor/fetch-target ceiling** (§3d′ family 2): on mined
      tutor/fetch windows, fork the state, force each of the top-k
      candidate targets, roll out, read heuristic-vs-best delta — the

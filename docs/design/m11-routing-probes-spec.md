@@ -1,4 +1,4 @@
-# M11-routing ceiling probes — tutor/fetch targets + resolution-effect payments (DRAFT FOR ADJUDICATION)
+# M11-routing ceiling probes — tutor/fetch targets + resolution-effect payments (ADJUDICATED 2026-08-26)
 
 *Design-round obligation 6 ([m10-plan.md](m10-plan.md)), funded by name
 at the 2026-08-25 scoping discussion: two session-scale ceiling
@@ -96,7 +96,19 @@ restated numerically, seed bases, and the mining-census frame — the
 sched_pins pattern: an executable pins module per probe, prose
 mirrored here.
 
-## Adjudication record
+## Adjudication record (user, 2026-08-26 — all four on the recorded leans)
 
-*(to be filled — window-definition forks, arm caps, routing-threshold
-restatement)*
+1. **Probe T windows: both SELECT_ONE classes**
+   (`chooseSingleEntityForEffect` + `chooseSingleCardForZoneChange`),
+   library/multi-zone-search filtered, ≥2 candidates; multi-entity
+   variants census-counted, forced only if material.
+2. **Probe P forcing scope: decline-legal windows only** (pay-or-suffer
+   proper); mandatory payments census-counted for context.
+3. **Routing threshold PINNED: gate-scale ceiling ≥ the ADR-0078
+   funding-threshold scale (≈2.25pp/game)** ⇒ schedule into M11;
+   below ⇒ re-defer with the number (ADR-0077's condition satisfied
+   either way). Restated numerically in each probe's pins module at
+   launch.
+4. **Engine-delta sequencing: after the v2 target probe read** — one
+   Java session builds `-forcechoice` + the pay/decline override
+   together (one fork touch); the CPU mining rungs run in between.
