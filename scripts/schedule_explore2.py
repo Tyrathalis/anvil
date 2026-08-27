@@ -40,8 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sched_pins as pins  # noqa: E402
-from schedule_read import (arm_scores, certify_turn, load_rows,  # noqa: E402
-                           read_sched, wilson)
+from schedule_read import arm_scores, certify_turn, load_rows, read_sched, wilson  # noqa: E402
 
 CRITICS = {
     "era_i019": "data/training/d6-run11/iter-019/critic/last.pt",
