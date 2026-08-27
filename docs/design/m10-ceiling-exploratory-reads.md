@@ -65,10 +65,68 @@ From the 170 certified positions at game end: natural mean win 57.0%
 confounds policy slack with library-order luck and is an envelope, not
 a target.
 
-## Not run (named, for the design session to fund or drop)
+## 5. Auto-pay marginal attribution (funded + run at the build design session, 2026-08-26)
 
-- Binned-gain by pre-turn critic score (the LordOfThePigs instrument) —
-  needs critic inference over the sampled turns' obs; cheap GPU pass.
-- Marginal-attribution read on the 200-turn auto-pay stratum (joint vs
-  auto-pay super-additivity) — the rows exist in the sweep output;
-  the read is a variant of stage1 with auto-arm ids.
+*Producer: `scripts/schedule_explore2.py marginal` (logic committed
+`d55e348` before output was looked at) → `marginal-read.json` /
+`marginal-perturn.jsonl`. 197 both-read marginal-stratum turns.*
+
+- **Certification barely moves with payment mode**: joint 26.4%
+  [20.7, 33.0] vs auto 23.9% [18.4, 30.3]; 2×2 = 43 both / 9
+  joint-only / 4 auto-only / 141 neither. **83% (43/52) of
+  joint-certified schedules also certify under Forge's auto-payer.**
+- **Same-schedule twin deltas are a sparse one-sided tail**: 137/197
+  exactly zero; 60 nonzero (35+/25−, median +0.25); **all 13 deltas
+  with |d|≥2 are positive** (+2.1 … +11.9 composite).
+- **Feasibility is a wash**: twin degrade rates 72.85% (joint) vs
+  72.91% (auto) over all twin pairs — directed payment does not make
+  schedules more executable at this resolution.
+
+**Caveats:** the stratum is uniform and payment-consequential windows
+run ~0.32/game vs 8.17 eligible/game, so ~96% of these turns never
+contained a consequential payment decision — this measures payment's
+marginal value ON SCHEDULING TURNS, not the standalone leg (+2.96pp/game
+stands, separately measured). Detector-not-ranker applies to magnitudes.
+
+**Design consequences:** (a) no h2-visible super-additivity — the joint
+ceiling on uniform turns ≈ the schedule ceiling; (b) the sparse positive
+tail is the ADR-0075 conditional shape again ⇒ payment supervision stays
+on the 5,076-window conditional-label universe, and the v2 target's loss
+should not be diluted making payment-assignment slots earn their keep on
+uniform turns; (c) re-advertised actuation stays justified
+(capabilities-over-fallback; executor perfect, cost ~0) but its value
+story is the M9 number plus this sparse tail — say so in the build ADR.
+
+## 6. Critic-binned gain (the LordOfThePigs instrument prototype — funded + run 2026-08-26)
+
+*Producer: `scripts/schedule_explore2.py binned` — pre-turn critic
+P(win) at the fork window, both critics per the early_doom convention
+(era `iter-019/critic` + `d4-critic-fullvis`; cross-critic Spearman
+0.98, all conclusions survive both) → `binned-read.json` /
+`binned-perturn.jsonl` (per-turn values kept for re-binning). 583 read
+turns / 170 positives.*
+
+- **Certification rate is nearly flat across the value range** (quintile
+  rates 25.9 / 29.1 / 26.1 / 32.5 / 32.2% on the era critic) —
+  certifiable schedules exist everywhere, mildly more when ahead.
+- **Conversion concentrates almost entirely in behind/contested
+  states**: mean Δwr by era-critic quintile +11.7 / +16.7 / 0.0 / +4.6
+  / −3.3pp (d4: +13.3 / +13.0 / +5.7 / +0.7 / −1.9). Split at v=0.45:
+  **+14.1pp on 65 positives below vs +0.5pp on 105 above** — the whole
+  +5.69pp stage-2 mean is carried by the behind stratum.
+  Spearman(v, Δwr) = −0.21 / −0.19.
+- The h2-vs-game-end mismatch is now LOCALIZED: the h2 margin detects
+  board improvement everywhere, but improvement only converts where the
+  game is contested — certified-when-ahead turns are real improvements
+  that don't change outcomes.
+
+**Design consequences:** (a) the binned-gain curve WORKS as a competency
+instrument prototype — "where the competency lives" is a readable curve
+(behind/contested states), candidate shape for the M10 competency read;
+(b) label/curation lean: ~60% of certified turns sit where conversion
+≈ 0 — game-end-conversion-aware weighting (or a pre-state critic gate)
+concentrates seed supervision where value converts, worth a fork at the
+label-design session (exploratory, n≈30–38/bin — routing signal, not a
+pin); (c) the pre-turn critic rank-orders conversion better than the h2
+margin (|−0.21| vs 0.109) — mining/prioritization should condition on
+pre-state, not on h2 margin size.
