@@ -264,11 +264,32 @@ sessions):
   enumeration took cast vetoes 65%→~5%; pointer decoding makes invalid
   schedules mis-scheduled resources, never nonsense, and makes the
   knowability gate computable at emission via source_views/can_pay).
-- **Re-emission cadence:** once-per-turn vs revise-on-priority. USER
-  LEANING (2026-08-25, from the interaction argument): the plan as a
-  persistent revisable object at each step — the design doc's fuller
-  recurrence — held against its recompute cost (the v1 deferral
-  reason); the cadence pin must price serve wall-clock.
+- **Re-emission cadence — ADJUDICATED (user, 2026-08-26): REVISE-ON-
+  TRIGGER.** Emit at the first own window; revise ONLY at
+  engine-detectable triggers: (1) own scheduled action vetoed/failed
+  (fork-5's halt-at-veto/replan semantics falling out of the cadence),
+  (2) opponent action resolved during our turn, (3) entry to the
+  end-of-turn region, (4) schedule exhausted. Unprovoked revision
+  structurally disallowed — plan stability between triggers is what
+  keeps follow/deviation telemetry falsifiable (revise-at-every-window
+  makes follow≈1 vacuous, the probing shape a third time; once-per-turn
+  goes plan-blind after interaction and systematically mislabels
+  hold-then-dump). Conditioning across revisions: stop-grad carry on
+  (state, prev plan vec) — the v1 carry mechanics at more points, no
+  BPTT, two-pass-friendly. **No-op revisions are first-class telemetry**
+  ("trigger fired, plan confirmed unchanged" ≠ "plan changed") so
+  false-trigger rate stays readable. Wall-clock priced at the smoke
+  rung (serve = head pass on the trunk forward that already runs;
+  training = pass-0 emission rows ×~2–3), fallback = reduced trigger
+  list (veto + EOT) if the price surprises. Open sub-pins for the build
+  session: trigger-2 granularity (any opponent action vs
+  targeting-us), trigger-3 window (second main vs end step —
+  hold-then-dump wants the latest safe window). **Model-placed triggers
+  (expectation watch-sets) SET ASIDE (user, 2026-08-26) as the
+  canonical future form**: the fixed list's telemetry measures its own
+  residual — the missed-revision rate (deviations/degrades with no
+  preceding trigger) is the named funding instrument; see the
+  [canonical register](canonical-register.md).
 - **Conditioning ingestion:** how the decoded schedule feeds the
   policy (embedding of the decoded object vs schedule tokens).
 - **Validity predicate:** note that "affordability-at-execution per
