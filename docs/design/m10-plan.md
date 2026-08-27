@@ -290,8 +290,28 @@ sessions):
   residual — the missed-revision rate (deviations/degrades with no
   preceding trigger) is the named funding instrument; see the
   [canonical register](canonical-register.md).
-- **Conditioning ingestion:** how the decoded schedule feeds the
-  policy (embedding of the decoded object vs schedule tokens).
+- **Conditioning ingestion — ADJUDICATED (user, 2026-08-26): SCHEDULE
+  TOKENS + the [PLAN] summary readout kept.** Each slot = a trunk
+  token (shared entity/SA embedding + position + afford bit +
+  payment-assignment summary + execution status done/next/pending/
+  failed); pooled summary still written to the static [PLAN] readout
+  (R1 continuity, +0.016 AUC free finding). The three deciding
+  arguments: (1) pointer grounding — slot tokens carry entity row
+  references, attention connects plan to board natively (the CastPlan
+  lesson applied to ingestion; the compressed-vec path pools away the
+  entity bindings the sweep says the value lives in); (2) execution
+  status is serve-carry bookkeeping between revisions — conditioning
+  stays current all turn with zero recompute and without touching
+  revision semantics, and a vetoed slot arrives MARKED at the replan
+  decode; (3) **the carry becomes discrete** — slot ids + statuses +
+  rev index serialize exactly into the labels row, so loader-side
+  reconstruction is bit-exact by construction and the v1 tripwire's
+  float-drift class is eliminated rather than monitored. ADR-0076's
+  validation transfers at mechanism level (the conditioning channel is
+  consumed; tokens are a strict superset of the vec). Sub-pins for the
+  build session: slot cap (certified-length hist tops at 4; lean 6 +
+  mask), slot-embedding payment detail (rides with the actuation-shape
+  fork), failed-slot persistence semantics.
 - **Validity predicate:** note that "affordability-at-execution per
   intended action" — one of the two v2 resource-component candidates —
   IS the validity predicate; that aux-component fork and this one are
