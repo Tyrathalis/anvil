@@ -164,12 +164,71 @@ eval); the census is 500 self-play games, both seats the model.
   Signet), idx_oob miss, pay/decline both fire, rollSeed pairing,
   natural-arm purity, re-run byte-determinism.
 
-## Pinned at each launch, pre-data
+## Launch pins (drafted 2026-08-26 for adjudication; executable single
+## source = `scripts/choice_pins.py`, this section is the prose mirror)
 
-k (probe T), K-roll caps and void caps, the routing threshold
-restated numerically, seed bases, and the mining-census frame — the
-sched_pins pattern: an executable pins module per probe, prose
-mirrored here.
+- **Universes (measured, active-player-forkable):** probe T = 928
+  events / **796 distinct (g, t, seat) points** (86% of the 1,078
+  mined events — the active-player proxy: the seat holding the FIRST
+  MAIN1 cast window of the turn); probe P = 1,415 events / **1,333
+  points** (85% of 1,656). Uncovered ~15% (off-turn / pre-MAIN1
+  windows) is the recorded coverage cap.
+- **Arms:** T = natural + candidate indices 0..min(ncand, 6)−1 (mean
+  5.0 forced arms; index order = the engine's deterministic candidate
+  list; the DC pool is singleton, so duplicate-name arms are a
+  non-issue — recorded). P = natural + force-pay + force-decline.
+- **Rolls: K = 8**, target-turn-keyed paired rollSeeds (built-in).
+  **Select/score split** (rolls 0–3 select, 4–7 score) for every
+  best-of claim (T best-arm; P best-of-pay/decline); each-arm-vs-
+  natural pooled over all 8 rolls = the unbiased secondary.
+- **Fired-pairing rule:** a forced arm's roll pairs against the
+  natural arm's same-roll outcome ONLY when the directive fired that
+  roll; a point enters the per-window read at ≥2 fired scoring rolls,
+  else it moves to the coverage denominator. Fired rates are
+  first-class coverage numbers.
+- **Reads (pre-registered, `scripts/choice_read.py` committed
+  pre-data):** primary per probe = paired best-forced vs natural Δwr,
+  clustered by game; P secondary = pay−decline delta distribution +
+  natural-agreement rate; T secondary = heuristic-regret (natural vs
+  best) and per-index deltas. Gate-scale = FULL mined per-seat-game
+  rate (T 1.08, P 1.66) × per-window Δ — the covered-stratum
+  measurement extrapolated to the uncovered ~15% is a recorded
+  assumption, reported alongside a coverage-discounted row.
+- **Routing arithmetic (the ADR-0078 scale, adjudicated):**
+  gate-scale point ≥ **2.2pp/game** ⇒ SCHEDULE into M11 (CI-lower ≥
+  1.1 strengthens the routing); below ⇒ re-defer with the number.
+- **Horizon: game end (h = 0)** — the routing read is win-rate-based;
+  no proxy stage.
+- **Population/replay:** the m10-ceiling-census configuration
+  verbatim (pairs paygoals2, gpp 5, seed base 20520825, obs/census/
+  paytelemetry flags, grpc bridge + model server) — the mined windows
+  replay deterministically to the fork point; lanes split by game,
+  quiet-box, 12 lanes (stage-2 precedent). Enriched-jar census output
+  = the src catalog, free.
+- **Power note (recorded pre-data):** with the split, per-window SE ≈
+  0.354/√N_used; T exhaustive at ~60% fired-usable ⇒ SE ≈ 1.6pp on a
+  ~2.0pp decision threshold — a wide-CI verdict is possible and
+  acceptable for a routing read (the number gets attached either
+  way); the pooled secondary is ~√2 tighter.
+- **Budget — ADJUDICATED (user, 2026-08-26): EXHAUSTIVE, pause/resume
+  first-class.** One combined plan (T + P arms share a point's natural
+  rolls on (g, t, seat) collisions); ~70k game-end completions total.
+  A 34h unbroken quiet-box stretch is NOT assumed: lanes run
+  `nice -19` and are killable at any moment —
+  `choice_plan.py resume` drops COMPLETE points from the lane TSVs,
+  rotates the out files (the reader globs `out*.jsonl` generations),
+  and a rerun reproduces identical rolls because rollSeeds are
+  point-keyed (`seed ^ turn ^ roll`), never sequence-dependent.
+  Nights-and-idle scheduling covers the bill in chunks.
+- **Load/health guard (the quiet-box concern, pinned):** the wr read's
+  load exposure is timeout-bias (a loaded box trips rollout watchdogs
+  ⇒ forced draws). The paired design absorbs symmetric losses; the
+  read reports crash + unended (timeout/draw-clock class) rates per
+  arm side and FLAGS natural-vs-forced asymmetry >2× — a flagged read
+  is discuss-zone, not silently routed.
+- **Adjudication (user, 2026-08-26):** exhaustive scale confirmed;
+  LAUNCH approved (server up, lane smoke, 12 lanes armed under the
+  detached-run checklist + babysit wakeups).
 
 ## Adjudication record (user, 2026-08-26 — all four on the recorded leans)
 
