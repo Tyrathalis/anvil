@@ -326,6 +326,59 @@ sessions):
   (scheduled resource utilization vs realized) instruments this from
   birth.
 
+## Kill-signal + telemetry package (STRUCTURE ADJUDICATED 2026-08-26; numerics at probe launch, pre-data)
+
+The v1 §6/§7 discipline carried, extended to the v2 surfaces. User
+adjudications 2026-08-26: degeneracy veto accepted as veto-shaped (not
+a third FUND requirement); probing-dissolution secondary read funded;
+PG-unmask gets a minimum-masked-iterations floor (small; not before
+the 4th accepted iteration, symmetric with KILL onset).
+
+- **Telemetry from birth:** (1) consumption — plan-reliance by
+  token-gated zeroing (slots + [PLAN]), argmax_flip + reliance_l1,
+  fixed population, day-zero banked on the graft with three-way
+  bit-identity; plan_share, head RMS, guard suite as v1. (2)
+  follow/deviation taxonomy — follow rate BETWEEN triggers; deviation
+  classes kept distinct (reserved-mana exercise / plan break /
+  realization failure); revision accounting per trigger class with
+  no-op revisions first-class (false-trigger rate); missed-revision
+  residual (the canonical-register watch-set instrument). (3)
+  ambition — scheduled utilization vs realized; emitted-length dist vs
+  the certified reference shape (0×11/1×29/2×35/3×70/4×25); pure-hold
+  rate vs its ~6.5% base. (4) validity — per-slot afford-bit
+  calibration vs engine outcomes; knowably-invalid emission rate. (5)
+  payment — marked-candidate follow rate; ADR-0075 conditional
+  holdout; the marginal-attribution read repeatable post-training.
+- **KILL** (driver-automatic, conjunctive, from the 4th accepted
+  iteration): reliance at day-zero floor AND ALL aux heads plateaued
+  (schedule decode + both resource components + pay conditional).
+- **FUND:** the two v1 axes (behaviorally-live flip, guards clean;
+  aux well below day-zero) + **degeneracy VETO**: not fundable on
+  measured trivial-schedule collapse (utilization floor / pure-hold
+  emission far above base) — veto-shaped so weak-but-honest signal
+  stays discuss-zone.
+- **Guard posture from birth (paid-for lessons):** schedule-token
+  input projections in the 1e-4 group from first launch (run20 iter-0
+  class); any veto-guard trip runs the knowability decomposition
+  BEFORE being treated as pathology (iter-1 lesson).
+- **Pre-registered secondary read — probing dissolution:** v1's first
+  consumed behavior was amplified affordability-probing (rational
+  under auto-payment ignorance). M10 removes the ignorance twice
+  (B-bits inform, directed payment controls): mana-relevant knowable
+  probing DECLINING across the probe run = the interface account's
+  cleanest confirmation; persisting unchanged = the account needs
+  revision. Instrument exists (veto-knowability v2); a read, never a
+  guard.
+- **PG-unmask (fork-4 rider):** supervised pay holdout converged
+  (plateau-detector form) AND pay-window telemetry healthy
+  (marked-candidate follow above floor; payment not dominating
+  realization failures) AND ≥4 accepted iterations masked. A recorded
+  recipe event between iterations, never mid-iteration.
+- **Invalid-schedule penalty:** rule pinned — knowability-gated
+  (veto-knowability splitter) + ADR-0053-calibrated (≤ the measured
+  cost of the deterred behavior; sweep degraded-arm composite deltas
+  = the measurement source). Magnitude at build.
+
 ## Open forks for the design round (none adjudicated)
 
 - Charter ranking: unified competency vs §3b stops vs sequenced both.
