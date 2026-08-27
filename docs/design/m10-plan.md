@@ -362,12 +362,36 @@ sessions):
     the hold-set affordable") = v2+ refinement candidate, named not
     built — the emergent path gets its chance first, fingerprint (i)'s
     telemetry reads whether it emerges.
-- Actuation advertisement shape: how the payment capability surfaces
-  in the action schema (re-advertised tag per
-  capabilities-over-fallback) — now partially constrained by the
-  soft-emission adjudication above: payment assignments ride the
-  emitted schedule's slots; the per-window advertisement is the
-  residual question.
+- Actuation advertisement shape — **ADJUDICATED (user, 2026-08-26),
+  four pins:**
+  1. **Authority: SLOT-CONDITIONS, never dictates** — the advertised
+     `payManaCost` window is a policy head over enumerated GoalOptions
+     with the plan's slot assignment arriving as a MARKED candidate;
+     follow/deviate is telemetry (soft emission applied uniformly; the
+     knob-c dictate executor stays measurement infrastructure + the
+     staged hard-execution payment leg). Slot token carries a payment
+     SUMMARY (colors/amount class); the full assignment is available
+     to the pay head at window time.
+  2. **Scope (a serve contract, pinned + ckpt-versioned):** M9
+     in-scope consequential windows + cost-composition cousins
+     (convoke/improvise/delve/payCombatCost) from birth, costmod
+     per-spell refinement + pool-tie residual on the same touch;
+     resolution-effect payments OUT pending their obligation-6 probe.
+  3. **PG staged mask (user: soft enforcement risks weak impact —
+     staging is the answer):** pay windows are PG-MASKED at birth
+     (actuation learns from ADR-0075 supervised conditional labels +
+     the conditioning channel only — re-advertised windows would
+     otherwise silently regenerate the rare-window × wide-branching
+     marginal signal that killed the payment head twice), with a
+     PRE-REGISTERED unmask condition (supervised leg converged +
+     follow telemetry healthy; numerics pinned with the kill-signal
+     pre-registration).
+  4. **Attribution-era retirement stated loudly:** ADR-0073's
+     pay-param stripping is deliberately ended — the M10 ckpt carries
+     both surfaces entangled BY CHARTER; attribution moves from ckpt
+     structure to measurement (the marginal-attribution read, joint vs
+     auto arms, is repeatable post-training to decompose the joint
+     gain).
 - Read protocol: what "read as one competency" means for the gate —
   the standing 2,000-game paired read is the strength instrument;
   what is the competency instrument, and what certification horizon
