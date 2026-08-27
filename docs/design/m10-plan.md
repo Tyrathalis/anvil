@@ -274,7 +274,11 @@ sessions):
 - **Validity predicate:** note that "affordability-at-execution per
   intended action" — one of the two v2 resource-component candidates —
   IS the validity predicate; that aux-component fork and this one are
-  plausibly the same decision.
+  plausibly the same decision. *(Resolved with the resource-component
+  adjudication below, 2026-08-26: affordability is the predicate's
+  resource half; the realization half — targets/X fitting, the
+  measured dominant degrade cause — rides the feasibility probe
+  target.)*
 - **Shape-review axis (obligation 5, sharpened):** a validity-rewarded
   schedule head may learn trivially-valid SHORT schedules (the
   scheduling analogue of probing). "Schedule ambition" telemetry
@@ -284,9 +288,39 @@ sessions):
 ## Open forks for the design round (none adjudicated)
 
 - Charter ranking: unified competency vs §3b stops vs sequenced both.
-- v2 resource-schedule component: end-of-turn untapped/floating vs
-  affordability-at-execution (or both, probed head-to-head à la
-  ADR-0074).
+- v2 resource-schedule component — **ADJUDICATED (user, 2026-08-26
+  build design session): BOTH, joint multi-task, the R1 selection
+  discipline.** Per-slot affordability-at-execution (the
+  sequencing/ledger half; doubles as the validity predicate and the
+  invalid-schedule penalty's knowability gate) + end-of-turn
+  untapped/floating summary (the selection/hold half — the sweep's 43%
+  partial subsets and 11 certified pure holds live here). Probed
+  head-to-head offline pre-build (ADR-0074 pattern, gates pinned at
+  probe launch), with a THIRD probe target from the sweep dividend:
+  **schedule feasibility/degrade-point prediction from state** (96k
+  forced executions with real outcomes — the realization-validity
+  surface the veto-dominated divergence read names as the actual
+  binding failure mode). "No resource component" considered and
+  rejected (abandons the unified premise; the census terrain is
+  resource-bound scheduling).
+  - **Contingent-line rider (user example, 2026-08-26: hold counter
+    mana through own big spell, dump into a rock at EOT if unspent):
+    conditional schedules stay EMERGENT, not vocabulary.** The
+    decomposition is ordering (rock last) + hold-set (counter
+    unscheduled, instant-speed off-schedule) + per-window policy
+    authority (deviation) + revision; an explicit branching plan
+    language is rejected for v2 (unfalsifiable unfired branches). Three
+    first-class fingerprints recorded: (i) the deviation-telemetry
+    taxonomy must class off-schedule instant-speed action at response
+    windows as reserved-mana exercise, NEVER plan break — else training
+    pressure kills the flexibility; (ii) the end-state claim is graded
+    against the LATEST plan revision — this fork is thereby COUPLED to
+    the cadence fork (a second argument for revise-on-priority:
+    once-per-turn grading systematically mislabels hold-then-dump);
+    (iii) hold-set-preserving affordability ("affordable while keeping
+    the hold-set affordable") = v2+ refinement candidate, named not
+    built — the emergent path gets its chance first, fingerprint (i)'s
+    telemetry reads whether it emerges.
 - Actuation advertisement shape: how the payment capability surfaces
   in the action schema (re-advertised tag per
   capabilities-over-fallback) — now partially constrained by the
