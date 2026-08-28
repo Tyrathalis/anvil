@@ -144,7 +144,6 @@ def test_forward_sched_outputs_shapes(net_and_batch):
 
 
 def test_greedy_decode_stop_latch(net_and_batch):
-    import torch
 
     from anvil.training.dataset import SCHED_CAP
 
