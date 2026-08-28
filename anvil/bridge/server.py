@@ -80,6 +80,10 @@ class _Batcher:
         self.temperature = temperature
         self.q: "queue.Queue[dict]" = queue.Queue()
         self._queue_mod = queue
+        # M10 v2: run the greedy emission decode in act() (set by the
+        # backend when the ckpt carries sched params; per-window use is the
+        # SchedServe's decision — the decode itself is cheap pointer steps)
+        self.sched_decode = False
         threading.Thread(target=self._loop, daemon=True, name="gpu-batcher").start()
 
     def submit(self, ex: dict, pass_delta: float, noise: "dict | None" = None) -> dict:
@@ -119,7 +123,13 @@ class _Batcher:
                     else None
                 )
                 with self.torch.autocast(self.device, dtype=self.torch.bfloat16):
-                    out = self.net.act(batch, pass_delta=pd, noise=nz, temperature=self.temperature)
+                    out = self.net.act(
+                        batch,
+                        pass_delta=pd,
+                        noise=nz,
+                        temperature=self.temperature,
+                        sched_decode=self.sched_decode,
+                    )
                 for i, s in enumerate(slots):
                     # per-item views keep the batch dim; scalars are shared
                     # (n_ent/stop_idx are batch-padded dims by construction)
@@ -174,6 +184,11 @@ class ModelBackend:
         self.carry_plan = any(
             k.startswith(("plan_", "assemble.plan_proj")) for k in ckpt["model"]
         )
+        # M10 v2 schedule-carry params present? (m10-build-spec §3; the same
+        # graft-saves-them-at-init convention as carry_plan)
+        self.carry_sched = any(
+            k.startswith(("sched_", "assemble.sched_")) for k in ckpt["model"]
+        )
         self.net = build_net(
             cfg["embed"], cfg["pool_manifest"], len(default_methods()), n_sa=self.n_sa
         ).to(device)
@@ -206,6 +221,13 @@ class ModelBackend:
         self.plan_carry: dict[tuple, tuple] = {}
         self.plan_lock = threading.Lock()
         self._plan_cap = 4096
+        # M10 v2 discrete schedule carry (revise-on-trigger; sched_serve.py)
+        self.sched_serve = None
+        if self.carry_sched:
+            from anvil.bridge.sched_serve import SchedServe
+
+            self.sched_serve = SchedServe(self.feat)
+            self.batcher.sched_decode = True
         self.mu_file = None
         self.mu_lock = threading.Lock()
         if sample:
@@ -249,6 +271,11 @@ class ModelBackend:
             self.counts["reask"] += 1
         ex, aux = self.feat.example(dec, header, task)
         plan_key, plan_emit = self._plan_inject(ex, header, dec)
+        sched_ctx = None
+        if self.sched_serve is not None and header.get("g", -1) >= 0:
+            if req.retry_of:
+                dec["retry_of"] = True  # trigger-1 detector (m10-build-spec §3)
+            sched_ctx = self.sched_serve.inject(ex, aux, dec, header, task)
         delta = self.pass_delta if task == "priority" else 0.0
         if req.forbid_decline and task == "priority":
             # M7 forced-branch act ask: mask the pass logit so the sampled/
@@ -280,8 +307,11 @@ class ModelBackend:
         out = self.batcher.submit(ex, delta, noise)
         if plan_emit and plan_key is not None:
             self._plan_store(plan_key, dec.get("t", 0), out["plan"][0].float().cpu())
+        sched_row = None
+        if sched_ctx is not None:
+            sched_row = self.sched_serve.after(sched_ctx, out, aux, dec)
         if self.sample and not wire_fork:
-            self._write_mu(header["g"], dec, task, ex, aux, out)
+            self._write_mu(header["g"], dec, task, ex, aux, out, sched=sched_row)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
         if task == "priority":
             resp.construct.cast_plan.CopyFrom(self._castplan(out, aux))
@@ -338,12 +368,19 @@ class ModelBackend:
             while len(self.plan_carry) > self._plan_cap:
                 self.plan_carry.pop(next(iter(self.plan_carry)))
 
-    def _write_mu(self, g: int, dec: dict, task: str, ex: dict, aux: dict, out: dict) -> None:
+    def _write_mu(
+        self, g: int, dec: dict, task: str, ex: dict, aux: dict, out: dict,
+        sched: "dict | None" = None,
+    ) -> None:
         """One behavior-policy record (M2 D6) -> mu.jsonl, joined at ingest
-        on (g, s). Record construction lives in sampling.mu_record."""
+        on (g, s). Record construction lives in sampling.mu_record. The M10
+        `sched` field is the discrete carry's verbatim serialization
+        (m10-build-spec §1) — the loader reconstructs, never derives."""
         from anvil.policy.sampling import mu_record
 
         rec = mu_record(g, dec["s"], task, ex, aux, out)
+        if sched is not None:
+            rec["sched"] = sched
         with self.mu_lock:
             self.mu_file.write(json.dumps(rec) + "\n")
 

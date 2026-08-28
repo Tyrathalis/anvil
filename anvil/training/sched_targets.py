@@ -128,20 +128,31 @@ def pay_summary_class(opt: dict, obs: dict) -> int:
     return min(total, 4) * 2 + int(colored)
 
 
-def afford_bit(opt: dict, obs: dict, seat: int) -> float:
+def source_views_of(obs: dict, seat: int):
+    """One source_views computation per window, shared across slots."""
+    from veto_knowability import source_views
+
+    return source_views(obs, seat, card_table())
+
+
+def slot_afford(opt: dict, obs: dict, seat: int, views=None) -> float:
     """Per-slot afford bit at a window (census conventions; serve computes,
     serializes into the mu sched field; the loader reads verbatim)."""
     from schedule_census import resolve_cost
-    from veto_knowability import can_pay, source_views
+    from veto_knowability import can_pay
 
+    if views is None:
+        views = source_views_of(obs, seat)
     ents = {e["e"]: e for e in obs.get("ents", [])}
-    table = card_table()
-    bucket, cost, extra, _ = resolve_cost(opt, ents, table)
+    try:
+        bucket, cost, extra, _ = resolve_cost(opt, ents, card_table())
+    except Exception:
+        return 0.0
     if bucket == "spell" and ents.get(opt.get("e"), {}).get("z") == "command":
         extra = _cmd_extra(obs, seat)
     if bucket not in ("spell", "ability") or cost is None:
         return 0.0
-    return float(can_pay(cost, source_views(obs, seat, table).now, extra))
+    return float(can_pay(cost, views.now, extra))
 
 
 def _chosen(dec: dict, rec: dict, aux: dict) -> "tuple[int, str, dict] | None":

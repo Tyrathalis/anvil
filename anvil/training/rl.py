@@ -474,7 +474,10 @@ def game_trajectories(
                 ex["_dec_idx"] = len(prior)
                 ex["_task_name"] = rec["task"]
                 ex["_aux"] = aux
-                if rec.get("sched"):
+                if rec.get("sched", {}).get("slots"):
+                    # conditioning = the FED part only; a pure-emission row
+                    # (emit=1, nothing fed) matches serve's no-conditioning
+                    # emission semantics
                     ex.update(sched_cond_tensors(rec["sched"], aux["row_of"]))
             by_seat.setdefault(dec["p"], []).append((ex, rec, rej, ex_fv))
         prior.append(dec)
