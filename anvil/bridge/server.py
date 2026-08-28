@@ -28,10 +28,12 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import signal
 import threading
 import time
 from collections import Counter
 from concurrent import futures
+from pathlib import Path
 
 import grpc
 
@@ -704,10 +706,28 @@ def main() -> None:
     server.add_insecure_port(f"127.0.0.1:{args.port}")
     server.start()
     print(f"[server] mode={args.mode} port={args.port} tags={servicer.bridged_tags}")
+
+    # SIGTERM behaves like SIGINT (background servers ignore SIGINT under
+    # non-interactive shells — the standing lesson): both converge on the
+    # stats + counts-dump path.
+    def _term(_sig, _frm):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, _term)
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
         print("\n[server] " + servicer.stats())
+        # M10 v2: machine-readable counts beside the mu file — the driver's
+        # telemetry pickup (m10-build-spec §5 families 2/3 ride the
+        # SchedServe counters; log parsing is not an interface)
+        if backend is not None and args.mu_out:
+            dump = dict(backend.counts)
+            if backend.sched_serve is not None:
+                dump.update(backend.sched_serve.counts)
+            Path(str(args.mu_out) + ".counts.json").write_text(
+                json.dumps(dump, indent=1) + "\n"
+            )
         server.stop(grace=1)
 
 

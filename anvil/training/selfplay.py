@@ -847,6 +847,13 @@ def main() -> None:
         help="halt if the iteration-mean sched_share exceeds this (the "
         "plan-share guard twin)",
     )
+    ap.add_argument(
+        "--sched-reliance-store",
+        default="data/trajectories/m10-reliance-pop-20260827",
+        help="the PINNED fixed population for the per-iteration v2 "
+        "sched-reliance readout (fresh graft-era generation, seed base "
+        "20530827; day-zero presence floor banked on it)",
+    )
     ap.add_argument("--ent-weight", type=float, default=3e-3)
     ap.add_argument(
         "--ent-floor",
@@ -1513,6 +1520,35 @@ def main() -> None:
                       f"flip {row['plan_reliance']['argmax_flip']} "
                       f"bce {row['plan_reliance']['aux_act_bce']} "
                       f"rms {row['plan_reliance']['plan_rms']}")
+        # ---- M10 v2 telemetry (m10-build-spec §5): family 1 = the
+        # sched_reliance instrument on the pinned population; families 2/3 =
+        # the SchedServe counters dumped beside the mu file at server stop.
+        # Diagnostic in the row; the kill/FUND numerics session pins the
+        # only acting reader. ----
+        if args.sched:
+            counts_path = Path(str(mu_path) + ".counts.json")
+            if counts_path.exists():
+                sc = json.loads(counts_path.read_text())
+                row["sched_serve"] = {
+                    k_: v for k_, v in sc.items() if k_.startswith("sched_")
+                }
+            srel_out = it_dir / "sched-reliance.json"
+            subprocess.run(
+                [
+                    sys.executable, "scripts/sched_reliance.py",
+                    "--ckpt", str(new_ckpt),
+                    "--store", args.sched_reliance_store,
+                    "--out", str(srel_out),
+                ],
+                check=False,
+            )
+            if srel_out.exists():
+                row["sched_reliance"] = json.loads(srel_out.read_text())
+                print(f"[selfplay] sched reliance iteration {k}: "
+                      f"flip {row['sched_reliance']['argmax_flip']} "
+                      f"content {row['sched_reliance']['content_flip']} "
+                      f"ce {row['sched_reliance']['aux_ce']} "
+                      f"rms {row['sched_reliance']['sched_rms']}")
         monitor.write(json.dumps(row) + "\n")
         # ---- standing analysis battery (run-analysis-protocol.md): cheap
         # per-iteration pass — monitor curves + the holding row. Diagnostic

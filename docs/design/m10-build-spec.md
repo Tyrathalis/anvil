@@ -192,17 +192,48 @@ Battery: one `MONITOR_SERIES` tuple per key (the registry contract).
 
 ## 6. Rungs (this session's ladder)
 
-- **R1** model surgery + identity/decode tests — the §2 contract.
-- **R2** loader/targets + aux losses + PG mask + integration smoke.
-- **R3** serve carry + triggers + mu serialization + serve smoke.
-- **R4** telemetry + `graft_sched_init.py` → `m10-sched-init` +
-  day-zero banking (presence floor measured + banked).
-- **R5** (follow-on, same build): ADR-0075 label ingestion (the
-  seqlabels-join genre; the `dataset.py` pay-invisibility comment
-  updated LOUDLY — it reads as a live invariant and is being
-  deliberately reversed for certified labels), evalset repair,
-  cost-composition cousins + costmod + pool-tie, best-arm seed
-  supervision.
+- **R1 DONE** (commit `6209549`) model surgery + identity/decode tests.
+- **R2 DONE** (`55babb8`) loader/targets + aux losses + PG mask;
+  integration smoke w_sched 0.00038 at frac 0.1, tripwire 0; target
+  rates ~10 emissions/traj, 2.16 slots/emission, 10.8% unmatched
+  (counted). `d6-run18-i000` restored from kopia daily-7 en route.
+- **R3 DONE** serve carry end-to-end on the real bridge (4-game smoke
+  ×2): trigger-2 gained the opponent-priority-PASS filter (485 false
+  fires → 185 in 4 games); zero-init runs row-identical across
+  different revision content = content-invariance live; round trip
+  ingest → loader → learner with **tripwire 0 violations on a
+  live-conditioned store** (the discrete-carry bit-exactness claim,
+  proven). Pay tag auto-advertises off `has_pay` (the graft keeps pay
+  params) — 286 pay windows/24 games served auto at the +2.0 init,
+  each carrying the schedule conditioning.
+- **R4 DONE** telemetry + graft + day-zero banking:
+  - `graft_sched_init.py` → `data/training/m10-sched-init` (23 sched
+    params; pay KEPT at design init = ADR-0073 retirement executed;
+    v1 plan params STRIPPED = frozen legacy, `carry_plan` off).
+  - Pinned reliance population: `m10-reliance-pop-20260827`
+    (24 games, graft-era serve, seed base 20530827 — fresh, NOT
+    gate-seeded; replaces the deleted run18 pin for v2).
+  - `scripts/sched_reliance.py` per accepted iteration (driver-wired);
+    SchedServe counters dump to `<mu>.counts.json` at server stop
+    (SIGTERM now = SIGINT path); battery MONITOR_SERIES rows added.
+  - **Day-zero BANKED** (`m10-sched-init/reliance-dayzero.json`,
+    40 traj / 4,715 conditioned windows): **presence floor
+    argmax_flip 0.0125**, `content_flip` 0.0 EXACTLY (the contract's
+    case-3 assertion), reliance_l1 0.786 (presence-driven), aux
+    baselines decode CE 2.609 / E 0.522 / R 1.800, sched_rms 0.0.
+  - **Numerics-session caveat (flagged loudly):** the v1 KILL read
+    flip against an absolute 0.005 with a true-zero floor; the v2
+    floor is 0.0125 BY PRESENCE, so the kill/FUND thresholds must be
+    posed RELATIVE to the banked floor (e.g., flip − floor), never
+    absolute — pinned at the probe-launch numerics session.
+- **R5 NEXT SESSION**: ADR-0075 label ingestion (the seqlabels-join
+  genre; the `dataset.py` pay-invisibility comment updated LOUDLY —
+  it reads as a live invariant and is being deliberately reversed for
+  certified labels), the pay-window MARKED-candidate bit
+  (`cand_paymark` — the conditioning already arrives at pay windows;
+  the schedule-consistent assignment mark is the missing piece),
+  evalset repair, cost-composition cousins + costmod + pool-tie
+  (engine touch), best-arm seed supervision from the sweep mint.
 
 Then the training probe with kill/FUND/unmask + read-protocol numerics
 pinned pre-data at ITS launch session (not here).
