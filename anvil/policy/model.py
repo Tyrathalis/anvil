@@ -52,6 +52,7 @@ class AnvilNet(nn.Module):
             n_player_features,
             n_methods,
             history_k,
+            n_sa=n_sa,
         )
         layer = nn.TransformerEncoderLayer(
             d_model,
@@ -144,11 +145,49 @@ class AnvilNet(nn.Module):
         self.plan_delta_head = nn.Sequential(
             nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, 6)
         )
+        # M10 v2 schedule surface (m10-build-spec §2). The decode head is the
+        # emission surface: autoregressive pointer over the emission window's
+        # candidates, SCHED_CAP+1 steps, class space = the candidate index
+        # space with index 0 (the PASS slot) meaning STOP — mask reuses
+        # cand_mask verbatim. Query conditions on [STATE] ⊕ [PLAN] ⊕ prev
+        # (the [PLAN] readout is the emission representation, R1 continuity).
+        # E head reads [PLAN] (7 EOT resource axes, v2_target_probe axes
+        # verbatim); R head reads the per-step decoder state ⊕ picked vec
+        # (2 running-ledger axes after slot k — the probe's emission-window
+        # definition, per-slot). All supervised-only; never in forward()'s
+        # policy outputs.
+        if n_sa:
+            from anvil.training.dataset import SCHED_CAP
+
+            self.sched_cap = SCHED_CAP
+            self.sched_query = nn.Linear(3 * d_model, d_model)
+            self.sched_key = nn.Linear(d_model, d_model)
+            self.sched_sa_proj = nn.Linear(64 + 8, d_model)  # shares sa_emb/kind_emb
+            self.sched_stop_key = nn.Parameter(torch.randn(d_model) / d_model**0.5)
+            self.sched_slot_emb = nn.Parameter(torch.zeros(SCHED_CAP + 1, d_model))
+            self.sched_e_head = nn.Sequential(
+                nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, 7)
+            )
+            self.sched_r_head = nn.Sequential(
+                nn.Linear(2 * d_model, d_model), nn.GELU(), nn.Linear(d_model, 2)
+            )
 
     # params new at M2 D5 (combat heads) / M9 rung 3 (pay_*) / M9 D6
     # (plan_* aux heads + the assembler's carry projection); absent from
     # older checkpoints and allowed missing on load — they keep their fresh init
-    _D5_PREFIXES = ("atk_", "blk_", "cmb_", "pay_", "plan_", "assemble.plan_proj.")
+    # sched_ / assemble.sched_ (M10 v2 schedule surface): absent from every
+    # pre-M10 checkpoint; fresh init on load (sched_proj's fresh init is
+    # zero — the identity contract)
+    _D5_PREFIXES = (
+        "atk_",
+        "blk_",
+        "cmb_",
+        "pay_",
+        "plan_",
+        "assemble.plan_proj.",
+        "sched_",
+        "assemble.sched_",
+    )
 
     def load_compat(self, state: dict) -> None:
         """Load a checkpoint state_dict across the D5 boundary: task_emb grew
@@ -239,6 +278,82 @@ class AnvilNet(nn.Module):
             pass_logit = pass_logit + self.pay_bias[task].unsqueeze(-1) * ispay_item
         logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)  # slot 0 = PASS
         return logits.masked_fill(~batch["cand_mask"], -1e9)
+
+    def _sched_keys(
+        self, ent_out: torch.Tensor, batch: dict
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Schedule-decode key/vec space over the window's candidates
+        (m10-build-spec §2): index 0 = STOP (the PASS slot repurposed —
+        cand_mask masks both identically), 1..C-1 = candidates. Shared by
+        the teacher-forced and greedy decodes — the plumbing must not fork."""
+        rows = batch["cand_rows"].clamp(min=0)
+        d = ent_out.shape[-1]
+        k = self.sched_key(ent_out).gather(1, rows.unsqueeze(-1).expand(-1, -1, d))
+        sa = self.sched_sa_proj(
+            torch.cat(
+                [
+                    self.sa_emb(batch["cand_sa"].clamp(min=0)),
+                    self.kind_emb(batch["cand_kind"].clamp(min=0)),
+                ],
+                dim=-1,
+            )
+        )
+        k = k + sa * (batch["cand_sa"] >= 0).unsqueeze(-1)
+        vecs = ent_out.gather(1, rows.unsqueeze(-1).expand(-1, -1, d))
+        vecs = vecs * (batch["cand_rows"] >= 0).unsqueeze(-1)
+        b = ent_out.shape[0]
+        k = torch.cat([self.sched_stop_key.expand(b, 1, -1), k[:, 1:]], dim=1)
+        vecs = torch.cat([torch.zeros_like(vecs[:, :1]), vecs[:, 1:]], dim=1)
+        return k, vecs, batch["cand_mask"]
+
+    def _sched_decode_tf(
+        self, state: torch.Tensor, plan: torch.Tensor, ent_out: torch.Tensor, batch: dict
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Teacher-forced schedule decode + per-step R predictions.
+        sched_tgt: (B, SCHED_CAP) candidate ids, 0 = STOP, -1 = pad (post-
+        stop). Returns (sched_logits (B, CAP+1, C), sched_r (B, CAP, 2))."""
+        keys, vecs, mask = self._sched_keys(ent_out, batch)
+        d = keys.shape[-1]
+        prev = torch.zeros_like(state)
+        logits, rs = [], []
+        for t in range(self.sched_cap + 1):
+            qv = self.sched_query(torch.cat([state, plan, prev], dim=-1)) + self.sched_slot_emb[t]
+            lg = (keys @ qv.unsqueeze(-1)).squeeze(-1) / d**0.5
+            logits.append(lg.masked_fill(~mask, -1e9))
+            if t < self.sched_cap:
+                lab = batch["sched_tgt"][:, t].clamp(min=0)
+                picked = vecs.gather(
+                    1, lab.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, vecs.shape[-1])
+                ).squeeze(1)
+                picked = picked * (batch["sched_tgt"][:, t] > 0).unsqueeze(-1)
+                rs.append(self.sched_r_head(torch.cat([qv, picked], dim=-1)))
+                prev = prev + picked
+        return torch.stack(logits, dim=1), torch.stack(rs, dim=1)
+
+    @torch.no_grad()
+    def _sched_decode_greedy(
+        self, state: torch.Tensor, plan: torch.Tensor, ent_out: torch.Tensor, batch: dict
+    ) -> torch.Tensor:
+        """Greedy emission decode (serve). Deterministic — the decode is
+        supervised, never PG. Returns picks (B, SCHED_CAP): candidate ids,
+        0 = STOP latched (post-stop slots forced 0)."""
+        keys, vecs, mask = self._sched_keys(ent_out, batch)
+        d = keys.shape[-1]
+        prev = torch.zeros_like(state)
+        stopped = torch.zeros(state.shape[0], dtype=torch.bool, device=state.device)
+        picks = []
+        for t in range(self.sched_cap):
+            qv = self.sched_query(torch.cat([state, plan, prev], dim=-1)) + self.sched_slot_emb[t]
+            lg = (keys @ qv.unsqueeze(-1)).squeeze(-1) / d**0.5
+            raw = lg.masked_fill(~mask, -1e9).argmax(-1)
+            pick = torch.where(stopped, torch.zeros_like(raw), raw)
+            picks.append(pick)
+            stopped = stopped | (pick == 0)
+            picked = vecs.gather(
+                1, pick.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, vecs.shape[-1])
+            ).squeeze(1)
+            prev = prev + picked  # STOP's vec is zeros
+        return torch.stack(picks, dim=1)
 
     def _combat_outputs(self, state: torch.Tensor, ent_out: torch.Tensor, batch: dict) -> dict:
         """Combat-head logits (D5), shared by forward() and act(). Per
@@ -368,7 +483,7 @@ class AnvilNet(nn.Module):
             (rng < batch["num_lo"].unsqueeze(-1)) | (rng > batch["num_hi"].unsqueeze(-1)), -1e9
         )
 
-        return {
+        out_dict = {
             "policy_logits": logits,
             "tgt_logits": tgt_logits,
             "x_logits": x_logits,
@@ -378,6 +493,14 @@ class AnvilNet(nn.Module):
             "value_logit": self.value_head(state).squeeze(-1),
             **self._combat_outputs(state, ent_out, batch),
         }
+        # M10 v2 aux surfaces (supervised-only; emission rows carry
+        # sched_tgt). Loss wiring gates on these keys' presence.
+        if getattr(self, "sched_cap", None) and "sched_tgt" in batch:
+            sched_logits, sched_r = self._sched_decode_tf(state, plan, ent_out, batch)
+            out_dict["sched_logits"] = sched_logits
+            out_dict["sched_r"] = sched_r
+            out_dict["sched_e"] = self.sched_e_head(plan)
+        return out_dict
 
     @torch.no_grad()
     def act(
@@ -386,6 +509,7 @@ class AnvilNet(nn.Module):
         pass_delta: "float | torch.Tensor" = 0.0,
         noise: "dict | None" = None,
         temperature: float = 1.0,
+        sched_decode: bool = False,
     ) -> dict:
         """Greedy inference (M1 D8 serve path). Mirrors forward()'s encode and
         pointer plumbing but conditions the target decoder on the MODEL's
@@ -506,9 +630,15 @@ class AnvilNet(nn.Module):
         )
 
         cmb = self._combat_outputs(state, ent_out, batch)
+        sched: dict = {}
+        if sched_decode and getattr(self, "sched_cap", None):
+            # M10 v2 emission decode (serve reads it at emission/revision
+            # windows only; greedy — supervised head, never PG)
+            sched["sched_picks"] = self._sched_decode_greedy(state, out[:, 1], ent_out, batch)
         return {
             "choice": choice,
             "plan": out[:, 1],  # D6 serve carry: the emitted plan vector
+            **sched,
             "tgt_picks": torch.stack(picks, dim=1),
             "x_cls": x_cls,
             "n_ent": n_ent,

@@ -303,10 +303,15 @@ sessions):
   false-trigger rate stays readable. Wall-clock priced at the smoke
   rung (serve = head pass on the trunk forward that already runs;
   training = pass-0 emission rows ×~2–3), fallback = reduced trigger
-  list (veto + EOT) if the price surprises. Open sub-pins for the build
-  session: trigger-2 granularity (any opponent action vs
-  targeting-us), trigger-3 window (second main vs end step —
-  hold-then-dump wants the latest safe window). **Model-placed triggers
+  list (veto + EOT) if the price surprises. **Build-session sub-pins
+  ADJUDICATED (user, 2026-08-27): trigger-2 = ANY opponent action
+  resolved during our turn** (no-op revisions being first-class makes
+  the broad trigger's cost a readable false-trigger rate, not vacuous
+  follow stats; a targeting-us filter goes plan-blind after
+  board-relevant untargeted actions — a Wrath targets nothing);
+  **trigger-3 = END STEP** (the latest safe window — hold-then-dump
+  wants revision after the held interaction's last chance to fire;
+  second main revises before that information exists). **Model-placed triggers
   (expectation watch-sets) SET ASIDE (user, 2026-08-26) as the
   canonical future form**: the fixed list's telemetry measures its own
   residual — the missed-revision rate (deviations/degrades with no
@@ -330,10 +335,18 @@ sessions):
   reconstruction is bit-exact by construction and the v1 tripwire's
   float-drift class is eliminated rather than monitored. ADR-0076's
   validation transfers at mechanism level (the conditioning channel is
-  consumed; tokens are a strict superset of the vec). Sub-pins for the
-  build session: slot cap (certified-length hist tops at 4; lean 6 +
-  mask), slot-embedding payment detail (rides with the actuation-shape
-  fork), failed-slot persistence semantics.
+  consumed; tokens are a strict superset of the vec). **Build-session
+  sub-pins ADJUDICATED (user, 2026-08-27): slot cap = 6 + mask**
+  (certified-length hist tops at 4; headroom for emergent
+  contingent-line shapes without bloating the token budget);
+  **slot-embedding payment detail = resolved by actuation pin 1**
+  (slot token carries the colors/amount-class SUMMARY; the full
+  assignment is available to the pay head at window time);
+  **failed-slot persistence = the revision consumes it** — a failed
+  slot arrives MARKED at the replan decode, and the new emission
+  replaces it; failed slots do NOT persist across subsequent revisions
+  (the labels row keeps the history; live conditioning stays
+  current-plan-only).
 - **Validity predicate:** note that "affordability-at-execution per
   intended action" — one of the two v2 resource-component candidates —
   IS the validity predicate; that aux-component fork and this one are
@@ -400,6 +413,25 @@ the 4th accepted iteration, symmetric with KILL onset).
   (veto-knowability splitter) + ADR-0053-calibrated (≤ the measured
   cost of the deterred behavior; sweep degraded-arm composite deltas
   = the measurement source). Magnitude at build.
+
+## Build-era operational pins (2026-08-27, user-adjudicated)
+
+- **Build-era jar = fork `7c4af49fa4` (`crash_why` patch) — ADR-0025
+  gate PASSED 2026-08-27 (this session), pin CONFIRMED.** Proof =
+  both mechanical smokes rerun on the new jar vs the proven-jar banked
+  outputs (`sched-smoke-crashwhy` vs `sched-smoke-crossjar`,
+  `choice-smoke-crashwhy` vs `choice-smoke-m11`): schedfile/choicefile
+  byte-identical, labels 72/72 + 84/84 identical modulo ms, census
+  9,969/9,969 + 17,409/17,409 identical modulo ms — ZERO diff classes
+  (the patch is harness-side, `AnvilRun.java` only, +22/−3). The
+  crash-class watch (0.76% copy+resume class) rides the training
+  probe's generation for free via the now-standard `crash_why` field.
+- **Graft trunk = `d6-run11/iter-019`** (ckpt of record, unchanged).
+- **Invalid-schedule penalty magnitude**: derived during the build from
+  the banked sweep degraded-arm composite deltas per the pinned
+  ADR-0053 calibration rule (≤ measured cost of the deterred
+  behavior); the number recorded at derivation, confirmation rides the
+  probe-launch numerics session.
 
 ## Open forks for the design round (ALL BUT ONE ADJUDICATED at the 2026-08-26 build design session)
 

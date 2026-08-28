@@ -112,6 +112,25 @@ def test_guard_seq_share():
     assert guard_flags({}, rl_share(0.45), None) == []
 
 
+def test_rl_summary_surfaces_plan_share(tmp_path):
+    """M10 build regression (2026-08-27): _rl_summary's mean key list
+    omitted plan_share, so guard_flags read None and the ADR-0057
+    plan-share guard was dead across run20. The summary must surface it
+    end-to-end so the guard can fire."""
+    import json
+
+    from anvil.training.selfplay import _rl_summary
+
+    with open(tmp_path / "metrics.jsonl", "w") as f:
+        f.write(json.dumps({"step": 10, "kl_mu": 0.01, "plan_share": 0.45,
+                            "plan_act": 0.5, "plan_delta": 0.3}) + "\n")
+    rl = _rl_summary(tmp_path)
+    assert rl["mean"]["plan_share"] == 0.45
+    flags = guard_flags({}, rl, None, plan_share_max=0.3)
+    assert len(flags) == 1 and "plan_share" in flags[0]
+    assert guard_flags({}, rl, None) == []  # unset guard stays quiet
+
+
 def test_draw_scores_zero_for_both_seats():
     """§3d cap-aware rule as used by the loader: draw/cap reward is 0 — the
     stalling leader's vs targets sink toward 0, same as a loss."""

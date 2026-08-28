@@ -689,6 +689,12 @@ def _rl_summary(train_dir: Path) -> dict:
         "seq_raw",
         "seq_aux",
         "seq_share",
+        # plan_share missing here made the ADR-0057 plan-share guard read
+        # None forever (found at the M10 build session, 2026-08-27 — the
+        # guard never could have fired across run20)
+        "plan_act",
+        "plan_delta",
+        "plan_share",
     ):
         vals = [r[k] for r in rows if k in r]
         if vals:

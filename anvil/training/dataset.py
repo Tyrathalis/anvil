@@ -134,6 +134,19 @@ PAY_KINDS = {
     "spare_other": 4,
     "min_life": 5,
 }
+
+# M10 v2 schedule surface (m10-build-spec §1): the discrete schedule
+# object's vocabularies. SCHED_CAP = 6 + mask (user pin 2026-08-27;
+# certified-length hist tops at 4). Status: exactly one NEXT among
+# non-terminal slots; FAILED slots are consumed by the next revision.
+# Pay summary classes: amount bucket 0-4+ × colorless-only/colored (10)
+# + unresolvable + none — the slot carries a SUMMARY; the full
+# assignment surfaces at the pay window (actuation pin 1).
+SCHED_CAP = 6
+SCHED_STATUS = {"pending": 0, "next": 1, "done": 2, "failed": 3}
+SCHED_PAY_CLASSES = 12
+SCHED_PAY_NONE = 10
+SCHED_PAY_UNRESOLVED = 11
 TASK_OF_METHOD = {
     PRIORITY: "priority",
     "mulliganKeepHand": "mull_keep",
@@ -708,6 +721,29 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             if "plan_vec" in x:
                 out["plan_vec"][i] = x["plan_vec"]
                 out["has_plan"][i] = float(x.get("has_plan", 0.0))
+    # M10 v2 schedule slot tokens (optional keys, the plan_vec precedent):
+    # fixed SCHED_CAP width, mask carries validity; keys absent from the
+    # whole batch ⇒ omitted ⇒ no slot tokens appended (identity case 1)
+    if any("sched_mask" in x for x in batch):
+        out["sched_rows"] = torch.full((b, SCHED_CAP), -1, dtype=torch.int64)
+        out["sched_sa"] = torch.full((b, SCHED_CAP), -1, dtype=torch.int64)
+        out["sched_status"] = torch.zeros(b, SCHED_CAP, dtype=torch.int64)
+        out["sched_afford"] = torch.zeros(b, SCHED_CAP)
+        out["sched_pay"] = torch.full(
+            (b, SCHED_CAP), SCHED_PAY_NONE, dtype=torch.int64
+        )
+        out["sched_mask"] = torch.zeros(b, SCHED_CAP, dtype=torch.bool)
+        for i, x in enumerate(batch):
+            if "sched_mask" in x:
+                for k in (
+                    "sched_rows",
+                    "sched_sa",
+                    "sched_status",
+                    "sched_afford",
+                    "sched_pay",
+                    "sched_mask",
+                ):
+                    out[k][i] = x[k]
     for i, x in enumerate(batch):
         ni, ci = x["entities"].shape[0], x["cand_rows"].shape[0]
         out["entities"][i, :ni] = x["entities"]
