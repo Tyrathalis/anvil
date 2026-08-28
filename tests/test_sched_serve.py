@@ -141,6 +141,37 @@ def test_off_turn_off_seat_and_turn_reset():
     assert ctx["decode"] and ctx["trigger"] == "emit" and "sched_mask" not in ex
 
 
+def test_pay_mark_and_follow():
+    """M10 R5 actuation pin 1: at a pay window with remaining scheduled
+    slots, one explicit goal option gets the mark (never auto), the mark
+    rides ex + the fed mu row, and follow/deviate telemetry counts."""
+    import json as _json
+
+    ss = SchedServe(_feat())
+    _emit(ss, choice=0)  # slot pending, nothing awaited
+    pay_opts = [
+        "{}",  # option 0 = auto
+        _json.dumps({"ents": [10], "gk": [1]}),  # taps the scheduled entity
+        _json.dumps({"ents": [99], "gk": [2]}),  # taps something else
+    ]
+    dec = _dec(s=101, opts=pay_opts)
+    dec["m"] = "payManaCost"
+    ex = {}
+    ex["cand_rows"] = torch.zeros(3, dtype=torch.int64)  # width for the mark
+    ctx = ss.inject(ex, AUX, dec, HDR, "pay_class")
+    assert ctx is not None and not ctx["decode"]
+    assert ctx["mark"] is not None and ctx["mark"] != 0  # never auto
+    assert ctx["fed"]["mark"] == ctx["mark"]
+    assert "cand_paymark" in ex and float(ex["cand_paymark"][ctx["mark"]]) == 1.0
+    assert float(ex["cand_paymark"].sum()) == 1.0
+    ss.after(ctx, {"choice": torch.tensor([ctx["mark"]])}, AUX, dec)
+    assert ss.counts["sched_paymark_follow"] == 1
+    ctx2 = ss.inject({"cand_rows": torch.zeros(3, dtype=torch.int64)},
+                     AUX, dec, HDR, "pay_class")
+    ss.after(ctx2, {"choice": torch.tensor([0])}, AUX, dec)
+    assert ss.counts["sched_paymark_deviate"] == 1
+
+
 def test_deviation_counting():
     ss = SchedServe(_feat())
     opts = [

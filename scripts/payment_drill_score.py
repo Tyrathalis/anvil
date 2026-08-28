@@ -72,6 +72,9 @@ def plan(args) -> None:
                 # provenance (stripped by lanes, joined at score)
                 "batch": d["batch"], "orig_job": d["job"], "kind": d["kind"],
                 "shape": d["shape"], "best": d["best"],
+                # ADR-0082: the cleared-positive outcome class (v2 evalsets);
+                # absent (v1 rows / auto-correct) => the exact index stands
+                "cls": d.get("cls", [d["best"]]),
                 "exp_options": src["arms"],  # |options| at certify-plan time
             })
     out = Path(args.out)
@@ -196,7 +199,11 @@ def score(args) -> None:
             out = net.act(batch)
         pick = int(out["choice"][0])
         picks.append(pick)
-        rows.append({**j, "status": "scored", "pick": pick, "correct": pick == j["best"]})
+        # ADR-0082: correct = the pick lands IN the certified outcome class
+        # (the docstring's promise, now the code's behavior); v1 jobs
+        # without cls fall back to the exact index
+        cls = j.get("cls") or [j["best"]]
+        rows.append({**j, "status": "scored", "pick": pick, "correct": pick in cls})
         scored_jobs.append(j["job"])
 
     tab = _accuracy_table(rows)

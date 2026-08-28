@@ -118,6 +118,14 @@ TASKS = {
     # BC-from-heuristic; auto-answered windows are exactly where the
     # heuristic is least trustworthy). The RL loader reads the task from mu
     # records; the BC loader and the Ante ledger never see payment windows.
+    #
+    # M10 R5 (2026-08-27) — the pin's SCOPE, stated loudly: it bars
+    # HEURISTIC answers, and it stands. It does NOT bar the ADR-0075/0082
+    # ENGINE-CERTIFIED conditional labels, which now ingest as supervised
+    # aux through anvil/training/paylabels.py (class-CE at banked observe
+    # windows — the pay head's only training signal under the M10 PG staged
+    # mask). Certified-outcome provenance ≠ heuristic provenance; the
+    # BC corpus loader path here remains payment-blind.
     "pay_class": 8,
 }
 
@@ -754,6 +762,10 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         out["cand_kind"][i, :ci] = x["cand_kind"]
         if "cand_paykind" in x:  # absent from pre-M9 loader examples
             out["cand_paykind"][i, :ci] = x["cand_paykind"]
+        if "cand_paymark" in x:  # M10 R5 marked candidate (serve/rl loader)
+            if "cand_paymark" not in out:
+                out["cand_paymark"] = torch.zeros(b, c)
+            out["cand_paymark"][i, :ci] = x["cand_paymark"]
         out["cand_mask"][i, :ci] = True
         ai, mi = x["cmb_rows"].shape[0], x["blk_atk_rows"].shape[0]
         if ai:

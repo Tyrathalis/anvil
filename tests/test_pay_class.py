@@ -169,7 +169,9 @@ def test_pay_param_group_splits_by_name(net_and_feat):
 
     net, _ = net_and_feat
     pay = [n for n, _ in net.named_parameters() if n.startswith("pay_")]
-    assert set(pay) == {"pay_bias", "pay_kind_emb.weight"}
+    # pay_mark_emb joined at M10 R5 (the slot-conditions marked candidate,
+    # zero-init) — a pay-surface param, rightly in the pay_lr group
+    assert set(pay) == {"pay_bias", "pay_kind_emb.weight", "pay_mark_emb"}
 
     groups = [
         {"params": [p for n, p in net.named_parameters() if not n.startswith("pay_")], "lr": 1e-5},

@@ -120,7 +120,12 @@ silently delete.
   across eras; cross-era gen_s comparisons only at identical chunking
   ([ADR-0025](decisions/ADR-0025-d4-rebase-closeout.md)/[ADR-0033](decisions/ADR-0033-m4-closeout.md)).
 - An enumerator's **unit of exclusivity must be the unit the executor
-  consumes** ([ADR-0066](decisions/ADR-0066-certify-salvage-host-exclusivity.md)).
+  consumes** ([ADR-0066](decisions/ADR-0066-certify-salvage-host-exclusivity.md));
+  corollary: a certified "best" over rolled-out arms is a **CLASS
+  statement** — any consumer collapsing it to one index must show the
+  collapse is behavior-neutral (the "unreachable" evalset positives
+  were exact-index scoring on margin-tied arms,
+  [ADR-0082](decisions/ADR-0082-payment-evalset-repair.md)).
 - **`sa_vocab` is pinned — never regenerate in place**
   ([ADR-0012](decisions/ADR-0012-d2-d3-closeout.md)); obs sv eras never
   mix (strict reader gate, [ADR-0068](decisions/ADR-0068-m9-boundary-bundle.md)).

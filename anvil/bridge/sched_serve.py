@@ -153,8 +153,13 @@ class SchedServe:
                 decode, trigger = True, st.pending_revise
 
         fed = None
+        mark = None
         if st is not None:
             fed = self._feed(ex, aux, dec, p, st)
+            if task == "pay_class":
+                mark = self._pay_mark(ex, dec, p, st)
+                if mark is not None:
+                    fed["mark"] = mark
         return {
             "key": key,
             "state": st,
@@ -163,7 +168,56 @@ class SchedServe:
             "trigger": trigger,
             "turn": turn,
             "p": p,
+            "mark": mark,
         }
+
+    def _pay_mark(self, ex: dict, dec: dict, p: int, st: _State) -> "int | None":
+        """The schedule-consistent goal option (actuation pin 1): the
+        explicit option maximizing how many remaining scheduled slots stay
+        affordable after its taps, tie-broken most-flexible-spare (most
+        untapped sources left). Marked as a candidate FEATURE — the pay
+        head keeps authority; follow/deviate is telemetry. None when the
+        schedule has no remaining slots or no explicit options exist."""
+        import json as _json
+
+        import torch
+
+        from anvil.training.sched_targets import slot_afford, source_views_of
+
+        remaining = [s for s in st.slots if s.st in ("p", "n")]
+        if not remaining:
+            return None
+        obs = dec["obs"]
+        opts = dec.get("opts") or []
+        best = None  # (feasible, spare, -idx)
+        for i, lab in enumerate(opts):
+            if i == 0:
+                continue  # option 0 = auto: the default, never the mark
+            try:
+                o = _json.loads(lab) if isinstance(lab, str) else (lab or {})
+            except ValueError:
+                o = {}
+            tapped = set(o.get("ents") or [])
+            obs_after = {**obs, "ents": [e for e in obs.get("ents", [])
+                                         if e.get("e") not in tapped]}
+            views = source_views_of(obs_after, p)
+            feasible = sum(
+                int(slot_afford(s.opt, obs_after, p, views)) for s in remaining
+            )
+            key = (feasible, len(views.now), -i)
+            if best is None or key > best[0]:
+                best = (key, i)
+        if best is None:
+            return None
+        idx = best[1]
+        cw = ex["cand_rows"].shape[0]
+        if idx >= cw:
+            return None
+        pm = torch.zeros(cw)
+        pm[idx] = 1.0
+        ex["cand_paymark"] = pm
+        self.counts["sched_paymark_set"] += 1
+        return idx
 
     def _feed(self, ex: dict, aux: dict, dec: dict, p: int, st: _State) -> dict:
         """Fill ex's sched_* keys from the live state; return the verbatim
@@ -246,6 +300,13 @@ class SchedServe:
                 self.counts["sched_pure_hold"] += 1
         elif row:
             row["emit"] = 0
+
+        # -- marked-candidate follow telemetry (pay windows)
+        if ctx.get("mark") is not None and "choice" in out:
+            if int(out["choice"][0]) == ctx["mark"]:
+                self.counts["sched_paymark_follow"] += 1
+            else:
+                self.counts["sched_paymark_deviate"] += 1
 
         # -- answered action vs the plan (priority windows with a live state)
         if st is not None and "choice" in out and dec.get("m") == "chooseSpellAbilityToPlay":

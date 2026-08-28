@@ -226,14 +226,49 @@ Battery: one `MONITOR_SERIES` tuple per key (the registry contract).
     floor is 0.0125 BY PRESENCE, so the kill/FUND thresholds must be
     posed RELATIVE to the banked floor (e.g., flip − floor), never
     absolute — pinned at the probe-launch numerics session.
-- **R5 NEXT SESSION**: ADR-0075 label ingestion (the seqlabels-join
-  genre; the `dataset.py` pay-invisibility comment updated LOUDLY —
-  it reads as a live invariant and is being deliberately reversed for
-  certified labels), the pay-window MARKED-candidate bit
-  (`cand_paymark` — the conditioning already arrives at pay windows;
-  the schedule-consistent assignment mark is the missing piece),
-  evalset repair, cost-composition cousins + costmod + pool-tie
-  (engine touch), best-arm seed supervision from the sweep mint.
+- **R5 DONE (session 3, 2026-08-27) — the label round:**
+  - **Evalset repair RESOLVED as an instrument defect
+    ([ADR-0082](../decisions/ADR-0082-payment-evalset-repair.md)):**
+    the "unreachable" positives were exact-index scoring on multi-arm
+    outcome classes (11/17 wide_choice windows carry ≥2 independently
+    certified arms, many margin-identical; `best` tiebreaks by arm
+    index). Class scoring adopted end-to-end (`cls` on positives;
+    scorer counts `pick ∈ cls`; ingestion trains class-CE); phyrexian's
+    13 retired with reason. `payment-evalset-v2` (56 pos / 224 auto /
+    13 retired) + `payment-holdout-v1` (the ratesweep set, 19+123 —
+    the pre-registered conditional holdout, NEVER ingested).
+  - **ADR-0075 label ingestion** (`paylabels.py`): class-CE at the
+    post-boundary revalidation observe frames (265/280 joined,
+    attrition counted), w_paylab ADR-0057 calibration + share guard —
+    the pay head's only signal under the PG mask. The `dataset.py`
+    pin-scope note states the reversal loudly (certified ≠ heuristic
+    provenance). Day-zero: positive CE 3.85 / auto 0.31. Holdout
+    observe frames minted fresh on the build-era jar
+    (`run-20260827-holdout-observe`, 142/142, zero misses); day-zero
+    holdout banked (0/19 positive, 96.7% auto — the +2.0-bias point);
+    `--pay-drill-dir` points there in the probe recipe.
+  - **`cand_paymark`** (actuation pin 1): zero-init `pay_mark_emb`
+    added into the marked candidate's key; SchedServe computes the
+    schedule-consistent goal option (max remaining-slots-affordable
+    after the option's taps, most-flexible-spare tie-break, never
+    auto), serializes `mark` into the mu sched row (loader parity),
+    counts `paymark_follow/deviate`. Honest note: the mark is a
+    live-but-untrained feature at birth — the observe-frame label
+    windows carry no schedules, so `pay_mark_emb`'s gradient arrives
+    post-unmask or from a future schedule-bearing label mint.
+  - **Best-arm seed supervision**: `seed_sched_labels.py` minted
+    170/170 certified-positive arm schedules (zero drops) →
+    `seedlabels.py` decode-CE enrichment batch (rejoin exact by
+    emission dec id; era-asset, cert ckpt recorded), w_seedlab at
+    frac 0.05 (below the dense term's 0.1 — enrichment, not
+    replacement).
+  - Integration smoke: all three label terms calibrate together on the
+    live-conditioned store, tripwire 0.
+- **COUSINS TOUCH — NEXT SESSION, BY NAME (before the probe launch):**
+  cost-composition cousins (convoke/improvise/delve/`payCombatCost`)
+  + costmod per-spell + pool-tie residual — one Forge-fork touch (the
+  serve contract pins cousins in scope from birth, so this precedes
+  the training probe; ADR-0025 proof per the standing rule).
 
 Then the training probe with kill/FUND/unmask + read-protocol numerics
 pinned pre-data at ITS launch session (not here).

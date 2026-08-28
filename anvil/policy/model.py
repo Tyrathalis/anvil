@@ -136,6 +136,12 @@ class AnvilNet(nn.Module):
             self.pay_bias[TASKS["pay_class"]] = 2.0
         self.pay_kind_emb = nn.Embedding(len(PAY_KINDS), d_model)
         nn.init.zeros_(self.pay_kind_emb.weight)
+        # M10 R5 (actuation pin 1, slot-conditions): the plan's schedule-
+        # consistent goal option arrives as a MARKED candidate — a zero-init
+        # vector added into the marked candidate's key (day-zero no-op; the
+        # pay_kind_emb convention). Never dictates: follow/deviate is
+        # telemetry (paymark_follow).
+        self.pay_mark_emb = nn.Parameter(torch.zeros(d_model))
         # D6 plan-latent aux heads (m9-d6-plan-latent-spec §2, ADR-0074 joint
         # selection): emission supervision on out[:, 1] at turn-first windows.
         # plan_act_head = multi-hot over the SA vocab (+OOV) + 3 summary bits
@@ -267,6 +273,11 @@ class AnvilNet(nn.Module):
             ispay = pk >= 0
             k_cand = k_cand * ~(ispay & (batch["cand_rows"] < 0)).unsqueeze(-1)
             k_cand = k_cand + self.pay_kind_emb(pk.clamp(min=0)) * ispay.unsqueeze(-1)
+        pm = batch.get("cand_paymark")
+        if pm is not None:
+            # M10 R5: the schedule-consistent MARKED candidate (zero-init
+            # emb — day-zero identical; absent key — identical by construction)
+            k_cand = k_cand + self.pay_mark_emb * pm.unsqueeze(-1)
         logits = (q * k_cand).sum(-1) / k.shape[-1] ** 0.5  # (B,C)
         pass_logit = self.pass_head(state) + pass_delta  # (B,1)
         task = batch.get("task")

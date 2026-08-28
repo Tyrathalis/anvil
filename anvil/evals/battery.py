@@ -127,6 +127,11 @@ MONITOR_SERIES = [
     ("sched_serve.sched_dev_off_plan", "sched off-plan deviations"),
     ("sched_serve.sched_noop_rev", "sched no-op revisions"),
     ("sched_serve.sched_pure_hold", "sched pure holds"),
+    # M10 R5: the supervised conditional pay-label term (positive vs auto
+    # NEVER blended — the ADR-0069 discipline) + the holdout accuracies
+    ("rl.mean.paylab_pos", "paylab CE (positive)"),
+    ("rl.mean.paylab_auto", "paylab CE (auto)"),
+    ("rl.mean.paylab_share", "paylab share"),
     ("games.turns_median", "turns median"),
     ("gen_s", "gen_s"),
     ("campaign_s", "campaign_s"),

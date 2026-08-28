@@ -479,6 +479,11 @@ def game_trajectories(
                     # (emit=1, nothing fed) matches serve's no-conditioning
                     # emission semantics
                     ex.update(sched_cond_tensors(rec["sched"], aux["row_of"]))
+                    mark = rec["sched"].get("mark")
+                    if mark is not None and mark < ex["cand_rows"].shape[0]:
+                        pm = torch.zeros(ex["cand_rows"].shape[0])
+                        pm[mark] = 1.0
+                        ex["cand_paymark"] = pm  # serve-verbatim, loader parity
             by_seat.setdefault(dec["p"], []).append((ex, rec, rej, ex_fv))
         prior.append(dec)
     if plan:
@@ -1086,6 +1091,42 @@ def main() -> None:
         "recipe event under the pre-registered condition.",
     )
     ap.add_argument(
+        "--pay-labels",
+        default=None,
+        help="M10 R5 (ADR-0075/0082): certified payment evalset dir — "
+        "class-CE supervised aux on the pay head at the banked observe "
+        "windows (the seq-batch pattern; the ONLY pay training signal "
+        "under --pay-pg-mask). NEVER point this at the holdout.",
+    )
+    ap.add_argument(
+        "--pay-observe",
+        default=None,
+        help="observe-frames dir for --pay-labels (post-boundary sv=2 "
+        "frames: observe-jobs.jsonl + observe-certout.jsonl + "
+        "observe-lane-*.obs.zst)",
+    )
+    ap.add_argument("--paylab-frac", type=float, default=0.0,
+                    help="target share of PG loss magnitude for the pay-label "
+                    "term (w_paylab calibration, the w_seq pattern)")
+    ap.add_argument("--paylab-w", type=float, default=0.0,
+                    help="explicit w_paylab (skips calibration)")
+    ap.add_argument("--paylab-calib-steps", type=int, default=50)
+    ap.add_argument(
+        "--seed-labels",
+        default=None,
+        help="M10 R5: minted best-arm seed labels (seed_sched_labels.py) — "
+        "decode-CE enrichment at the certified sweep windows (era-asset)",
+    )
+    ap.add_argument(
+        "--seed-store",
+        default=None,
+        help="the ceiling census store the seed labels rejoin against",
+    )
+    ap.add_argument("--seedlab-frac", type=float, default=0.0,
+                    help="target share of PG loss magnitude for the seed term")
+    ap.add_argument("--seedlab-w", type=float, default=0.0)
+    ap.add_argument("--seedlab-calib-steps", type=int, default=50)
+    ap.add_argument(
         "--seq-margin",
         type=float,
         default=6.0,
@@ -1228,6 +1269,16 @@ def main() -> None:
                 "sched_w",
                 "sched_calib_steps",
                 "pay_pg_mask",
+                "pay_labels",
+                "pay_observe",
+                "paylab_frac",
+                "paylab_w",
+                "paylab_calib_steps",
+                "seed_labels",
+                "seed_store",
+                "seedlab_frac",
+                "seedlab_w",
+                "seedlab_calib_steps",
                 "traj_per_step",
                 "gamma",
                 "rho_bar",
@@ -1306,6 +1357,68 @@ def main() -> None:
                 f"({seq['n_cast_target']} specific-cast, {seq['n_mass']} mass-fallback; "
                 f"mean |adv| {seq['mean_abs_adv']:.4f})"
             )
+    # ---- M10 R5 pay-label batch (ADR-0075/0082): built once per invocation
+    # from the certified evalset + banked observe frames; class-CE applied
+    # every optimizer step (the seq-batch cadence). The holdout is a
+    # different directory and NEVER ingests. ----
+    if bool(args.pay_labels) != bool(args.pay_observe):
+        raise SystemExit("--pay-labels and --pay-observe go together")
+    paylab = None
+    w_paylab: float | None = args.paylab_w if args.paylab_w > 0 else None
+    if args.pay_labels:
+        import glob as _glob
+
+        from anvil.bridge.featurize import Featurizer as _Feat
+        from anvil.training.paylabels import build_pay_batch
+
+        if "holdout" in str(args.pay_labels):
+            raise SystemExit("--pay-labels points at a holdout dir — refused "
+                             "(the holdout is the generalization read)")
+        ob = args.pay_observe
+        paylab = build_pay_batch(
+            args.pay_labels,
+            f"{ob}/observe-jobs.jsonl",
+            f"{ob}/observe-certout.jsonl",
+            sorted(_glob.glob(f"{ob}/observe-lane-*.obs.zst")),
+            _Feat(cfg["embed"], methods),
+        )
+        if paylab is None:
+            print("[rl] WARNING: pay labels joined ZERO windows — pay-label term OFF this run")
+        else:
+            print(
+                f"[rl] pay-label batch: {paylab['n']} windows "
+                f"({paylab['n_pos']} positive / {paylab['n_auto']} auto; "
+                f"miss {paylab['miss']}, option_mismatch {paylab['option_mismatch']})"
+            )
+    if bool(args.seed_labels) != bool(args.seed_store):
+        raise SystemExit("--seed-labels and --seed-store go together")
+    seedlab = None
+    w_seedlab: float | None = args.seedlab_w if args.seedlab_w > 0 else None
+    if args.seed_labels:
+        from anvil.bridge.featurize import Featurizer as _Feat2
+        from anvil.training.seedlabels import build_seed_batch
+
+        seedlab = build_seed_batch(
+            args.seed_labels, args.seed_store, _Feat2(cfg["embed"], methods)
+        )
+        if seedlab is None:
+            print("[rl] WARNING: seed labels joined ZERO windows — seed term OFF this run")
+        else:
+            print(
+                f"[rl] seed-label batch: {seedlab['n']} certified emission windows "
+                f"(miss {seedlab['miss']}, unmatched {seedlab['unmatched']}, "
+                f"era {seedlab['era']})"
+            )
+    seedlab_calib_steps = 0
+    seedlab_calib_pg = 0.0
+    seedlab_calib_traj = 0
+    seedlab_share_raw = seedlab_share_pg = 0.0
+    seedlab_share_traj = seedlab_share_steps = 0
+    paylab_calib_steps = 0
+    paylab_calib_pg = 0.0
+    paylab_calib_traj = 0
+    paylab_share_raw = paylab_share_pg = 0.0
+    paylab_share_traj = paylab_share_steps = 0
     calib_pg = 0.0
     calib_traj = 0
     calib_steps = 0
@@ -1606,6 +1719,20 @@ def main() -> None:
                 sched_share_raw += abs(traj_sched)
                 sched_share_pg += abs(traj_pg)
                 sched_share_traj += 1
+        if paylab is not None:
+            if w_paylab is None:
+                paylab_calib_pg += abs(traj_pg)
+                paylab_calib_traj += 1
+            else:
+                paylab_share_pg += abs(traj_pg)
+                paylab_share_traj += 1
+        if seedlab is not None:
+            if w_seedlab is None:
+                seedlab_calib_pg += abs(traj_pg)
+                seedlab_calib_traj += 1
+            else:
+                seedlab_share_pg += abs(traj_pg)
+                seedlab_share_traj += 1
 
         if n_traj % args.traj_per_step == 0:
             # ---- C-seq step (ADR-0054): calibrate w_seq over the first
@@ -1692,6 +1819,72 @@ def main() -> None:
                         json.dumps(cal, indent=1) + "\n"
                     )
                     print(f"[rl] w_sched calibrated: {cal}")
+            # ---- M10 R5 pay-label term: calibrate w_paylab (the w_seq
+            # pattern — measure raw class-CE once at calib end), then apply
+            # the fixed batch every optimizer step ----
+            if paylab is not None:
+                from anvil.training.paylabels import pay_pass
+
+                if w_paylab is None:
+                    paylab_calib_steps += 1
+                    if paylab_calib_steps >= args.paylab_calib_steps and paylab_calib_traj:
+                        raw, rp, ra = pay_pass(
+                            net, paylab["segs"], forward_segments, 0.0, grad=False
+                        )
+                        mean_pg = paylab_calib_pg / max(paylab_calib_traj, 1)
+                        w_paylab = args.paylab_frac * mean_pg / max(abs(raw), 1e-4)
+                        cal = {
+                            "w_paylab": w_paylab,
+                            "paylab_frac": args.paylab_frac,
+                            "mean_abs_pg_per_traj": mean_pg,
+                            "paylab_raw_at_calib": raw,
+                            "paylab_pos_at_calib": rp,
+                            "paylab_auto_at_calib": ra,
+                            "calib_steps": paylab_calib_steps,
+                            "calib_traj": paylab_calib_traj,
+                            "n_windows": paylab["n"],
+                            "evalset": paylab["evalset"],
+                        }
+                        (out_dir / "paylab_calibration.json").write_text(
+                            json.dumps(cal, indent=1) + "\n"
+                        )
+                        print(f"[rl] w_paylab calibrated: {cal}")
+                else:
+                    raw, rp, ra = pay_pass(
+                        net, paylab["segs"], forward_segments, w_paylab, grad=True
+                    )
+                    acc["paylab_raw"] = acc.get("paylab_raw", 0.0) + raw
+                    acc["paylab_pos"] = acc.get("paylab_pos", 0.0) + rp
+                    acc["paylab_auto"] = acc.get("paylab_auto", 0.0) + ra
+                    paylab_share_raw += raw
+                    paylab_share_steps += 1
+            if seedlab is not None:
+                from anvil.training.seedlabels import seed_pass
+
+                if w_seedlab is None:
+                    seedlab_calib_steps += 1
+                    if seedlab_calib_steps >= args.seedlab_calib_steps and seedlab_calib_traj:
+                        raw = seed_pass(net, seedlab["segs"], forward_segments, 0.0, grad=False)
+                        mean_pg = seedlab_calib_pg / max(seedlab_calib_traj, 1)
+                        w_seedlab = args.seedlab_frac * mean_pg / max(abs(raw), 1e-4)
+                        cal = {
+                            "w_seedlab": w_seedlab,
+                            "seedlab_frac": args.seedlab_frac,
+                            "mean_abs_pg_per_traj": mean_pg,
+                            "seedlab_raw_at_calib": raw,
+                            "calib_steps": seedlab_calib_steps,
+                            "calib_traj": seedlab_calib_traj,
+                            "n_windows": seedlab["n"],
+                        }
+                        (out_dir / "seedlab_calibration.json").write_text(
+                            json.dumps(cal, indent=1) + "\n"
+                        )
+                        print(f"[rl] w_seedlab calibrated: {cal}")
+                else:
+                    raw = seed_pass(net, seedlab["segs"], forward_segments, w_seedlab, grad=True)
+                    acc["seedlab_raw"] = acc.get("seedlab_raw", 0.0) + raw
+                    seedlab_share_raw += raw
+                    seedlab_share_steps += 1
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             opt.step()
             opt.zero_grad(set_to_none=True)
@@ -1731,6 +1924,24 @@ def main() -> None:
                     )
                 sched_share_raw = sched_share_pg = 0.0
                 sched_share_traj = 0
+                paylab_share = None
+                if (paylab is not None and w_paylab and paylab_share_steps
+                        and paylab_share_traj and paylab_share_pg > 0):
+                    paylab_share = round(
+                        w_paylab * abs(paylab_share_raw / paylab_share_steps)
+                        / (paylab_share_pg / paylab_share_traj), 5,
+                    )
+                paylab_share_raw = paylab_share_pg = 0.0
+                paylab_share_traj = paylab_share_steps = 0
+                seedlab_share = None
+                if (seedlab is not None and w_seedlab and seedlab_share_steps
+                        and seedlab_share_traj and seedlab_share_pg > 0):
+                    seedlab_share = round(
+                        w_seedlab * abs(seedlab_share_raw / seedlab_share_steps)
+                        / (seedlab_share_pg / seedlab_share_traj), 5,
+                    )
+                seedlab_share_raw = seedlab_share_pg = 0.0
+                seedlab_share_traj = seedlab_share_steps = 0
                 row = {
                     "step": step,
                     "traj": n_traj,
@@ -1744,6 +1955,12 @@ def main() -> None:
                     **({"plan_share": plan_share} if plan_share is not None else {}),
                     **({"w_sched": round(w_sched, 6)} if args.sched and w_sched is not None else {}),
                     **({"sched_share": sched_share} if sched_share is not None else {}),
+                    **({"w_paylab": round(w_paylab, 6)}
+                       if paylab is not None and w_paylab is not None else {}),
+                    **({"paylab_share": paylab_share} if paylab_share is not None else {}),
+                    **({"w_seedlab": round(w_seedlab, 6)}
+                       if seedlab is not None and w_seedlab is not None else {}),
+                    **({"seedlab_share": seedlab_share} if seedlab_share is not None else {}),
                     **(
                         {
                             "sched_rms": round(

@@ -608,6 +608,8 @@ def guard_flags(
     seq_share_max: float | None = None,
     plan_share_max: float | None = None,
     sched_share_max: float | None = None,
+    paylab_share_max: float | None = None,
+    seedlab_share_max: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -636,6 +638,12 @@ def guard_flags(
     if sched_share_max is not None and scs is not None and scs > sched_share_max:
         # M10 v2 twin (same ADR-0057 invariant)
         flags.append(f"guard: sched_share {scs} > {sched_share_max}")
+    pls = m.get("paylab_share")
+    if paylab_share_max is not None and pls is not None and pls > paylab_share_max:
+        flags.append(f"guard: paylab_share {pls} > {paylab_share_max}")
+    sls = m.get("seedlab_share")
+    if seedlab_share_max is not None and sls is not None and sls > seedlab_share_max:
+        flags.append(f"guard: seedlab_share {sls} > {seedlab_share_max}")
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
         if ent is not None and ent0 and ent > ent_mult * ent0:
@@ -704,6 +712,12 @@ def _rl_summary(train_dir: Path) -> dict:
         "sched_e",
         "sched_r",
         "sched_share",
+        "paylab_raw",
+        "paylab_pos",
+        "paylab_auto",
+        "paylab_share",
+        "seedlab_raw",
+        "seedlab_share",
     ):
         vals = [r[k] for r in rows if k in r]
         if vals:
@@ -853,6 +867,51 @@ def main() -> None:
         help="the PINNED fixed population for the per-iteration v2 "
         "sched-reliance readout (fresh graft-era generation, seed base "
         "20530827; day-zero presence floor banked on it)",
+    )
+    ap.add_argument(
+        "--pay-labels",
+        default=None,
+        help="M10 R5: certified payment evalset dir for the supervised "
+        "class-CE aux (ADR-0075/0082) — with --sched this is the pay "
+        "head's only training signal (PG mask). Never the holdout dir.",
+    )
+    ap.add_argument(
+        "--pay-observe",
+        default=None,
+        help="observe-frames dir for --pay-labels (post-boundary sv=2)",
+    )
+    ap.add_argument("--paylab-frac", type=float, default=0.1,
+                    help="target pay-label share of PG mass (w_paylab calibration)")
+    ap.add_argument(
+        "--paylab-carry-w",
+        action="store_true",
+        help="carry iteration-0's w_paylab for the whole run (the "
+        "--plan-carry-w twin)",
+    )
+    ap.add_argument(
+        "--guard-paylab-share",
+        type=float,
+        default=0.3,
+        help="halt if the iteration-mean paylab_share exceeds this",
+    )
+    ap.add_argument(
+        "--seed-labels",
+        default=None,
+        help="M10 R5: minted best-arm seed labels (decode-CE enrichment)",
+    )
+    ap.add_argument(
+        "--seed-store",
+        default=None,
+        help="the ceiling census store the seed labels rejoin against",
+    )
+    ap.add_argument("--seedlab-frac", type=float, default=0.05,
+                    help="target seed-label share of PG mass (below the dense "
+                    "decode term's 0.1 — enrichment, not replacement)")
+    ap.add_argument(
+        "--guard-seedlab-share",
+        type=float,
+        default=0.15,
+        help="halt if the iteration-mean seedlab_share exceeds this (3x target)",
     )
     ap.add_argument("--ent-weight", type=float, default=3e-3)
     ap.add_argument(
@@ -1375,6 +1434,35 @@ def main() -> None:
                         if args.sched
                         else []
                     ),
+                    # M10 R5: the supervised conditional pay labels (the pay
+                    # head's only signal under the PG mask)
+                    *(
+                        [
+                            "--pay-labels",
+                            args.pay_labels,
+                            "--pay-observe",
+                            args.pay_observe,
+                            *(
+                                ["--paylab-w", str(state["paylab_w"])]
+                                if state.get("paylab_w")
+                                else ["--paylab-frac", str(args.paylab_frac)]
+                            ),
+                        ]
+                        if args.pay_labels
+                        else []
+                    ),
+                    *(
+                        [
+                            "--seed-labels",
+                            args.seed_labels,
+                            "--seed-store",
+                            args.seed_store,
+                            "--seedlab-frac",
+                            str(args.seedlab_frac),
+                        ]
+                        if args.seed_labels
+                        else []
+                    ),
                     "--ent-weight",
                     str(args.ent_weight),
                     "--ent-floor",
@@ -1472,6 +1560,8 @@ def main() -> None:
             seq_share_max=args.guard_seq_share,
             plan_share_max=args.guard_plan_share if args.plan else None,
             sched_share_max=args.guard_sched_share if args.sched else None,
+            paylab_share_max=args.guard_paylab_share if args.pay_labels else None,
+            seedlab_share_max=args.guard_seedlab_share if args.seed_labels else None,
         )
         row = {
             "iteration": k,
@@ -1611,6 +1701,11 @@ def main() -> None:
         if args.sched_carry_w and args.sched and "sched_w" not in state and scal_path.exists():
             state["sched_w"] = json.loads(scal_path.read_text())["w_sched"]
             print(f"[selfplay] w_sched calibrated at run start: {state['sched_w']:.6g} (carried)")
+        plcal_path = train_dir / "paylab_calibration.json"
+        if (args.paylab_carry_w and args.pay_labels and "paylab_w" not in state
+                and plcal_path.exists()):
+            state["paylab_w"] = json.loads(plcal_path.read_text())["w_paylab"]
+            print(f"[selfplay] w_paylab calibrated at run start: {state['paylab_w']:.6g} (carried)")
         # ---- D6 KILL SIGNAL (spec §7, recipe-session numerics): from the
         # 4th ACCEPTED iteration, if the carry has never flipped ≥0.5% of
         # carried argmax decisions AND the aux act-BCE has plateaued
