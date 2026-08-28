@@ -607,6 +607,7 @@ def guard_flags(
     casts_floor: float = 0.8,
     seq_share_max: float | None = None,
     plan_share_max: float | None = None,
+    sched_share_max: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -631,6 +632,10 @@ def guard_flags(
         # the D6 twin of the seq-share guard: the aux term outgrowing its
         # calibrated weight precedes the kl symptom
         flags.append(f"guard: plan_share {ps} > {plan_share_max}")
+    scs = m.get("sched_share")
+    if sched_share_max is not None and scs is not None and scs > sched_share_max:
+        # M10 v2 twin (same ADR-0057 invariant)
+        flags.append(f"guard: sched_share {scs} > {sched_share_max}")
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
         if ent is not None and ent0 and ent > ent_mult * ent0:
@@ -695,6 +700,10 @@ def _rl_summary(train_dir: Path) -> dict:
         "plan_act",
         "plan_delta",
         "plan_share",
+        "sched_ce",
+        "sched_e",
+        "sched_r",
+        "sched_share",
     ):
         vals = [r[k] for r in rows if k in r]
         if vals:
@@ -806,6 +815,37 @@ def main() -> None:
         default="data/trajectories/d6-run18-i000-20260821-205317",
         help="the PINNED fixed population for the per-iteration reliance "
         "readout (comparable series; day-zero banked on it)",
+    )
+    ap.add_argument(
+        "--sched",
+        action="store_true",
+        help="M10 v2 schedule surface (m10-build-spec): serve the discrete "
+        "schedule carry (sched-grafted ckpt), train the decode/E/R aux "
+        "term, PG-mask payment windows (staged mask from birth).",
+    )
+    ap.add_argument("--sched-lr", type=float, default=1e-3,
+                    help="lr group for the sched decode/E/R heads")
+    ap.add_argument(
+        "--sched-proj-lr",
+        type=float,
+        default=1e-4,
+        help="lr for the slot-token input path (assemble.sched_*) — the "
+        "run20 iter-0 lesson applied from FIRST launch (guard posture pin)",
+    )
+    ap.add_argument("--sched-frac", type=float, default=0.1,
+                    help="target aux share of PG mass (w_sched calibration)")
+    ap.add_argument(
+        "--sched-carry-w",
+        action="store_true",
+        help="carry iteration-0's w_sched for the whole run (the "
+        "--plan-carry-w twin; ADR-0057 default = per-iteration recalib)",
+    )
+    ap.add_argument(
+        "--guard-sched-share",
+        type=float,
+        default=0.3,
+        help="halt if the iteration-mean sched_share exceeds this (the "
+        "plan-share guard twin)",
     )
     ap.add_argument("--ent-weight", type=float, default=3e-3)
     ap.add_argument(
@@ -1308,6 +1348,26 @@ def main() -> None:
                         if args.plan
                         else []
                     ),
+                    # M10 v2 schedule surface (m10-build-spec): decode/E/R
+                    # aux + discrete carry + the PG staged pay mask, from
+                    # birth; w_sched carried via loop_state like w_plan
+                    *(
+                        [
+                            "--sched",
+                            "--pay-pg-mask",
+                            "--sched-lr",
+                            str(args.sched_lr),
+                            "--sched-proj-lr",
+                            str(args.sched_proj_lr),
+                            *(
+                                ["--sched-w", str(state["sched_w"])]
+                                if state.get("sched_w")
+                                else ["--sched-frac", str(args.sched_frac)]
+                            ),
+                        ]
+                        if args.sched
+                        else []
+                    ),
                     "--ent-weight",
                     str(args.ent_weight),
                     "--ent-floor",
@@ -1404,6 +1464,7 @@ def main() -> None:
             casts_floor=args.guard_casts_floor,
             seq_share_max=args.guard_seq_share,
             plan_share_max=args.guard_plan_share if args.plan else None,
+            sched_share_max=args.guard_sched_share if args.sched else None,
         )
         row = {
             "iteration": k,
@@ -1510,6 +1571,10 @@ def main() -> None:
         if args.plan_carry_w and args.plan and "plan_w" not in state and pcal_path.exists():
             state["plan_w"] = json.loads(pcal_path.read_text())["w_plan"]
             print(f"[selfplay] w_plan calibrated at run start: {state['plan_w']:.6g} (carried)")
+        scal_path = train_dir / "sched_calibration.json"
+        if args.sched_carry_w and args.sched and "sched_w" not in state and scal_path.exists():
+            state["sched_w"] = json.loads(scal_path.read_text())["w_sched"]
+            print(f"[selfplay] w_sched calibrated at run start: {state['sched_w']:.6g} (carried)")
         # ---- D6 KILL SIGNAL (spec §7, recipe-session numerics): from the
         # 4th ACCEPTED iteration, if the carry has never flipped ≥0.5% of
         # carried argmax decisions AND the aux act-BCE has plateaued

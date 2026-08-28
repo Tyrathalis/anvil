@@ -89,10 +89,12 @@ class (the ingestion fork's deciding argument 3).
 - **E head:** MLP on `out[:,1]` ([PLAN] readout — R1 continuity) → 7
   regression axes (`untapped_total, chained, untapped_{W,U,B,R,G}`,
   the `v2_target_probe._e_axes` definition verbatim).
-- **R head:** MLP on the SLOT TOKEN OUTPUTS (per filled slot) → 2 axes
-  (`untapped_after`, `afford_after`) — the per-slot ledger reads from
-  the slot's own trunk position (the pointer-grounded version of the
-  probe's slot-index feature).
+- **R head:** MLP on the per-step DECODER STATE ⊕ picked-candidate vec
+  → 2 axes (`untapped_after`, `afford_after`). *(Corrected from the
+  draft's "slot token outputs" during R1: the probe defined R as an
+  EMISSION-WINDOW prediction — anticipate the ledger at planning time —
+  and slot tokens do not exist at the emission window; the decoder
+  state per teacher-forced step is the faithful read point.)*
 - **Payment:** no new head — the M9 pay surface (`pay_bias`,
   `pay_kind_emb`, pointer) IS the head; it returns to the graft
   (iter-019 carries no pay params ⇒ fresh at the pinned init, the

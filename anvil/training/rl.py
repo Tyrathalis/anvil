@@ -337,6 +337,15 @@ def rejected_events(
 PLAN_DELTA_AXES = ("own_life", "opp_life", "own_hand", "own_board", "own_creatures", "own_power")
 PLAN_DELTA_CLAMP = 20.0  # clips at birth (ADR-0056 genre)
 
+# M10 v2 target-construction accounting (sched_targets.sched_annotate):
+# emit / slots / unmatched — the learner logs it per flush; unmatched =
+# realized actions absent from the emission window's candidate set (drawn
+# mid-turn, untapped-later abilities), dropped from the decode target and
+# COUNTED, never silent
+SCHED_COUNTERS: dict = {}
+
+PAY_TASK = TASKS["pay_class"]
+
 
 def _plan_axes(obs: dict, seat: int) -> dict:
     """End-of-turn delta axes (m9-d6-plan-latent-spec §5, target c) — the
@@ -405,7 +414,7 @@ def _plan_annotate(traj, by_seat: dict, feat) -> None:
 
 def game_trajectories(
     store, feat, g: int, full_vis: bool = False, penalty_grouping: str = "first",
-    plan: bool = False,
+    plan: bool = False, sched: bool = False,
 ):
     """Per-seat mu-covered trajectories of one stored game, serve-identical
     windows via the featurizer path (store_wire_hist -> Featurizer.example ->
@@ -455,10 +464,26 @@ def game_trajectories(
             if plan:
                 ex["_plan_turn"] = dec.get("t", 0)
                 ex["_plan_axes"] = _plan_axes(dec["obs"], dec["p"])
+            if sched:
+                # M10 v2 (m10-build-spec §4): loader-private marks for the
+                # target annotation pass + the discrete-carry conditioning,
+                # read VERBATIM from the mu record (bit-exact by construction)
+                from anvil.training.sched_targets import sched_cond_tensors
+
+                ex["_sched_turn"] = dec.get("t", 0)
+                ex["_dec_idx"] = len(prior)
+                ex["_task_name"] = rec["task"]
+                ex["_aux"] = aux
+                if rec.get("sched"):
+                    ex.update(sched_cond_tensors(rec["sched"], aux["row_of"]))
             by_seat.setdefault(dec["p"], []).append((ex, rec, rej, ex_fv))
         prior.append(dec)
     if plan:
         _plan_annotate(traj, by_seat, feat)
+    if sched:
+        from anvil.training.sched_targets import sched_annotate
+
+        sched_annotate(traj, by_seat, SCHED_COUNTERS)
     return [
         (
             p,
@@ -552,6 +577,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         seg: int = 256,
         penalty_grouping: str = "first",
         plan: bool = False,
+        sched: bool = False,
     ):
         self.stores = stores
         self.weights = weights
@@ -562,6 +588,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         self.full_vis = full_vis
         self.penalty_grouping = penalty_grouping
         self.plan = plan
+        self.sched = sched
         # Collate WORKER-SIDE at exactly the learner's seg size (2026-07-26).
         # Yielding per-window example dicts shipped ~20 tensors x hundreds of
         # windows x2 (masked + fv) through the DataLoader's shm+pickle path for
@@ -594,6 +621,11 @@ class RlTrajectories(torch.utils.data.IterableDataset):
             for si, g in schedule:
                 if (g * 2654435761 + si) % nw != wid:
                     continue
+                # SCHED_COUNTERS accumulates in THIS (worker) process; the
+                # learner only sees what rides the item — ship per-game
+                # deltas (found at the R2 integration smoke: --workers > 0
+                # left the learner-side dict empty)
+                snap = dict(SCHED_COUNTERS) if self.sched else None
                 trajs, skip = game_trajectories(
                     opened[si],
                     feat,
@@ -601,6 +633,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                     full_vis=self.full_vis,
                     penalty_grouping=self.penalty_grouping,
                     plan=self.plan,
+                    sched=self.sched,
                 )
                 if skip is not None:
                     yield {"skip": skip, "g": g}
@@ -614,6 +647,11 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                 # tripwire recompute must use it; per-store because replay
                 # mixtures may span runs at different temperatures
                 mu_tau = (st.mu_meta or {}).get("temperature", 1.0)
+                sched_delta = (
+                    {k: SCHED_COUNTERS.get(k, 0) - snap.get(k, 0) for k in SCHED_COUNTERS}
+                    if self.sched
+                    else None
+                )
                 for seat, exs, reward, rej, exs_fv in trajs:
                     plain = [e for e, _ in exs]
                     n = max(1, self.seg)
@@ -647,11 +685,55 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                             s["plan_act_tgt"] = act
                             s["plan_delta_tgt"] = delta
                             s["plan_delta_valid"] = dvalid
+                    if self.sched:
+                        # M10 v2 side tensors (the same post-collate pattern;
+                        # m10-build-spec §4): sched_tgt rides IN the collated
+                        # batch (forward's teacher-forced decode reads it),
+                        # E/R targets ride beside
+                        from anvil.training.dataset import SCHED_CAP
+
+                        for s, i in zip(segs, range(0, len(plain), n)):
+                            chunk = plain[i : i + n]
+                            T = len(chunk)
+                            emit = torch.tensor(
+                                [bool(e.get("_sched_emit")) for e in chunk]
+                            )
+                            tgt_full = torch.full(
+                                (T, SCHED_CAP + 1), -1, dtype=torch.int64
+                            )
+                            e_tgt = torch.zeros(T, 7)
+                            e_valid = torch.zeros(T, dtype=torch.bool)
+                            r_tgt = torch.zeros(T, SCHED_CAP, 2)
+                            r_valid = torch.zeros(T, SCHED_CAP, dtype=torch.bool)
+                            for j, e in enumerate(chunk):
+                                if "_sched_tgt" in e:
+                                    tgt_full[j] = e["_sched_tgt"]
+                                if "_sched_e_tgt" in e:
+                                    e_tgt[j] = torch.tensor(e["_sched_e_tgt"])
+                                    e_valid[j] = True
+                                if "_sched_r_tgt" in e:
+                                    r_tgt[j] = e["_sched_r_tgt"]
+                                    r_valid[j] = e["_sched_r_valid"]
+                            s["sched_emit"] = emit
+                            # forward()'s decode consumes the first CAP steps
+                            s["sched_tgt"] = tgt_full[:, :SCHED_CAP]
+                            s["sched_tgt_full"] = tgt_full
+                            s["sched_e_tgt"] = e_tgt
+                            s["sched_e_valid"] = e_valid
+                            s["sched_r_tgt"] = r_tgt
+                            s["sched_r_valid"] = r_valid
                     yield {
                         "g": g,
                         "seat": seat,
                         "reward": reward,
                         "t_len": len(plain),
+                        # per-game accounting delta rides the FIRST seat's
+                        # item only (two seats per game — no double count)
+                        **(
+                            {"sched_counters": sched_delta}
+                            if sched_delta is not None and seat == min(s for s, *_ in trajs)
+                            else {}
+                        ),
                         "segs": segs,
                         "segs_fv": [collate(exs_fv[i : i + n]) for i in range(0, len(exs_fv), n)],
                         # mu_step: which checkpoint generated these mu
@@ -954,6 +1036,53 @@ def main() -> None:
         "starvation compensation; default = --plan-lr",
     )
     ap.add_argument(
+        "--sched",
+        action="store_true",
+        help="M10 v2 schedule surface (m10-build-spec): discrete-carry slot "
+        "tokens (read verbatim from mu sched fields when present) + the "
+        "decode/E/R aux term at emission rows. Off = byte-identical to "
+        "pre-M10.",
+    )
+    ap.add_argument(
+        "--sched-frac",
+        type=float,
+        default=0.0,
+        help="target share of PG loss magnitude for the sched-aux term "
+        "(w_sched calibrated over --sched-calib-steps — the w_plan "
+        "pattern verbatim)",
+    )
+    ap.add_argument(
+        "--sched-w",
+        type=float,
+        default=0.0,
+        help="explicit w_sched (skips calibration)",
+    )
+    ap.add_argument("--sched-calib-steps", type=int, default=50)
+    ap.add_argument(
+        "--sched-lr",
+        type=float,
+        default=None,
+        help="separate lr for the sched heads (sched_ decode/E/R params) — "
+        "the starved-fresh-param arithmetic (build spec pins 1e-3)",
+    )
+    ap.add_argument(
+        "--sched-proj-lr",
+        type=float,
+        default=None,
+        help="separate (slower) lr for the slot-token input path "
+        "(assemble.sched_*) — dense PG gradient at every carried window; "
+        "the run20 iter-0 lesson applied FROM FIRST LAUNCH (guard "
+        "posture pin: 1e-4); default = --sched-lr",
+    )
+    ap.add_argument(
+        "--pay-pg-mask",
+        action="store_true",
+        help="M10 PG staged mask: payment (pay_class) windows contribute no "
+        "policy gradient — advantage-masked, labels untouched (tripwire-"
+        "safe). ON in the sched recipe from birth; unmask is a recorded "
+        "recipe event under the pre-registered condition.",
+    )
+    ap.add_argument(
         "--seq-margin",
         type=float,
         default=6.0,
@@ -1044,6 +1173,14 @@ def main() -> None:
         groups.append(("plan_", args.plan_lr))
         groups.append(("assemble.plan_proj", args.plan_proj_lr
                        if args.plan_proj_lr is not None else args.plan_lr))
+    if args.sched_lr is not None:
+        # M10 v2: the same split — decode/E/R heads at the starved-param lr,
+        # the slot-token input path (proj + embeddings, ALL densely fed
+        # through attention at every carried window) at the slower group
+        # from FIRST launch (the run20 iter-0 class, pinned guard posture)
+        groups.append(("sched_", args.sched_lr))
+        groups.append(("assemble.sched_", args.sched_proj_lr
+                       if args.sched_proj_lr is not None else args.sched_lr))
     if not groups:
         opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd)
     else:
@@ -1081,6 +1218,13 @@ def main() -> None:
                 "plan_frac",
                 "plan_w",
                 "plan_calib_steps",
+                "sched",
+                "sched_lr",
+                "sched_proj_lr",
+                "sched_frac",
+                "sched_w",
+                "sched_calib_steps",
+                "pay_pg_mask",
                 "traj_per_step",
                 "gamma",
                 "rho_bar",
@@ -1120,6 +1264,7 @@ def main() -> None:
         seg=args.seg,
         penalty_grouping=args.penalty_grouping,
         plan=args.plan,
+        sched=args.sched,
     )
     loader = torch.utils.data.DataLoader(
         ds,
@@ -1175,6 +1320,18 @@ def main() -> None:
     plan_calib_steps = 0
     plan_share_raw = plan_share_pg = 0.0
     plan_share_traj = 0
+    # M10 v2 sched-aux calibration/telemetry — the identical ADR-0057
+    # discipline (w_sched calibrated over the first --sched-calib-steps,
+    # sched_share measured continuously, driver guards on the mean)
+    w_sched = None
+    if args.sched:
+        w_sched = args.sched_w if args.sched_w else (None if args.sched_frac else 0.0)
+    sched_calib_raw = 0.0
+    sched_calib_pg = 0.0
+    sched_calib_traj = 0
+    sched_calib_steps = 0
+    sched_share_raw = sched_share_pg = 0.0
+    sched_share_traj = 0
     kl_aborted = False
 
     # step continues from the init checkpoint: monotonic across the whole
@@ -1222,6 +1379,8 @@ def main() -> None:
         if "skip" in item:
             skips[item["skip"]] = skips.get(item["skip"], 0) + 1
             continue
+        for k, v in (item.get("sched_counters") or {}).items():
+            SCHED_COUNTERS[k] = SCHED_COUNTERS.get(k, 0) + v
         segs, mu_logp, reward = item["segs"], item["mu_logp"], item["reward"]
         t_len = item["t_len"]
         if t_len == 0:
@@ -1307,12 +1466,21 @@ def main() -> None:
         off = 0
         traj_pg = 0.0
         traj_plan = 0.0
+        traj_sched = 0.0
         for seg, fwd in forward_segments(net, segs, grad=True):
             b = seg["label"].shape[0]
             adv = pg_adv[off : off + b].to(dev)
             tgt = vs[off : off + b].clamp(0.0, 1.0).to(dev)
             lp = composite_logp(fwd, seg)["logp"]
             ent = composite_entropy(fwd, seg)
+            if args.pay_pg_mask:
+                # M10 PG staged mask (m10-build-spec §4, route 1): payment
+                # windows contribute NO policy gradient — the advantage is
+                # masked, never the labels (label-zeroing would poison the
+                # mu-recompute tripwire, which shares composite_logp). The
+                # supervised conditional labels are the pay head's only
+                # training signal until the pre-registered unmask event.
+                lp = lp * (seg["task"] != PAY_TASK).float()
             pg_loss = -(adv * lp).sum() / t_len
             v_loss = (
                 F.binary_cross_entropy_with_logits(fwd["value_logit"].float(), tgt, reduction="sum")
@@ -1345,11 +1513,51 @@ def main() -> None:
                     traj_plan += float(plan_term.detach())
                     acc["plan_act"] = acc.get("plan_act", 0.0) + float(act_l.detach())
                     acc["plan_delta"] = acc.get("plan_delta", 0.0) + float(dl.detach())
+            # ---- M10 v2 sched-aux term (m10-build-spec §4): decode CE +
+            # E/R smooth-L1 at emission rows; targets clamped at birth
+            # (SCHED_AXIS_CLAMP); ADR-0057 discipline verbatim (measured
+            # during calibration, applied after) ----
+            sched_term = None
+            if args.sched:
+                fidx = seg["sched_emit"].nonzero(as_tuple=True)[0]
+                if fidx.numel() and "sched_logits" in fwd:
+                    ce = F.cross_entropy(
+                        fwd["sched_logits"][fidx].flatten(0, 1).float(),
+                        seg["sched_tgt_full"][fidx].flatten(0, 1),
+                        ignore_index=-1,
+                    )
+                    if torch.isnan(ce):  # every step padded (no supervision)
+                        ce = pg_loss.new_zeros(())
+                    ev = seg["sched_e_valid"][fidx]
+                    if ev.any():
+                        e_l = F.smooth_l1_loss(
+                            fwd["sched_e"][fidx][ev].float(),
+                            seg["sched_e_tgt"][fidx][ev],
+                            reduction="mean",
+                        )
+                    else:
+                        e_l = pg_loss.new_zeros(())
+                    rv = seg["sched_r_valid"][fidx]
+                    if rv.any():
+                        r_l = F.smooth_l1_loss(
+                            fwd["sched_r"][fidx][rv].float(),
+                            seg["sched_r_tgt"][fidx][rv],
+                            reduction="mean",
+                        )
+                    else:
+                        r_l = pg_loss.new_zeros(())
+                    sched_term = ce + e_l + r_l
+                    traj_sched += float(sched_term.detach())
+                    acc["sched_ce"] = acc.get("sched_ce", 0.0) + float(ce.detach())
+                    acc["sched_e"] = acc.get("sched_e", 0.0) + float(e_l.detach())
+                    acc["sched_r"] = acc.get("sched_r", 0.0) + float(r_l.detach())
             loss = (
                 pg_loss + args.value_weight * v_loss + args.ent_weight * ent_pen
             ) / args.traj_per_step
             if plan_term is not None and w_plan:
                 loss = loss + w_plan * plan_term / args.traj_per_step
+            if sched_term is not None and w_sched:
+                loss = loss + w_sched * sched_term / args.traj_per_step
             loss.backward()
             acc["pg"] = acc.get("pg", 0.0) + float(pg_loss)
             traj_pg += float(pg_loss)
@@ -1386,6 +1594,15 @@ def main() -> None:
                 plan_share_raw += abs(traj_plan)
                 plan_share_pg += abs(traj_pg)
                 plan_share_traj += 1
+        if args.sched:
+            if w_sched is None:
+                sched_calib_raw += abs(traj_sched)
+                sched_calib_pg += abs(traj_pg)
+                sched_calib_traj += 1
+            else:
+                sched_share_raw += abs(traj_sched)
+                sched_share_pg += abs(traj_pg)
+                sched_share_traj += 1
 
         if n_traj % args.traj_per_step == 0:
             # ---- C-seq step (ADR-0054): calibrate w_seq over the first
@@ -1453,6 +1670,25 @@ def main() -> None:
                         json.dumps(cal, indent=1) + "\n"
                     )
                     print(f"[rl] w_plan calibrated: {cal}")
+            if args.sched and w_sched is None and sched_calib_traj:
+                sched_calib_steps += 1
+                if sched_calib_steps >= args.sched_calib_steps:
+                    mean_pg = sched_calib_pg / max(sched_calib_traj, 1)
+                    raw = sched_calib_raw / max(sched_calib_traj, 1)
+                    w_sched = args.sched_frac * mean_pg / max(raw, 1e-4)
+                    cal = {
+                        "w_sched": w_sched,
+                        "sched_frac": args.sched_frac,
+                        "mean_abs_pg_per_traj": mean_pg,
+                        "sched_raw_at_calib": raw,
+                        "calib_steps": sched_calib_steps,
+                        "calib_traj": sched_calib_traj,
+                        "counters": dict(SCHED_COUNTERS),
+                    }
+                    (out_dir / "sched_calibration.json").write_text(
+                        json.dumps(cal, indent=1) + "\n"
+                    )
+                    print(f"[rl] w_sched calibrated: {cal}")
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             opt.step()
             opt.zero_grad(set_to_none=True)
@@ -1484,6 +1720,14 @@ def main() -> None:
                     )
                 plan_share_raw = plan_share_pg = 0.0
                 plan_share_traj = 0
+                sched_share = None
+                if args.sched and w_sched and sched_share_traj and sched_share_pg > 0:
+                    sched_share = round(
+                        w_sched * (sched_share_raw / sched_share_traj)
+                        / (sched_share_pg / sched_share_traj), 5,
+                    )
+                sched_share_raw = sched_share_pg = 0.0
+                sched_share_traj = 0
                 row = {
                     "step": step,
                     "traj": n_traj,
@@ -1495,6 +1739,21 @@ def main() -> None:
                     **({"seq_share": seq_share} if seq_share is not None else {}),
                     **({"w_plan": round(w_plan, 6)} if args.plan and w_plan is not None else {}),
                     **({"plan_share": plan_share} if plan_share is not None else {}),
+                    **({"w_sched": round(w_sched, 6)} if args.sched and w_sched is not None else {}),
+                    **({"sched_share": sched_share} if sched_share is not None else {}),
+                    **(
+                        {
+                            "sched_rms": round(
+                                float(
+                                    net.assemble.sched_proj.weight.detach()
+                                    .square().mean().sqrt()
+                                ), 6,
+                            ),
+                            "sched_counters": dict(SCHED_COUNTERS),
+                        }
+                        if args.sched
+                        else {}
+                    ),
                     **(
                         {
                             # the ADR-0069 pin-3 separator: "moved" vs "never

@@ -244,6 +244,9 @@ class Featurizer:
             "row_min_id": row_min_id,
             "stack_ids": stack_ids,
             "n_players": n_players,
+            # M10 v2 schedule surface: wire entity id -> obs row, for slot-
+            # token row resolution (serve carry + loader reconstruction)
+            "row_of": row_of,
             # combat answer translation (D5): candidate rows in example
             # order; members per row (sorted — first-fit expansion is the
             # multiset-tie convention); attacker slots; seats maps the

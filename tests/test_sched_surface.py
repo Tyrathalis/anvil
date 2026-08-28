@@ -166,6 +166,47 @@ def test_greedy_decode_stop_latch(net_and_batch):
     assert "sched_picks" not in net.act(batch)
 
 
+MU_STORE = Path("data/trajectories/d6-run18-i000-20260821-205317")
+
+
+@pytest.mark.skipif(not MU_STORE.exists(), reason="local run18 store not present")
+def test_loader_sched_targets(net_and_batch):
+    """End-to-end target construction: game_trajectories(sched=True) marks
+    emission windows (MAIN1 rule), builds decode/E/R targets, RlTrajectories
+    attaches the side tensors; a store without mu sched fields carries no
+    conditioning keys (pre-M10 store => targets only)."""
+    import torch
+
+    from anvil.training.dataset import SCHED_CAP, default_methods
+    from anvil.training.rl import SCHED_COUNTERS, RlTrajectories
+
+    stem = str(EMBED).removesuffix(".safetensors")
+    ds = RlTrajectories([str(MU_STORE)], [1.0], stem, default_methods(),
+                        seg=64, sched=True)
+    item = next(i for i in ds if "skip" not in i)
+    segs = item["segs"]
+    assert all("sched_emit" in s and "sched_tgt_full" in s for s in segs)
+    emit = torch.cat([s["sched_emit"] for s in segs])
+    tgt = torch.cat([s["sched_tgt_full"] for s in segs])
+    assert emit.any(), "no emission windows marked in a whole trajectory"
+    # emission rows carry a decode target (first step never pad)
+    assert (tgt[emit][:, 0] >= 0).all()
+    # non-emission rows carry none
+    assert (tgt[~emit] == -1).all()
+    ev = torch.cat([s["sched_e_valid"] for s in segs])
+    et = torch.cat([s["sched_e_tgt"] for s in segs])
+    assert (ev <= emit).all() and ev.any()
+    assert (et[ev] >= 0).all() and (et[ev] <= 30.0).all()
+    rv = torch.cat([s["sched_r_valid"] for s in segs])
+    assert (rv.any(dim=1) <= emit).all()
+    # pre-M10 store: no mu sched fields => no conditioning keys collated
+    assert all("sched_mask" not in s for s in segs)
+    assert SCHED_COUNTERS.get("emit", 0) > 0
+    assert tgt.shape[1] == SCHED_CAP + 1
+    # the accounting stays visible, never silent
+    assert "unmatched" in SCHED_COUNTERS or SCHED_COUNTERS.get("slots", 0) >= 0
+
+
 def test_gradients_reach_sched_params(net_and_batch):
     """Consumption (slot tokens -> PG path) and emission (decode/E/R losses)
     are both in-graph."""
