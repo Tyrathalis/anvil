@@ -1,4 +1,4 @@
-# M11-routing ceiling probes — tutor/fetch targets + resolution-effect payments (ADJUDICATED 2026-08-26; ENGINE DELTAS BUILT + PROVEN same day)
+# M11-routing ceiling probes — tutor/fetch targets + resolution-effect payments (RESOLVED 2026-08-27: BOTH RE-DEFER — [ADR-0080](../decisions/ADR-0080-m11-routing-probes.md); T 1.41pp/g, P 0.69pp/g vs the 2.2 bar; P's decline-cost 2.5pp/window already captured by the heuristic)
 
 *Design-round obligation 6 ([m10-plan.md](m10-plan.md)), funded by name
 at the 2026-08-25 scoping discussion: two session-scale ceiling

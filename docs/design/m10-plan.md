@@ -124,6 +124,13 @@ those competencies, it is building their substrate.
      IS the measured argument ADR-0077 requires before the item can be
      re-deferred a second time — the probe result either schedules it
      or re-defers it with the number attached.
+   **BOTH RESOLVED 2026-08-27
+   ([ADR-0080](../decisions/ADR-0080-m11-routing-probes.md)): RE-DEFER
+   with numbers — T 1.41pp/g [CI-lo −0.63] (per-arm flat; any value is
+   state-dependent selection priced under the bar), P 0.69pp/g
+   (decline costs 2.5pp/window but the heuristic already always-pays —
+   real stakes, no headroom). ADR-0077's re-deferral condition
+   satisfied; obligation 6 complete.**
 
 ## Scheduled in from the payment-completion queue (ADR-0077 routing)
 
