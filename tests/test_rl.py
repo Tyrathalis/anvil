@@ -444,3 +444,35 @@ def test_share_guard_reads_median_and_spike_trips_own_guard(tmp_path):
     flags = guard_flags({}, {"mean": {"kl_mu": 0.01, "sched_share": 0.45}}, None,
                         sched_share_max=0.3)
     assert len(flags) == 1 and "sched_share" in flags[0], flags
+
+
+def test_seedlab_spike_guard_ported(tmp_path):
+    """ADR-0086: with the own-emission decode CE retired, the confidence-
+    blowup tripline ports to the surviving CE term — seedlab trains on a
+    fixed certified batch, so a max/median blowup there is head divergence.
+    The retired sched_ce guard no-ops on post-0086 rows (key absent)."""
+    import json
+
+    from anvil.training.selfplay import _rl_summary
+
+    rows = [
+        {"step": i, "kl_mu": 0.01, "seedlab_share": 0.09, "seedlab_raw": 2.5}
+        for i in range(9)
+    ]
+    rows.append({"step": 9, "kl_mu": 0.01, "seedlab_share": 0.09, "seedlab_raw": 410.0})
+    with open(tmp_path / "metrics.jsonl", "w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    rl = _rl_summary(tmp_path)
+    assert rl["med"]["seedlab_raw"] == 2.5
+    assert rl["spike"]["seedlab_raw_max"] == 410.0
+    flags = guard_flags({}, rl, None, seedlab_share_max=0.3,
+                        seedlab_spike_mult=100.0, sched_spike_mult=100.0)
+    assert len(flags) == 1 and "seedlab_raw_max" in flags[0], flags
+    # under the mult: quiet
+    rows[-1]["seedlab_raw"] = 40.0
+    with open(tmp_path / "metrics.jsonl", "w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    assert guard_flags({}, _rl_summary(tmp_path), None, seedlab_share_max=0.3,
+                       seedlab_spike_mult=100.0) == []

@@ -114,10 +114,13 @@ MONITOR_SERIES = [
     # M10 v2 schedule surface (m10-build-spec §5, telemetry from birth):
     # consumption (reliance + shares), emission health (aux trends),
     # follow/deviation/revision accounting, ambition (pure hold)
-    ("rl.mean.sched_ce", "sched decode CE"),
+    ("rl.mean.sched_ce", "sched decode CE (pre-0086 runs only)"),
     ("rl.mean.sched_e", "sched E l1"),
     ("rl.mean.sched_r", "sched R l1"),
-    ("rl.mean.sched_share", "sched share"),
+    ("rl.mean.sched_share", "sched share (E/R only post-0086)"),
+    # ADR-0086: certified seed labels = the primary decode supervision
+    ("rl.mean.seedlab_raw", "seedlab decode CE (certified)"),
+    ("rl.mean.seedlab_share", "seedlab share"),
     ("sched_reliance.argmax_flip", "sched reliance flip"),
     ("sched_reliance.content_flip", "sched content flip (0 at day zero)"),
     ("sched_reliance.aux_ce", "sched holdout CE"),

@@ -321,6 +321,36 @@ Kill/FUND/unmask + read-protocol numerics PINNED PRE-DATA same session
 (ADR-0084; [m10-probe-numerics-draft.md](m10-probe-numerics-draft.md) =
 the statement of record). The training probe launches next.
 
+- **R7 (2026-08-29) — EMISSION GROUNDING, LANDED
+  ([ADR-0086](../decisions/ADR-0086-emission-grounding.md); executes the
+  [ADR-0085](../decisions/ADR-0085-m10-probe1-read.md) surgery after the
+  m10-probe1 guard halt):** the two routed items collapse into one move
+  — the decode head IS the emitter, so supervised decode on certified
+  arms IS supervised emission.
+  - **Own-emission dense decode CE RETIRED** (not gated): `sched_term`
+    = E/R only; `--sched-frac` 0.1→0.05 (mass-preserving — E+R's share
+    of the old bundle). §4's "decode CE: the turn's realized
+    schedulable casts" target is DEAD; the loader still mints it
+    (counters live) but no loss reads it.
+  - **Seed supervision PROMOTED to the primary (only) decode/emission
+    signal**: `--seedlab-frac` 0.05→0.1, `--guard-seedlab-share` 0.3,
+    `--guard-seedlab-spike` 100× median (the ported ADR-0085 tripline;
+    on a fixed certified batch a spike = head divergence). The 170-arm
+    mint includes the 11 certified pure holds — hold-vs-emit is in the
+    supervision. Empty-emission cost NOT built (fights certified
+    holds; ADR-0084 contingency stays pinned).
+  - **FUND decode leg restated**: seedlab CE ≤ 0.8× day-zero 2.730022
+    (= 2.184; banked `m10-sched-init/seedlab-dayzero.json` via
+    `scripts/seedlab_dayzero.py`) — weakly discriminating (probe1 hit
+    0.43 while degenerate); emission health rides the degeneracy veto.
+    All other ADR-0084 numbers verbatim; no graft change, floors stand.
+  - **Telemetry composition change (recorded, not hidden)**:
+    `sched_share` now E/R-only; `sched_ce` retired (battery row kept
+    for pre-0086 runs); `seedlab_raw`/`seedlab_share` join the battery.
+  - Relaunch = `scripts/launch_m10_probe2.sh` (fresh name/seed 20280829
+    /port 50075 — no phase reuse, ADR-0076 rule satisfied by
+    construction). Suite 255 green.
+
 ## Found-in-passing (fixed this session)
 
 - `_rl_summary` omitted `plan_share` from the mean key list ⇒ the

@@ -1048,8 +1048,9 @@ def main() -> None:
         action="store_true",
         help="M10 v2 schedule surface (m10-build-spec): discrete-carry slot "
         "tokens (read verbatim from mu sched fields when present) + the "
-        "decode/E/R aux term at emission rows. Off = byte-identical to "
-        "pre-M10.",
+        "E/R aux term at emission rows (the own-emission decode CE was "
+        "retired at ADR-0086; decode trains only on --seed-labels). "
+        "Off = byte-identical to pre-M10.",
     )
     ap.add_argument(
         "--sched-frac",
@@ -1115,7 +1116,8 @@ def main() -> None:
         "--seed-labels",
         default=None,
         help="M10 R5: minted best-arm seed labels (seed_sched_labels.py) — "
-        "decode-CE enrichment at the certified sweep windows (era-asset)",
+        "since ADR-0086 the PRIMARY (only) decode/emission supervision, "
+        "certified sweep windows (era-asset)",
     )
     ap.add_argument(
         "--seed-store",
@@ -1629,21 +1631,20 @@ def main() -> None:
                     traj_plan += float(plan_term.detach())
                     acc["plan_act"] = acc.get("plan_act", 0.0) + float(act_l.detach())
                     acc["plan_delta"] = acc.get("plan_delta", 0.0) + float(dl.detach())
-            # ---- M10 v2 sched-aux term (m10-build-spec §4): decode CE +
-            # E/R smooth-L1 at emission rows; targets clamped at birth
-            # (SCHED_AXIS_CLAMP); ADR-0057 discipline verbatim (measured
-            # during calibration, applied after) ----
+            # ---- M10 v2 sched-aux term (m10-build-spec §4): E/R smooth-L1
+            # at emission rows; targets clamped at birth (SCHED_AXIS_CLAMP);
+            # ADR-0057 discipline verbatim (measured during calibration,
+            # applied after). The dense decode CE on the policy's OWN
+            # realized casts was RETIRED at ADR-0086 (m10-probe1: the head
+            # is the emitter, so the term is self-referential with a
+            # degenerate fixed point at empty — one RL iteration reached
+            # it). Decode supervision now lives ONLY in the certified
+            # seed-label term (seedlabels.py, promoted to the primary
+            # decode signal). ----
             sched_term = None
             if args.sched:
                 fidx = seg["sched_emit"].nonzero(as_tuple=True)[0]
-                if fidx.numel() and "sched_logits" in fwd:
-                    ce = F.cross_entropy(
-                        fwd["sched_logits"][fidx].flatten(0, 1).float(),
-                        seg["sched_tgt_full"][fidx].flatten(0, 1),
-                        ignore_index=-1,
-                    )
-                    if torch.isnan(ce):  # every step padded (no supervision)
-                        ce = pg_loss.new_zeros(())
+                if fidx.numel() and "sched_e" in fwd:
                     ev = seg["sched_e_valid"][fidx]
                     if ev.any():
                         e_l = F.smooth_l1_loss(
@@ -1662,9 +1663,8 @@ def main() -> None:
                         )
                     else:
                         r_l = pg_loss.new_zeros(())
-                    sched_term = ce + e_l + r_l
+                    sched_term = e_l + r_l
                     traj_sched += float(sched_term.detach())
-                    acc["sched_ce"] = acc.get("sched_ce", 0.0) + float(ce.detach())
                     acc["sched_e"] = acc.get("sched_e", 0.0) + float(e_l.detach())
                     acc["sched_r"] = acc.get("sched_r", 0.0) + float(r_l.detach())
             loss = (

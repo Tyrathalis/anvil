@@ -617,6 +617,7 @@ def guard_flags(
     paylab_share_max: float | None = None,
     seedlab_share_max: float | None = None,
     sched_spike_mult: float | None = None,
+    seedlab_spike_mult: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -665,6 +666,16 @@ def guard_flags(
         if ce_max is not None and ce_med and ce_max > sched_spike_mult * ce_med:
             flags.append(
                 f"guard: sched_ce_max {ce_max} > {sched_spike_mult}x median ({ce_med})"
+            )
+    if seedlab_spike_mult is not None:
+        # ADR-0086: the spike tripline ported to the surviving CE term —
+        # seedlab CE is a fixed certified batch, so a max/median blowup here
+        # is head divergence, not off-mode target sampling
+        sl_max = (rl.get("spike") or {}).get("seedlab_raw_max")
+        sl_med = med.get("seedlab_raw")
+        if sl_max is not None and sl_med and sl_max > seedlab_spike_mult * sl_med:
+            flags.append(
+                f"guard: seedlab_raw_max {sl_max} > {seedlab_spike_mult}x median ({sl_med})"
             )
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
@@ -756,6 +767,7 @@ def _rl_summary(train_dir: Path) -> dict:
         "paylab_share",
         "seedlab_share",
         "sched_ce",
+        "seedlab_raw",
     ):
         vals = sorted(r[k] for r in rows if k in r)
         if vals:
@@ -764,6 +776,9 @@ def _rl_summary(train_dir: Path) -> dict:
     ce_vals = [r["sched_ce"] for r in rows if "sched_ce" in r]
     if ce_vals:
         spike["sched_ce_max"] = round(max(ce_vals), 5)
+    sl_vals = [r["seedlab_raw"] for r in rows if "seedlab_raw" in r]
+    if sl_vals:
+        spike["seedlab_raw_max"] = round(max(sl_vals), 5)
     return {
         "steps": last.get("step"),
         "traj": last.get("traj"),
@@ -890,8 +905,12 @@ def main() -> None:
         help="lr for the slot-token input path (assemble.sched_*) — the "
         "run20 iter-0 lesson applied from FIRST launch (guard posture pin)",
     )
-    ap.add_argument("--sched-frac", type=float, default=0.1,
-                    help="target aux share of PG mass (w_sched calibration)")
+    ap.add_argument("--sched-frac", type=float, default=0.05,
+                    help="target aux share of PG mass (w_sched calibration). "
+                    "Post-ADR-0086 the bundle is E/R ONLY (decode CE retired); "
+                    "0.05 ~= E+R's share of the old 0.1 bundle at day zero "
+                    "((0.522+1.800)/(2.609+0.522+1.800)), so E/R mass carries "
+                    "unchanged through the surgery")
     ap.add_argument(
         "--sched-carry-w",
         action="store_true",
@@ -913,7 +932,9 @@ def main() -> None:
         help="halt if the iteration's max step sched_ce exceeds this multiple "
         "of the median step sched_ce (ADR-0085: the m10-probe1 decode "
         "confidence blowup — 543.5 vs median 3.2 at iteration 2, growing "
-        "~e^2-3x per iteration)",
+        "~e^2-3x per iteration). Inert post-ADR-0086 (sched_ce retired with "
+        "the own-emission decode term); kept as the named guard class — "
+        "the seedlab twin below covers the surviving CE term",
     )
     ap.add_argument(
         "--sched-reliance-store",
@@ -958,14 +979,25 @@ def main() -> None:
         default=None,
         help="the ceiling census store the seed labels rejoin against",
     )
-    ap.add_argument("--seedlab-frac", type=float, default=0.05,
-                    help="target seed-label share of PG mass (below the dense "
-                    "decode term's 0.1 — enrichment, not replacement)")
+    ap.add_argument("--seedlab-frac", type=float, default=0.1,
+                    help="target seed-label share of PG mass. Post-ADR-0086 "
+                    "this is the PRIMARY (only) decode/emission supervision — "
+                    "it takes over the retired own-emission term's 0.1 slot")
     ap.add_argument(
         "--guard-seedlab-share",
         type=float,
-        default=0.15,
-        help="halt if the iteration-mean seedlab_share exceeds this (3x target)",
+        default=0.3,
+        help="halt if the iteration-MEDIAN seedlab_share exceeds this (3x "
+        "target; median per ADR-0085, mean fallback for pre-0085 rows)",
+    )
+    ap.add_argument(
+        "--guard-seedlab-spike",
+        type=float,
+        default=100.0,
+        help="halt if the iteration's max step seedlab_raw exceeds this "
+        "multiple of its median (the --guard-sched-spike twin ported to the "
+        "surviving CE term at ADR-0086 — confidence blowup is a property of "
+        "any aux CE, not of the retired term)",
     )
     ap.add_argument("--ent-weight", type=float, default=3e-3)
     ap.add_argument(
@@ -1617,6 +1649,7 @@ def main() -> None:
             paylab_share_max=args.guard_paylab_share if args.pay_labels else None,
             seedlab_share_max=args.guard_seedlab_share if args.seed_labels else None,
             sched_spike_mult=args.guard_sched_spike if args.sched else None,
+            seedlab_spike_mult=args.guard_seedlab_spike if args.seed_labels else None,
         )
         row = {
             "iteration": k,
