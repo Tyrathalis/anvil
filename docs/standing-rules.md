@@ -79,6 +79,19 @@ silently delete.
   reached it in ONE iteration; share guards read the step MEDIAN, and
   a heavy-tailed aux CE gets its own spike tripline
   ([ADR-0085](decisions/ADR-0085-m10-probe1-read.md)).
+- **Auto-calibration is unsound for a FIXED SMALL BATCH applied every
+  step**: calibrate-then-freeze measures the term pre-application, so a
+  memorizable batch delivers full frac-scale mass for a few steps, then
+  collapses — the share telemetry only starts after, and the share
+  guard is structurally blind to the impulse (170 windows fitted in ~10
+  steps doubled the iteration KL)
+  ([ADR-0087](decisions/ADR-0087-m10-probe2-read.md)).
+- **A small fixed label batch is not a substitute for a dense
+  conditioning driver**: certified seed labels at 2× weight moved
+  PRESENCE while the content channel went quiet and decode CE on live
+  emission rows degraded past day zero — grounded supervision must
+  reach trajectory scale to carry the channel
+  ([ADR-0087](decisions/ADR-0087-m10-probe2-read.md)).
 - The standing veto account: under auto-payment, **probing-via-veto IS
   optimal play** — the veto channel is the model's only affordability
   oracle; deterrence-family levers are CLOSED

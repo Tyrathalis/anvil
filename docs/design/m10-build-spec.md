@@ -350,6 +350,22 @@ the statement of record). The training probe launches next.
   - Relaunch = `scripts/launch_m10_probe2.sh` (fresh name/seed 20280829
     /port 50075 — no phase reuse, ADR-0076 rule satisfied by
     construction). Suite 255 green.
+  - **READ ([ADR-0087](../decisions/ADR-0087-m10-probe2-read.md)):
+    probe2 GUARD-HALTED at iteration 0** (`kl_mu 0.06128 > 0.06`,
+    rising to 0.103 within the iteration vs probe1's 0.051). The
+    frac-0.1 seed batch is memorized in ~10 steps (CE 2.728 → 0.046)
+    and calibrate-then-freeze front-loads its mass onto the shared
+    trunk; `seedlab_share` DECAYS as it fits, so the share guard is
+    structurally blind. Conditioning went the wrong way — content_flip
+    0.0138 → **0.0019** (below the KILL bar) with presence flip UP
+    0.0305 → 0.0448, and decode CE on live emission rows 2.609 →
+    6.404. **The retired own-emission term was the content-consumption
+    driver**; 170 boundary-era windows do not replace it. The
+    emission-collapse question stays OPEN (iteration 0 emissions are
+    the init ckpt's — day zero reproduced at 6.01% pure-hold / 71.4%
+    full-6 / mean len 4.85). Two standing rules born. Next build
+    round: the calibration fix FIRST, then mint scale, then
+    `m10-probe3`.
 
 ## Found-in-passing (fixed this session)
 

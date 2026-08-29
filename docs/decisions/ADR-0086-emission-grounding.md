@@ -1,7 +1,14 @@
 # ADR-0086: emission grounding — the own-emission decode term retired, certified seed supervision promoted to primary
 
 - **Date:** 2026-08-29
-- **Status:** accepted
+- **Status:** accepted — **amended by
+  [ADR-0087](ADR-0087-m10-probe2-read.md)** on two points: the
+  `--seedlab-frac` 0.1 pin (decision 2) drove a KL guard halt at
+  probe2 iteration 0 via a fixed-batch calibration impulse, and the
+  "170 is enough / no fresh mint" lean (decision 9) is FALSIFIED as a
+  probe premise — the per-era re-mint is promoted to a prerequisite.
+  The retirement, the promotion in principle, and the restated FUND
+  decode leg stand.
 - **Design-doc anchor:** m10-build-spec §4 (targets/aux losses); executes the ADR-0085 surgery routing
 
 ## Context
