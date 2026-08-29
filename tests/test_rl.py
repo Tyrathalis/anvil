@@ -412,3 +412,35 @@ def test_pay_head_stats_reads_displacement_from_init(tmp_path):
     # a checkpoint without the head is diagnostic-empty, never an exception
     torch.save({"model": {}}, ck)
     assert _pay_head_stats(ck) == {}
+
+
+def test_share_guard_reads_median_and_spike_trips_own_guard(tmp_path):
+    """m10-probe1 halt forensics (ADR-0085): iteration 2's MEAN sched_share
+    1.50 was spike-dominated (median 0.18; one step at sched_ce 543.5 vs a
+    3.2 median — the decode-confidence blowup). The share guard reads the
+    step median so it measures the bulk; the spike trips its own tripline."""
+    import json
+
+    from anvil.training.selfplay import _rl_summary
+
+    rows = [
+        {"step": i, "kl_mu": 0.01, "sched_share": 0.18, "sched_ce": 3.2}
+        for i in range(9)
+    ]
+    rows.append({"step": 9, "kl_mu": 0.01, "sched_share": 13.4, "sched_ce": 543.5})
+    with open(tmp_path / "metrics.jsonl", "w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    rl = _rl_summary(tmp_path)
+    assert rl["mean"]["sched_share"] > 0.3  # the mean alone would halt
+    assert rl["med"]["sched_share"] == 0.18
+    # median under the bar: the share guard stays quiet
+    flags = guard_flags({}, rl, None, sched_share_max=0.3)
+    assert not any("sched_share" in fl for fl in flags), flags
+    # the spike trips its own guard at the pinned 100x-median default
+    flags = guard_flags({}, rl, None, sched_share_max=0.3, sched_spike_mult=100.0)
+    assert len(flags) == 1 and "sched_ce_max" in flags[0], flags
+    # pre-0085 rows (mean only, no med dict) still trip the share guard
+    flags = guard_flags({}, {"mean": {"kl_mu": 0.01, "sched_share": 0.45}}, None,
+                        sched_share_max=0.3)
+    assert len(flags) == 1 and "sched_share" in flags[0], flags

@@ -161,7 +161,13 @@ def _start_server(
 
 
 def _stop_server(proc) -> None:
-    proc.send_signal(signal.SIGINT)  # prints its stats on the way out
+    # SIGTERM, not SIGINT: under a detached launch (setsid/nohup) the server
+    # inherits SIGINT=SIG_IGN, CPython never installs its KeyboardInterrupt
+    # handler, and the stats + counts-dump exit path is skipped straight into
+    # the 30s timeout + SIGKILL (m10-probe1 lost iteration 0's serve counters
+    # this way; ADR-0085). The server's SIGTERM handler converges on the same
+    # stats path by design.
+    proc.send_signal(signal.SIGTERM)
     try:
         proc.wait(timeout=30)
     except subprocess.TimeoutExpired:
@@ -610,6 +616,7 @@ def guard_flags(
     sched_share_max: float | None = None,
     paylab_share_max: float | None = None,
     seedlab_share_max: float | None = None,
+    sched_spike_mult: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -620,30 +627,45 @@ def guard_flags(
     rejected-intent penalty is to stop casting."""
     flags = []
     m = rl.get("mean") or {}
+    # m10-probe1 (ADR-0085): share guards read the step MEDIAN (mean
+    # fallback for pre-0085 rows) — the iteration mean is spike-dominated
+    # under a heavy-tailed aux CE and trips on a statistic no step ever
+    # showed; the spike gets its own tripline below.
+    med = rl.get("med") or {}
     kl = m.get("kl_mu")
     if kl is not None and kl > kl_max:
         flags.append(f"guard: kl_mu {kl} > {kl_max}")
-    ss = m.get("seq_share")
+    ss = med.get("seq_share", m.get("seq_share"))
     if seq_share_max is not None and ss is not None and ss > seq_share_max:
         # d6-run14: the seq term's share of PG mass is the ADR-0054
         # calibration invariant (~10%); the halt-worthy failure is the
         # term outgrowing its weight, which precedes the kl symptom
         flags.append(f"guard: seq_share {ss} > {seq_share_max}")
-    ps = m.get("plan_share")
+    ps = med.get("plan_share", m.get("plan_share"))
     if plan_share_max is not None and ps is not None and ps > plan_share_max:
         # the D6 twin of the seq-share guard: the aux term outgrowing its
         # calibrated weight precedes the kl symptom
         flags.append(f"guard: plan_share {ps} > {plan_share_max}")
-    scs = m.get("sched_share")
+    scs = med.get("sched_share", m.get("sched_share"))
     if sched_share_max is not None and scs is not None and scs > sched_share_max:
         # M10 v2 twin (same ADR-0057 invariant)
         flags.append(f"guard: sched_share {scs} > {sched_share_max}")
-    pls = m.get("paylab_share")
+    pls = med.get("paylab_share", m.get("paylab_share"))
     if paylab_share_max is not None and pls is not None and pls > paylab_share_max:
         flags.append(f"guard: paylab_share {pls} > {paylab_share_max}")
-    sls = m.get("seedlab_share")
+    sls = med.get("seedlab_share", m.get("seedlab_share"))
     if seedlab_share_max is not None and sls is not None and sls > seedlab_share_max:
         flags.append(f"guard: seedlab_share {sls} > {seedlab_share_max}")
+    if sched_spike_mult is not None:
+        # the m10-probe1 disease itself: decode confidence sharpening makes
+        # off-mode targets exponentially surprising (max step CE 7.7 -> 46.8
+        # -> 543.5 across three iterations at a stable ~3.2 median)
+        ce_max = (rl.get("spike") or {}).get("sched_ce_max")
+        ce_med = med.get("sched_ce")
+        if ce_max is not None and ce_med and ce_max > sched_spike_mult * ce_med:
+            flags.append(
+                f"guard: sched_ce_max {ce_max} > {sched_spike_mult}x median ({ce_med})"
+            )
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
         if ent is not None and ent0 and ent > ent_mult * ent0:
@@ -722,12 +744,34 @@ def _rl_summary(train_dir: Path) -> dict:
         vals = [r[k] for r in rows if k in r]
         if vals:
             mean[k] = round(sum(vals) / len(vals), 5)
+    # m10-probe1 (ADR-0085): the aux-share iteration MEAN is spike-dominated
+    # under a heavy-tailed aux CE (iter-2 mean share 1.50 vs median 0.18, one
+    # step at sched_ce 543.5 vs median 3.2) — surface medians for the share
+    # guards, and the CE max for the spike tripline.
+    med = {}
+    for k in (
+        "seq_share",
+        "plan_share",
+        "sched_share",
+        "paylab_share",
+        "seedlab_share",
+        "sched_ce",
+    ):
+        vals = sorted(r[k] for r in rows if k in r)
+        if vals:
+            med[k] = round(vals[len(vals) // 2], 5)
+    spike = {}
+    ce_vals = [r["sched_ce"] for r in rows if "sched_ce" in r]
+    if ce_vals:
+        spike["sched_ce_max"] = round(max(ce_vals), 5)
     return {
         "steps": last.get("step"),
         "traj": last.get("traj"),
         "tripwire_viol": last.get("tripwire_viol"),
         "skips": last.get("skips"),
         "mean": mean,
+        "med": med,
+        "spike": spike,
         "final": last,
     }
 
@@ -858,8 +902,18 @@ def main() -> None:
         "--guard-sched-share",
         type=float,
         default=0.3,
-        help="halt if the iteration-mean sched_share exceeds this (the "
-        "plan-share guard twin)",
+        help="halt if the iteration-MEDIAN sched_share exceeds this (the "
+        "plan-share guard twin; median since ADR-0085 — the mean is "
+        "spike-dominated under a heavy-tailed aux CE)",
+    )
+    ap.add_argument(
+        "--guard-sched-spike",
+        type=float,
+        default=100.0,
+        help="halt if the iteration's max step sched_ce exceeds this multiple "
+        "of the median step sched_ce (ADR-0085: the m10-probe1 decode "
+        "confidence blowup — 543.5 vs median 3.2 at iteration 2, growing "
+        "~e^2-3x per iteration)",
     )
     ap.add_argument(
         "--sched-reliance-store",
@@ -1562,6 +1616,7 @@ def main() -> None:
             sched_share_max=args.guard_sched_share if args.sched else None,
             paylab_share_max=args.guard_paylab_share if args.pay_labels else None,
             seedlab_share_max=args.guard_seedlab_share if args.seed_labels else None,
+            sched_spike_mult=args.guard_sched_spike if args.sched else None,
         )
         row = {
             "iteration": k,

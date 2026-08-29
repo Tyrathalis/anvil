@@ -73,6 +73,12 @@ silently delete.
 - **Probe-first discipline**: a D4-shape short run with a
   pre-registered kill signal before any promotion-scale run (M9
   practice, priced as intended at [ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
+- **A dense aux term never trains on the policy's own emissions
+  without a grounded anchor of comparable mass** — self-referential
+  decode-on-own-emissions has a degenerate fixed point (empty) and
+  reached it in ONE iteration; share guards read the step MEDIAN, and
+  a heavy-tailed aux CE gets its own spike tripline
+  ([ADR-0085](decisions/ADR-0085-m10-probe1-read.md)).
 - The standing veto account: under auto-payment, **probing-via-veto IS
   optimal play** — the veto channel is the model's only affordability
   oracle; deterrence-family levers are CLOSED
