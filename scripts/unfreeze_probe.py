@@ -44,6 +44,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import frozen_probe as fp  # noqa: E402  (split/spearman of record)
 
+from anvil.torch.utils import get_torch_device
+
 DATASET = "data/runs/frozen-probe-ext2-c2/dataset.jsonl"
 CKPT = "data/training/d6-run11/iter-019/train/last.pt"
 ERA = "c2"  # the gate era; c1 labels are run9-era policy
@@ -188,7 +190,7 @@ def _cell(
     from anvil.training.dataset import collate
 
     torch.manual_seed(args.seed)
-    device = "cuda"
+    device = get_torch_device()
     ev = ValueEvaluator(CKPT)
     net = ev.net
     n_layers = len(net.trunk.layers)
