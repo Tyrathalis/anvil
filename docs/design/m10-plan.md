@@ -361,7 +361,7 @@ sessions):
   (scheduled resource utilization vs realized) instruments this from
   birth.
 
-## Kill-signal + telemetry package (STRUCTURE ADJUDICATED 2026-08-26; numerics at probe launch, pre-data)
+## Kill-signal + telemetry package (STRUCTURE ADJUDICATED 2026-08-26; NUMERICS PINNED PRE-DATA 2026-08-28 — [ADR-0084](../decisions/ADR-0084-m10-probe-preflight.md) + [m10-probe-numerics-draft.md](m10-probe-numerics-draft.md) = the statement of record: content-primary flip axis, presence floor-relative; veto/unmask numbers; penalty ZERO by derivation)
 
 The v1 §6/§7 discipline carried, extended to the v2 surfaces. User
 adjudications 2026-08-26: degeneracy veto accepted as veto-shaped (not
@@ -427,11 +427,15 @@ the 4th accepted iteration, symmetric with KILL onset).
   crash-class watch (0.76% copy+resume class) rides the training
   probe's generation for free via the now-standard `crash_why` field.
 - **Graft trunk = `d6-run11/iter-019`** (ckpt of record, unchanged).
-- **Invalid-schedule penalty magnitude**: derived during the build from
-  the banked sweep degraded-arm composite deltas per the pinned
-  ADR-0053 calibration rule (≤ measured cost of the deterred
-  behavior); the number recorded at derivation, confirmation rides the
-  probe-launch numerics session.
+- **Invalid-schedule penalty magnitude: ZERO — RESOLVED at the
+  pre-flight ([ADR-0084](../decisions/ADR-0084-m10-probe-preflight.md)).**
+  The build never derived it; the pre-flight derivation
+  (`scripts/sched_penalty_derive.py` on the banked sweep, read logic
+  pre-output) measured the deterred behavior ≈ free (void arms −0.19
+  composite vs natural, degraded −0.38 — an order under THETA 2.0), so
+  the ADR-0053 cap binds at ≈0 and the term is NOT BUILT. Validity
+  telemetry watches; contingent re-derivation pinned (same instrument)
+  if knowably-invalid emission > 50% sustained.
 
 ## Open forks for the design round (ALL BUT ONE ADJUDICATED at the 2026-08-26 build design session)
 
@@ -502,8 +506,14 @@ the 4th accepted iteration, symmetric with KILL onset).
      structure to measurement (the marginal-attribution read, joint vs
      auto arms, is repeatable post-training to decompose the joint
      gain).
-- Read protocol — **THE ONE REMAINING FORK (prototype now in hand;
-  pin at the probe-launch session with the numerics).** The standing
+- Read protocol — **ADJUDICATED at the pre-flight (user, 2026-08-28;
+  [ADR-0084](../decisions/ADR-0084-m10-probe-preflight.md)): population
+  = sweep binned read re-run at the candidate ckpt (600 turns, fresh
+  seeds, same pins, both critics); bins = v=0.45 primary split,
+  quintiles exploratory; horizon = h2/THETA 2.0/CONSISTENT 0.75
+  verbatim; the gate reads a SCALAR (mean stage-2 Δwr on the v<0.45
+  stratum vs the banked +14.1pp) — the curve is context, never
+  gating.** The standing
   2,000-game paired read stays the strength instrument; the competency
   instrument's candidate shape (LordOfThePigs, Discord 2026-08-25:
   per-decision gain binned by pre-decision state score) was

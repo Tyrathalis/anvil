@@ -43,6 +43,11 @@ silently delete.
   ([ADR-0049](decisions/ADR-0049-flat-cycle-audit.md)).
 - Battery findings are **exploratory only** — verdicts stay
   pre-registered ([run-analysis-protocol](design/run-analysis-protocol.md)).
+- **Conditioning-surface flip gates read the content channel** (its
+  true-zero floor); presence floors are banked and SUBTRACTED, never
+  absorbed into absolute bars — v1 absolute thresholds do not transfer
+  to surfaces whose tokens perturb attention by presence
+  ([ADR-0084](decisions/ADR-0084-m10-probe-preflight.md)).
 
 ## Training-loop design
 

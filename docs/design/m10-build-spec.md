@@ -307,13 +307,19 @@ Battery: one `MONITOR_SERIES` tuple per key (the registry contract).
     choice smoke 17,409 census + 84/84 + 84/84 labels rows identical
     modulo ms, sched/choice files byte-identical — ZERO diff classes
     total.**
-  - **Obligations forward (probe pre-flight)**: observe-frame remint +
-    label rejoin on this jar (`option_mismatch` counted); census read
-    of post-refinement costmod rate / cousin rates / nodecap +
-    goal-trunc gates / combat rate.
+  - **Obligations forward (probe pre-flight) — RESOLVED 2026-08-28
+    ([ADR-0084](../decisions/ADR-0084-m10-probe-preflight.md)):**
+    holdout remint ZERO-drift (142/142, day-zero identical); evalset
+    remint 263/280 joined, option_mismatch 3→5 = the predicted
+    spare_pool/costmod class, floors survive; census (paygoals4,
+    verbatim recipe): costmod 25.47%→4.35%, conseq 19.79/g, trunc 0,
+    nodecap 0.0068 ✓, forced REBORN as the delve/improvise family
+    (129), combat 0/500g natural. Probe recipe repoints `--pay-observe`
+    / `--pay-drill-dir` to the 20260828 cousins dirs.
 
-Then the training probe with kill/FUND/unmask + read-protocol numerics
-pinned pre-data at ITS launch session (not here).
+Kill/FUND/unmask + read-protocol numerics PINNED PRE-DATA same session
+(ADR-0084; [m10-probe-numerics-draft.md](m10-probe-numerics-draft.md) =
+the statement of record). The training probe launches next.
 
 ## Found-in-passing (fixed this session)
 
