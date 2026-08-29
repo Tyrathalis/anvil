@@ -264,11 +264,53 @@ Battery: one `MONITOR_SERIES` tuple per key (the registry contract).
     replacement).
   - Integration smoke: all three label terms calibrate together on the
     live-conditioned store, tripwire 0.
-- **COUSINS TOUCH — NEXT SESSION, BY NAME (before the probe launch):**
-  cost-composition cousins (convoke/improvise/delve/`payCombatCost`)
-  + costmod per-spell + pool-tie residual — one Forge-fork touch (the
-  serve contract pins cousins in scope from birth, so this precedes
-  the training probe; ADR-0025 proof per the standing rule).
+- **R6 (2026-08-28) — the COUSINS TOUCH, LANDED
+  ([ADR-0083](../decisions/ADR-0083-cousins-touch.md) = the record;
+  four sub-pins user-adjudicated on the recorded leans: delve IN
+  type-grouped / combat bridged now / costmod applicability-only /
+  GOAL_MAX 24):** one fork touch completing the serve contract's
+  payment scope before the probe.
+  - **Enumeration**: cousin atoms (convoke creature taps — colored
+    via own colors or generic, never snow/{C}; improvise artifact
+    taps — generic/2-hybrid; delve gy exiles — strictly GENERIC,
+    type-grouped classes) as restricted pseudo-atoms in the same DFS:
+    main-cost shards only, no floats, kept OUT of `allAtoms` (the
+    residual-mana universe the sched scorer reads). `spare(k)` goals
+    extend; kinds `spare_graveyard=6`; `chainOrderFeasible` removes
+    cousin-paid shards from the main-cost requirement.
+  - **Detector rewrite**: convoke/improvise/delve leave; per-spell
+    applicability via fork-local `CostAdjustment.staticAppliesTo`
+    (ReduceCost + SetCost); assist/offering/emerge stay (spell-gated),
+    + TapCreaturesForMana/waterbend conservative; `costmod_late`
+    backstop unchanged.
+  - **Pool-tie fix**: `spare_pool` goal (kind 7, min pool spend) when
+    the window enters with float — the lex-hidden pay-life plan
+    surfaces; regression test on the Gitaxian Probe pool-tie board.
+  - **Combat costs bridged**: `payCombatCost` override marks the
+    nested `payManaCost` window (effect gate relaxed there only;
+    costmod skipped — no adjustment on effect costs); same tag,
+    auto=0 bit-identical; `combat`/`cmb` kvs; pay-vs-decline stays
+    heuristic upstream (ADR-0080's genre untouched).
+  - **Directed execution**: `CousinDirective` armed per payer around
+    the auto-completion (empty maps = deliberate directive), consumed
+    by generated FORCE_OVERRIDES hooks on
+    `chooseCardsForConvokeOrImprovise`/`chooseCardsToDelve`; unarmed
+    = null = natural. Bridged/sched paths finally-scoped; certify
+    arms in `PayDirective.resolve`, swept at next window entry.
+  - **Python twin**: `PAY_KINDS` += spare_graveyard/spare_pool;
+    `pay_kind_emb` (8, 512) zero-init; graft regenerated; **day-zero
+    reliance re-banked IDENTICAL** (argmax_flip 0.012513,
+    content_flip 0.0 exact, sched_rms 0).
+  - **Proofs**: PaymentEnumeratorTest 16/16 (6 new), Wiring 3/3,
+    Certify 4/4, Audit 4/4, Anvil suite 253 green; **ADR-0025 jar
+    gate: sched smoke 9,969 census + 72/72 + 72/72 labels rows +
+    choice smoke 17,409 census + 84/84 + 84/84 labels rows identical
+    modulo ms, sched/choice files byte-identical — ZERO diff classes
+    total.**
+  - **Obligations forward (probe pre-flight)**: observe-frame remint +
+    label rejoin on this jar (`option_mismatch` counted); census read
+    of post-refinement costmod rate / cousin rates / nodecap +
+    goal-trunc gates / combat rate.
 
 Then the training probe with kill/FUND/unmask + read-protocol numerics
 pinned pre-data at ITS launch session (not here).

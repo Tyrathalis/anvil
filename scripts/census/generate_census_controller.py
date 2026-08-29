@@ -64,6 +64,14 @@ FORCE_OVERRIDES = {
         "ChoiceDirective.forceZoneChange(getGame(), getPlayer(), fetchList, sa, selectPrompt)",
     "payCostToPreventEffect":
         "ChoiceDirective.forcePrevent(getGame(), getPlayer(), cost, sa)",
+    # M10 cousins touch (2026-08-28): directed cousin commitments — the
+    # payment window owner arms CousinDirective around the auto-completion;
+    # unarmed (null) = natural heuristic play (ADR-0025 identity direction).
+    "chooseCardsForConvokeOrImprovise":
+        "CousinDirective.forceConvokeOrImprovise(getGame(), getPlayer(), sa,"
+        " untappedCards, artifacts, creatures)",
+    "chooseCardsToDelve":
+        "CousinDirective.forceDelve(getGame(), getPlayer(), grave)",
 }
 
 

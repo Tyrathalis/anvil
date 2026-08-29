@@ -141,6 +141,11 @@ PAY_KINDS = {
     "spare_artifact": 3,
     "spare_other": 4,
     "min_life": 5,
+    # cousins touch (2026-08-28): delve graveyard classes + the pool-tie
+    # spare_pool goal (PaymentEnumerator.GoalOption doc = the Java twin;
+    # zero-init embedding rows — day-zero logits unchanged).
+    "spare_graveyard": 6,
+    "spare_pool": 7,
 }
 
 # M10 v2 schedule surface (m10-build-spec §1): the discrete schedule
