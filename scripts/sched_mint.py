@@ -275,79 +275,86 @@ def lanes(args) -> None:
 
 
 def parity(args) -> None:
-    """Replay-parity witness: for every game a lane replayed, the scratch
-    obs decision stream — minus the trailing autoPassCancel records the jar
-    emits when it early-stops the mainline after the game's LAST fork turn
-    (measured on the smoke: exactly one per seat, then a forced end) — must
-    be an exact PREFIX of the source store's stream, and the prefix must
-    reach that last fork turn. Any real divergence means the fork states
-    the rollouts certified are not the states the policy actually visited,
-    and the mint is invalid for that store. Winners are NOT compared (the
-    early-stop force-ends the mainline)."""
+    """Replay-parity witness with SALVAGE-BY-PREFIX semantics (ADR-0089
+    addendum): per game, the replayed obs stream (trailing autoPassCancel
+    trimmed) is compared STRICT (s included) against the source. Fork
+    turns strictly BEFORE the game's first divergence certify witnessed-
+    exact states and are VALID; turns at/after it (or beyond a truncated
+    replay's reach) are dropped. This absorbs the residual sparse
+    concurrency flips (~1 per ~1,500 decisions under fleet load — the
+    serve-nondeterminism hunt is routed by name) without re-admitting
+    either killed mechanism: a SYSTEMATIC defect (first-fork-pinned
+    divergence, the s-shift/carry signatures) still fails loudly via the
+    survival-rate floor. Emits per-store valid-turns.jsonl for finish.
+    Winners are never compared (the early-stop force-ends mainlines)."""
     from anvil.store.trajectories import TrajectoryStore, decode_frame
 
     plan = Path(args.plan).resolve()
     manifest = json.loads((plan / "mint-manifest.json").read_text())
-    bad = 0
+    total_turns = total_valid = 0
     for name, s in manifest["stores"].items():
         ts = TrajectoryStore(Path(s["store"]))
         sdir = plan / f"store-{name}"
-        fork_turn: dict[int, int] = {}
-        fork_turn_keys: set[tuple[int, int]] = set()
+        turns_of: dict[int, set] = {}
         for ln in (sdir / "sched-h2.tsv").read_text().splitlines():
             if ln and not ln.startswith("#"):
                 p = ln.split("\t")
-                g, t = int(p[0]), int(p[1])
-                fork_turn[g] = max(fork_turn.get(g, 0), t)
-                fork_turn_keys.add((g, t))
-        compared = mismatched = truncated = trunc_turns = 0
+                turns_of.setdefault(int(p[0]), set()).add(int(p[1]))
+        compared = exact = flipped = truncated = 0
+        valid: list[tuple[int, int]] = []
         for idx_path in sorted((sdir / "lanes").glob("lane-*.scratch.obs.idx.jsonl")):
             zst = idx_path.with_name(idx_path.name.replace(".obs.idx.jsonl", ".obs.zst"))
+            if not zst.exists():
+                continue
             data = zst.read_bytes()
             for line in idx_path.read_text().splitlines():
                 e = json.loads(line)
                 if args.max_games and compared >= args.max_games:
                     break
-                header, decs, end, _ = decode_frame(data[e["off"]:e["off"] + e["clen"]])
-                g = header["g"]
                 try:
-                    src = ts.game(g)
+                    header, decs, end, _ = decode_frame(data[e["off"]:e["off"] + e["clen"]])
+                except Exception:
+                    continue
+                g = header["g"]
+                if g not in turns_of:
+                    continue
+                try:
+                    src_g = ts.game(g)
                 except KeyError:
                     continue
                 while decs and decs[-1].get("m") == "autoPassCancel":
                     decs.pop()
                 a = [(d["s"], d.get("m"), d.get("t"), d.get("oi")) for d in decs]
                 b = [(d["s"], d.get("m"), d.get("t"), d.get("oi"))
-                     for d in src.decisions[:len(a)]]
-                last_t = a[-1][2] if a else None
+                     for d in src_g.decisions[:len(a)]]
+                div = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), None)
                 compared += 1
-                if a != b:
-                    # real divergence: fork states are not the visited
-                    # states — fatal for the store
-                    mismatched += 1
-                    if mismatched <= 3:
-                        div = next((i for i, (x, y) in enumerate(zip(a, b))
-                                    if x != y), min(len(a), len(b)))
-                        print(f"  MISMATCH {name} g{g}: prefix {len(a)} vs "
-                              f"src {len(src.decisions)}, first divergence "
-                              f"at dec {div}, last replayed turn {last_t} "
-                              f"(fork turn {fork_turn.get(g)})")
-                elif (last_t or 0) < fork_turn.get(g, 0):
-                    # the measured dropped-turns class (lane-2, 2026-08-31):
-                    # the replay ends before the game's later fork turns
-                    # fire. The prefix is EXACT, unfired turns produced no
-                    # rows, so nothing certifiable came from an unverified
-                    # state — sample shrinkage, counted loudly, not fatal.
-                    truncated += 1
-                    trunc_turns += sum(1 for (gg, tt) in fork_turn_keys
-                                       if gg == g and tt > (last_t or 0))
-        print(f"{name}: {compared} games compared, {mismatched} mismatched, "
-              f"{truncated} exact-but-truncated (~{trunc_turns} fork turns "
-              f"dropped)")
-        bad += mismatched
-    if bad:
-        sys.exit(f"FATAL: {bad} games diverged — replay parity FAILED")
-    print("replay parity: EXACT prefix through every fork turn")
+                if div is None:
+                    reach = a[-1][2] if a else -1
+                    ok = {t for t in turns_of[g] if t <= reach}
+                    if len(ok) < len(turns_of[g]):
+                        truncated += 1
+                    else:
+                        exact += 1
+                else:
+                    flipped += 1
+                    flip_t = a[div][2]
+                    ok = {t for t in turns_of[g] if t < flip_t}
+                valid.extend((g, t) for t in sorted(ok))
+                total_turns += len(turns_of[g])
+        total_valid += len(valid)
+        with open(sdir / "valid-turns.jsonl", "w") as f:
+            for g, t in valid:
+                f.write(json.dumps({"g": g, "t": t}) + "\n")
+        n_planned = sum(len(v) for v in turns_of.values())
+        print(f"{name}: {compared} games (exact {exact}, flipped {flipped}, "
+              f"truncated {truncated}); valid fork turns {len(valid)}/{n_planned}")
+    rate = total_valid / max(total_turns, 1)
+    print(f"valid-turn survival: {total_valid}/{total_turns} ({rate:.1%})")
+    if rate < 0.5:
+        sys.exit("FATAL: <50% of fork turns survive the witness — that is a "
+                 "SYSTEMATIC defect signature (s-shift/carry class), not "
+                 "sparse concurrency flips; do not mint from this run")
 
 
 def finish(args) -> None:
@@ -363,12 +370,30 @@ def finish(args) -> None:
         if missing:
             sys.exit(f"FATAL: {name} has {len(missing)} unfinished lanes "
                      f"(rerun {plan / 'run-lanes.sh'})")
+        vt_path = sdir / "valid-turns.jsonl"
+        if not vt_path.exists():
+            sys.exit(f"FATAL: {name} has no valid-turns.jsonl — run "
+                     f"`sched_mint.py parity` before finish (the witness "
+                     f"decides which fork turns may mint)")
+        valid = {(r["g"], r["t"]) for r in map(json.loads, open(vt_path))}
         subprocess.run(
             [sys.executable, str(REPO / "scripts" / "schedule_read.py"), "stage1",
              "--labels", str(lanes_dir / "lane-*.out.jsonl"),
              "--sched", str(sdir / "sched-h2.tsv"),
              "--out", str(sdir)],
             check=True)
+        # ADR-0089 salvage-by-prefix: only witnessed-valid fork turns mint
+        # labels — positives at flipped/unreached turns are dropped LOUDLY
+        pos_path = sdir / "positives.jsonl"
+        rows = [json.loads(x) for x in open(pos_path)]
+        kept = [r for r in rows if (r["g"], r["t"]) in valid]
+        if len(kept) < len(rows):
+            print(f"{name}: {len(rows) - len(kept)}/{len(rows)} certified "
+                  f"positives dropped by the parity witness (unwitnessed "
+                  f"fork states)")
+        with open(pos_path, "w") as f:
+            for r in kept:
+                f.write(json.dumps(r) + "\n")
         fork = json.loads((REPO / "data" / "runs" / name / "run.json")
                           .read_text())["fork_commit"][:10]
         subprocess.run(

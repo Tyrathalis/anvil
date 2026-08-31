@@ -92,3 +92,28 @@ multi-fork games is only possible if both mechanisms are dead).
 - The mint relaunches on the fixed jar after a multi-fork solo smoke
   passes the strict witness (content AND s exact through all fork
   turns).
+
+## Addendum (same day): the residual — sparse concurrency flips, salvage-by-prefix
+
+With both mechanisms dead, the fleet's early-parity gate still showed
+**sparse late flips** (2 of the first 3 games, at dec ~650 and ~1,200;
+s-offsets ZERO — the mark fix holds through 8 fork turns in one of
+them). Signature: a single decision re-answered at a mid-turn
+carry-consuming ask, ~1 per ~1,500 decisions, under fleet load only
+(solo replay byte-exact over ~5k decisions). Ruled out: eviction (cap
+4096 vs ~22 live keys), decode sampling (greedy), noise keys (s
+matches). Remaining suspect: sub-ULP logit variation under concurrent
+batching or a rare serve-path race — **routed by name with the
+channel-keyed-carry item as the serve-determinism hunt**.
+
+Resolution: **salvage-by-prefix semantics** in the parity verb — per
+game, fork turns strictly before the first divergence certify
+witnessed-exact states and are VALID; later turns are dropped;
+`finish` refuses to run without the witness's `valid-turns.jsonl` and
+drops unwitnessed positives loudly. A **survival-rate floor (<50%
+valid ⇒ FATAL)** keeps the verb sensitive to any systematic-defect
+recurrence — sparse flips cost yield, first-fork-pinned divergence
+still stops the mint. The running fleet's data is salvageable under
+these semantics (pre-flip forks were always exact); no third restart.
+Expected yield impact: roughly 20–35% of turns dropped ⇒ ~650–800
+labels; the k=4 fallback covers the low end.
