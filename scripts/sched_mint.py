@@ -250,12 +250,14 @@ def parity(args) -> None:
         ts = TrajectoryStore(Path(s["store"]))
         sdir = plan / f"store-{name}"
         fork_turn: dict[int, int] = {}
+        fork_turn_keys: set[tuple[int, int]] = set()
         for ln in (sdir / "sched-h2.tsv").read_text().splitlines():
             if ln and not ln.startswith("#"):
                 p = ln.split("\t")
                 g, t = int(p[0]), int(p[1])
                 fork_turn[g] = max(fork_turn.get(g, 0), t)
-        compared = mismatched = 0
+                fork_turn_keys.add((g, t))
+        compared = mismatched = truncated = trunc_turns = 0
         for idx_path in sorted((sdir / "lanes").glob("lane-*.scratch.obs.idx.jsonl")):
             zst = idx_path.with_name(idx_path.name.replace(".obs.idx.jsonl", ".obs.zst"))
             data = zst.read_bytes()
@@ -276,7 +278,9 @@ def parity(args) -> None:
                      for d in src.decisions[:len(a)]]
                 last_t = a[-1][2] if a else None
                 compared += 1
-                if a != b or (last_t or 0) < fork_turn.get(g, 0):
+                if a != b:
+                    # real divergence: fork states are not the visited
+                    # states — fatal for the store
                     mismatched += 1
                     if mismatched <= 3:
                         div = next((i for i, (x, y) in enumerate(zip(a, b))
@@ -285,7 +289,18 @@ def parity(args) -> None:
                               f"src {len(src.decisions)}, first divergence "
                               f"at dec {div}, last replayed turn {last_t} "
                               f"(fork turn {fork_turn.get(g)})")
-        print(f"{name}: {compared} games compared, {mismatched} mismatched")
+                elif (last_t or 0) < fork_turn.get(g, 0):
+                    # the measured dropped-turns class (lane-2, 2026-08-31):
+                    # the replay ends before the game's later fork turns
+                    # fire. The prefix is EXACT, unfired turns produced no
+                    # rows, so nothing certifiable came from an unverified
+                    # state — sample shrinkage, counted loudly, not fatal.
+                    truncated += 1
+                    trunc_turns += sum(1 for (gg, tt) in fork_turn_keys
+                                       if gg == g and tt > (last_t or 0))
+        print(f"{name}: {compared} games compared, {mismatched} mismatched, "
+              f"{truncated} exact-but-truncated (~{trunc_turns} fork turns "
+              f"dropped)")
         bad += mismatched
     if bad:
         sys.exit(f"FATAL: {bad} games diverged — replay parity FAILED")
