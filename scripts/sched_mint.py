@@ -136,6 +136,7 @@ def lanes(args) -> None:
     serve.write_text(
         "#!/bin/sh\n"
         f"cd '{REPO}'\n"
+        f"echo $$ > '{plan}/serve.pid'\n"
         f"exec nice -n 19 .venv/bin/python -m anvil.bridge.server "
         f"--mode model --ckpt '{args.serve_ckpt}' --port {args.port} "
         f"--pass-delta 0 --sample --temperature {args.temperature} "
@@ -225,20 +226,34 @@ def lanes(args) -> None:
     # disjointly — one store's lanes at a time is collision-free.
     drv = plan / "run-lanes.sh"
     body = ["#!/bin/sh", "# ADR-0088 mint lanes — resumable (DONE markers), "
-            "phased by store (carry-key collision fix), nice -19 inside each lane"]
+            "phased by store (carry-key collision fix), nice -19 inside each "
+            "lane. The driver owns the serve lifecycle: a FRESH server per "
+            "phase (addendum 2: SchedServe keys (g,seat) — stale entries "
+            "from another store's identically-numbered games poison replays; "
+            "same reason lane RERUNS need a fresh server, which rerunning "
+            "this driver provides by construction)."]
+    restart = (
+        f"[ -f '{plan}/serve.pid' ] && kill $(cat '{plan}/serve.pid') "
+        f"2>/dev/null; sleep 5\n"
+        f"setsid '{serve}' > '{plan}/serve-phase.log' 2>&1 < /dev/null &\n"
+        f"i=0; until ss -tln | grep -q {args.port}; do sleep 2; i=$((i+2)); "
+        f"[ $i -gt 120 ] && exit 3; done")
     for name in manifest["stores"]:
         lanes_of = [p for p in all_lanes if f"store-{name}/" in p]
-        body.append(f"echo 'PHASE {name}: {len(lanes_of)} lanes'")
+        body.append(f"echo 'PHASE {name}: {len(lanes_of)} lanes (fresh serve)'")
+        body.append(restart)
         body.append(
             "printf '%s\\n' \\\n  "
             + " \\\n  ".join(f"'{p}'" for p in lanes_of)
             + f" | while read s; do [ -e \"${{s%.sh}}.DONE\" ] && continue; "
             f"echo \"$s\"; done | xargs -P {args.concurrency} -I{{}} sh {{}}")
+    body.append(f"[ -f '{plan}/serve.pid' ] && kill $(cat '{plan}/serve.pid') "
+                f"2>/dev/null")
     drv.write_text("\n".join(body) + "\n")
     drv.chmod(0o755)
     json.dump(manifest, open(plan / "mint-manifest.json", "w"), indent=2)
     print(f"{len(all_lanes)} lane scripts -> {drv} (concurrency {args.concurrency})")
-    print(f"serve first: {serve}  (then {drv})")
+    print(f"launch {drv} — it owns the serve lifecycle (fresh server per phase)")
 
 
 def parity(args) -> None:
