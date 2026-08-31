@@ -49,7 +49,22 @@ def main() -> None:
     net.load_compat(ckpt["model"])
     net.eval()
 
-    seedlab = build_seed_batch(args.labels, args.store, Featurizer(cfg["embed"], methods))
+    # ADR-0088: parallel comma-lists of (labels, store) pairs — the mint
+    # spans stores whose game-index ranges collide, so each labels file
+    # joins only its own store (the rl.py loader convention)
+    feat = Featurizer(cfg["embed"], methods)
+    seedlab = None
+    for lp, sp in zip(args.labels.split(","), args.store.split(","), strict=True):
+        b = build_seed_batch(lp, sp, feat)
+        if b is None:
+            continue
+        if seedlab is None:
+            seedlab = b
+        else:
+            seedlab["segs"] += b["segs"]
+            seedlab["n"] += b["n"]
+            seedlab["miss"] += b["miss"]
+            seedlab["unmatched"] += b["unmatched"]
     if seedlab is None:
         raise SystemExit("seed labels joined ZERO windows — nothing to bank")
 

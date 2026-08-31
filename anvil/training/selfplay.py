@@ -618,6 +618,9 @@ def guard_flags(
     seedlab_share_max: float | None = None,
     sched_spike_mult: float | None = None,
     seedlab_spike_mult: float | None = None,
+    lab_memorize_ratio: float | None = None,
+    seedlab_calib_raw: float | None = None,
+    paylab_calib_raw: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -677,6 +680,20 @@ def guard_flags(
             flags.append(
                 f"guard: seedlab_raw_max {sl_max} > {seedlab_spike_mult}x median ({sl_med})"
             )
+    if lab_memorize_ratio:
+        # ADR-0088 memorization tripline: a fixed batch fitted within the
+        # first telemetry window IS the probe2 impulse (raw 2.73 -> 0.42 in
+        # ~10 applied steps at full frac-scale mass on the shared trunk);
+        # the share guard cannot see it — share decays WITH the fit
+        first = rl.get("first") or {}
+        for key, calib in (("seedlab_raw", seedlab_calib_raw),
+                           ("paylab_raw", paylab_calib_raw)):
+            fv = first.get(key)
+            if fv is not None and calib and fv < lab_memorize_ratio * calib:
+                flags.append(
+                    f"guard: {key} first-window {fv} < "
+                    f"{lab_memorize_ratio}x calib ({round(calib, 5)})"
+                )
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
         if ent is not None and ent0 and ent > ent_mult * ent0:
@@ -742,6 +759,7 @@ def _rl_summary(train_dir: Path) -> dict:
         "plan_delta",
         "plan_share",
         "sched_ce",
+        "sched_live_ce",
         "sched_e",
         "sched_r",
         "sched_share",
@@ -755,6 +773,15 @@ def _rl_summary(train_dir: Path) -> dict:
         vals = [r[k] for r in rows if k in r]
         if vals:
             mean[k] = round(sum(vals) / len(vals), 5)
+    # ADR-0088: the memorization tripline reads the FIRST post-calibration
+    # telemetry row per fixed-batch term — the impulse window the iteration
+    # mean/median dilute (probe2: first row 0.42 vs calib 2.73, the guard's
+    # whole signal)
+    first = {}
+    for k in ("paylab_raw", "seedlab_raw"):
+        vals = [r[k] for r in rows if k in r]
+        if vals:
+            first[k] = round(vals[0], 5)
     # m10-probe1 (ADR-0085): the aux-share iteration MEAN is spike-dominated
     # under a heavy-tailed aux CE (iter-2 mean share 1.50 vs median 0.18, one
     # step at sched_ce 543.5 vs median 3.2) — surface medians for the share
@@ -787,6 +814,7 @@ def _rl_summary(train_dir: Path) -> dict:
         "mean": mean,
         "med": med,
         "spike": spike,
+        "first": first,
         "final": last,
     }
 
@@ -979,10 +1007,44 @@ def main() -> None:
         default=None,
         help="the ceiling census store the seed labels rejoin against",
     )
-    ap.add_argument("--seedlab-frac", type=float, default=0.1,
-                    help="target seed-label share of PG mass. Post-ADR-0086 "
-                    "this is the PRIMARY (only) decode/emission supervision — "
-                    "it takes over the retired own-emission term's 0.1 slot")
+    ap.add_argument("--seedlab-frac", type=float, default=0.05,
+                    help="target seed-label share of PG mass. ADR-0088: 0.05 "
+                    "= the retired own-emission term's EFFECTIVE decode mass "
+                    "(0.1 x its ~53% share of the day-zero bundle) — the mass "
+                    "that drove content_flip 0.0138 in probe1; ADR-0086's 0.1 "
+                    "doubled it into the probe2 impulse")
+    ap.add_argument(
+        "--seedlab-carry-w",
+        action="store_true",
+        help="carry iteration-0's w_seedlab for the whole run (the "
+        "--paylab-carry-w twin). ADR-0088: ON in the recipe for BOTH "
+        "fixed-batch terms — per-invocation recalibration against a "
+        "partially-fitted batch is the cross-iteration amplifier (probe1 "
+        "w_seedlab grew 12x over three iterations)",
+    )
+    ap.add_argument(
+        "--lab-k", type=int, default=0,
+        help="ADR-0088: apply the fixed pay/seed label batches one k-window "
+        "chunk per optimizer step (epoch-shuffled, without replacement) "
+        "instead of full-batch — forwarded to rl.py. 0 = legacy",
+    )
+    ap.add_argument(
+        "--lab-warmup", type=int, default=0,
+        help="ADR-0088: linear warmup ramp (applied steps) on both "
+        "fixed-batch terms' weights — forwarded to rl.py. 0 = off",
+    )
+    ap.add_argument(
+        "--guard-lab-memorize",
+        type=float,
+        default=0.5,
+        help="ADR-0088 memorization tripline: halt if a fixed-batch term's "
+        "FIRST post-calibration telemetry-window raw falls below this "
+        "fraction of its raw-at-calibration — a fixed batch fitting that "
+        "fast is the probe2 impulse signature (seedlab 0.42/2.73 = 0.15, "
+        "paylab 0.23/0.99 = 0.23 within ~10 applied steps). The share guard "
+        "is structurally blind to this (share decays WITH the fit). "
+        "0 disables",
+    )
     ap.add_argument(
         "--guard-seedlab-share",
         type=float,
@@ -1543,12 +1605,20 @@ def main() -> None:
                             args.seed_labels,
                             "--seed-store",
                             args.seed_store,
-                            "--seedlab-frac",
-                            str(args.seedlab_frac),
+                            *(
+                                ["--seedlab-w", str(state["seedlab_w"])]
+                                if state.get("seedlab_w")
+                                else ["--seedlab-frac", str(args.seedlab_frac)]
+                            ),
                         ]
                         if args.seed_labels
                         else []
                     ),
+                    # ADR-0088 fixed-batch mechanics (subsample + warmup)
+                    "--lab-k",
+                    str(args.lab_k),
+                    "--lab-warmup",
+                    str(args.lab_warmup),
                     "--ent-weight",
                     str(args.ent_weight),
                     "--ent-floor",
@@ -1635,6 +1705,15 @@ def main() -> None:
             flags.append(f"non-decisive {non_won}")
 
         # ---- ADR-0017 halt guards: reject the ckpt, don't just narrate ----
+        # ADR-0088: raw-at-calibration per fixed-batch term — this
+        # iteration's calibration json when it recalibrated, else the
+        # iteration-0 value carried in loop_state (the carry-w path)
+        def _calib_raw(name: str, key: str) -> float | None:
+            p = train_dir / f"{name}_calibration.json"
+            if p.exists():
+                return json.loads(p.read_text()).get(key)
+            return state.get(f"{name}_calib_raw")
+
         guards = guard_flags(
             census,
             rl,
@@ -1650,6 +1729,13 @@ def main() -> None:
             seedlab_share_max=args.guard_seedlab_share if args.seed_labels else None,
             sched_spike_mult=args.guard_sched_spike if args.sched else None,
             seedlab_spike_mult=args.guard_seedlab_spike if args.seed_labels else None,
+            lab_memorize_ratio=args.guard_lab_memorize or None,
+            seedlab_calib_raw=(
+                _calib_raw("seedlab", "seedlab_raw_at_calib") if args.seed_labels else None
+            ),
+            paylab_calib_raw=(
+                _calib_raw("paylab", "paylab_raw_at_calib") if args.pay_labels else None
+            ),
         )
         row = {
             "iteration": k,
@@ -1792,8 +1878,20 @@ def main() -> None:
         plcal_path = train_dir / "paylab_calibration.json"
         if (args.paylab_carry_w and args.pay_labels and "paylab_w" not in state
                 and plcal_path.exists()):
-            state["paylab_w"] = json.loads(plcal_path.read_text())["w_paylab"]
+            plcal = json.loads(plcal_path.read_text())
+            state["paylab_w"] = plcal["w_paylab"]
+            # ADR-0088: the honest (iteration-0) raw rides loop_state so the
+            # memorization guard keeps its reference once recalibration stops
+            state["paylab_calib_raw"] = plcal["paylab_raw_at_calib"]
             print(f"[selfplay] w_paylab calibrated at run start: {state['paylab_w']:.6g} (carried)")
+        slcal_path = train_dir / "seedlab_calibration.json"
+        if (args.seedlab_carry_w and args.seed_labels and "seedlab_w" not in state
+                and slcal_path.exists()):
+            slcal = json.loads(slcal_path.read_text())
+            state["seedlab_w"] = slcal["w_seedlab"]
+            state["seedlab_calib_raw"] = slcal["seedlab_raw_at_calib"]
+            print(f"[selfplay] w_seedlab calibrated at run start: "
+                  f"{state['seedlab_w']:.6g} (carried)")
         # ---- D6 KILL SIGNAL (spec §7, recipe-session numerics): from the
         # 4th ACCEPTED iteration, if the carry has never flipped ≥0.5% of
         # carried argmax decisions AND the aux act-BCE has plateaued

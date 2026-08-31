@@ -121,6 +121,12 @@ MONITOR_SERIES = [
     # ADR-0086: certified seed labels = the primary decode supervision
     ("rl.mean.seedlab_raw", "seedlab decode CE (certified)"),
     ("rl.mean.seedlab_share", "seedlab share"),
+    # ADR-0088 staleness instrument: decode CE on LIVE trajectory emission
+    # rows, measured grad-free (never applied). The live-gap ratio
+    # sched_live_ce / seedlab_raw is the pre-registered staled-mint tell —
+    # ~1.0 at day zero, probe2's terminal signature was 139x; >3x over two
+    # accepted iterations = the mint has staled (a read, never a guard)
+    ("rl.mean.sched_live_ce", "sched decode CE on LIVE rows (staleness)"),
     ("sched_reliance.argmax_flip", "sched reliance flip"),
     ("sched_reliance.content_flip", "sched content flip (0 at day zero)"),
     ("sched_reliance.aux_ce", "sched holdout CE"),

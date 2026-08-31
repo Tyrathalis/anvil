@@ -476,3 +476,88 @@ def test_seedlab_spike_guard_ported(tmp_path):
             f.write(json.dumps(r) + "\n")
     assert guard_flags({}, _rl_summary(tmp_path), None, seedlab_share_max=0.3,
                        seedlab_spike_mult=100.0) == []
+
+
+def test_lab_memorize_guard_fires_on_probe2_numbers(tmp_path):
+    """ADR-0088 memorization tripline, regression-tested from the real
+    m10-probe2 iteration-0 numbers: seedlab first telemetry row 0.42076 vs
+    raw-at-calib 2.72795 (0.154x), paylab 0.22962 vs 0.98998 (0.232x) —
+    both under the 0.5 ratio within ~10 applied steps. The share guard was
+    structurally blind to this (share decays WITH the fit); the first-row
+    read is the guard's whole signal."""
+    import json
+
+    from anvil.training.selfplay import _rl_summary
+
+    rows = [
+        {"step": 833500, "kl_mu": 0.01, "seedlab_raw": 0.42076, "paylab_raw": 0.22962},
+        {"step": 833520, "kl_mu": 0.01, "seedlab_raw": 0.27418, "paylab_raw": 0.22492},
+        {"step": 833540, "kl_mu": 0.01, "seedlab_raw": 0.17832, "paylab_raw": 0.20941},
+    ]
+    with open(tmp_path / "metrics.jsonl", "w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    rl = _rl_summary(tmp_path)
+    # first-row values, not the (lower) means
+    assert rl["first"]["seedlab_raw"] == 0.42076
+    assert rl["first"]["paylab_raw"] == 0.22962
+    flags = guard_flags({}, rl, None, lab_memorize_ratio=0.5,
+                        seedlab_calib_raw=2.72795, paylab_calib_raw=0.98998)
+    assert len(flags) == 2, flags
+    assert any("seedlab_raw first-window" in fl for fl in flags), flags
+    assert any("paylab_raw first-window" in fl for fl in flags), flags
+    # post-fix healthy shape: first window near calib -> quiet
+    healthy = {"mean": {}, "med": {}, "spike": {},
+               "first": {"seedlab_raw": 2.6, "paylab_raw": 0.95}}
+    assert guard_flags({}, healthy, None, lab_memorize_ratio=0.5,
+                       seedlab_calib_raw=2.72795, paylab_calib_raw=0.98998) == []
+    # no calibration reference (term off / pre-0088 rows): quiet, never a
+    # KeyError
+    assert not any("first-window" in fl
+                   for fl in guard_flags({}, rl, None, lab_memorize_ratio=0.5))
+
+
+def test_rl_summary_surfaces_sched_live_ce(tmp_path):
+    """ADR-0088 staleness instrument: the live-row decode CE (measured
+    grad-free on the retired term's target pipeline) must reach the summary
+    means or the live-gap read can never happen (the plan_share lesson)."""
+    import json
+
+    from anvil.training.selfplay import _rl_summary
+
+    rows = [{"step": i, "kl_mu": 0.01, "sched_live_ce": 2.6 + i * 0.1} for i in range(3)]
+    with open(tmp_path / "metrics.jsonl", "w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    assert abs(_rl_summary(tmp_path)["mean"]["sched_live_ce"] - 2.7) < 1e-9
+
+
+def test_chunk_sampler_without_replacement_and_deterministic():
+    """ADR-0088: every chunk is visited exactly once per epoch (without
+    replacement), epochs reshuffle, and the order is seed-deterministic
+    (resume/replay discipline)."""
+    from anvil.training.labbatch import ChunkSampler
+
+    segs = [object() for _ in range(5)]
+    s = ChunkSampler(segs, seed=7)
+    epoch1 = [s.next()[0] for _ in range(5)]
+    assert sorted(map(id, epoch1)) == sorted(map(id, segs))  # full coverage
+    epoch2 = [s.next()[0] for _ in range(5)]
+    assert sorted(map(id, epoch2)) == sorted(map(id, segs))
+    # same seed reproduces the exact visit order
+    t = ChunkSampler(segs, seed=7)
+    assert [id(t.next()[0]) for _ in range(10)] == [id(x) for x in epoch1 + epoch2]
+    with pytest.raises(ValueError):
+        ChunkSampler([], seed=1)
+
+
+def test_warmup_scale_ramp():
+    """ADR-0088: linear 0->1 over N applied steps; 1.0 when disabled."""
+    from anvil.training.labbatch import warmup_scale
+
+    assert warmup_scale(0, 0) == 1.0
+    assert warmup_scale(10_000, 0) == 1.0
+    assert warmup_scale(0, 100) == pytest.approx(0.01)
+    assert warmup_scale(49, 100) == pytest.approx(0.5)
+    assert warmup_scale(99, 100) == 1.0
+    assert warmup_scale(500, 100) == 1.0

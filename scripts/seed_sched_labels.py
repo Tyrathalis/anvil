@@ -37,6 +37,11 @@ def main() -> None:
     ap.add_argument("--plan", default="data/runs/sched-sweep-m10")
     ap.add_argument("--store", default="data/trajectories/m10-ceiling-census-20260825-212414")
     ap.add_argument("--out", default="data/runs/sched-sweep-m10/seed-sched-labels.jsonl")
+    # ADR-0088: provenance is per-mint, not hardcoded — the defaults are the
+    # original R5 mint's values (rollouts under iter-019 on the boundary
+    # jar); sched_mint.py finish passes the actual serve ckpt + fork commit
+    ap.add_argument("--cert-ckpt", default="d6-run11/iter-019")
+    ap.add_argument("--era", default="m9-boundary/2f87180cdf")
     args = ap.parse_args()
 
     from v2_target_probe import _main1_window  # noqa: E402
@@ -107,8 +112,8 @@ def main() -> None:
     with open(out, "w") as f:
         f.write(json.dumps({"k": "meta", "plan": str(args.plan),
                             "store": str(args.store),
-                            "cert_ckpt": "d6-run11/iter-019",
-                            "era": "m9-boundary/2f87180cdf",
+                            "cert_ckpt": args.cert_ckpt,
+                            "era": args.era,
                             "frame": dict(frame)}) + "\n")
         for r in rows:
             f.write(json.dumps(r) + "\n")

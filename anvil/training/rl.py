@@ -1129,6 +1129,18 @@ def main() -> None:
     ap.add_argument("--seedlab-w", type=float, default=0.0)
     ap.add_argument("--seedlab-calib-steps", type=int, default=50)
     ap.add_argument(
+        "--lab-k", type=int, default=0,
+        help="ADR-0088 fixed-batch subsampling: build the pay/seed label "
+        "batches in k-window chunks and apply ONE chunk per optimizer step "
+        "(epoch-shuffled, without replacement) instead of the full batch — "
+        "the m10-probe2 memorization-impulse fix. 0 = legacy full-batch "
+        "(calibration always measures the full batch either way)")
+    ap.add_argument(
+        "--lab-warmup", type=int, default=0,
+        help="ADR-0088: linear 0->w ramp over the first N APPLIED steps of "
+        "each fixed-batch term (per invocation) — spreads whatever impulse "
+        "survives --lab-k. 0 = off")
+    ap.add_argument(
         "--seq-margin",
         type=float,
         default=6.0,
@@ -1281,6 +1293,8 @@ def main() -> None:
                 "seedlab_frac",
                 "seedlab_w",
                 "seedlab_calib_steps",
+                "lab_k",
+                "lab_warmup",
                 "traj_per_step",
                 "gamma",
                 "rho_bar",
@@ -1383,6 +1397,7 @@ def main() -> None:
             f"{ob}/observe-certout.jsonl",
             sorted(_glob.glob(f"{ob}/observe-lane-*.obs.zst")),
             _Feat(cfg["embed"], methods),
+            seg=args.lab_k if args.lab_k > 0 else 64,
         )
         if paylab is None:
             print("[rl] WARNING: pay labels joined ZERO windows — pay-label term OFF this run")
@@ -1400,9 +1415,29 @@ def main() -> None:
         from anvil.bridge.featurize import Featurizer as _Feat2
         from anvil.training.seedlabels import build_seed_batch
 
-        seedlab = build_seed_batch(
-            args.seed_labels, args.seed_store, _Feat2(cfg["embed"], methods)
-        )
+        # ADR-0088: comma-lists of parallel (labels, store) pairs — the mint
+        # spans several source stores whose game-index ranges may collide
+        # (probe1-i000 and probe2-i000 both start at g=0), so each labels
+        # file joins ONLY its own store and the batches merge
+        seed_paths = args.seed_labels.split(",")
+        store_paths = args.seed_store.split(",")
+        if len(seed_paths) != len(store_paths):
+            raise SystemExit("--seed-labels and --seed-store lists differ in length")
+        _feat2 = _Feat2(cfg["embed"], methods)
+        for lp, sp in zip(seed_paths, store_paths):
+            b = build_seed_batch(
+                lp, sp, _feat2, seg=args.lab_k if args.lab_k > 0 else 64,
+            )
+            if b is None:
+                print(f"[rl] WARNING: seed labels {lp} joined ZERO windows")
+                continue
+            if seedlab is None:
+                seedlab = b
+            else:
+                seedlab["segs"] += b["segs"]
+                seedlab["n"] += b["n"]
+                seedlab["miss"] += b["miss"]
+                seedlab["unmatched"] += b["unmatched"]
         if seedlab is None:
             print("[rl] WARNING: seed labels joined ZERO windows — seed term OFF this run")
         else:
@@ -1416,6 +1451,32 @@ def main() -> None:
     seedlab_calib_traj = 0
     seedlab_share_raw = seedlab_share_pg = 0.0
     seedlab_share_traj = seedlab_share_steps = 0
+    # ADR-0088 fixed-batch mechanics: per-step chunk subsampling + applied-
+    # step warmup ramp for both fixed-batch terms; first-10-applied raws
+    # dumped to labs_early.json (the impulse window the telemetry rows
+    # start too late to see — m10-probe2 forensics)
+    from anvil.training.labbatch import ChunkSampler, warmup_scale
+
+    paylab_sampler = (
+        ChunkSampler(paylab["segs"], args.seed * 2 + 1)
+        if paylab is not None and args.lab_k > 0 else None
+    )
+    seedlab_sampler = (
+        ChunkSampler(seedlab["segs"], args.seed * 2 + 2)
+        if seedlab is not None and args.lab_k > 0 else None
+    )
+    paylab_applied = seedlab_applied = 0
+    labs_early: dict[str, list[float]] = {}
+    labs_early_written = False
+
+    def _labs_early_dump(force: bool = False):
+        nonlocal labs_early_written
+        if labs_early_written or not labs_early:
+            return
+        if not force and any(len(v) < 10 for v in labs_early.values()):
+            return
+        (out_dir / "labs_early.json").write_text(json.dumps(labs_early, indent=1) + "\n")
+        labs_early_written = True
     paylab_calib_steps = 0
     paylab_calib_pg = 0.0
     paylab_calib_traj = 0
@@ -1644,6 +1705,21 @@ def main() -> None:
             sched_term = None
             if args.sched:
                 fidx = seg["sched_emit"].nonzero(as_tuple=True)[0]
+                if fidx.numel() and "sched_logits" in fwd and "sched_tgt_full" in seg:
+                    # ADR-0088 staleness instrument: decode CE on LIVE
+                    # trajectory emission rows, measured grad-free, never
+                    # applied (the retired ADR-0086 term's target pipeline,
+                    # repurposed as telemetry). The live-gap ratio
+                    # sched_live_ce / seedlab_raw is the pre-registered
+                    # staled-mint tell (probe2's terminal signature: 139x).
+                    with torch.no_grad():
+                        live_ce = F.cross_entropy(
+                            fwd["sched_logits"][fidx].flatten(0, 1).float(),
+                            seg["sched_tgt_full"][fidx].flatten(0, 1),
+                            ignore_index=-1,
+                        )
+                    if not torch.isnan(live_ce):
+                        acc["sched_live_ce"] = acc.get("sched_live_ce", 0.0) + float(live_ce)
                 if fidx.numel() and "sched_e" in fwd:
                     ev = seg["sched_e_valid"][fidx]
                     if ev.any():
@@ -1850,9 +1926,15 @@ def main() -> None:
                         )
                         print(f"[rl] w_paylab calibrated: {cal}")
                 else:
-                    raw, rp, ra = pay_pass(
-                        net, paylab["segs"], forward_segments, w_paylab, grad=True
-                    )
+                    # ADR-0088: one k-chunk per step (when --lab-k) at a
+                    # warmup-ramped weight; calibration above stays full-batch
+                    w_eff = w_paylab * warmup_scale(paylab_applied, args.lab_warmup)
+                    segs_now = paylab_sampler.next() if paylab_sampler else paylab["segs"]
+                    raw, rp, ra = pay_pass(net, segs_now, forward_segments, w_eff, grad=True)
+                    paylab_applied += 1
+                    if len(labs_early.setdefault("paylab", [])) < 10:
+                        labs_early["paylab"].append(round(raw, 5))
+                        _labs_early_dump()
                     acc["paylab_raw"] = acc.get("paylab_raw", 0.0) + raw
                     acc["paylab_pos"] = acc.get("paylab_pos", 0.0) + rp
                     acc["paylab_auto"] = acc.get("paylab_auto", 0.0) + ra
@@ -1881,7 +1963,13 @@ def main() -> None:
                         )
                         print(f"[rl] w_seedlab calibrated: {cal}")
                 else:
-                    raw = seed_pass(net, seedlab["segs"], forward_segments, w_seedlab, grad=True)
+                    w_eff = w_seedlab * warmup_scale(seedlab_applied, args.lab_warmup)
+                    segs_now = seedlab_sampler.next() if seedlab_sampler else seedlab["segs"]
+                    raw = seed_pass(net, segs_now, forward_segments, w_eff, grad=True)
+                    seedlab_applied += 1
+                    if len(labs_early.setdefault("seedlab", [])) < 10:
+                        labs_early["seedlab"].append(round(raw, 5))
+                        _labs_early_dump()
                     acc["seedlab_raw"] = acc.get("seedlab_raw", 0.0) + raw
                     seedlab_share_raw += raw
                     seedlab_share_steps += 1
@@ -2012,6 +2100,7 @@ def main() -> None:
             break
 
     save()
+    _labs_early_dump(force=True)  # short runs: dump whatever was captured
     (out_dir / "DONE").touch()  # completion marker: the loop driver skips
     # the train phase on resume iff this exists (last.pt alone is ambiguous
     # — periodic saves leave one behind mid-run)

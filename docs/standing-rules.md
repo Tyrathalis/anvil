@@ -92,6 +92,13 @@ silently delete.
   emission rows degraded past day zero — grounded supervision must
   reach trajectory scale to carry the channel
   ([ADR-0087](decisions/ADR-0087-m10-probe2-read.md)).
+- **Fixed label batches apply subsampled (one k-chunk per step, epoch-
+  shuffled) with a warmup ramp and carry-w**; per-iteration
+  recalibration against a partially-fitted batch is an amplifier
+  (probe1 grew w_seedlab 12× over three iterations), and the
+  memorization tripline (first-window raw < 0.5× raw-at-calibration)
+  guards from first launch
+  ([ADR-0088](decisions/ADR-0088-grounded-driver.md)).
 - The standing veto account: under auto-payment, **probing-via-veto IS
   optimal play** — the veto channel is the model's only affordability
   oracle; deterrence-family levers are CLOSED
@@ -128,6 +135,12 @@ silently delete.
 
 ## Engine, fork, and data hygiene
 
+- **Replaying a model-generated store requires the generating run's
+  trajectory-perturbing flag set (-reask/-paytelemetry/... from ITS
+  run.json) AND its serve config (ckpt, sampled, temperature), and
+  parity is WITNESSED by an obs decision-stream comparison, never
+  argued** (`sched_mint.py parity`;
+  [ADR-0088](decisions/ADR-0088-grounded-driver.md)).
 - **Bridged JVMs leak one game graph per game unless AiCache is cleared
   between games — chunk recycling is load-bearing**; never run a
   bridged JVM unbounded without one or the other (upstream

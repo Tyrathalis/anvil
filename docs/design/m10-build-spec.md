@@ -367,6 +367,39 @@ the statement of record). The training probe launches next.
     round: the calibration fix FIRST, then mint scale, then
     `m10-probe3`.
 
+- **R8 (2026-08-30) — THE GROUNDED DRIVER, LANDED
+  ([ADR-0088](../decisions/ADR-0088-grounded-driver.md); the
+  [grounded-driver design](m10-grounded-driver-draft.md) = statement of
+  record, five forks user-adjudicated on the drafted leans):** the
+  probe-pair triangulation (grounded × dense × on-distribution) becomes
+  the driver spec.
+  - **Fixed-batch mechanics loop-wide** (`labbatch.py`): `--lab-k`
+    per-step chunk subsampling (calibration stays full-batch),
+    `--lab-warmup` ramp, `labs_early.json` first-10 forensics,
+    `--guard-lab-memorize` 0.5 (first-window raw < 0.5× calib = the
+    probe2 impulse signature; regression-tested from the real numbers).
+    Paylab audited: same genre (0.994→0.230 in ~10 steps) — mechanics
+    uniform. Cross-iteration: `--seedlab-carry-w` built (paylab twin);
+    recalibration REJECTED (probe1 grew w 12× on the fitting batch).
+    `--seedlab-frac` default 0.1→0.05 (the retired term's EFFECTIVE
+    decode mass).
+  - **The mint** (`scripts/sched_mint.py` sample/lanes/parity/finish):
+    per-era certified labels on the loop's own stores; sweep pins
+    verbatim (ARM_CAP 16 / K_ROLLS 8 / THETA 2.0 / CONSISTENT 0.75,
+    stage1 + seed_sched_labels reused); per-store replay params + the
+    GENERATION flag set from run.json; serve = generating ckpt sampled
+    `--fork-instrument`; parity witnessed by obs-stream comparison
+    (standing rule). Substrate: the two init-ckpt stores (~4,000
+    eligible); ~3,600 sampled → ~1,000 labels expected (banked 28%
+    yield); cost from banked artifacts ≈ 44 s/window at 8 lanes ⇒
+    per-era cadence, online labeler NOT priced in (routed by name).
+  - **Staleness instrument**: `sched_live_ce` measured grad-free on the
+    retired term's target pipeline; live-gap ratio > 3× over two
+    accepted iterations = staled mint (read, never a guard; probe2
+    terminal signature 139×). Battery row added.
+  - Multi-store seed labels: `--seed-labels`/`--seed-store` comma-lists
+    (per-pair joins; init stores' g-ranges collide). Suite 259 green.
+
 ## Found-in-passing (fixed this session)
 
 - `_rl_summary` omitted `plan_share` from the mean key list ⇒ the
