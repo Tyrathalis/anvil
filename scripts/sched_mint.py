@@ -216,15 +216,25 @@ def lanes(args) -> None:
             sh.chmod(0o755)
             all_lanes.append(str(sh))
         print(f"{name}: {n_lanes} lanes, {len(lines)} rows")
-    # resumable driver: DONE-marked lanes are skipped on rerun
+    # resumable driver: DONE-marked lanes are skipped on rerun.
+    # PHASED BY STORE (2026-08-31 forensics): the serve carry is keyed
+    # (g, seat) and the source stores' game-index ranges overlap, so
+    # concurrent cross-store replay clobbers carry state and flips
+    # decisions at emission windows (76/76 divergence points were
+    # own-seat cast decisions). Within one store, lanes partition games
+    # disjointly — one store's lanes at a time is collision-free.
     drv = plan / "run-lanes.sh"
-    drv.write_text(
-        "#!/bin/sh\n# ADR-0088 mint lanes — resumable (DONE markers), "
-        "nice -19 inside each lane\n"
-        + "printf '%s\\n' \\\n  "
-        + " \\\n  ".join(f"'{p}'" for p in all_lanes)
-        + f" | while read s; do [ -e \"${{s%.sh}}.DONE\" ] && continue; "
-        f"echo \"$s\"; done | xargs -P {args.concurrency} -I{{}} sh {{}}\n")
+    body = ["#!/bin/sh", "# ADR-0088 mint lanes — resumable (DONE markers), "
+            "phased by store (carry-key collision fix), nice -19 inside each lane"]
+    for name in manifest["stores"]:
+        lanes_of = [p for p in all_lanes if f"store-{name}/" in p]
+        body.append(f"echo 'PHASE {name}: {len(lanes_of)} lanes'")
+        body.append(
+            "printf '%s\\n' \\\n  "
+            + " \\\n  ".join(f"'{p}'" for p in lanes_of)
+            + f" | while read s; do [ -e \"${{s%.sh}}.DONE\" ] && continue; "
+            f"echo \"$s\"; done | xargs -P {args.concurrency} -I{{}} sh {{}}")
+    drv.write_text("\n".join(body) + "\n")
     drv.chmod(0o755)
     json.dump(manifest, open(plan / "mint-manifest.json", "w"), indent=2)
     print(f"{len(all_lanes)} lane scripts -> {drv} (concurrency {args.concurrency})")

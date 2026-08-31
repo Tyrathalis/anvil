@@ -141,6 +141,12 @@ silently delete.
   parity is WITNESSED by an obs decision-stream comparison, never
   argued** (`sched_mint.py parity`;
   [ADR-0088](decisions/ADR-0088-grounded-driver.md)).
+- **Stores with overlapping game-index ranges never replay concurrently
+  against one carry-stateful server** — the serve carry is keyed
+  (g, seat), so cross-store collisions flip answers at emission windows
+  (97% of games diverged in the first mint run; phased-by-store is the
+  safe shape until carry is channel-keyed — routed serve-hardening
+  item; ADR-0088 addendum).
 - **Bridged JVMs leak one game graph per game unless AiCache is cleared
   between games — chunk recycling is load-bearing**; never run a
   bridged JVM unbounded without one or the other (upstream

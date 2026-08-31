@@ -134,3 +134,28 @@ boundary-era batch still drifts the head off-distribution, just slower.
 - Routed by name: the online per-iteration labeler (fork 5 trigger or
   promotion-scale pricing); the mint top-up path if certified yield
   lands < ~750 labels (k drops to 4 before any re-sample).
+
+## Addendum (2026-08-31): the carry-key collision — first mint run discarded, rerun PHASED BY STORE
+
+The parity witness caught a run-invalidating defect the smoke could not
+see: with both stores' lanes replaying concurrently, **97% of games
+diverged from their source trajectories, pinned at own-seat cast
+decisions** (76/76 divergence points were `chooseSpellAbilityToPlay` /
+nested `chooseOptionalCosts`; zero opponent or non-cast decisions).
+Root cause: the serve-side plan/sched carry is keyed **(g, seat)**, and
+the two init-ckpt stores both span game indices 0–239 — cross-store
+replays clobber each other's carry, flipping answers exactly where
+carry is consumed. The solo smoke was exact (no collision); generation
+was always safe (harness workers take disjoint ranges of one store).
+NOT the GameCopier watch-list class; not an engine defect.
+
+Resolution: run 1 discarded (~285k rolls; ~65% complete), lanes
+regenerated 12-per-store and the driver **phased by store** —
+within a store, lanes partition games disjointly, which is exactly the
+generation shape the smoke validated. An early-parity check gates the
+rerun's first hour. The durable fix — **carry keyed by connection/
+channel, not (g, seat)** — is routed by name as a serve-hardening item
+(it also removes the class for any future multi-store replay). The
+dropped-turns "exact-but-truncated" parity class coded earlier today
+was this defect's milder face (truncations were diverged games ending
+early) and stays in the verb as a distinct counted outcome.
