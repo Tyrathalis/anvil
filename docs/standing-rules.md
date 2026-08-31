@@ -147,6 +147,12 @@ silently delete.
   (97% of games diverged in the first mint run; phased-by-store is the
   safe shape until carry is channel-keyed — routed serve-hardening
   item; ADR-0088 addendum).
+- **Every input to the serve path must be replay-stable, and the obs
+  seq is a serve input** (sampling noise is keyed (game_seed, s)) — any
+  machinery that adds or removes obs records relative to generation
+  shifts the POLICY, not just bookkeeping (Obs.mark consumed one id per
+  fork point and re-rolled every post-fork decision; fixed at fork
+  `f9eadfa8d4`; [ADR-0089](decisions/ADR-0089-mint-replay-integrity.md)).
 - **Bridged JVMs leak one game graph per game unless AiCache is cleared
   between games — chunk recycling is load-bearing**; never run a
   bridged JVM unbounded without one or the other (upstream

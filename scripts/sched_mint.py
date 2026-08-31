@@ -148,8 +148,21 @@ def lanes(args) -> None:
     total_rows = sum(s["joint_arms"] for s in manifest["stores"].values())
     for name, s in manifest["stores"].items():
         if s["replay"]["jar_sha256"] != jar_sha:
-            sys.exit(f"FATAL: jar sha != {name} run.json jar (replay parity "
-                     f"is the whole point) — {jar_sha[:12]}")
+            if not args.allow_jar_drift:
+                sys.exit(f"FATAL: jar sha != {name} run.json jar (replay "
+                         f"parity is the whole point) — {jar_sha[:12]}")
+            # ADR-0089: a game-path-identical fix jar (the Obs.mark seq fix)
+            # replays stores generated on the old jar; the drift is recorded
+            # loudly and the parity witness IS the empirical proof (the
+            # ADR-0025 standard, on every replayed game)
+            manifest.setdefault("jar_drift", {})[name] = {
+                "generated_on": s["replay"]["jar_sha256"],
+                "replayed_on": jar_sha,
+                "reason": args.allow_jar_drift,
+            }
+            print(f"JAR DRIFT (recorded): {name} generated on "
+                  f"{s['replay']['jar_sha256'][:12]}, replaying on "
+                  f"{jar_sha[:12]} — parity witness must pass")
         sdir = plan / f"store-{name}"
         lines = [ln for ln in (sdir / "sched-h2.tsv").read_text().splitlines()
                  if ln and not ln.startswith("#")]
@@ -195,7 +208,12 @@ def lanes(args) -> None:
                 # bridge at once is the suspected first-launch failure mode
                 f"sleep {len(all_lanes) * 10}\n"
                 f"cd '{gui}'\n"
+                # truncate ALL outputs on start: a rerun's stale scratch
+                # frames would otherwise pollute the parity read (the fix
+                # smoke read a killed attempt's frame beside the real one)
                 f": > '{outdir}/lane-{i}.out.jsonl'\n"
+                f"rm -f '{scratch}.obs.zst' '{scratch}.obs.idx.jsonl' "
+                f"'{scratch}.census.jsonl'\n"
                 f"nice -n 19 java -Xms3g -Xmx3g -XX:ActiveProcessorCount=2 "
                 f"-XX:+ExitOnOutOfMemoryError "
                 f"-jar '{jar}' anvil "
@@ -399,6 +417,10 @@ def main() -> None:
     lp.add_argument("--temperature", type=float, default=1.0)
     lp.add_argument("--lanes", type=int, default=12)
     lp.add_argument("--concurrency", type=int, default=12)
+    lp.add_argument("--allow-jar-drift", default=None,
+                    help="permit a jar sha mismatch vs the source run.json, "
+                    "recording THIS string as the reason (game-path-identical "
+                    "fix jars only; the parity witness is the proof)")
     lp.set_defaults(fn=lanes)
     pp = sub.add_parser("parity")
     pp.add_argument("--plan", required=True)
