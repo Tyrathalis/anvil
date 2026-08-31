@@ -63,13 +63,21 @@ multi-fork games is only possible if both mechanisms are dead).
 
 ## Consequences
 
-- **ADR-0078 contamination flag (honest, small):** the ceiling sweep
-  used the same mark-consuming machinery, so in multi-fork games every
-  fork after the first certified a re-rolled mainline (~15–20% of the
-  600 sweep turns at 1.2 turns/game). First-fork turns and single-fork
-  games are clean; the FUNDED verdict's ~6× margin dwarfs the slice,
-  but the read of record now carries this asterisk. Any re-run of the
-  sweep machinery inherits the fix.
+- **ADR-0078 VERIFIED IMMUNE (corrected same day — the first draft of
+  this ADR flagged it as contaminated):** the s-shift changes behavior
+  only under SAMPLED serving (`noise_seed` feeds the Gumbel draw;
+  argmax never reads it). The ceiling census was generated on the
+  iter-019 **argmax** server (devlog 2026-08-25 session 4: ":50065,
+  the final_read serve convention") and the sweep replayed under the
+  same convention ("margins byte-identical across the re-run" — only
+  possible under argmax). Two independent corroborations: the sweep
+  lost only 17/600 turns where the mint's diseased runs truncated ~10%
+  of theirs; and its stage-2 pairing was internally consistent
+  throughout. **The mint is the FIRST sampled replay in project
+  history** — probe stores are temperature-1.0 behavior-policy data
+  and can only be replayed sampled, which is why the latent collision
+  fired here and never before. Any future sampled-replay instrument
+  requires the fixed jar (`f9eadfa8d4`+).
 - Standing rule born (→ standing-rules.md): **every input to the serve
   path must be replay-stable, and the obs seq is a serve input** (the
   noise key rides it) — any machinery that adds/removes obs records
