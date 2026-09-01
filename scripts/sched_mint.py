@@ -214,7 +214,7 @@ def lanes(args) -> None:
                 f": > '{outdir}/lane-{i}.out.jsonl'\n"
                 f"rm -f '{scratch}.obs.zst' '{scratch}.obs.idx.jsonl' "
                 f"'{scratch}.census.jsonl'\n"
-                f"nice -n 19 java -Xms3g -Xmx3g -XX:ActiveProcessorCount=2 "
+                f"nice -n 19 java -Xms4g -Xmx4g -XX:ActiveProcessorCount=2 "
                 f"-XX:+ExitOnOutOfMemoryError "
                 f"-jar '{jar}' anvil "
                 f"-pairs '{rep['pairs']}' -gpp {rep['gpp']} -f Commander "
