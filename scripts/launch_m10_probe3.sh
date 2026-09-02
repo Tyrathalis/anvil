@@ -11,7 +11,9 @@
 #             sampled from the two INIT-CKPT stores — on-distribution for
 #             iteration 0 by construction; replay parity WITNESSED by
 #             sched_mint.py parity before this launch).
-#   MECHANICS --lab-k 8 (one 8-window chunk per optimizer step, epoch-
+#   MECHANICS --lab-k 4 (543-label mint at 19.2% cert rate landed under
+#             the 750 bar -> the pre-adjudicated k=4 path: ~1.3 visits/
+#             window/iteration, inside the <=2 rule) (one chunk per step,
 #             shuffled — no step sees a fittable batch), --lab-warmup 50
 #             (applied-step ramp), --seedlab-carry-w + --paylab-carry-w
 #             (calibrate ONCE against the honest day-zero raw; probe1
@@ -31,19 +33,16 @@
 #   zero hits incl. run.json bridge strings and live listeners).
 #   No graft change: presence floor 0.012513 / content_flip 0.0 STAND.
 #
-# PREREQUISITES before setsid'ing this script (ADR-0088):
-#   1. the mint finished: sched_mint.py finish ran clean on
-#      data/runs/sched-mint-20260830 (>= ~750 labels; below that the
-#      routed top-up path runs first — k drops to 4 before re-sampling);
-#   2. replay parity EXACT: sched_mint.py parity --plan .../sched-mint-20260830;
-#   3. seedlab day-zero RE-BANKED on the minted labels at the init ckpt:
-#      uv run python scripts/seedlab_dayzero.py \
-#        --ckpt data/training/m10-sched-init/last.pt \
-#        --labels <mint labels comma-list below> \
-#        --store  <mint stores comma-list below> \
-#        --out data/training/m10-sched-init/seedlab-dayzero-mint20260830.json
-#      (the FUND decode leg reads 0.8x THIS value; the 2.730 bank was the
-#      170-window batch and retires with it).
+# PREREQUISITES — ALL SATISFIED 2026-09-02 (~05:00):
+#   1. mint finish CLEAN: 543/543 labels (653 certified positives, 110
+#      dropped by the witness; cert rate 19.2% on probe states vs the
+#      census 28% prior) -> the k=4 path (pre-adjudicated);
+#   2. parity witness: 79.0% valid-turn survival (2,690/3,406; 288 games
+#      exact, 153 sparse-flipped, 0 truncated; systematic floor 50% far
+#      cleared) — salvage-by-prefix semantics, ADR-0089;
+#   3. seedlab day-zero RE-BANKED: CE 2.676759 on 543/543 (zero
+#      misses/unmatched; cross-validates the 170-batch's 2.730) ->
+#      seedlab-dayzero-mint20260830.json; FUND decode leg <= 2.141.
 #
 # Pre-registered gates: ADR-0084 verbatim + the ADR-0086 restated decode
 # leg on the re-banked day-zero; degeneracy veto carries emission health;
@@ -77,7 +76,7 @@ exec uv run python -m anvil.training.selfplay \
   --seed-store "data/trajectories/m10-probe1-i000-20260828-191848,data/trajectories/m10-probe2-i000-20260829-123734" \
   --seedlab-frac 0.05 --guard-seedlab-share 0.15 \
   --seedlab-carry-w --paylab-carry-w \
-  --lab-k 8 --lab-warmup 50 \
+  --lab-k 4 --lab-warmup 50 \
   --ent-weight 0.003 --ent-floor 0.08 --rl-seg 128 \
   --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult 2.5 \
   --guard-casts-floor 0.8 \
