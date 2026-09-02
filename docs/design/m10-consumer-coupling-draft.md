@@ -99,18 +99,20 @@ Consequences to pre-register:
 
 ## D. Fork 3 — the read (ADR-0084 carried, consumption headlined)
 
-- FUND (human): content_flip ≥ 0.02 AND **utilization ≥ 25%** (the
-  veto bar, now a positive criterion) AND aux legs under their bars
-  (seedlab ≤ 2.141 on the mint bank; follow CE ≤ 0.8× its day-zero,
-  banked at launch) AND guards clean AND veto not firing.
+- FUND (human): **content_flip ≥ 0.02 on the fixed reliance population**
+  (the primary consumption read) AND utilization ≥ 25% as a FLOOR (it
+  inflates on natural-line windows — never sufficient on its own) AND
+  aux legs under their bars (seedlab ≤ 0.8× its full-support day-zero,
+  re-banked at launch; follow CE ≤ 0.8× its day-zero, banked at launch)
+  AND guards clean AND veto not firing.
 - KILL (auto, from accepted 4): content_flip < 0.005 AND presence
   floor-relative < 0.005 AND all aux plateaued — verbatim.
 - Discuss-zone between; presence-only movement cannot FUND.
 
 ## E. Fork 4 — probe shape and housekeeping
 
-- `m10-probe6`: probe5 recipe + Fork 1 + Fork 2 + the re-based veto;
-  6 iterations; fresh name/seed/port.
+- `m10-probe6`: probe5 recipe + Fork 1 + Fork 2 (veto axes absolute,
+  unchanged); 6 iterations; fresh name/seed/port.
 - Memorize guard refinement (ADR-0091 finding 4): the iteration-min is
   taken over WINDOWED per-step means (telemetry rows), not per-chunk
   raws — mixed-class batches (paylab) otherwise trip on auto-only
