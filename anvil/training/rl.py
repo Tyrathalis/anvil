@@ -2019,6 +2019,17 @@ def main() -> None:
                         w_paylab * abs(paylab_share_raw / paylab_share_steps)
                         / (paylab_share_pg / paylab_share_traj), 5,
                     )
+                # ADR-0088 fix (m10-probe3 halt): the acc[] row values of the
+                # once-per-step fixed-batch raws are per-TRAJECTORY means
+                # (÷ traj_per_step); the calibration raw is per-STEP. Surface
+                # the per-step mean under its own key so the memorize guard
+                # compares like with like (the ÷4 dilution made the guard
+                # unpassable; probe1/2's banked row values carry the same
+                # dilution — ADR-0087's 0.421/0.046 are ~1.68/0.18 per step).
+                paylab_raw_step = (
+                    round(paylab_share_raw / paylab_share_steps, 5)
+                    if paylab_share_steps else None
+                )
                 paylab_share_raw = paylab_share_pg = 0.0
                 paylab_share_traj = paylab_share_steps = 0
                 seedlab_share = None
@@ -2028,6 +2039,10 @@ def main() -> None:
                         w_seedlab * abs(seedlab_share_raw / seedlab_share_steps)
                         / (seedlab_share_pg / seedlab_share_traj), 5,
                     )
+                seedlab_raw_step = (
+                    round(seedlab_share_raw / seedlab_share_steps, 5)
+                    if seedlab_share_steps else None
+                )
                 seedlab_share_raw = seedlab_share_pg = 0.0
                 seedlab_share_traj = seedlab_share_steps = 0
                 row = {
@@ -2049,6 +2064,10 @@ def main() -> None:
                     **({"w_seedlab": round(w_seedlab, 6)}
                        if seedlab is not None and w_seedlab is not None else {}),
                     **({"seedlab_share": seedlab_share} if seedlab_share is not None else {}),
+                    **({"seedlab_raw_step": seedlab_raw_step}
+                       if seedlab_raw_step is not None else {}),
+                    **({"paylab_raw_step": paylab_raw_step}
+                       if paylab_raw_step is not None else {}),
                     **(
                         {
                             "sched_rms": round(

@@ -681,17 +681,18 @@ def guard_flags(
                 f"guard: seedlab_raw_max {sl_max} > {seedlab_spike_mult}x median ({sl_med})"
             )
     if lab_memorize_ratio:
-        # ADR-0088 memorization tripline: a fixed batch fitted within the
-        # first telemetry window IS the probe2 impulse (raw 2.73 -> 0.42 in
-        # ~10 applied steps at full frac-scale mass on the shared trunk);
-        # the share guard cannot see it — share decays WITH the fit
-        first = rl.get("first") or {}
-        for key, calib in (("seedlab_raw", seedlab_calib_raw),
-                           ("paylab_raw", paylab_calib_raw)):
-            fv = first.get(key)
-            if fv is not None and calib and fv < lab_memorize_ratio * calib:
+        # ADR-0088 memorization tripline (re-based after the m10-probe3
+        # false halt): a fixed batch FITTED is the probe2 impulse — per-step
+        # raw 2.73 -> 0.18 (0.07x) within one iteration; the share guard
+        # cannot see it (share decays WITH the fit). Reads the iteration
+        # MINIMUM of the per-step raw vs the per-step calibration raw.
+        lab_min = rl.get("min") or {}
+        for key, calib in (("seedlab_raw_step", seedlab_calib_raw),
+                           ("paylab_raw_step", paylab_calib_raw)):
+            mv = lab_min.get(key)
+            if mv is not None and calib and mv < lab_memorize_ratio * calib:
                 flags.append(
-                    f"guard: {key} first-window {fv} < "
+                    f"guard: {key} iteration-min {mv} < "
                     f"{lab_memorize_ratio}x calib ({round(calib, 5)})"
                 )
     if baseline:
@@ -769,19 +770,25 @@ def _rl_summary(train_dir: Path) -> dict:
         "paylab_share",
         "seedlab_raw",
         "seedlab_share",
+        "seedlab_raw_step",
+        "paylab_raw_step",
     ):
         vals = [r[k] for r in rows if k in r]
         if vals:
             mean[k] = round(sum(vals) / len(vals), 5)
-    # ADR-0088: the memorization tripline reads the FIRST post-calibration
-    # telemetry row per fixed-batch term — the impulse window the iteration
-    # mean/median dilute (probe2: first row 0.42 vs calib 2.73, the guard's
-    # whole signal)
+    # ADR-0088 memorization tripline, re-based after the m10-probe3 false
+    # halt: reads the PER-STEP raws (the acc[] row values are per-trajectory
+    # ÷ traj_per_step — comparing those to the per-step calibration raw made
+    # the guard unpassable) and the iteration MINIMUM — the discriminator
+    # that separates probe2's memorization (per-step 2.73 → 0.18 = 0.07×)
+    # from healthy fast learning (probe3: 2.68 → 2.11 = 0.79×)
     first = {}
-    for k in ("paylab_raw", "seedlab_raw"):
+    lab_min = {}
+    for k in ("paylab_raw_step", "seedlab_raw_step"):
         vals = [r[k] for r in rows if k in r]
         if vals:
             first[k] = round(vals[0], 5)
+            lab_min[k] = round(min(vals), 5)
     # m10-probe1 (ADR-0085): the aux-share iteration MEAN is spike-dominated
     # under a heavy-tailed aux CE (iter-2 mean share 1.50 vs median 0.18, one
     # step at sched_ce 543.5 vs median 3.2) — surface medians for the share
@@ -815,6 +822,7 @@ def _rl_summary(train_dir: Path) -> dict:
         "med": med,
         "spike": spike,
         "first": first,
+        "min": lab_min,
         "final": last,
     }
 
@@ -1036,14 +1044,15 @@ def main() -> None:
     ap.add_argument(
         "--guard-lab-memorize",
         type=float,
-        default=0.5,
-        help="ADR-0088 memorization tripline: halt if a fixed-batch term's "
-        "FIRST post-calibration telemetry-window raw falls below this "
-        "fraction of its raw-at-calibration — a fixed batch fitting that "
-        "fast is the probe2 impulse signature (seedlab 0.42/2.73 = 0.15, "
-        "paylab 0.23/0.99 = 0.23 within ~10 applied steps). The share guard "
-        "is structurally blind to this (share decays WITH the fit). "
-        "0 disables",
+        default=0.25,
+        help="ADR-0088 memorization tripline (re-based after the m10-probe3 "
+        "false halt): halt if a fixed-batch term's iteration-MINIMUM "
+        "per-step raw (seedlab_raw_step/paylab_raw_step) falls below this "
+        "fraction of its per-step raw-at-calibration — a fitted batch is "
+        "the probe2 signature (per-step 2.73 -> 0.18 = 0.07x in one "
+        "iteration) while healthy fast learning sits far above it (probe3 "
+        "iter 0: 0.79x). The share guard is structurally blind to fitting "
+        "(share decays WITH the fit). 0 disables",
     )
     ap.add_argument(
         "--guard-seedlab-share",

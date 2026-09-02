@@ -479,42 +479,46 @@ def test_seedlab_spike_guard_ported(tmp_path):
 
 
 def test_lab_memorize_guard_fires_on_probe2_numbers(tmp_path):
-    """ADR-0088 memorization tripline, regression-tested from the real
-    m10-probe2 iteration-0 numbers: seedlab first telemetry row 0.42076 vs
-    raw-at-calib 2.72795 (0.154x), paylab 0.22962 vs 0.98998 (0.232x) —
-    both under the 0.5 ratio within ~10 applied steps. The share guard was
-    structurally blind to this (share decays WITH the fit); the first-row
-    read is the guard's whole signal."""
+    """ADR-0088 memorization tripline, re-based after the m10-probe3 FALSE
+    halt: the guard reads PER-STEP raws (seedlab_raw_step) — the acc[] row
+    values are per-trajectory (÷ traj_per_step), so comparing them to the
+    per-step calibration raw fired on every run (probe3's healthy 2.39
+    per-step first window showed as 0.565). Regression from the real
+    numbers in per-step scale: probe2 iteration 0 ran 2.73 -> ~1.68 ->
+    ... -> ~0.18 (0.07x, memorized) — fires at the iteration MINIMUM;
+    probe3 iteration 0 ran 2.68 -> ~2.26 ... 2.11 (0.79x, healthy fast
+    learning) — quiet."""
     import json
 
     from anvil.training.selfplay import _rl_summary
 
-    rows = [
-        {"step": 833500, "kl_mu": 0.01, "seedlab_raw": 0.42076, "paylab_raw": 0.22962},
-        {"step": 833520, "kl_mu": 0.01, "seedlab_raw": 0.27418, "paylab_raw": 0.22492},
-        {"step": 833540, "kl_mu": 0.01, "seedlab_raw": 0.17832, "paylab_raw": 0.20941},
-    ]
+    probe2 = [1.683, 1.097, 0.713, 0.449, 0.282, 0.185]  # 4x the row values
+    rows = [{"step": 833500 + 20 * i, "kl_mu": 0.01, "seedlab_raw_step": v,
+             "paylab_raw_step": 0.9} for i, v in enumerate(probe2)]
     with open(tmp_path / "metrics.jsonl", "w") as f:
         for r in rows:
             f.write(json.dumps(r) + "\n")
     rl = _rl_summary(tmp_path)
-    # first-row values, not the (lower) means
-    assert rl["first"]["seedlab_raw"] == 0.42076
-    assert rl["first"]["paylab_raw"] == 0.22962
-    flags = guard_flags({}, rl, None, lab_memorize_ratio=0.5,
+    assert rl["first"]["seedlab_raw_step"] == 1.683
+    assert rl["min"]["seedlab_raw_step"] == 0.185
+    flags = guard_flags({}, rl, None, lab_memorize_ratio=0.25,
                         seedlab_calib_raw=2.72795, paylab_calib_raw=0.98998)
-    assert len(flags) == 2, flags
-    assert any("seedlab_raw first-window" in fl for fl in flags), flags
-    assert any("paylab_raw first-window" in fl for fl in flags), flags
-    # post-fix healthy shape: first window near calib -> quiet
-    healthy = {"mean": {}, "med": {}, "spike": {},
-               "first": {"seedlab_raw": 2.6, "paylab_raw": 0.95}}
-    assert guard_flags({}, healthy, None, lab_memorize_ratio=0.5,
-                       seedlab_calib_raw=2.72795, paylab_calib_raw=0.98998) == []
-    # no calibration reference (term off / pre-0088 rows): quiet, never a
-    # KeyError
-    assert not any("first-window" in fl
-                   for fl in guard_flags({}, rl, None, lab_memorize_ratio=0.5))
+    assert len(flags) == 1 and "seedlab_raw_step iteration-min" in flags[0], flags
+    # probe3 iteration 0, per-step (labs_early mean 2.39; rows x4): quiet
+    probe3 = [2.261, 2.221, 2.331, 2.256, 2.155, 2.109]
+    rows = [{"step": 833500 + 20 * i, "kl_mu": 0.01, "seedlab_raw_step": v,
+             "paylab_raw_step": 1.36} for i, v in enumerate(probe3)]
+    with open(tmp_path / "metrics.jsonl", "w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    assert guard_flags({}, _rl_summary(tmp_path), None, lab_memorize_ratio=0.25,
+                       seedlab_calib_raw=2.67695, paylab_calib_raw=0.99697) == []
+    # no per-step keys (pre-0088 rows) or no calibration reference: quiet,
+    # never a KeyError
+    assert not any("iteration-min" in fl
+                   for fl in guard_flags({}, {"mean": {"kl_mu": 0.01}}, None,
+                                         lab_memorize_ratio=0.25,
+                                         seedlab_calib_raw=2.7))
 
 
 def test_rl_summary_surfaces_sched_live_ce(tmp_path):
