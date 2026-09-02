@@ -54,28 +54,48 @@ distribution (the 499 non-hold mint windows), witnessed.
   utilization are the consumption reads; `content_flip` stays the
   competency axis.
 
-## C. Fork 2 — the emitter support fix: uncertified turns are hold labels
+## C. Fork 2 — the emitter support fix: schedule EVERY turn (revised 2026-09-02, user direction)
 
 The mint's stage-1 read has 2,753 witnessed-valid turns that were
-READ and NOT certified: no arm beat natural by θ = 2.0. The honest
-emission at such a window is hold-all — "no directive, play
-naturally" — the same semantics as the 44 certified pure holds.
-**Lean: mint them as hold labels** (a mint-side script over
-`stage1-perturn.jsonl` ∩ `valid-turns.jsonl`; zero new rollouts) and
-train the emitter on full support: ~3,250 windows, ~83% hold.
+READ and NOT certified. First draft labeled them "hold-all"; that
+conflates two things. Uncertified means no enumerated arm beat
+NATURAL play by θ = 2.0 — and natural play on that turn DID cast
+things, in an order: the policy had an implicit schedule that was not
+beatable. **The honest full-support label is the natural line's
+realized casts on that witnessed turn** (from the FROZEN mint store —
+the retired own-emission target read from a fixed era asset, not from
+the current policy's fresh trajectories, so the ADR-0085 self-
+referential fixed point cannot form; the loader's target construction
+already exists, it feeds `sched_live_ce`). Hold only where natural
+genuinely cast nothing.
 
-Consequences to pre-register, not discover:
-- The emitter's marginal becomes hold-dominant BY DESIGN — the surface
-  speaks only where a certified improvement exists, which is the
-  ceiling spec's own semantics (29% certifiable turns, ADR-0078).
-- **The degeneracy veto's pure-hold axis must be re-based
-  label-relative**: pure-hold ≤ 1.5× the label hold prior (≈ 83% →
-  bar ~95%... i.e. the axis becomes "the surface is not MORE silent
-  than its labels"), and the mean-length axis is measured over
-  non-hold emissions (≥ 1.0 there). Utilization and content_flip
-  carry unchanged as the consumption axes.
-- Under the ADR-0090 decode rule, p_stop > 0.5 at slot 0 will now be
-  common and correct; day-zero re-read at the probe's iteration 0.
+**Lean: mint full-support emitter labels** — certified arm where one
+exists (543), natural realized casts elsewhere (~2,700), hold where
+natural held — ~3,250 witnessed windows, a mint-side script over
+`stage1-perturn.jsonl` ∩ `valid-turns.jsonl` + the source store; zero
+new rollouts. The emitter learns to always emit the plan it would
+play; certified arms are the improvements layered on top — the design
+doc's every-turn plan (M9 D6 lineage) with the certifier as Grindstone's
+targeting.
+
+Consequences to pre-register:
+- **The veto axes stay ABSOLUTE** (pure-hold ≤ 25%, length ≥ 1.0,
+  utilization ≥ 25%) — no label-relative re-base; the emitter's
+  marginal ≈ natural's own length distribution.
+- **Utilization inflates on uncertified windows** (the policy already
+  follows its own natural line), so it weakens as a consumption axis:
+  `content_flip` on the fixed reliance population is the PRIMARY
+  consumption read; utilization is a floor, not a FUND criterion on
+  its own (revises Fork 3's lean: FUND = content_flip ≥ 0.02 AND
+  utilization ≥ 25% as a floor AND aux legs under bars).
+- The consumer term (Fork 1) stays restricted to CERTIFIED windows —
+  feeding and following natural casts would be BC of what the policy
+  already does; the improvement signal lives only where an arm beat
+  natural.
+- Under the ADR-0090 decode rule the day-zero emission baseline is
+  re-read at the probe's iteration 0; the seedlab day-zero re-banks on
+  the full-support label set (the FUND decode leg's 0.8× reads the new
+  bank).
 
 ## D. Fork 3 — the read (ADR-0084 carried, consumption headlined)
 
@@ -104,6 +124,6 @@ Consequences to pre-register, not discover:
 | # | fork | drafted lean |
 | --- | --- | --- |
 | 1 | consumer term | feed-and-follow CE on the priority pointer at mint windows, certified arm fed, first cast as target; holds excluded; frac 0.05; ADR-0088 mechanics verbatim |
-| 2 | emitter support | uncertified witnessed turns minted as hold labels (~3,250 full-support windows); veto hold axis re-based label-relative, length axis over non-hold emissions |
-| 3 | read | ADR-0084 verbatim with utilization ≥ 25% promoted to a FUND criterion; follow CE day-zero banked at launch |
+| 2 | emitter support | **schedule EVERY turn**: full-support labels — certified arm (543) + natural realized casts on uncertified witnessed turns (~2,700, from the frozen mint store: non-self-referential) + hold where natural held; veto axes stay absolute; consumer term restricted to certified windows |
+| 3 | read | ADR-0084 verbatim; content_flip on the fixed reliance population is the PRIMARY consumption read, utilization ≥ 25% a floor (inflates on natural-line windows); follow CE + full-support seedlab day-zero banked at launch |
 | 4 | probe shape | probe6 = probe5 + forks 1–2 + guard refinement + teardown cascade; KL guard is the tripline for the third fixed-batch term |
