@@ -96,9 +96,18 @@ silently delete.
   shuffled) with a warmup ramp and carry-w**; per-iteration
   recalibration against a partially-fitted batch is an amplifier
   (probe1 grew w_seedlab 12× over three iterations), and the
-  memorization tripline (first-window raw < 0.5× raw-at-calibration)
-  guards from first launch
-  ([ADR-0088](decisions/ADR-0088-grounded-driver.md)).
+  memorization tripline (iteration-MIN per-step raw < 0.25×
+  raw-at-calibration — per-step keys; the row values are ÷
+  traj_per_step, the probe3 false-halt lesson) guards from first
+  launch ([ADR-0088](decisions/ADR-0088-grounded-driver.md),
+  re-based at [ADR-0090](decisions/ADR-0090-m10-probe4-read.md)).
+- **An autoregressive emission head with a STOP class decodes
+  stop-vs-continue (p_stop vs Σ candidates), never whole-row argmax**
+  — a calibrated head makes STOP the plurality class at every slot ≥ 1,
+  and argmax collapses emitted length to ~1 (probe4: 52% pure-hold /
+  mean 1.0 against labels at 8% / 2.45); invisible at init, unmasked by
+  the first real supervision
+  ([ADR-0090](decisions/ADR-0090-m10-probe4-read.md)).
 - The standing veto account: under auto-payment, **probing-via-veto IS
   optimal play** — the veto channel is the model's only affordability
   oracle; deterrence-family levers are CLOSED

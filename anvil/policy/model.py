@@ -347,7 +347,13 @@ class AnvilNet(nn.Module):
     ) -> torch.Tensor:
         """Greedy emission decode (serve). Deterministic — the decode is
         supervised, never PG. Returns picks (B, SCHED_CAP): candidate ids,
-        0 = STOP latched (post-stop slots forced 0)."""
+        0 = STOP latched (post-stop slots forced 0). The per-slot pick is
+        sched_slot_pick (ADR-0090): STOP only when it outweighs ALL
+        candidates combined — a plain argmax lets the STOP class (the
+        plurality class at every slot >= 1 once the head learns the label
+        marginal) beat each candidate individually and collapses emitted
+        length to ~1 (m10-probe4: 52% pure-hold / mean 1.0 against labels
+        at 8% / 2.45)."""
         keys, vecs, mask = self._sched_keys(ent_out, batch)
         d = keys.shape[-1]
         prev = torch.zeros_like(state)
@@ -356,7 +362,7 @@ class AnvilNet(nn.Module):
         for t in range(self.sched_cap):
             qv = self.sched_query(torch.cat([state, plan, prev], dim=-1)) + self.sched_slot_emb[t]
             lg = (keys @ qv.unsqueeze(-1)).squeeze(-1) / d**0.5
-            raw = lg.masked_fill(~mask, -1e9).argmax(-1)
+            raw = sched_slot_pick(lg.masked_fill(~mask, -1e9))
             pick = torch.where(stopped, torch.zeros_like(raw), raw)
             picks.append(pick)
             stopped = stopped | (pick == 0)
@@ -792,3 +798,16 @@ class AnvilNet(nn.Module):
             "acc_atk": acc_atk,
             "acc_blk": acc_blk,
         }
+
+
+def sched_slot_pick(masked_logits: torch.Tensor) -> torch.Tensor:
+    """One decode slot's pick from masked logits (B, C; index 0 = STOP,
+    invalid candidates at -1e9). ADR-0090: STOP is chosen only when it
+    outweighs ALL candidates combined (p_stop > 0.5); otherwise the argmax
+    over candidates 1..C-1. A plain argmax over the whole row lets a
+    plurality STOP class beat every candidate individually — the
+    m10-probe4 length collapse (labels mean 2.45, emissions mean 1.0).
+    A row with no valid candidate resolves to STOP by construction."""
+    p_stop = masked_logits.softmax(-1)[:, 0]
+    cand = masked_logits[:, 1:].argmax(-1) + 1
+    return torch.where(p_stop > 0.5, torch.zeros_like(cand), cand)

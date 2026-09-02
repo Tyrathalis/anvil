@@ -233,3 +233,37 @@ def test_gradients_reach_sched_params(net_and_batch):
         g = head[0].weight.grad
         assert g is not None and g.abs().sum() > 0
     net.zero_grad(set_to_none=True)
+
+
+def test_sched_slot_pick_stop_vs_candidates():
+    """ADR-0090 (m10-probe4 read): the serve decode's STOP rule. With a
+    calibrated head, STOP is the plurality class at every slot >= 1 (label
+    marginal 17% at slot 1 vs ~15 candidates splitting 83%), so a whole-row
+    argmax picks STOP and emitted length collapses to ~1. The pick must
+    STOP only when p_stop beats all candidates combined."""
+    import math
+
+    import torch
+
+    from anvil.policy.model import sched_slot_pick
+
+    # slot-1 shape: STOP 0.17, five candidates ~0.166 each -> continue,
+    # pick the best candidate (index 3), never STOP
+    p = torch.tensor([[0.17, 0.165, 0.165, 0.17, 0.165, 0.165]])
+    lg = p.log()
+    assert sched_slot_pick(lg).tolist() == [3]
+    # STOP genuinely dominant (slot 3 shape: 0.72) -> STOP
+    p = torch.tensor([[0.72, 0.1, 0.1, 0.08]])
+    assert sched_slot_pick(p.log()).tolist() == [0]
+    # exactly-uncertain window at slot 0 (STOP 0.08, many small candidates):
+    # a whole-row argmax would STOP here; the rule continues
+    p = torch.full((1, 16), 0.92 / 15)
+    p[0, 0] = 0.08
+    assert sched_slot_pick(p.log()).tolist() != [0]
+    # no valid candidate at all -> STOP, and never an invalid index
+    lg = torch.full((1, 6), -1e9)
+    lg[0, 0] = 0.0
+    assert sched_slot_pick(lg).tolist() == [0]
+    # masked candidates are never picked
+    lg = torch.tensor([[math.log(0.2), -1e9, math.log(0.5), -1e9, math.log(0.3)]])
+    assert sched_slot_pick(lg).tolist() == [2]
