@@ -17,7 +17,9 @@ drafted daemon), the era-zero anchor rule, uniform sampling for probe7,
 the pivotal-moment head as the named extension. Fork 4 ADJUDICATED
 2026-09-03 (user): stratified paired strength as the primary read with a
 DAY-ZERO read and a halt-for-adjudication rule; headroom shrinkage
-demoted to promotion-only.** Forks 5–6 pending.
+demoted to promotion-only. Fork 5 ADJUDICATED 2026-09-03 (user): the
+budget STAGED around the day-zero read; probe6 iter-5 = the day-zero
+ckpt and probe7's init.** Fork 6 pending.
 
 Adjudication principle, stated by the user at Fork 1 and carried into
 the remaining forks: **prefer the simpler, more elegant architecture that
@@ -427,6 +429,50 @@ budget: two build sessions + one probe.** Pre-registered outcomes:
   with the assets carried. The reset must not become another month of
   infrastructure.
 
+**ADJUDICATED (user, 2026-09-03): the same envelope, STAGED around the
+day-zero read.** The consideration: the day-zero read needs only the
+binding serve rule and the paired-read script — nothing on the learner
+(no schedule log-prob in the loader, no planner PG, no inline
+certifier), i.e. about a third of the build — and it is the first
+strength number the milestone would have produced in a month. So:
+
+1. **Session one**: the binding serve rule (Fork 1 sub-pins), the paired
+   read script, the fixed v<0.45 population generated once at the
+   baseline, and the **day-zero read** — one session to the first
+   strength number.
+2. **The mid-point decision rule** (Fork 4's, applied before the learner
+   is built): below minus the bar ⇒ HALT for adjudication — the cheap
+   response to a bad distillation is better labels, not a training
+   loop; flat or positive ⇒ proceed. A FLAT day-zero read is NOT a
+   negative: it says the distilled mint executed as written is worth
+   about nothing (consistent with a quarter of its labels being
+   improvements) and leaves training as the open question; only a
+   clearly negative read changes the plan.
+3. **Session two**: the learner side — the loader's schedule action,
+   planner PG + the KL twin, the inline certifier (Java directive +
+   Python enumeration/scoring, workers at 4g) — then the smoke and the
+   pre-flight pins.
+4. **The probe** (6×480) answers the narrower question — what training
+   adds on top of binding + distillation — with the day-zero number as
+   its own baseline.
+
+**The day-zero ckpt and probe7's init = probe6 iter-5**
+(`m10-probe6/iter-005/train/last.pt`). The comparison is one ckpt
+played two ways (binding vs advisory), so the planner must already be
+distilled; the graft init's emitter is zero-init (forcing garbage
+schedules tests nothing). probe6 iter-5's emitter reached mint CE 1.24
+on the full-support labels, it is an accepted ckpt with full telemetry,
+and playing it under both serve modes isolates execution mode exactly.
+Recorded caveat: its cast head carries six iterations of movement
+including the follow term's cloning (harmless for the comparison). The
+cleaner alternative — a fresh head-only distillation of the graft — is
+a small script spent before knowing the answer is worth having; named,
+not built.
+
+Not covered by the staging: the day-zero read exercises nothing on the
+learner, so session two's build is validated by the smoke, not by the
+read.
+
 ### Fork 6 — payment under the same principle (named, not decided)
 
 The schedule-consistent payment scorer (ADR-0078's engine asset) could
@@ -474,7 +520,9 @@ competency) is the ceiling this fork would go after.
 
 ## G. Build order and hazards
 
-Build order: (1) serve rule in `sched_serve.py` + the server answer path
+Build order (STAGED per Fork 5 — items 1, 5 and the day-zero read are
+session one; the mid-point decision rule sits between; 2–4, 6, 7 are
+session two): (1) serve rule in `sched_serve.py` + the server answer path
 (forced answers flagged in the mu row, no cast logp; emission/revision
 rows gain `sched.lp`); (2) loader: the schedule as a scored action at
 its window; (3) learner: planner PG term + planner KL guard; follow term
