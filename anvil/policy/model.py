@@ -288,7 +288,17 @@ class AnvilNet(nn.Module):
             ispay_item = (task == self._pay_task).float().unsqueeze(-1)
             pass_logit = pass_logit + self.pay_bias[task].unsqueeze(-1) * ispay_item
         logits = torch.cat([pass_logit, logits[:, 1:]], dim=1)  # slot 0 = PASS
-        return logits.masked_fill(~batch["cand_mask"], -1e9)
+        logits = logits.masked_fill(~batch["cand_mask"], -1e9)
+        allow = batch.get("cand_allow")
+        if allow is not None:
+            # M10 reset (ADR-0094) binding execution: the serve rule narrows
+            # the answerable set (land-first / the NEXT scheduled slot / hold
+            # on spells). Applied to the LOGITS, so the sampled pick, its
+            # logp and the loader's recompute all see one distribution — a
+            # single-candidate mask gives logp 0 by construction (forced
+            # answers carry no cast log-prob). Absent key = no narrowing.
+            logits = logits.masked_fill(~allow, -1e9)
+        return logits
 
     def _sched_keys(
         self, ent_out: torch.Tensor, batch: dict
@@ -359,17 +369,26 @@ class AnvilNet(nn.Module):
         prev = torch.zeros_like(state)
         stopped = torch.zeros(state.shape[0], dtype=torch.bool, device=state.device)
         picks = []
+        # ADR-0094: the emitted schedule is an ACTION; its log-prob under the
+        # head's per-slot softmax (each pick incl. the STOP that ends the
+        # decode; post-stop slots contribute nothing) rides the mu row as
+        # `sched.lp` — the V-trace ratio's numerator once the planner PG lands.
+        lp = torch.zeros(state.shape[0], dtype=torch.float32, device=state.device)
         for t in range(self.sched_cap):
             qv = self.sched_query(torch.cat([state, plan, prev], dim=-1)) + self.sched_slot_emb[t]
             lg = (keys @ qv.unsqueeze(-1)).squeeze(-1) / d**0.5
-            raw = sched_slot_pick(lg.masked_fill(~mask, -1e9))
+            lgm = lg.masked_fill(~mask, -1e9)
+            raw = sched_slot_pick(lgm)
             pick = torch.where(stopped, torch.zeros_like(raw), raw)
             picks.append(pick)
+            lsm = torch.log_softmax(lgm.float(), dim=-1)
+            lp = lp + lsm.gather(1, pick.unsqueeze(1)).squeeze(1) * (~stopped).float()
             stopped = stopped | (pick == 0)
             picked = vecs.gather(
                 1, pick.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, vecs.shape[-1])
             ).squeeze(1)
             prev = prev + picked  # STOP's vec is zeros
+        self._last_sched_lp = lp
         return torch.stack(picks, dim=1)
 
     def _combat_outputs(self, state: torch.Tensor, ent_out: torch.Tensor, batch: dict) -> dict:
@@ -652,6 +671,7 @@ class AnvilNet(nn.Module):
             # M10 v2 emission decode (serve reads it at emission/revision
             # windows only; greedy — supervised head, never PG)
             sched["sched_picks"] = self._sched_decode_greedy(state, out[:, 1], ent_out, batch)
+            sched["sched_lp"] = self._last_sched_lp
         return {
             "choice": choice,
             "plan": out[:, 1],  # D6 serve carry: the emitted plan vector
@@ -807,7 +827,15 @@ def sched_slot_pick(masked_logits: torch.Tensor) -> torch.Tensor:
     over candidates 1..C-1. A plain argmax over the whole row lets a
     plurality STOP class beat every candidate individually — the
     m10-probe4 length collapse (labels mean 2.45, emissions mean 1.0).
-    A row with no valid candidate resolves to STOP by construction."""
+    A row with no valid candidate resolves to STOP by construction — and a
+    batch whose candidate axis is the PASS/STOP slot alone (a single-item
+    micro-batch at a mulligan / attack / pass-only priority window) has no
+    candidate to argmax over: STOP outright (found at the ADR-0094 binding
+    smoke: the empty reduction raised, the answer fell back to the
+    heuristic — 200 fallbacks in 4 games; latent since the decode landed,
+    masked by mixed micro-batches padding the axis)."""
+    if masked_logits.shape[1] < 2:
+        return torch.zeros(masked_logits.shape[0], dtype=torch.int64, device=masked_logits.device)
     p_stop = masked_logits.softmax(-1)[:, 0]
     cand = masked_logits[:, 1:].argmax(-1) + 1
     return torch.where(p_stop > 0.5, torch.zeros_like(cand), cand)

@@ -124,6 +124,7 @@ def _start_server(
     drill_sample: bool = False,
     drill_mu_out: Path | None = None,
     instrument: bool = False,
+    sched_binding: str = "off",
 ):
     cmd = [
         sys.executable,
@@ -144,6 +145,9 @@ def _start_server(
         # M7: sampled serving for wire-only fork sessions (no -forkobs, no
         # mu) — sampled-mainline drill maps and forced-branch instruments
         cmd += ["--fork-instrument"]
+    if sched_binding != "off":
+        # M10 reset (ADR-0094): binding execution of the carried schedule
+        cmd += ["--sched-binding", sched_binding]
     if drill_ckpt:
         cmd += ["--drill-ckpt", drill_ckpt]
         if drill_sample:

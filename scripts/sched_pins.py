@@ -86,3 +86,21 @@ ARM_CAP = 16          # directed arms per turn (natural excluded)
 K_ROLLS = 8
 HORIZON_H2 = 2
 HORIZON_H4 = 4
+
+# ------------------------------------------- M10 reset: paired strength read
+# ADR-0094 Fork 4 pins (m10-reset-draft §D4; adjudicated 2026-09-03). The
+# fixed population is drawn ONCE from the ceiling census (user decision
+# 2026-09-03: reuse over fresh generation — apples-to-apples with the
+# ADR-0078/0084 stratum numbers, replay parity proven on that census);
+# stratified on the eval critic of record at the fork window (own-turn
+# MAIN1); reused for every candidate from probe7 through promotion.
+PAIRED_RNG_SEED = 20280903     # one rng, one draw order: primary then context
+PAIRED_N = 600                 # v < PAIRED_VMAX windows (the funded stratum)
+PAIRED_CONTEXT_N = 200         # v >= PAIRED_VMAX windows: context, never gating
+PAIRED_VMAX = 0.45
+PAIRED_CRITIC = "data/training/d4-critic-fullvis/last.pt"  # eval critic of record
+# The bar: the ADR-0078 threshold scale (+2.2pp/game) read as a per-window
+# paired dwr on the stratum (each completion runs to game end, so a window's
+# dwr IS a per-game claim from that state). FUND = mean dwr >= bar with the
+# 95% CI excluding zero; HALT (day-zero rule) = mean dwr <= -bar.
+PAIRED_BAR = 0.022

@@ -560,3 +560,50 @@ Hazards to pre-register:
   yields. Anchor timelines on artifacts, not on the plan.
 - Suite: `seedlabels`, `sched_serve`, loader parity, and the forced-row
   PG exclusion each need a regression test from the real probe6 rows.
+
+## H. Build status (session one, 2026-09-03)
+
+Items 1, 5 and 6 of §G are BUILT and smoked; the day-zero read is
+staged, not launched (user pin: reboot first). Record of what the code
+said differently from the draft, all resolved with the user this session:
+
+- **No fork completion had ever carried a schedule.** `server.answer`
+  gated the SchedServe on a store-indexed `g >= 0`; sched-rollout and
+  mint completions are wire sessions (g = -1). The ceiling's natural arm
+  and the mint's completions played mask-CLOSED, not advisory. The carry
+  is now keyed by wid for wire sessions and the gate is open; "the same
+  ckpt under advisory serve" = carry on, slot tokens fed.
+- **Self-play census ⇒ target-seat scoping**: `--sched-binding forks`
+  latches the seat that opens each wire session (the fork fires at the
+  target seat's MAIN1 priority); the opponent is advisory on both sides.
+- **Population = the ADR-0078 ceiling census, reused** (user decision;
+  supersedes "generated at the baseline ckpt"): 4,084 eligible turns,
+  1,742 at v<0.45 on `d4-critic-fullvis` (the pinned stratum critic),
+  600 primary (mean v 0.198) + 200 context, `PAIRED_RNG_SEED` in
+  `sched_pins.py`; 83 of the 600 sit in the ceiling's own sample.
+- **Timing re-anchored** on the ceiling's stage-2 artifacts (2,720
+  game-end completions ≈ 1.2 h on 4 lanes): the read is 2–3 h at 6
+  lanes/side, not "≈ an hour". Accepted. **Resolution**: K=8 binomial
+  floor 0.25 per window ⇒ ~1.0pp SE over 600 before CRN pairing; the
+  2.2pp bar sits at ~2 SE — the day-zero read reports the empirical
+  paired SE and pins K for the terminal read from it.
+- **Serve-rule details adopted as built** (mirror the engine executor):
+  land-first masked to lands at a quiescent main window (decline
+  forbidden, the cast head picks which); NEXT present ⇒ single-candidate
+  mask (logp 0 by construction); NEXT absent at a quiescent post-land
+  main window ⇒ trigger 1 "absent" with the revision decoded FIRST and
+  the answer taken under the revised plan (two-pass; never costs the
+  phase); otherwise hold on spells (pass + non-spell options). Mask =
+  `cand_allow` on the pointer logits; mu row carries `bind/allow/slot`
+  + `sched.lp`; the loader reconstructs the mask (forced rows recompute
+  to exactly 0 through the loader path — checked on the ingested smoke).
+- **Found in passing, fixed**: `sched_slot_pick` raised on single-slot
+  micro-batches (mulligan / attack / pass-only windows) ⇒ heuristic
+  fallback — 1,266 per 480-game iteration in probe6 iter-5's own log,
+  hidden by mixed 8-worker batches. The day-zero read serves both sides
+  with the fix.
+- Cold-start warm-up built (server default; `--no-warmup`). Natural-only
+  sched points = a parser-only Java allowance (armId 0), jar rebuilt.
+- Read pipeline: `scripts/sched_paired_read.py` (population / run /
+  read); driver wiring (day-zero + terminal invocations, halt rule) is
+  session two with the learner side.

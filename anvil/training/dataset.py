@@ -698,6 +698,17 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             for k in ("task", "bool_label", "num_label", "num_lo", "num_hi", "ctx_row", "forced")
         },
     }
+    if any("cand_allow" in x for x in batch):
+        # ADR-0094 binding execution: per-window answerable-candidate mask
+        # (serve sets it from the schedule; the loader reconstructs it from
+        # the mu row's `sched.allow`). Items without one allow everything
+        # valid; padding is closed either way.
+        allow = torch.zeros(b, c, dtype=torch.bool)
+        for i, x in enumerate(batch):
+            ci = x["cand_rows"].shape[0]
+            a = x.get("cand_allow")
+            allow[i, :ci] = a if a is not None else True
+        out["cand_allow"] = allow
     # target labels -> class ids over the padded batch: [0,n) entity rows,
     # [n, n+p) players, n+p = STOP; -1 stays "no slot" (loss ignore_index)
     p = batch[0]["players"].shape[0]

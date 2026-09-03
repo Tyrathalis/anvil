@@ -116,3 +116,19 @@ revision-window labels, head-only distillation of the graft.
   read.
 - The CLAUDE.md M10 bullet was compressed to the archive at this
   stamp (snapshot 2026-09-03).
+
+## Addendum (2026-09-03, session one built)
+
+- Build status is recorded in m10-reset-draft §H. Two findings from the
+  build change the reading of earlier measurements: (1) **no fork
+  completion ever carried a schedule** — the server gated the carry on a
+  store-indexed game id, so the ceiling's natural arm and every mint
+  completion played mask-closed (not advisory); the reset's baseline is
+  the first time a completion plays with the surface fed; (2) **the
+  ADR-0090 decode raised on single-slot micro-batches** and fell back to
+  the heuristic ~1,266 times per 480-game iteration in probe6, unseen.
+- Population pin amended (user): the fixed v<0.45 population is drawn
+  from the ADR-0078 ceiling census, not generated at the baseline ckpt;
+  stratum critic = `d4-critic-fullvis`; `PAIRED_*` pins in
+  `scripts/sched_pins.py`. Read budget 2–3 h accepted.
+

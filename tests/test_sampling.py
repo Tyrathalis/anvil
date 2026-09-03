@@ -258,3 +258,50 @@ def test_mu_roundtrip_combat(net_and_feat):
             assert abs(lp["blk"] - rec["lp"]["blk"]) < 5e-3
             checked_b += 1
     assert checked_a >= 5 and checked_b >= 3
+
+
+def test_collate_cand_allow_pads_closed_and_defaults_open():
+    """ADR-0094 binding execution: the per-window allow mask collates with
+    padding closed; items without a mask allow every valid candidate."""
+    import torch
+
+    from anvil.training.dataset import collate
+
+    def ex(c, allow=None):
+        e = {
+            "entities": torch.zeros(2, 4),
+            "ent_emb": torch.zeros(2, dtype=torch.int64),
+            "ent_mask": torch.ones(2, dtype=torch.bool),
+            "cand_rows": torch.zeros(c, dtype=torch.int64),
+            "cand_sa": torch.zeros(c, dtype=torch.int64),
+            "cand_kind": torch.zeros(c, dtype=torch.int64),
+            "cand_paykind": torch.full((c,), -1, dtype=torch.int64),
+            "cand_mask": torch.ones(c, dtype=torch.bool),
+            "globals": torch.zeros(3),
+            "players": torch.zeros(2, 6),
+            "history": torch.zeros(8, 5),
+            "label": torch.tensor(0),
+            "label_row": torch.tensor(-1),
+            "x_val": torch.tensor(0),
+            "has_outcome": torch.tensor(0.0),
+            "won": torch.tensor(0.0),
+            "task": torch.tensor(0),
+            "bool_label": torch.tensor(-1),
+            "num_label": torch.tensor(-1),
+            "num_lo": torch.tensor(0),
+            "num_hi": torch.tensor(1),
+            "ctx_row": torch.tensor(-1),
+            "forced": torch.tensor(0),
+            "tgt_kind": torch.full((5,), -1, dtype=torch.int64),
+            "tgt_idx": torch.full((5,), -1, dtype=torch.int64),
+            **{k: torch.zeros(0, dtype=torch.int64) for k in (
+                "cmb_rows", "cmb_count", "blk_atk_rows", "atk_label", "atk_tgt_idx",
+                "atk_tgt_kind", "blk_label", "cmb_count_label")},
+        }
+        if allow is not None:
+            e["cand_allow"] = torch.tensor(allow)
+        return e
+
+    b = collate([ex(3, [False, True, False]), ex(2)])
+    assert b["cand_allow"].tolist() == [[False, True, False], [True, True, False]]
+    assert "cand_allow" not in collate([ex(2), ex(2)])

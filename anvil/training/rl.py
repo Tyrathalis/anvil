@@ -484,6 +484,18 @@ def game_trajectories(
                         pm = torch.zeros(ex["cand_rows"].shape[0])
                         pm[mark] = 1.0
                         ex["cand_paymark"] = pm  # serve-verbatim, loader parity
+                allow = rec.get("sched", {}).get("allow")
+                if allow is not None:
+                    # ADR-0094 binding execution: the answerable set serve
+                    # masked (land-first / forced NEXT / hold) — the logits
+                    # mask the mu logp was sampled under; rides the row
+                    # even at emission rows (no slots fed, a mask applied)
+                    cw = ex["cand_rows"].shape[0]
+                    am = torch.zeros(cw, dtype=torch.bool)
+                    for i in allow:
+                        if 0 <= i < cw:
+                            am[i] = True
+                    ex["cand_allow"] = am
             by_seat.setdefault(dec["p"], []).append((ex, rec, rej, ex_fv))
         prior.append(dec)
     if plan:

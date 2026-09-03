@@ -19,6 +19,30 @@ Trigger detectors are honest approximations where the wire is (recorded in
 the spec): trigger 2 reads the K=8 rolling wire-history's non-self
 signature (missed-trigger residual = the canonical-register instrument's
 territory); trigger 1 rides the bridge's `retry_of` re-ask marker.
+
+BINDING EXECUTION (M10 reset, ADR-0094 Fork 1; m10-reset-draft §C/§D1).
+`binding` = "off" (advisory: slot tokens only, the cast head free — the
+pre-reset surface), "all" (every bridged seat binds — generation), or
+"forks" (wire-fork sessions only, and only the seat that opened the
+session — the paired strength read's candidate side; the mainline replay
+stays advisory-exact). The rule mirrors the ceiling's engine executor
+(ScheduleDirective.window, ADR-0078's regime) at the answerable set:
+  1. land-first: a land option present at a QUIESCENT main-phase window
+     (MAIN1/MAIN2, empty stack) ⇒ the answer is masked to the land options
+     (decline forbidden; the executor picks WHICH land);
+  2. the NEXT scheduled slot present among the candidates ⇒ masked to
+     that single candidate (a forced answer: logp 0 by construction,
+     targets/X still the cast head's);
+  3. NEXT absent at a quiescent post-land main window ⇒ trigger 1 (the
+     slot failed; revision at this window — the server runs the decode
+     pass first, then acts under the revised plan's mask);
+  4. otherwise (no slot remains, or NEXT not castable here — stack up,
+     combat, off-main) ⇒ HOLD on spells: pass + non-spell options only
+     (abilities and lands stay the executor's).
+Mask = `ex["cand_allow"]` on the pointer logits; the mu row records
+`bind` (kind) + `allow` (the open candidate indices) so the loader
+reproduces the distribution bit-exactly, and `lp` = the emitted
+schedule's log-prob at decode rows.
 """
 
 from __future__ import annotations
@@ -72,13 +96,75 @@ class _State:
                     return
 
 
+BINDING_MODES = ("off", "all", "forks")
+MAIN_PHASES = ("MAIN1", "MAIN2")
+
+
 class SchedServe:
-    def __init__(self, feat):
+    def __init__(self, feat, binding: str = "off"):
+        if binding not in BINDING_MODES:
+            raise ValueError(f"binding must be one of {BINDING_MODES}: {binding!r}")
         self.feat = feat
+        self.binding = binding
         self.states: dict[tuple, _State] = {}
+        # forks mode: wire session wid -> the seat whose window opened it
+        # (the fork fires at the target seat's own MAIN1 priority, so the
+        # session's first own-turn priority ask names the seat; the read
+        # script cross-checks it against the schedfile's seat column)
+        self.bind_seat: dict[str, int] = {}
         self.lock = threading.Lock()
         self.counts: Counter = Counter()
         self._cap = 4096
+
+    # ----------------------------------------------------------------- keys
+
+    @staticmethod
+    def _key(header: dict, p: int) -> tuple:
+        """Carry key: store-indexed games by g; wire sessions (g < 0: fork
+        completions, instrument/certify lanes) by their unique wid — the
+        pre-reset gate skipped them, so no completion ever carried a
+        schedule (ADR-0094 verification: the ceiling's natural arm and the
+        mint's completions played with the surface closed)."""
+        g = header.get("g", -1)
+        return (g, p) if g >= 0 else (header.get("wid"), p)
+
+    def binds(self, header: dict, p: int) -> bool:
+        if self.binding == "all":
+            return True
+        if self.binding == "forks":
+            return header.get("g", -1) < 0 and self.bind_seat.get(header.get("wid")) == p
+        return False
+
+    @staticmethod
+    def quiescent_main(dec: dict) -> bool:
+        glob = dec["obs"].get("glob", {})
+        if glob.get("ph") not in MAIN_PHASES:
+            return False
+        return not any(e.get("z") == "stack" for e in dec["obs"].get("ents", []))
+
+    @staticmethod
+    def _cand_kinds(dec: dict, aux: dict) -> list:
+        opts = dec.get("opts") or []
+        first_opt = aux["cand_first_opt"]
+        kinds = [None]
+        for c in range(1, len(first_opt)):
+            i = first_opt[c]
+            kinds.append(opts[i].get("kind") if 0 <= i < len(opts) else None)
+        return kinds
+
+    @staticmethod
+    def _cand_of(slot: _Slot, dec: dict, aux: dict) -> "int | None":
+        """Candidate index whose (e, normalized sa) is the slot's; None =
+        not answerable at this window."""
+        opts = dec.get("opts") or []
+        first_opt = aux["cand_first_opt"]
+        for c in range(1, len(first_opt)):
+            i = first_opt[c]
+            if 0 <= i < len(opts):
+                o = opts[i]
+                if o.get("e") == slot.e and norm_sa(o.get("sa", "")) == slot.sa:
+                    return c
+        return None
 
     # ---------------------------------------------------------------- inject
 
@@ -93,7 +179,20 @@ class SchedServe:
         glob = obs.get("glob", {})
         if glob.get("ap") != p:
             return None  # off-turn: the hold-set's territory, no schedule
-        key = (header["g"], p)
+        key = self._key(header, p)
+        if (
+            self.binding == "forks"
+            and task == "priority"
+            and header.get("g", -1) < 0
+            and header.get("wid") is not None
+            and header["wid"] not in self.bind_seat
+        ):
+            with self.lock:
+                self.bind_seat[header["wid"]] = p
+                while len(self.bind_seat) > self._cap:
+                    self.bind_seat.pop(next(iter(self.bind_seat)))
+            self.counts["sched_bind_seat_latched"] += 1
+        bind = self.binds(header, p)
         turn = dec.get("t", 0)
         with self.lock:
             st = self.states.get(key)
@@ -144,6 +243,20 @@ class SchedServe:
                 st.exhaust_fired = True
                 st.pending_revise = st.pending_revise or "exhaust"
 
+        if st is not None and bind and task == "priority" and self.quiescent_main(dec):
+            # binding rule 3: NEXT absent at a quiescent post-land main
+            # window = the slot failed (trigger 1 by another road) — a
+            # revision, never a silent deviation
+            ni = st.next_idx()
+            if (
+                ni is not None
+                and "land" not in self._cand_kinds(dec, aux)
+                and self._cand_of(st.slots[ni], dec, aux) is None
+            ):
+                st.slots[ni].st = "f"
+                st.pending_revise = st.pending_revise or "absent"
+                self.counts["sched_bind_absent"] += 1
+
         decode = False
         trigger = None
         if task == "priority":
@@ -169,7 +282,52 @@ class SchedServe:
             "turn": turn,
             "p": p,
             "mark": mark,
+            "task": task,
+            "bind": bind,
         }
+
+    # ------------------------------------------------------------------ bind
+
+    def bind(self, ctx: dict, ex: dict, aux: dict, dec: dict) -> "dict | None":
+        """Binding execution's answerable set for this window (rules 1, 2,
+        4 above; rule 3 fired in inject). Sets ex["cand_allow"]; returns
+        {kind, allow, slot} for the mu row, or None when the window is not
+        bound (advisory, off-turn, no live schedule, non-priority)."""
+        if ctx is None or not ctx.get("bind") or ctx.get("task") != "priority":
+            return None
+        st = ctx["state"]
+        if st is None:
+            return None
+        first_opt = aux["cand_first_opt"]
+        cw = len(first_opt)
+        kinds = self._cand_kinds(dec, aux)
+        allow = [False] * cw
+        slot = None
+        lands = [c for c in range(1, cw) if kinds[c] == "land"]
+        if lands and self.quiescent_main(dec):
+            for c in lands:
+                allow[c] = True
+            kind = "land"
+        else:
+            ni = st.next_idx()
+            c = self._cand_of(st.slots[ni], dec, aux) if ni is not None else None
+            if c is not None:
+                allow[c] = True
+                kind, slot = "cast", ni
+            else:
+                allow[0] = True
+                for c in range(1, cw):
+                    if kinds[c] != "spell":
+                        allow[c] = True
+                kind = "hold"
+        if "cand_rows" in ex and ex["cand_rows"].shape[0] != cw:
+            # the featurizer's candidate basis IS first_opt's — a mismatch
+            # means the window was built by another path; never mask blind
+            self.counts["sched_bind_basis_skew"] += 1
+            return None
+        ex["cand_allow"] = torch.tensor(allow, dtype=torch.bool)
+        self.counts[f"sched_bind_{kind}"] += 1
+        return {"kind": kind, "allow": [i for i, a in enumerate(allow) if a], "slot": slot}
 
     def _pay_mark(self, ex: dict, dec: dict, p: int, st: _State) -> "int | None":
         """The schedule-consistent goal option (actuation pin 1): the
@@ -260,10 +418,14 @@ class SchedServe:
 
     # ----------------------------------------------------------------- after
 
-    def after(self, ctx: dict, out: dict, aux: dict, dec: dict) -> "dict | None":
+    def after(
+        self, ctx: dict, out: dict, aux: dict, dec: dict, track: bool = True
+    ) -> "dict | None":
         """Post-forward hook: consume the decode at emission/revision
         windows, track the answered action vs the NEXT slot, and return the
-        mu `sched` row (fed part + emission record)."""
+        mu `sched` row (fed part + emission record). track=False = the
+        planning pass of a binding two-pass window: the decode is consumed,
+        the pass's (discarded) answer is not tracked."""
         if ctx is None:
             return None
         st = ctx["state"]
@@ -291,6 +453,8 @@ class SchedServe:
                 trigger=ctx["trigger"],
                 new=[[s.e, s.sa_id] for s in new_slots],
             )
+            if "sched_lp" in out:
+                row["lp"] = round(float(out["sched_lp"][0]), 5)
             self.counts["sched_emit"] += 1
             self.counts[f"sched_rev_{ctx['trigger']}"] += 1
             if noop:
@@ -300,6 +464,9 @@ class SchedServe:
                 self.counts["sched_pure_hold"] += 1
         elif row:
             row["emit"] = 0
+
+        if not track:
+            return row or None
 
         # -- marked-candidate follow telemetry (pay windows)
         if ctx.get("mark") is not None and "choice" in out:
@@ -328,6 +495,10 @@ class SchedServe:
                         s.st == "p" and ekey == (s.e, s.sa) for s in st.slots
                     ):
                         self.counts["sched_dev_later_slot"] += 1
+                    elif ctx.get("bind") and opt.get("kind") != "spell":
+                        # binding: lands/abilities are the executor's per-
+                        # window authority, not a deviation from the plan
+                        self.counts["sched_exec_nonspell"] += 1
                     else:
                         self.counts["sched_dev_off_plan"] += 1
         return row or None

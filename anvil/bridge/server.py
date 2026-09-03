@@ -159,6 +159,7 @@ class ModelBackend:
         temperature: float = 1.0,
         mu_path: "str | None" = None,
         instrument: bool = False,
+        sched_binding: str = "off",
     ):
         import torch
 
@@ -225,11 +226,17 @@ class ModelBackend:
         self._plan_cap = 4096
         # M10 v2 discrete schedule carry (revise-on-trigger; sched_serve.py)
         self.sched_serve = None
+        self.sched_binding = sched_binding
         if self.carry_sched:
             from anvil.bridge.sched_serve import SchedServe
 
-            self.sched_serve = SchedServe(self.feat)
+            self.sched_serve = SchedServe(self.feat, binding=sched_binding)
             self.batcher.sched_decode = True
+        elif sched_binding != "off":
+            print(
+                f"[server] WARNING: --sched-binding {sched_binding} on a ckpt "
+                "without schedule params — no schedule, nothing binds"
+            )
         self.mu_file = None
         self.mu_lock = threading.Lock()
         if sample:
@@ -252,8 +259,44 @@ class ModelBackend:
             f"[server] model {ckpt_path} step={ckpt.get('step')} "
             f"pass_delta={pass_delta} device={device} "
             f"sample={sample} temperature={temperature} "
+            f"sched_binding={sched_binding if self.carry_sched else 'n/a'} "
             f"micro-batch<= {self.batcher.max_batch} window {self.batcher.window_ms}ms"
         )
+
+    def warmup(self, n: int = 3) -> None:
+        """Cold-start guard (ADR-0094 hazard list): the first forward pays
+        CUDA/cuDNN/autocast initialization (seconds), and under batched
+        serving every worker's first request lands in that one micro-batch
+        — 8 workers x 1 deadline miss = the poison wave (heuristic fallback
+        on the emission window; under binding a whole turn plays natural).
+        Runs n synthetic priority windows through the batcher before the
+        port opens. Best-effort: a featurizer error here is logged, never
+        fatal (the wave is a QoS hazard, not a correctness one)."""
+        dec = {
+            "p": 0, "t": 1, "s": 0, "m": "chooseSpellAbilityToPlay",
+            "obs": {
+                "glob": {"turn": 1, "ph": "MAIN1", "ap": 0},
+                "players": [{"life": 40, "hand": 7, "lib": 92, "lands": 0},
+                            {"life": 40, "hand": 7, "lib": 92, "lands": 0}],
+                # one visible entity: a zero-entity window has no entity
+                # axis for the trunk's gathers (setStorage on size 0)
+                "ents": [{"e": 1, "n": "Plains", "z": "hand", "c": 0}],
+            },
+            "opts": [{"e": -1, "sa": "Pass"}, {"e": 1, "sa": "Play Plains", "kind": "land"}],
+            "hist": [],
+        }
+        from anvil.store.trajectories import OBS_SCHEMA_VERSION as _SV
+
+        header = {"k": "game", "sv": _SV, "g": -1, "seed": 0, "fmt": "Commander",
+                  "players": [{"name": "warmup-0"}, {"name": "warmup-1"}]}
+        t0 = time.monotonic()
+        try:
+            ex, _aux = self.feat.example(dec, header, "priority")
+            for _ in range(n):
+                self.batcher.submit(ex, 0.0, None)
+            print(f"[server] warm-up: {n} forwards in {time.monotonic() - t0:.2f}s")
+        except Exception as e:  # noqa: BLE001 — best-effort by design
+            print(f"[server] warm-up skipped: {e!r}")
 
     def answer(
         self, req: pb.DecisionRequest, header: dict | None, game_seed: int | None = None
@@ -274,7 +317,12 @@ class ModelBackend:
         ex, aux = self.feat.example(dec, header, task)
         plan_key, plan_emit = self._plan_inject(ex, header, dec)
         sched_ctx = None
-        if self.sched_serve is not None and header.get("g", -1) >= 0:
+        if self.sched_serve is not None and (
+            header.get("g", -1) >= 0 or header.get("wid") is not None
+        ):
+            # store-indexed games AND wire sessions (fork completions,
+            # instrument/certify lanes — keyed by wid in SchedServe; the
+            # pre-reset g>=0 gate left every completion schedule-less)
             if req.retry_of:
                 dec["retry_of"] = True  # trigger-1 detector (m10-build-spec §3)
             sched_ctx = self.sched_serve.inject(ex, aux, dec, header, task)
@@ -306,12 +354,38 @@ class ModelBackend:
             noise = make_noise(
                 ex, task, self.temperature, seed=noise_seed(game_seed or 0, dec["s"])
             )
+        bind_row = None
+        plan_row = None
+        if sched_ctx is not None and sched_ctx["bind"] and task == "priority":
+            if sched_ctx["decode"]:
+                # binding two-pass (ADR-0094): the emission/revision decode
+                # is consumed FIRST (the planner's action at this window),
+                # then the answer is taken under the NEW plan's mask — the
+                # plan binds from the window it was made at, so a MAIN1
+                # emission or an absent-slot revision never costs the phase.
+                out0 = self.batcher.submit(ex, delta, noise)
+                plan_row = self.sched_serve.after(sched_ctx, out0, aux, dec, track=False)
+                sched_ctx = {**sched_ctx, "decode": False}
+                self.counts["sched_bind_twopass"] += 1
+            bind_row = self.sched_serve.bind(sched_ctx, ex, aux, dec)
         out = self.batcher.submit(ex, delta, noise)
         if plan_emit and plan_key is not None:
             self._plan_store(plan_key, dec.get("t", 0), out["plan"][0].float().cpu())
         sched_row = None
         if sched_ctx is not None:
             sched_row = self.sched_serve.after(sched_ctx, out, aux, dec)
+            if plan_row is not None:
+                sched_row = dict(sched_row or {})
+                sched_row.update(
+                    {k: v for k, v in plan_row.items()
+                     if k in ("emit", "rev", "trigger", "new", "lp")}
+                )
+            if bind_row is not None:
+                sched_row = dict(sched_row or {})
+                sched_row["bind"] = bind_row["kind"]
+                sched_row["allow"] = bind_row["allow"]
+                if bind_row["slot"] is not None:
+                    sched_row["slot"] = bind_row["slot"]
         if self.sample and not wire_fork:
             self._write_mu(header["g"], dec, task, ex, aux, out, sched=sched_row)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
@@ -654,6 +728,30 @@ def main() -> None:
         help="drill backend's behavior-policy mu.jsonl (required with --drill-sample)",
     )
     ap.add_argument(
+        "--sched-binding",
+        choices=["off", "all", "forks"],
+        default="off",
+        help="M10 reset (ADR-0094) binding execution of the carried "
+        "schedule: off = advisory (slot tokens only), all = every bridged "
+        "seat binds (generation), forks = wire-fork sessions only, the "
+        "seat that opened each (the paired strength read's candidate "
+        "side; the mainline replay stays advisory-exact). Applies to "
+        "--ckpt and --drill-ckpt alike.",
+    )
+    ap.add_argument(
+        "--counts-out",
+        default=None,
+        help="write the backend + SchedServe counters here at shutdown "
+        "(default: beside --mu-out as <mu>.counts.json when sampling; "
+        "instrument/read servers have no mu file and name it explicitly)",
+    )
+    ap.add_argument(
+        "--no-warmup",
+        action="store_true",
+        help="skip the cold-start warm-up forwards (default: 3 synthetic "
+        "priority windows per backend before the port opens)",
+    )
+    ap.add_argument(
         "--fork-instrument",
         action="store_true",
         help="M7 forced-branch instrument mode: sampled serving "
@@ -674,6 +772,7 @@ def main() -> None:
             temperature=args.temperature,
             mu_path=args.mu_out,
             instrument=args.fork_instrument,
+            sched_binding=args.sched_binding,
         )
         if args.drill_ckpt:
             drill_backend = ModelBackend(
@@ -684,7 +783,12 @@ def main() -> None:
                 temperature=args.temperature,
                 mu_path=args.drill_mu_out,
                 instrument=args.fork_instrument,
+                sched_binding=args.sched_binding,
             )
+        if not args.no_warmup:
+            for b in (backend, drill_backend):
+                if b is not None:
+                    b.warmup()
     tags = (
         args.tags
         if args.tags is not None
@@ -721,13 +825,19 @@ def main() -> None:
         # M10 v2: machine-readable counts beside the mu file — the driver's
         # telemetry pickup (m10-build-spec §5 families 2/3 ride the
         # SchedServe counters; log parsing is not an interface)
-        if backend is not None and args.mu_out:
+        counts_path = args.counts_out or (str(args.mu_out) + ".counts.json" if args.mu_out else None)
+        if backend is not None and counts_path:
             dump = dict(backend.counts)
             if backend.sched_serve is not None:
                 dump.update(backend.sched_serve.counts)
-            Path(str(args.mu_out) + ".counts.json").write_text(
-                json.dumps(dump, indent=1) + "\n"
-            )
+            if drill_backend is not None:
+                # the paired read serves the candidate through the drill
+                # backend: its counters are the read's serve telemetry
+                dump.update({"drill_" + k: v for k, v in drill_backend.counts.items()})
+                if drill_backend.sched_serve is not None:
+                    dump.update({"drill_" + k: v for k, v in drill_backend.sched_serve.counts.items()})
+            dump["fallbacks"] = dict(servicer.fallbacks)
+            Path(counts_path).write_text(json.dumps(dump, indent=1) + "\n")
         server.stop(grace=1)
 
 
