@@ -30,6 +30,10 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--seg", type=int, default=128)
+    ap.add_argument("--follow", action="store_true",
+                    help="ADR-0092: bank the FOLLOW day-zero instead — feed-and-"
+                    "follow CE on the priority pointer at certified windows "
+                    "with the certified arm fed (build_follow_batch/follow_pass)")
     args = ap.parse_args()
 
     from anvil.bridge.featurize import Featurizer
@@ -53,6 +57,10 @@ def main() -> None:
     # spans stores whose game-index ranges collide, so each labels file
     # joins only its own store (the rl.py loader convention)
     feat = Featurizer(cfg["embed"], methods)
+    if args.follow:
+        from anvil.training.seedlabels import build_follow_batch, follow_pass
+
+        build_seed_batch, seed_pass = build_follow_batch, follow_pass
     seedlab = None
     for lp, sp in zip(args.labels.split(","), args.store.split(","), strict=True):
         b = build_seed_batch(lp, sp, feat)
@@ -72,7 +80,7 @@ def main() -> None:
     ce = seed_pass(net, seedlab["segs"], fwd_segs, 0.0, grad=False)
 
     out = {
-        "seedlab_ce": round(ce, 6),
+        ("follow_ce" if args.follow else "seedlab_ce"): round(ce, 6),
         "n_windows": seedlab["n"],
         "miss": seedlab["miss"],
         "unmatched": seedlab["unmatched"],

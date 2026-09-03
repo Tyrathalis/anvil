@@ -479,15 +479,17 @@ def test_seedlab_spike_guard_ported(tmp_path):
 
 
 def test_lab_memorize_guard_fires_on_probe2_numbers(tmp_path):
-    """ADR-0088 memorization tripline, re-based after the m10-probe3 FALSE
-    halt: the guard reads PER-STEP raws (seedlab_raw_step) — the acc[] row
-    values are per-trajectory (÷ traj_per_step), so comparing them to the
-    per-step calibration raw fired on every run (probe3's healthy 2.39
-    per-step first window showed as 0.565). Regression from the real
-    numbers in per-step scale: probe2 iteration 0 ran 2.73 -> ~1.68 ->
-    ... -> ~0.18 (0.07x, memorized) — fires at the iteration MINIMUM;
-    probe3 iteration 0 ran 2.68 -> ~2.26 ... 2.11 (0.79x, healthy fast
-    learning) — quiet."""
+    """ADR-0088 memorization tripline, re-based twice: to PER-STEP keys after
+    the m10-probe3 false halt (the acc[] row values are per-trajectory ÷
+    traj_per_step), and to the iteration MEDIAN of windowed per-step raws
+    after probe5 (ADR-0092) — a mixed-class batch (paylab) gives auto-heavy
+    windows a low MINIMUM by composition, which tripped probe5's iteration 4
+    while its holdout sat flat. Regression from the real numbers in per-step
+    scale: probe2 iteration 0 ran 2.73 -> ~1.68 -> ... -> ~0.18 (upper median
+    0.713 = 0.26x, memorized) — fires at 0.3; probe3 iteration 0 ran 2.68 -> ~2.26
+    ... 2.11 (median 0.84x, healthy) — quiet; probe5's paylab windows
+    (median 0.54x, min 0.23x) — quiet under the median, would have fired
+    under the min."""
     import json
 
     from anvil.training.selfplay import _rl_summary
@@ -500,24 +502,36 @@ def test_lab_memorize_guard_fires_on_probe2_numbers(tmp_path):
             f.write(json.dumps(r) + "\n")
     rl = _rl_summary(tmp_path)
     assert rl["first"]["seedlab_raw_step"] == 1.683
-    assert rl["min"]["seedlab_raw_step"] == 0.185
-    flags = guard_flags({}, rl, None, lab_memorize_ratio=0.25,
+    assert rl["lab_med"]["seedlab_raw_step"] == 0.713  # upper median of 6 (0.26x)
+    flags = guard_flags({}, rl, None, lab_memorize_ratio=0.3,
                         seedlab_calib_raw=2.72795, paylab_calib_raw=0.98998)
-    assert len(flags) == 1 and "seedlab_raw_step iteration-min" in flags[0], flags
+    assert len(flags) == 1 and "seedlab_raw_step iteration-median" in flags[0], flags
     # probe3 iteration 0, per-step (labs_early mean 2.39; rows x4): quiet
     probe3 = [2.261, 2.221, 2.331, 2.256, 2.155, 2.109]
+    # probe5 paylab windows: min 0.227 (auto-heavy window) but median ~0.54
+    paylab5 = [0.94, 0.61, 0.227, 0.55, 0.62, 0.48]
     rows = [{"step": 833500 + 20 * i, "kl_mu": 0.01, "seedlab_raw_step": v,
-             "paylab_raw_step": 1.36} for i, v in enumerate(probe3)]
+             "paylab_raw_step": p} for i, (v, p) in enumerate(zip(probe3, paylab5))]
     with open(tmp_path / "metrics.jsonl", "w") as f:
         for r in rows:
             f.write(json.dumps(r) + "\n")
-    assert guard_flags({}, _rl_summary(tmp_path), None, lab_memorize_ratio=0.25,
-                       seedlab_calib_raw=2.67695, paylab_calib_raw=0.99697) == []
+    assert guard_flags({}, _rl_summary(tmp_path), None, lab_memorize_ratio=0.3,
+                       seedlab_calib_raw=2.67695, paylab_calib_raw=0.99872) == []
+    # the follow term (ADR-0092) rides the same guard + its own share guard
+    rows = [{"step": i, "kl_mu": 0.01, "follow_raw_step": 0.1, "follow_share": 0.4}
+            for i in range(3)]
+    with open(tmp_path / "metrics.jsonl", "w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    flags = guard_flags({}, _rl_summary(tmp_path), None, lab_memorize_ratio=0.3,
+                        follow_calib_raw=2.0, follow_share_max=0.15)
+    assert any("follow_raw_step iteration-median" in fl for fl in flags), flags
+    assert any("follow_share" in fl for fl in flags), flags
     # no per-step keys (pre-0088 rows) or no calibration reference: quiet,
     # never a KeyError
-    assert not any("iteration-min" in fl
+    assert not any("iteration-median" in fl
                    for fl in guard_flags({}, {"mean": {"kl_mu": 0.01}}, None,
-                                         lab_memorize_ratio=0.25,
+                                         lab_memorize_ratio=0.3,
                                          seedlab_calib_raw=2.7))
 
 

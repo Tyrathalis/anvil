@@ -1140,6 +1140,14 @@ def main() -> None:
         help="ADR-0088: linear 0->w ramp over the first N APPLIED steps of "
         "each fixed-batch term (per invocation) — spreads whatever impulse "
         "survives --lab-k. 0 = off")
+    ap.add_argument("--follow-frac", type=float, default=0.0,
+                    help="ADR-0092 feed-and-follow term: target share of PG "
+                    "loss magnitude for the CE on the priority pointer at "
+                    "certified mint windows with the certified arm FED "
+                    "(built from --seed-labels/--seed-store, certified rows "
+                    "only). 0 = off")
+    ap.add_argument("--follow-w", type=float, default=0.0)
+    ap.add_argument("--follow-calib-steps", type=int, default=50)
     ap.add_argument(
         "--seq-margin",
         type=float,
@@ -1295,6 +1303,9 @@ def main() -> None:
                 "seedlab_calib_steps",
                 "lab_k",
                 "lab_warmup",
+                "follow_frac",
+                "follow_w",
+                "follow_calib_steps",
                 "traj_per_step",
                 "gamma",
                 "rho_bar",
@@ -1446,6 +1457,42 @@ def main() -> None:
                 f"(miss {seedlab['miss']}, unmatched {seedlab['unmatched']}, "
                 f"era {seedlab['era']})"
             )
+    # ADR-0092 Fork 1: the feed-and-follow batch — the same label files'
+    # CERTIFIED rows, with the arm fed and the first cast as the pointer
+    # target (build_follow_batch)
+    follow = None
+    w_follow: float | None = args.follow_w if args.follow_w > 0 else None
+    if args.seed_labels and (args.follow_frac > 0 or args.follow_w > 0):
+        from anvil.training.seedlabels import build_follow_batch
+
+        for lp, sp in zip(args.seed_labels.split(","), args.seed_store.split(",")):
+            b = build_follow_batch(
+                lp, sp, _feat2, seg=args.lab_k if args.lab_k > 0 else 64,
+            )
+            if b is None:
+                print(f"[rl] WARNING: follow labels {lp} joined ZERO windows")
+                continue
+            if follow is None:
+                follow = b
+            else:
+                follow["segs"] += b["segs"]
+                follow["n"] += b["n"]
+                follow["miss"] += b["miss"]
+                follow["unmatched"] += b["unmatched"]
+        if follow is None:
+            print("[rl] WARNING: follow labels joined ZERO windows — follow term OFF this run")
+        else:
+            print(
+                f"[rl] follow batch: {follow['n']} certified windows, arm fed "
+                f"(miss {follow['miss']}, unmatched {follow['unmatched']}, "
+                f"retimed post-land {follow.get('retimed', 0)})"
+            )
+    follow_calib_steps = 0
+    follow_calib_pg = 0.0
+    follow_calib_traj = 0
+    follow_share_raw = follow_share_pg = 0.0
+    follow_share_traj = follow_share_steps = 0
+    follow_applied = 0
     seedlab_calib_steps = 0
     seedlab_calib_pg = 0.0
     seedlab_calib_traj = 0
@@ -1464,6 +1511,10 @@ def main() -> None:
     seedlab_sampler = (
         ChunkSampler(seedlab["segs"], args.seed * 2 + 2)
         if seedlab is not None and args.lab_k > 0 else None
+    )
+    follow_sampler = (
+        ChunkSampler(follow["segs"], args.seed * 2 + 3)
+        if follow is not None and args.lab_k > 0 else None
     )
     paylab_applied = seedlab_applied = 0
     labs_early: dict[str, list[float]] = {}
@@ -1809,6 +1860,13 @@ def main() -> None:
             else:
                 seedlab_share_pg += abs(traj_pg)
                 seedlab_share_traj += 1
+        if follow is not None:
+            if w_follow is None:
+                follow_calib_pg += abs(traj_pg)
+                follow_calib_traj += 1
+            else:
+                follow_share_pg += abs(traj_pg)
+                follow_share_traj += 1
 
         if n_traj % args.traj_per_step == 0:
             # ---- C-seq step (ADR-0054): calibrate w_seq over the first
@@ -1973,6 +2031,42 @@ def main() -> None:
                     acc["seedlab_raw"] = acc.get("seedlab_raw", 0.0) + raw
                     seedlab_share_raw += raw
                     seedlab_share_steps += 1
+            if follow is not None:
+                # ADR-0092 feed-and-follow: the ADR-0057/0088 discipline verbatim
+                # (calibrate once against the honest raw, subsampled + ramped
+                # application, share telemetry)
+                from anvil.training.seedlabels import follow_pass
+
+                if w_follow is None:
+                    follow_calib_steps += 1
+                    if follow_calib_steps >= args.follow_calib_steps and follow_calib_traj:
+                        raw = follow_pass(net, follow["segs"], forward_segments, 0.0, grad=False)
+                        mean_pg = follow_calib_pg / max(follow_calib_traj, 1)
+                        w_follow = args.follow_frac * mean_pg / max(abs(raw), 1e-4)
+                        cal = {
+                            "w_follow": w_follow,
+                            "follow_frac": args.follow_frac,
+                            "mean_abs_pg_per_traj": mean_pg,
+                            "follow_raw_at_calib": raw,
+                            "calib_steps": follow_calib_steps,
+                            "calib_traj": follow_calib_traj,
+                            "n_windows": follow["n"],
+                        }
+                        (out_dir / "follow_calibration.json").write_text(
+                            json.dumps(cal, indent=1) + "\n"
+                        )
+                        print(f"[rl] w_follow calibrated: {cal}")
+                else:
+                    w_eff = w_follow * warmup_scale(follow_applied, args.lab_warmup)
+                    segs_now = follow_sampler.next() if follow_sampler else follow["segs"]
+                    raw = follow_pass(net, segs_now, forward_segments, w_eff, grad=True)
+                    follow_applied += 1
+                    if len(labs_early.setdefault("follow", [])) < 10:
+                        labs_early["follow"].append(round(raw, 5))
+                        _labs_early_dump()
+                    acc["follow_raw"] = acc.get("follow_raw", 0.0) + raw
+                    follow_share_raw += raw
+                    follow_share_steps += 1
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             opt.step()
             opt.zero_grad(set_to_none=True)
@@ -2045,6 +2139,19 @@ def main() -> None:
                 )
                 seedlab_share_raw = seedlab_share_pg = 0.0
                 seedlab_share_traj = seedlab_share_steps = 0
+                follow_share = None
+                if (follow is not None and w_follow and follow_share_steps
+                        and follow_share_traj and follow_share_pg > 0):
+                    follow_share = round(
+                        w_follow * abs(follow_share_raw / follow_share_steps)
+                        / (follow_share_pg / follow_share_traj), 5,
+                    )
+                follow_raw_step = (
+                    round(follow_share_raw / follow_share_steps, 5)
+                    if follow_share_steps else None
+                )
+                follow_share_raw = follow_share_pg = 0.0
+                follow_share_traj = follow_share_steps = 0
                 row = {
                     "step": step,
                     "traj": n_traj,
@@ -2068,6 +2175,11 @@ def main() -> None:
                        if seedlab_raw_step is not None else {}),
                     **({"paylab_raw_step": paylab_raw_step}
                        if paylab_raw_step is not None else {}),
+                    **({"w_follow": round(w_follow, 6)}
+                       if follow is not None and w_follow is not None else {}),
+                    **({"follow_share": follow_share} if follow_share is not None else {}),
+                    **({"follow_raw_step": follow_raw_step}
+                       if follow_raw_step is not None else {}),
                     **(
                         {
                             "sched_rms": round(

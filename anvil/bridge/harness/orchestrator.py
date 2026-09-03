@@ -232,8 +232,24 @@ class Run:
             if xauth:
                 env["DISPLAY"] = ":0"
                 env["XAUTHORITY"] = str(xauth[0])
+
+        def _die_with_parent() -> None:
+            # ADR-0092 teardown cascade: the harness process already dies
+            # with the driver (PR_SET_PDEATHSIG in selfplay), but its JVM
+            # workers were grandchildren with no such tie — every guard
+            # halt / SIGTERM this week orphaned a full worker fleet plus
+            # the server's clients. Same prctl on the worker.
+            try:
+                import ctypes
+                import signal as _signal
+
+                ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, _signal.SIGTERM)
+            except Exception:
+                pass
+
         return subprocess.Popen(
-            cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT, env=env
+            cmd, cwd=FORGE_GUI_DIR, stdout=out, stderr=subprocess.STDOUT, env=env,
+            preexec_fn=_die_with_parent,
         )
 
     # ---------- scheduler ----------

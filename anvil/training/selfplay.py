@@ -621,6 +621,8 @@ def guard_flags(
     lab_memorize_ratio: float | None = None,
     seedlab_calib_raw: float | None = None,
     paylab_calib_raw: float | None = None,
+    follow_share_max: float | None = None,
+    follow_calib_raw: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -680,19 +682,23 @@ def guard_flags(
             flags.append(
                 f"guard: seedlab_raw_max {sl_max} > {seedlab_spike_mult}x median ({sl_med})"
             )
+    fs = med.get("follow_share", m.get("follow_share"))
+    if follow_share_max is not None and fs is not None and fs > follow_share_max:
+        flags.append(f"guard: follow_share {fs} > {follow_share_max}")
     if lab_memorize_ratio:
-        # ADR-0088 memorization tripline (re-based after the m10-probe3
-        # false halt): a fixed batch FITTED is the probe2 impulse — per-step
-        # raw 2.73 -> 0.18 (0.07x) within one iteration; the share guard
-        # cannot see it (share decays WITH the fit). Reads the iteration
-        # MINIMUM of the per-step raw vs the per-step calibration raw.
-        lab_min = rl.get("min") or {}
+        # ADR-0088 memorization tripline (re-based at probe3 to per-step keys,
+        # at probe5/ADR-0092 to the iteration MEDIAN of windowed per-step
+        # raws): a fixed batch FITTED is the probe2 impulse — per-step 2.73
+        # -> 0.18 within one iteration; the share guard cannot see it (share
+        # decays WITH the fit).
+        lab_med = rl.get("lab_med") or {}
         for key, calib in (("seedlab_raw_step", seedlab_calib_raw),
-                           ("paylab_raw_step", paylab_calib_raw)):
-            mv = lab_min.get(key)
+                           ("paylab_raw_step", paylab_calib_raw),
+                           ("follow_raw_step", follow_calib_raw)):
+            mv = lab_med.get(key)
             if mv is not None and calib and mv < lab_memorize_ratio * calib:
                 flags.append(
-                    f"guard: {key} iteration-min {mv} < "
+                    f"guard: {key} iteration-median {mv} < "
                     f"{lab_memorize_ratio}x calib ({round(calib, 5)})"
                 )
     if baseline:
@@ -772,23 +778,30 @@ def _rl_summary(train_dir: Path) -> dict:
         "seedlab_share",
         "seedlab_raw_step",
         "paylab_raw_step",
+        "follow_raw",
+        "follow_share",
+        "follow_raw_step",
     ):
         vals = [r[k] for r in rows if k in r]
         if vals:
             mean[k] = round(sum(vals) / len(vals), 5)
     # ADR-0088 memorization tripline, re-based after the m10-probe3 false
-    # halt: reads the PER-STEP raws (the acc[] row values are per-trajectory
-    # ÷ traj_per_step — comparing those to the per-step calibration raw made
-    # the guard unpassable) and the iteration MINIMUM — the discriminator
-    # that separates probe2's memorization (per-step 2.73 → 0.18 = 0.07×)
-    # from healthy fast learning (probe3: 2.68 → 2.11 = 0.79×)
+    # halt (per-step keys — the acc[] row values are per-trajectory ÷
+    # traj_per_step) and again after probe5 (ADR-0092): the iteration
+    # MEDIAN of the windowed per-step raws, not the minimum — a mixed-class
+    # batch (paylab: positives ~3.7, autos ~0.35) gives auto-heavy windows a
+    # low minimum by composition, not by fitting. The median still separates
+    # probe2's memorization (2.73 → windows 1.68…0.18, median 0.58 = 0.21×)
+    # from healthy learning (probe3/5 ≥ 0.5×); the share guards already read
+    # the median (ADR-0085).
     first = {}
-    lab_min = {}
-    for k in ("paylab_raw_step", "seedlab_raw_step"):
+    lab_med = {}
+    for k in ("paylab_raw_step", "seedlab_raw_step", "follow_raw_step"):
         vals = [r[k] for r in rows if k in r]
         if vals:
             first[k] = round(vals[0], 5)
-            lab_min[k] = round(min(vals), 5)
+            sv = sorted(vals)
+            lab_med[k] = round(sv[len(sv) // 2], 5)
     # m10-probe1 (ADR-0085): the aux-share iteration MEAN is spike-dominated
     # under a heavy-tailed aux CE (iter-2 mean share 1.50 vs median 0.18, one
     # step at sched_ce 543.5 vs median 3.2) — surface medians for the share
@@ -822,7 +835,7 @@ def _rl_summary(train_dir: Path) -> dict:
         "med": med,
         "spike": spike,
         "first": first,
-        "min": lab_min,
+        "lab_med": lab_med,
         "final": last,
     }
 
@@ -1030,6 +1043,17 @@ def main() -> None:
         "partially-fitted batch is the cross-iteration amplifier (probe1 "
         "w_seedlab grew 12x over three iterations)",
     )
+    ap.add_argument("--follow-frac", type=float, default=0.0,
+                    help="ADR-0092 feed-and-follow term (CE on the priority "
+                    "pointer at certified mint windows, certified arm FED): "
+                    "target share of PG mass — forwarded to rl.py; built from "
+                    "--seed-labels/--seed-store. 0 = off")
+    ap.add_argument("--follow-carry-w", action="store_true",
+                    help="carry iteration-0's w_follow for the whole run "
+                    "(the --seedlab-carry-w twin)")
+    ap.add_argument("--guard-follow-share", type=float, default=0.15,
+                    help="halt if the iteration-MEDIAN follow_share exceeds "
+                    "this (3x the 0.05 target)")
     ap.add_argument(
         "--lab-k", type=int, default=0,
         help="ADR-0088: apply the fixed pay/seed label batches one k-window "
@@ -1044,14 +1068,13 @@ def main() -> None:
     ap.add_argument(
         "--guard-lab-memorize",
         type=float,
-        default=0.25,
+        default=0.3,
         help="ADR-0088 memorization tripline (re-based after the m10-probe3 "
-        "false halt): halt if a fixed-batch term's iteration-MINIMUM "
-        "per-step raw (seedlab_raw_step/paylab_raw_step) falls below this "
+        "false halt): halt if a fixed-batch term's iteration-MEDIAN "
+        "windowed per-step raw (seedlab_raw_step/paylab_raw_step/follow_raw_step) falls below this "
         "fraction of its per-step raw-at-calibration — a fitted batch is "
-        "the probe2 signature (per-step 2.73 -> 0.18 = 0.07x in one "
-        "iteration) while healthy fast learning sits far above it (probe3 "
-        "iter 0: 0.79x). The share guard is structurally blind to fitting "
+        "the probe2 signature (windows 1.68..0.18, upper median 0.71 = 0.26x) "
+        "while healthy learning sits above it (probe3 0.84x, probe5 paylab 0.61x). The share guard is structurally blind to fitting "
         "(share decays WITH the fit). 0 disables",
     )
     ap.add_argument(
@@ -1619,6 +1642,17 @@ def main() -> None:
                                 if state.get("seedlab_w")
                                 else ["--seedlab-frac", str(args.seedlab_frac)]
                             ),
+                            # ADR-0092 feed-and-follow (same label files,
+                            # certified rows, arm fed); w carried like seedlab
+                            *(
+                                (
+                                    ["--follow-w", str(state["follow_w"])]
+                                    if state.get("follow_w")
+                                    else ["--follow-frac", str(args.follow_frac)]
+                                )
+                                if args.follow_frac > 0
+                                else []
+                            ),
                         ]
                         if args.seed_labels
                         else []
@@ -1744,6 +1778,10 @@ def main() -> None:
             ),
             paylab_calib_raw=(
                 _calib_raw("paylab", "paylab_raw_at_calib") if args.pay_labels else None
+            ),
+            follow_share_max=args.guard_follow_share if args.follow_frac > 0 else None,
+            follow_calib_raw=(
+                _calib_raw("follow", "follow_raw_at_calib") if args.follow_frac > 0 else None
             ),
         )
         row = {
@@ -1901,6 +1939,14 @@ def main() -> None:
             state["seedlab_calib_raw"] = slcal["seedlab_raw_at_calib"]
             print(f"[selfplay] w_seedlab calibrated at run start: "
                   f"{state['seedlab_w']:.6g} (carried)")
+        fcal_path = train_dir / "follow_calibration.json"
+        if (args.follow_carry_w and args.follow_frac > 0 and "follow_w" not in state
+                and fcal_path.exists()):
+            fcal = json.loads(fcal_path.read_text())
+            state["follow_w"] = fcal["w_follow"]
+            state["follow_calib_raw"] = fcal["follow_raw_at_calib"]
+            print(f"[selfplay] w_follow calibrated at run start: "
+                  f"{state['follow_w']:.6g} (carried)")
         # ---- D6 KILL SIGNAL (spec §7, recipe-session numerics): from the
         # 4th ACCEPTED iteration, if the carry has never flipped ≥0.5% of
         # carried argmax decisions AND the aux act-BCE has plateaued
