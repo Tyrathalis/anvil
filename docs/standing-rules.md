@@ -101,6 +101,12 @@ silently delete.
   traj_per_step, the probe3 false-halt lesson) guards from first
   launch ([ADR-0088](decisions/ADR-0088-grounded-driver.md),
   re-based at [ADR-0090](decisions/ADR-0090-m10-probe4-read.md)).
+- **A supervised emission head needs FULL-SUPPORT labels** —
+  positives-only labels (certified windows, ~19% of states) drift the
+  head off-support toward its terminal class (probe5: pure-hold 6.9% →
+  ~28% under labels at 8%); the natural line's witnessed realized casts
+  are the honest label where nothing certified beats natural
+  ([ADR-0092](decisions/ADR-0092-consumer-coupling.md)).
 - **An autoregressive emission head with a STOP class decodes
   stop-vs-continue (p_stop vs Σ candidates), never whole-row argmax**
   — a calibrated head makes STOP the plurality class at every slot ≥ 1,

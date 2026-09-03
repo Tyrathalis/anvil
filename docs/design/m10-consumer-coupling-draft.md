@@ -1,8 +1,9 @@
-# M10 consumer coupling — DRAFT (leans pinned for adjudication, 2026-09-02)
+# M10 consumer coupling — ADOPTED (user-adjudicated 2026-09-02, [ADR-0092](../decisions/ADR-0092-consumer-coupling.md))
 
 Session: the probe5 read ([ADR-0091](../decisions/ADR-0091-m10-probe5-read.md)).
-Status **DRAFT** — the forks at the bottom go to adjudication; an ADR
-stamps the outcome. Nothing relaunches before that.
+All four forks adjudicated on the drafted leans (Fork 2 revised on user
+direction — schedule EVERY turn — before adjudication). This file is
+the full statement of record the ADR points at.
 
 ## A. The requirement, read from probe5
 
