@@ -283,6 +283,7 @@ def read(args) -> dict:
     for key, r in pop.items():
         seat = r["seat"]
         diffs = []
+        t_end_a, t_end_b = [], []
         for roll in range(pins.K_ROLLS):
             ra, rb = a_rows.get((key[0], key[1], roll)), b_rows.get((key[0], key[1], roll))
             if ra is None or rb is None:
@@ -291,6 +292,8 @@ def read(args) -> dict:
             if ra.get("crash") or rb.get("crash"):
                 drop["crash_pair"] += 1
                 continue
+            t_end_a.append(ra.get("t_end", -1))
+            t_end_b.append(rb.get("t_end", -1))
             # unended (clock/horizon stop) = a draw = non-win for both sides
             wa = 1.0 if ra.get("ended") and ra.get("winner") == seat else 0.0
             wb = 1.0 if rb.get("ended") and rb.get("winner") == seat else 0.0
@@ -309,7 +312,8 @@ def read(args) -> dict:
         per_window.append({
             "g": key[0], "t": key[1], "seat": seat, "v": r["v"], "stratum": r["stratum"],
             "k": k, "wr_a": wa, "wr_b": wb, "dwr": m, "pair_se": sd / math.sqrt(k),
-            "t_end_a": ra.get("t_end"), "t_end_b": rb.get("t_end"),
+            "t_end_a": round(sum(t_end_a) / len(t_end_a), 1),
+            "t_end_b": round(sum(t_end_b) / len(t_end_b), 1),
         })
 
     def stratum_read(name: str) -> dict:
@@ -386,12 +390,17 @@ def read(args) -> dict:
 # ------------------------------------------------------------------------ run
 
 def _start_server(port: int, log: Path, ckpt_main: str, ckpt: str, binding: str,
-                  counts: Path) -> subprocess.Popen:
+                  counts: Path, trace: "Path | None" = None,
+                  empty_rev: str = "hold") -> subprocess.Popen:
     cmd = [
         sys.executable, "-m", "anvil.bridge.server", "--mode", "model",
         "--ckpt", ckpt_main, "--drill-ckpt", ckpt, "--port", str(port),
         "--pass-delta", "0", "--sched-binding", binding, "--counts-out", str(counts),
     ]
+    if trace is not None:
+        cmd += ["--bind-trace", str(trace)]
+    if empty_rev != "hold":
+        cmd += ["--sched-empty-rev", empty_rev]
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen(cmd, stdout=open(log, "w"), stderr=subprocess.STDOUT, env=env,
                             cwd=str(REPO))
@@ -453,6 +462,7 @@ def run(args) -> None:
         "jar_sha256": hashlib.sha256(jar.read_bytes()).hexdigest(),
         "lanes_per_side": args.lanes, "heap": args.heap,
         "ports": {"A": args.port_a, "B": args.port_b},
+        "empty_rev": args.empty_rev,
         "sides": {"A": "candidate, --sched-binding forks (BINDING)",
                   "B": "candidate, --sched-binding off (ADVISORY)"},
         "windows": len(lines), "k_rolls": pins.K_ROLLS, "bar": args.bar,
@@ -473,7 +483,9 @@ def run(args) -> None:
     t0 = time.monotonic()
     try:
         servers["A"] = _start_server(args.port_a, run_dir / "server-A.log", args.ckpt_main,
-                                     args.ckpt, "forks", run_dir / "server-A.counts.json")
+                                     args.ckpt, "forks", run_dir / "server-A.counts.json",
+                                     trace=(run_dir / "bind-trace-A.jsonl") if args.bind_trace else None,
+                                     empty_rev=args.empty_rev)
         servers["B"] = _start_server(args.port_b, run_dir / "server-B.log", args.ckpt_main,
                                      args.ckpt, "off", run_dir / "server-B.counts.json")
         procs = []
@@ -535,6 +547,10 @@ def main() -> None:
     rp.add_argument("--bar", type=float, default=pins.PAIRED_BAR)
     rp.add_argument("--limit", type=int, default=0, help="first N population rows only (smoke)")
     rp.add_argument("--watchd", action="store_true")
+    rp.add_argument("--empty-rev", choices=["hold", "noop"], default="hold",
+                    help="side A's empty-revision semantics (see server --sched-empty-rev)")
+    rp.add_argument("--bind-trace", action="store_true",
+                    help="side A writes one JSON line per bound window (diagnostics)")
     rp.set_defaults(fn=run)
     dp = sub.add_parser("read")
     dp.add_argument("--run", required=True)

@@ -160,6 +160,8 @@ class ModelBackend:
         mu_path: "str | None" = None,
         instrument: bool = False,
         sched_binding: str = "off",
+        bind_trace: "str | None" = None,
+        empty_rev: str = "hold",
     ):
         import torch
 
@@ -227,10 +229,14 @@ class ModelBackend:
         # M10 v2 discrete schedule carry (revise-on-trigger; sched_serve.py)
         self.sched_serve = None
         self.sched_binding = sched_binding
+        # ADR-0094 diagnostics: one JSON line per BOUND window (wire
+        # sessions included — they never write mu), for the adjudication
+        # of a day-zero read: what did binding mask, under which plan
+        self.bind_trace = open(bind_trace, "a", buffering=1) if bind_trace else None
         if self.carry_sched:
             from anvil.bridge.sched_serve import SchedServe
 
-            self.sched_serve = SchedServe(self.feat, binding=sched_binding)
+            self.sched_serve = SchedServe(self.feat, binding=sched_binding, empty_rev=empty_rev)
             self.batcher.sched_decode = True
         elif sched_binding != "off":
             print(
@@ -386,6 +392,21 @@ class ModelBackend:
                 sched_row["allow"] = bind_row["allow"]
                 if bind_row["slot"] is not None:
                     sched_row["slot"] = bind_row["slot"]
+                if self.bind_trace is not None:
+                    with self.mu_lock:
+                        self.bind_trace.write(json.dumps({
+                            "g": header.get("g", -1), "wid": header.get("wid"),
+                            "s": dec.get("s"), "p": dec.get("p"), "t": dec.get("t"),
+                            "ph": dec["obs"].get("glob", {}).get("ph"),
+                            "kind": bind_row["kind"], "slot": bind_row["slot"],
+                            "spells_masked": bind_row["spells_masked"],
+                            "plan_len": bind_row["plan_len"], "plan_left": bind_row["plan_left"],
+                            "quiescent": bind_row["quiescent"],
+                            "trigger": (plan_row or {}).get("trigger"),
+                            "new_len": len((plan_row or {}).get("new") or []) if plan_row else None,
+                            "choice": int(out["choice"][0]),
+                            "n_cands": len(aux["cand_first_opt"]),
+                        }) + "\n")
         if self.sample and not wire_fork:
             self._write_mu(header["g"], dec, task, ex, aux, out, sched=sched_row)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
@@ -739,6 +760,21 @@ def main() -> None:
         "--ckpt and --drill-ckpt alike.",
     )
     ap.add_argument(
+        "--sched-empty-rev",
+        choices=["hold", "noop"],
+        default="hold",
+        help="under binding, an EMPTY revision decode with slots still "
+        "pending: hold (the ADR-0094 pin: spells bind closed) or noop (keep "
+        "the remaining plan) — the day-zero adjudication instrument",
+    )
+    ap.add_argument(
+        "--bind-trace",
+        default=None,
+        help="ADR-0094 diagnostics: append one JSON line per BOUND window "
+        "(kind, masked spells, plan length/left, trigger) — wire sessions "
+        "included; the day-zero adjudication instrument",
+    )
+    ap.add_argument(
         "--counts-out",
         default=None,
         help="write the backend + SchedServe counters here at shutdown "
@@ -773,6 +809,8 @@ def main() -> None:
             mu_path=args.mu_out,
             instrument=args.fork_instrument,
             sched_binding=args.sched_binding,
+            bind_trace=args.bind_trace,
+            empty_rev=args.sched_empty_rev,
         )
         if args.drill_ckpt:
             drill_backend = ModelBackend(
@@ -784,6 +822,8 @@ def main() -> None:
                 mu_path=args.drill_mu_out,
                 instrument=args.fork_instrument,
                 sched_binding=args.sched_binding,
+                bind_trace=args.bind_trace,
+                empty_rev=args.sched_empty_rev,
             )
         if not args.no_warmup:
             for b in (backend, drill_backend):

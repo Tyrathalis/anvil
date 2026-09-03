@@ -97,15 +97,26 @@ class _State:
 
 
 BINDING_MODES = ("off", "all", "forks")
+EMPTY_REV_MODES = ("hold", "noop")
 MAIN_PHASES = ("MAIN1", "MAIN2")
 
 
 class SchedServe:
-    def __init__(self, feat, binding: str = "off"):
+    def __init__(self, feat, binding: str = "off", empty_rev: str = "hold"):
         if binding not in BINDING_MODES:
             raise ValueError(f"binding must be one of {BINDING_MODES}: {binding!r}")
+        if empty_rev not in EMPTY_REV_MODES:
+            raise ValueError(f"empty_rev must be one of {EMPTY_REV_MODES}: {empty_rev!r}")
         self.feat = feat
         self.binding = binding
+        # What an EMPTY revision decode means under binding (day-zero
+        # adjudication instrument, 2026-09-03): "hold" = the reset's pin
+        # verbatim (a hold IS a decision — spells bind closed for the rest
+        # of the turn); "noop" = an empty re-decode at a trigger with slots
+        # still pending keeps the remaining plan (the least-supervised
+        # decodes never had a label at mid-turn states; empty there is the
+        # min-CE hedge, not a plan). Advisory mode: no behavioral difference.
+        self.empty_rev = empty_rev
         self.states: dict[tuple, _State] = {}
         # forks mode: wire session wid -> the seat whose window opened it
         # (the fork fires at the target seat's own MAIN1 priority, so the
@@ -327,7 +338,19 @@ class SchedServe:
             return None
         ex["cand_allow"] = torch.tensor(allow, dtype=torch.bool)
         self.counts[f"sched_bind_{kind}"] += 1
-        return {"kind": kind, "allow": [i for i, a in enumerate(allow) if a], "slot": slot}
+        spells_masked = sum(1 for c in range(1, cw) if kinds[c] == "spell" and not allow[c])
+        if spells_masked and kind == "hold":
+            self.counts["sched_bind_hold_masked_spells"] += 1
+        return {
+            "kind": kind,
+            "allow": [i for i, a in enumerate(allow) if a],
+            "slot": slot,
+            # diagnostics (bind trace): what the mask took off the table
+            "spells_masked": spells_masked,
+            "plan_len": len(st.slots),
+            "plan_left": sum(1 for x in st.slots if x.st in ("p", "n")),
+            "quiescent": bool(self.quiescent_main(dec)),
+        }
 
     def _pay_mark(self, ex: dict, dec: dict, p: int, st: _State) -> "int | None":
         """The schedule-consistent goal option (actuation pin 1): the
@@ -435,6 +458,23 @@ class SchedServe:
             noop = st is not None and [(s.e, s.sa_id) for s in new_slots] == [
                 (s.e, s.sa_id) for s in st.slots if s.st in ("p", "n")
             ]
+            if (
+                self.empty_rev == "noop"
+                and st is not None
+                and not new_slots
+                and ctx["trigger"] not in ("emit", "eot")
+                and any(x.st in ("p", "n") for x in st.slots)
+            ):
+                # empty re-decode with slots still pending: keep the plan
+                # (recorded as an emission row with new=[] and empty_noop=1
+                # so the loader sees the action the planner took)
+                st.pending_revise = None
+                self.counts["sched_rev_empty_noop"] += 1
+                self.counts[f"sched_rev_{ctx['trigger']}"] += 1
+                row.update(emit=1, rev=st.rev, trigger=ctx["trigger"], new=[], empty_noop=1)
+                if "sched_lp" in out:
+                    row["lp"] = round(float(out["sched_lp"][0]), 5)
+                return self._after_track(ctx, st, row, out, aux, dec, track)
             rev = (st.rev + 1) if st is not None else 0
             ns = _State(turn=ctx["turn"], slots=new_slots, rev=rev)
             if new_slots:
@@ -464,7 +504,9 @@ class SchedServe:
                 self.counts["sched_pure_hold"] += 1
         elif row:
             row["emit"] = 0
+        return self._after_track(ctx, st, row, out, aux, dec, track)
 
+    def _after_track(self, ctx, st, row, out, aux, dec, track) -> "dict | None":
         if not track:
             return row or None
 

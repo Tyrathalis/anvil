@@ -326,3 +326,28 @@ def test_sched_lp_rides_decode_rows():
     out["sched_lp"] = torch.tensor([-0.25])
     row = ss.after(ctx, out, aux, dec)
     assert row["emit"] == 1 and row["lp"] == -0.25
+
+
+def test_empty_revision_noop_keeps_pending_plan_only_in_noop_mode():
+    opts = _opts((10, "Cast Foo", "spell"), (11, "Cast Bar", "spell"))
+    for mode, expect_slots in (("hold", 0), ("noop", 2)):
+        ss = SchedServe(_bind_feat(), binding="all", empty_rev=mode)
+        ss, ctx, ex, aux, dec = _emit_bound(ss, opts, picks=(1, 2, 0, 0, 0, 0))
+        # opponent action -> trigger 2 -> the re-decode comes back EMPTY
+        hist = [{"m": "chooseSpellAbilityToPlay", "e": 77, "p": 1}]
+        aux2, dec2 = _aux_for(opts), _dec(opts=opts, s=101, hist=hist)
+        ex2 = {}
+        ctx2 = ss.inject(ex2, aux2, dec2, HDR, "priority")
+        if not ctx2["decode"]:
+            # the stub's history shape may not fire trigger 2; force it
+            ss.states[(5, 0)].pending_revise = "opp"
+            ctx2 = ss.inject(ex2, aux2, dec2, HDR, "priority")
+        assert ctx2["decode"] and ctx2["trigger"] == "opp"
+        row = ss.after(ctx2, _out(picks=(0, 0, 0, 0, 0, 0)), aux2, dec2, track=False)
+        assert row["emit"] == 1 and row["new"] == []
+        st = ss.states[(5, 0)]
+        assert len(st.slots) == expect_slots
+        b = ss.bind({**ctx2, "decode": False}, ex2, aux2, dec2)
+        assert b["kind"] == ("hold" if mode == "hold" else "cast")
+        if mode == "noop":
+            assert row.get("empty_noop") == 1 and ss.counts["sched_rev_empty_noop"] == 1
