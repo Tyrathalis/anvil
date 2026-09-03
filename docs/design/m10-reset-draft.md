@@ -11,7 +11,10 @@ and lists what retires. Six forks with drafted leans; the learned-
 fidelity follower is recorded by name as the deferred alternative.
 **Fork 1 ADJUDICATED 2026-09-02 (user): binding execution, all three
 sub-pins. Fork 2 ADJUDICATED 2026-09-02 (user): reward-trained planner
-with the mint anchor, all five sub-pins.** Forks 3–6 pending.
+with the mint anchor, all five sub-pins. Fork 3 ADJUDICATED 2026-09-03
+(user): INLINE certification in the generation workers (revised from the
+drafted daemon), the era-zero anchor rule, uniform sampling for probe7,
+the pivotal-moment head as the named extension.** Forks 4–6 pending.
 
 Adjudication principle, stated by the user at Fork 1 and carried into
 the remaining forks: **prefer the simpler, more elegant architecture that
@@ -237,34 +240,112 @@ regardless.
 
 ### Fork 3 — the certifier as the loop's signal source
 
-**Lean: an asynchronous background labeler with era-weighted labels.**
-- Each iteration, sample K windows from the latest accepted store and
-  certify them on the generating ckpt (sampled serve, `--fork-instrument`,
-  the witnessed-parity discipline of ADR-0088/0089 verbatim; the
-  generating-ckpt server stays up one extra iteration, the ADR-0089
-  phased-lane pattern). Labels append to a pool stamped with era =
-  generating iteration; the mint term samples the pool with recency
-  weights (lean: last 4 accepted iterations at equal weight, older
-  eras at 0 — pin at pre-flight; the live-gap ratio becomes the
-  re-weighting instrument instead of a cliff).
-- Pricing from the banked bench (44 s wall/window at 8 lanes): 8 lanes
-  ≈ 60 windows per 45-min iteration, 12 lanes ≈ 90 — a trickle at the
-  28% certification yield (~20 labels/iteration), so the first probe
-  runs mostly on the 08-30 mint (2,157 full-support labels, era 0) plus
-  the trickle. The point of building it now is the mechanism: staleness
-  becomes a weighting input, and the per-era re-mint (24 h) becomes
-  the batch fallback rather than the only clock.
-- Lane budget: the certifier runs at nice 19 beside generation; if the
-  box cannot carry both, the certifier yields (generation is the
-  critical path). Full-support labels (certified arm + natural casts)
-  are minted per window exactly as `mint_full_support.py` does.
-- Alternative (recorded): per-era re-mint only (the current cadence).
-- **Named extension (from the Fork 1 adjudication): revision-window
-  labels.** The certifier forks at any window; certifying arms from the
-  post-interaction state at trigger windows (sampled from live revision
-  rows) gives the planner grounded supervision where binding makes it
-  matter most. Not in probe7's budget unless the emission-window
-  labeler lands early; priced by the same 44 s/window bench.
+**Drafted lean (superseded at adjudication): an asynchronous background
+labeler with era-weighted labels** — a daemon watching the driver's
+accepted-iteration marker, certifying windows from the newest store on
+the generating ckpt under the ADR-0088/0089 witnessed-parity discipline,
+appending to an era-stamped pool with recency weights. Alternative: per-
+era re-mint only (the current cadence). Kept here as the record of what
+was on the table.
+
+**ADJUDICATED (user, 2026-09-03): INLINE certification — the generation
+worker certifies a sampled fraction of live MAIN1 windows as the game
+runs, and the label rides in the trajectory store.** The user's question
+("why not just insert labelling into the engine as it runs each game?")
+was the better design; the walk-through that adopted it:
+
+- **The label rule under binding execution.** On scheduled windows the
+  realized casts are the planner's own emission, so "the natural line"
+  is no longer an independent witness and a label of "what was cast"
+  would be the ADR-0085 self-target in a new coat. Rule: **a window gets
+  a label only if the certifier rolled it out, and the label is the
+  search-adjudicated best of {the planner's own plan (arm 0), the
+  enumerated arms}**, θ as the tie-break toward the own plan. "Natural"
+  = "the search confirmed the plan" — the engine adjudicating, not the
+  planner grading itself. Unrolled windows never get a label. The 08-30
+  mint satisfies this already (every label from a rolled-out window;
+  pre-binding) and is era zero.
+- **Correction to the draft's sizing**: under full support every rolled-
+  out window yields a label, not only certified ones — ~60 labels per
+  45-min iteration at 8 lanes (44 s/window), ~90 at 12; a few hundred
+  over probe7, a mint-sized pool over a 30-iteration promotion run.
+- **What inline removes.** (1) The replay path and its parity witness
+  for fresh labels — the ADR-0089 defect class existed only because the
+  mint reproduced states after the fact; certifying from the live state
+  has nothing to reproduce (batch re-mint machinery kept for boundary
+  events, off the critical path). (2) The era pool and its weighting —
+  labels are per-window store annotations (the `cand_paymark` idiom),
+  the store is the era stamp, and the driver's four-iteration replay
+  window at its recency weight is the weighting. (3) The fixed-batch
+  subsystem for this term (lab-k, warmup, carry-w, memorize guard):
+  labels that turn over with the stores are not a fixed batch. The mint
+  term becomes **decode CE on search-labeled emission rows inside the
+  main RL pass** — the retired ADR-0086 pipeline (today's live-CE
+  telemetry) with the target swapped from the planner's own emission to
+  the search's verdict. Grounded AND dense AND on-distribution (the
+  ADR-0088 requirement) by construction.
+- **What it costs: certification on the generation critical path.**
+  ~44 s lane time per window against ~25 min for 480 games at 8
+  workers: sampling 2% of ~4,000 eligible windows adds ~20% for ~80
+  labels; 5% adds ~50% for ~200. The user's pin: fine, as long as the
+  rate is a clean knob with an off switch. **Rate 2% for probe7**,
+  raised at the promotion run where label volume outranks wall clock.
+- **Idle JVM time** (the daemon's advantage: JVMs idle through the
+  ~40% training phase) is a property of the synchronous iteration, not
+  of the problem — the V-trace loop was chosen for the asynchronous
+  actor-learner shape and the overlap-campaign plumbing is its first
+  step; once generation overlaps training the advantage disappears, and
+  inline is the design that stays correct in both regimes.
+- **Fixed era windows are fine except at the start**: each labeled row is
+  visited ~4× over its replay-window life (gentler than the fixed-batch
+  regime); the trap is the first iterations, when the in-store pool is a
+  few hundred labels and the 2,157-label mint would age out. **Era-zero
+  anchor rule**: the 08-30 mint stays an explicit anchor batch under the
+  existing fixed-batch mechanics until the in-store labeled pool is
+  larger than it, then retires. One comparison, no half-life.
+- **Smart sampling is strictly easier inline**: the decision to certify
+  is made at the window with the server's live signals in hand (critic
+  value, cast-head entropy, planner top-plan margin) at zero cost; a
+  daemon sees only what was recorded. **The sampling hook takes a
+  weight function; uniform for probe7** so fresh labels stay comparable
+  with era zero.
+- **Named extension — the pivotal-moment head.** Every certified window
+  produces the spread of scored Δwr across its arms: a direct, engine-
+  adjudicated measure of how much the choice mattered. A head trained
+  on it learns decision leverage from search results (what separates it
+  from the M6 rank critic / M8 critic-ordered curation, which ranked by
+  value change and tied). Three uses of one head: certification yield
+  (certify ∝ predicted pivotality with a uniform floor so the head keeps
+  learning about "dull" windows; today's 19–28% certified rate is mostly
+  "nothing beat natural"), drill extraction (Grindstone's selection
+  problem with a grounded signal), and **live search at deployment**
+  (inline certification IS live search with the result not played; at
+  deployment it is played and the head decides where to spend rollouts
+  — the same code path serves training labels and test-time search; the
+  Mentor product's natural feature). Not in probe7's budget; **the arm
+  spread is recorded on the row from the first inline certification**
+  so the label costs nothing later. Zero-cost first version needing no
+  head: weight sampling by the critic's value band (the ceiling's
+  v<0.45 finding) — also held out of probe7 for population
+  comparability.
+- **Verification done at the adjudication (2026-09-03):**
+  (1) *Live forking exists.* AnvilRun's rollout-label mode (M2 D4) forks
+  the live game at `-points` sampled quiescent MAIN1 windows per game
+  and completes `-rollout k` copies under the bridge; the schedule-
+  forcing executor (`ScheduleDirective`) is armed per fork copy by the
+  sched-rollout mode. **The gap: the directive reads its arms from a
+  launch-time TSV; inline needs the arm set decided at the window** — a
+  per-fork directive over the wire, the `-forcechoice` ChoiceDirective
+  idiom (one Java session at ADR-0079/M11). Arm enumeration stays
+  Python-side from the wire options at the window; the bridge answers
+  "these arms" or "none" (a weighted sampler = answering "none" more
+  often with `-points` oversampled). Fork completions serve through the
+  existing `-forkobs` path.
+  (2) *Heap.* Generation workers run 2g (`orchestrator.py` default);
+  the mint's lanes needed 4g (the AiCache mainline-accumulation OOM
+  class). Forking workers go to 4g: 8 × 4g = 32 GB against 62 GB total
+  / 57 GB available on the box (32 cores) — fits with the server and
+  learner resident.
 
 ### Fork 4 — the reads (inverted)
 
@@ -330,7 +411,8 @@ competency) is the ceiling this fork would go after.
 | degeneracy veto | KEEP, first-window axes, absolute |
 | §6c veto penalty | KEEP; forced-cast vetoes attributed to the planner |
 | memorize / share guards on fixed batches | KEEP (one fixed batch remains) |
-| per-era re-mint | becomes the batch fallback behind Fork 3 |
+| per-era re-mint + replay parity witness | batch fallback for boundary events only (Fork 3: fresh labels are minted live, nothing to reproduce) |
+| labbatch mechanics for the mint term (lab-k, warmup, carry-w, memorize guard) | RETIRE for in-store labels (they turn over with the stores); KEEP only for the era-zero anchor batch until it retires |
 
 ## F. Deferred alternatives, recorded by name
 
@@ -356,9 +438,12 @@ Build order: (1) serve rule in `sched_serve.py` + the server answer path
 (forced answers flagged in the mu row, no cast logp; emission/revision
 rows gain `sched.lp`); (2) loader: the schedule as a scored action at
 its window; (3) learner: planner PG term + planner KL guard; follow term
-off; (4) certifier daemon: per-iteration window sampling + certification
-on the generating ckpt + era-stamped pool + recency weights in the mint
-batch builder; (5) the stratified paired read as a driver-callable
+off; (4) inline certifier: the per-fork schedule directive over the wire
+(Java, the ChoiceDirective idiom), Python-side arm enumeration + scoring
+at the fork point (schedule_sweep/sched_mint code reused), the label +
+arm spread written on the row, workers at 4g, the rate knob (`-points`
+× the bridge's accept rate) with an off switch, the era-zero anchor rule
+in the loader, the mint term moved into the RL pass on labeled rows; (5) the stratified paired read as a driver-callable
 script (the ADR-0078 binned-read machinery with a policy in the arm's
 place); (6) 4-game smoke: forced execution parity with the mint
 executor's semantics (land-first, post-land binding), carry tripwire 0,
