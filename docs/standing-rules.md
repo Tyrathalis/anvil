@@ -111,6 +111,13 @@ silently delete.
   line's witnessed casts) stand as a DESIGN decision — schedule every
   turn — not as a fix for a measured drift
   ([ADR-0092](decisions/ADR-0092-consumer-coupling.md)).
+- **Serve-side follow and utilization counters inflate on natural-line
+  plans and cannot read consumption** — on windows where the fed plan
+  is what the policy would do anyway, fed = closed; a consumption read
+  must be schedule-conditioned (fed vs mask-closed, and a legal-
+  candidate content swap) on label-shaped inputs
+  (`scripts/sched_content_probe.py`; probe6 adjudication,
+  [ADR-0093](decisions/ADR-0093-m10-probe6-read.md) addendum).
 - **An autoregressive emission head with a STOP class decodes
   stop-vs-continue (p_stop vs Σ candidates), never whole-row argmax**
   — a calibrated head makes STOP the plurality class at every slot ≥ 1,

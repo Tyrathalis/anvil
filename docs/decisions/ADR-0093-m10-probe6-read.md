@@ -102,3 +102,51 @@ ADR-0091 correction. Labels: 9.7% hold / mean 1.95.)
   full-support, decode-correct, stable over six iterations); consumer
   PARTIAL (presence + following consumed, content sensitivity weak);
   on-policy closure OPEN.
+
+## Addendum 2026-09-02 (late) — ADJUDICATED: NO-FUND, no KILL; the routed design round SUPERSEDED by the reset draft
+
+- **User adjudication: NO-FUND, no KILL.** probe6 kept frozen.
+- **Corrected reading, from a label-shaped content probe run at the
+  adjudication** (`scripts/sched_content_probe.py`: the certified arm
+  fed at the 496 follow-batch windows, the natural line fed at 539
+  windows the follow term never trains on; slots 0↔1 swapped as a
+  legal-candidate content change):
+
+  | ckpt | certified: follow fed / closed | swap-flip | natural: follow fed / closed | swap-flip |
+  |---|---|---|---|---|
+  | init | 9.7% / 9.1% | 0.0% | 67.0% / 67.9% | 0.0% |
+  | iter-2 | 12.3% / 10.1% | 2.5% | 69.9% / 68.5% | 2.9% |
+  | iter-5 | 19.0% / 14.1% | 2.8% | 65.3% / 66.4% | 2.9% |
+
+  1. The live follow rate and utilization headlines above are
+     **natural-line inflation**: on natural windows the schedule adds
+     nothing (fed = closed), so 32–52% live following is the policy
+     playing its own line — the inflation ADR-0092 predicted for
+     utilization applies to follow rate too.
+  2. On the training windows themselves, schedule-conditioned following
+     is ~5pp (fed − closed); half the follow term's effect is behavior
+     cloning of certified first casts.
+  3. The content plateau is real on both populations (~3% swap-flip on
+     label-shaped inputs, ~0.6% on the pinned population whose fed
+     schedules are day-zero six-slot emissions, 36% one card repeated
+     six times). Finding 1 ("consumed as presence and following") is
+     therefore overstated: consumption is a few percent real.
+- **Findings 3 and the ADR-0088 staleness tell are one fact.** Policy
+  gradient never reaches the emitter (its logits appear in the learner
+  only in the grad-free live-CE block); the live-gap ratio
+  `sched_live_ce / seedlab_raw_step` read 3.3 / 3.1 / 3.5 / 3.8 / 4.9 /
+  5.7 — above the 3× tell throughout (the ratio's day-zero ≈ 1.0 needs
+  re-basing on the full-support batch; the trend is the signal).
+- **The routed design round (own-plan follow term, contrastive term) is
+  SUPERSEDED**: the follower fixes fidelity, not planning; the funded
+  ceiling was measured under binding `-forceschedule` execution while the
+  live surface is advisory. The user directed a step back →
+  [m10-reset-draft.md](../design/m10-reset-draft.md) (planner hierarchy,
+  binding execution, planner PG anchored by mint distillation, the
+  certifier as an asynchronous era-weighted labeler, stratified paired
+  strength as the primary probe read, retirement list). The own-plan
+  follow term is recorded there by name as the deferred alternative
+  (§F.1). KL headroom and the serve-telemetry items ride the reset build.
+- Standing rule born (→ standing-rules.md): serve-side follow and
+  utilization counters inflate on natural-line plans; a consumption read
+  must be schedule-conditioned (fed vs closed) on label-shaped inputs.

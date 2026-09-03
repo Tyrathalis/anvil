@@ -116,7 +116,8 @@ def seed_pass(net, seed_segs: list, forward_segments, w: float, grad: bool = Tru
     return tot
 
 
-def build_follow_batch(labels_path: str, store_path: str, feat, seg: int = 64) -> "dict | None":
+def build_follow_batch(labels_path: str, store_path: str, feat, seg: int = 64,
+                       src: str = "certified") -> "dict | None":
     """ADR-0092 Fork 1 — feed-and-follow: certified non-hold label rows ->
     collated segments with the certified arm FED as the schedule (the
     discrete-carry conditioning tensors synthesized from the label through
@@ -138,9 +139,12 @@ def build_follow_batch(labels_path: str, store_path: str, feat, seg: int = 64) -
 
     rows = [json.loads(x) for x in open(labels_path)]
     meta = rows[0] if rows and rows[0].get("k") == "meta" else {}
+    # src selects the label class fed: "certified" (the training term) or
+    # "natural" (the ADR-0093 adjudication's held-out content probe —
+    # natural rows carry arm -1)
     rows = [r for r in rows if r.get("k") != "meta"
-            and r.get("src", "certified") == "certified"
-            and r.get("arm", 0) >= 0 and r.get("seq")]
+            and r.get("src", "certified") == src
+            and (src != "certified" or r.get("arm", 0) >= 0) and r.get("seq")]
     by_game: dict[int, list[dict]] = {}
     for r in rows:
         by_game.setdefault(r["g"], []).append(r)
