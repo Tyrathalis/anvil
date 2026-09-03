@@ -10,7 +10,8 @@ makes the certifier the loop's signal source, inverts the probe reads,
 and lists what retires. Six forks with drafted leans; the learned-
 fidelity follower is recorded by name as the deferred alternative.
 **Fork 1 ADJUDICATED 2026-09-02 (user): binding execution, all three
-sub-pins.** Forks 2–6 pending.
+sub-pins. Fork 2 ADJUDICATED 2026-09-02 (user): reward-trained planner
+with the mint anchor, all five sub-pins.** Forks 3–6 pending.
 
 Adjudication principle, stated by the user at Fork 1 and carried into
 the remaining forks: **prefer the simpler, more elegant architecture that
@@ -208,6 +209,31 @@ so it does not have to be re-derived:
 - Alternative (recorded): supervised-only planner + re-mint cadence
   (the probe6 loop with binding execution). Cheaper, but the planner
   then never learns from outcomes and the goal is not addressed.
+
+**ADJUDICATED (user, 2026-09-02): PG on the schedule action with the
+mint CE as the anchor, on density grounds** — "we've had a lot of
+problems with weak signal, so we want to take easy wins on that where we
+can." A planner acts ~once per turn (~7k actions per 480-game iteration
+vs ~200k cast decisions); the certifier is the high-quality sparse
+signal, reward the dense cheap one, and PG costs no extra data. Sub-pins
+adopted as drafted:
+1. **Revisions are actions too** — every trigger decode gets PG; reward-
+   only in probe7 (no labels until the Fork 3 revision-window extension).
+2. **Planner KL guard** (mu vs current on emission rows) at the cast
+   head's 0.06 to start; planner entropy is a read, not a bonus — a floor
+   only if it collapses (the M2 ADR-0017 failure mode).
+3. **Anchor mass fixed** at frac 0.05 with carry-w; staleness is Fork 3's
+   era weighting, not an annealed anchor (one knob per job).
+4. **E/R aux heads stay** (passive, ADR-0079-funded; retiring them is a
+   separate experiment).
+5. **Learning rates unchanged** (head 1e-3, trunk 1e-5).
+
+Expectation pre-registered: six iterations of PG on ~7k actions each
+will not move the planner far past its labels — probe7 mostly measures
+binding execution of a distilled planner (a quarter of whose labels are
+certified improvements); the reward-trained contribution is a longer-
+horizon claim the promotion-scale run reads. The budget clause holds
+regardless.
 
 ### Fork 3 — the certifier as the loop's signal source
 
