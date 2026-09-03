@@ -49,6 +49,17 @@ silently delete.
   to surfaces whose tokens perturb attention by presence
   ([ADR-0084](decisions/ADR-0084-m10-probe-preflight.md)).
 
+- **A conditioning surface's ceiling funds only the execution regime it
+  was measured in** — the M10 ceiling (+13.5pp) was measured under
+  binding `-forceschedule` execution and six probes tried to earn it on
+  an advisory surface ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
+- **A probe's PRIMARY read is a strength read on the funded stratum with
+  the ceiling's own paired instrument; competency proxies are
+  exploratory** — six probes read proxies that measured the wrong thing
+  (presence, lumped counters, natural-line inflation) while the prize
+  sat unmeasured; a day-zero read decomposes the claim before training
+  is spent ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
+
 ## Training-loop design
 
 - **Clips at birth** for engineered aggregates AND loss terms
@@ -130,6 +141,13 @@ silently delete.
   oracle; deterrence-family levers are CLOSED
   ([ADR-0062](decisions/ADR-0062-m8-closeout.md), falsification
   completed at [ADR-0072](decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)).
+
+- **Under binding execution the natural line is not an independent
+  witness**: a window is labeled only if the certifier rolled it out,
+  and the label is the search-adjudicated best of {the policy's own
+  plan, the enumerated arms} — never label an unrolled window with the
+  policy's own play (the ADR-0085 self-target in a new coat)
+  ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
 
 ## Curation, drills, and the critic
 
@@ -232,3 +250,8 @@ silently delete.
 - Content breadth scales in set-sized dataset-boundary chunks after
   core features ([ADR-0018](decisions/ADR-0018-ruleset-scope-clarification.md)
   recipe-first).
+- **Design forks lead with the simpler, more coherent architecture and
+  price its extra data/compute honestly** (user principle, stated at the
+  M10 reset), **and a build is staged around its cheapest decisive read**
+  (the day-zero read needed a third of the build)
+  ([ADR-0094](decisions/ADR-0094-m10-reset.md)).

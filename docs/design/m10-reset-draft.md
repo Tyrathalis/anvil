@@ -1,4 +1,4 @@
-# M10 reset — DRAFT for adjudication (session 2026-09-02, the step-back round)
+# M10 reset — ADOPTED (user-adjudicated 2026-09-02/03, [ADR-0094](../decisions/ADR-0094-m10-reset.md))
 
 Session: the probe6 adjudication ([ADR-0093](../decisions/ADR-0093-m10-probe6-read.md)
 addendum). The user adjudicated probe6 NO-FUND / no KILL and asked for a
@@ -19,7 +19,9 @@ the pivotal-moment head as the named extension. Fork 4 ADJUDICATED
 DAY-ZERO read and a halt-for-adjudication rule; headroom shrinkage
 demoted to promotion-only. Fork 5 ADJUDICATED 2026-09-03 (user): the
 budget STAGED around the day-zero read; probe6 iter-5 = the day-zero
-ckpt and probe7's init.** Fork 6 pending.
+ckpt and probe7's init. Fork 6 ADJUDICATED 2026-09-03 (user): DEFERRED
+by name to the probe7 read.** All six forks adjudicated; this document
+is the statement of record ADR-0094 points at.
 
 Adjudication principle, stated by the user at Fork 1 and carried into
 the remaining forks: **prefer the simpler, more elegant architecture that
@@ -481,6 +483,17 @@ the casts, retiring the PG-masked pay path or re-basing its unmask
 conditions. **Lean: defer until probe7 reads; record here so it is not
 lost.** The ADR-0075 fact (+2.96pp as a supervised conditional
 competency) is the ceiling this fork would go after.
+
+**ADJUDICATED (user, 2026-09-03): DEFERRED by name to the probe7 read.**
+Three reasons: probe7's budget is spoken for; the day-zero read will say
+whether binding execution of schedules is worth anything before the same
+idea is extended to payments; and the payment scorer exists only inside
+the forced-schedule directive, so it becomes reachable on the live path
+exactly when the per-fork directive (Fork 3) lands in session two. The
+trigger for the decision is the probe7 read, with the pay leg's own
+telemetry from a binding-era run in hand. Nothing lost: ceiling
+(ADR-0075 +2.96pp), executor (the schedule-consistent payment scorer),
+and trigger are all named here.
 
 ## E. Retirement list
 
