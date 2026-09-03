@@ -14,7 +14,10 @@ sub-pins. Fork 2 ADJUDICATED 2026-09-02 (user): reward-trained planner
 with the mint anchor, all five sub-pins. Fork 3 ADJUDICATED 2026-09-03
 (user): INLINE certification in the generation workers (revised from the
 drafted daemon), the era-zero anchor rule, uniform sampling for probe7,
-the pivotal-moment head as the named extension.** Forks 4–6 pending.
+the pivotal-moment head as the named extension. Fork 4 ADJUDICATED
+2026-09-03 (user): stratified paired strength as the primary read with a
+DAY-ZERO read and a halt-for-adjudication rule; headroom shrinkage
+demoted to promotion-only.** Forks 5–6 pending.
 
 Adjudication principle, stated by the user at Fork 1 and carried into
 the remaining forks: **prefer the simpler, more elegant architecture that
@@ -349,30 +352,65 @@ was the better design; the walk-through that adopted it:
 
 ### Fork 4 — the reads (inverted)
 
-**Lean: the primary probe read is a stratified paired strength read.**
-- Population: ~600 fresh-seed turns from a sweep-shaped run at the
-  candidate ckpt, binned by the eval critic at v = 0.45 (the ADR-0078
-  competency-read population, verbatim). Pairing: from each window,
-  play out the terminal ckpt vs the init ckpt with the same seeds, K
-  rolls, both seats' decisions from the same state — the ceiling's own
-  instrument with the candidate policy in place of the forced arm.
-  Report mean Δwr on the v<0.45 stratum against the banked +14.1pp
-  scale; the FUND bar sits at the ADR-0078 threshold scale (the ~2.2pp
-  per-game equivalent), exact number pinned at pre-flight.
-- Secondary (exploratory, never gating): first-window hold / length /
-  revision rate; forced-cast rate and forced-veto rate (the invalid-
-  schedule family — the "void arms are free" derivation was under the
-  advisory executor and must be re-read under binding); planner KL;
-  mint CE by label class (certified vs natural — a split the probe6
-  read lacked); live-gap ratio re-based on the full-support batch; the
-  label-shaped content probe as telemetry.
-  **Missed-trigger residual** (from the Fork 1 adjudication): the rate
-  at which an opponent action during our turn resolves without a
-  trigger-2 revision (the canonical-register instrument's territory);
-  under binding it is the rate at which stale plans play out.
-- Retired as gates: content_flip, argmax_flip, reliance_l1, utilization
-  floor, follow rate, follow CE. The pinned day-zero population's
-  schedules are garbage-shaped and the surface is no longer advisory.
+**Drafted lean: the primary probe read is a stratified paired strength
+read** (kept below as adopted, with the pins the walk-through added).
+
+**ADJUDICATED (user, 2026-09-03), all pins as drafted in the walk-through:**
+
+- **Two candidate primary reads were on the table.** (a) *Headroom
+  shrinkage* — the ADR-0084-pinned competency read: re-run the
+  certification sweep at the candidate ckpt on 600 fresh-seed turns and
+  report the certified arm's mean gain over the candidate's own play on
+  v<0.45 against the banked +14.1pp. Pinned, machinery exists, but it
+  measures how much better search could still do (shrinks also when the
+  candidate got worse in ways search cannot fix), never says the
+  candidate beat anything, and costs the full sweep (~7.3 h at 8 lanes,
+  ~81,600 completions). (b) *Stratified paired strength* — from each
+  behind-state window, K completions with the candidate at the seat and
+  K with the baseline, paired rollout seeds (the M7 forced-branch paired-
+  rollout machinery with two POLICIES as the branches, served through the
+  M4 D2.4 dual-policy fork path), everything else identical; the per-
+  window win-rate difference averaged over the stratum is a direct
+  strength claim where the ceiling said the value lives. ~9,600
+  completions at 600 windows × K=8 ≈ an hour. **(b) is PRIMARY; (a) is
+  an exploratory secondary at the promotion run only.**
+- **A fixed population**: generated ONCE at the baseline ckpt with fresh
+  seeds; own-turn MAIN1 windows selected by the eval critic at v<0.45
+  (600); reused for every candidate from probe7 through promotion so the
+  series is comparable. v≥0.45 windows recorded for context, never
+  gating (the curve is context — ADR-0084 rule 5 verbatim).
+- **The baseline is the same init ckpt under ADVISORY serve** — the
+  policy as it plays today — so the comparison isolates the reset.
+- **The bar**: the ADR-0078 threshold scale (the ~+2.2pp-per-game
+  equivalent) on the v<0.45 stratum with the interval excluding zero;
+  exact number pinned at pre-flight with the other numerics.
+- **The DAY-ZERO read (the fork's addition).** Under binding execution
+  probe7's iteration-0 ckpt already plays the distilled planner's plans
+  as written, so the paired read BEFORE any training measures binding
+  execution of the distilled 08-30 mint alone, and the terminal read
+  measures what six iterations added — the claim decomposed into its
+  two parts for an hour. **Rule: a day-zero read below MINUS the bar is
+  a HALT for adjudication (human), not an auto-KILL** — six iterations
+  of ~7k planner actions will not repair a distillation that forces
+  clearly-worse plans, and the negative is a distillation-quality
+  finding that may route to more labels rather than to closing the
+  fork.
+- **Secondary reads (exploratory, never gating)**: planner axes (first-
+  window hold and length, revision rate by trigger, forced-cast rate,
+  forced-veto rate); planner KL and entropy; mint CE split by label
+  class (certified vs search-confirmed — the split the probe6 read
+  lacked); the missed-trigger residual (Fork 1); headroom shrinkage at
+  promotion only.
+- **KILL (auto, from the 4th accepted iteration)**: the degeneracy
+  veto's first-window axes (pure-hold > 25% or mean length < 1.0)
+  sustained two iterations, OR forced-veto rate above a pre-flight bar
+  sustained two iterations. The planner KL guard is a guard, not a kill.
+- **Retired as gates**: content_flip / argmax_flip / reliance_l1, the
+  utilization floor, follow rate and follow CE; and, falling out of
+  Forks 1 and 3, the label-shaped content probe (moot when the policy no
+  longer reads the schedule) and the live-gap staleness ratio (moot when
+  labels are fresh by construction) — both stay as scripts, neither is a
+  read. Payment's reads untouched.
 
 ### Fork 5 — probe shape and budget
 
@@ -383,6 +421,7 @@ budget: two build sessions + one probe.** Pre-registered outcomes:
   > 25% or mean length < 1.0 sustained two iterations (the veto,
   absolute), OR forced-veto rate above a pre-flight bar sustained two
   iterations.
+- Day-zero read below minus the bar = HALT for adjudication (Fork 4).
 - Nothing on the stratum with a clean loop = **a legitimate negative
   answer to M10 at the hierarchy level**; the milestone may close on it
   with the assets carried. The reset must not become another month of
@@ -402,6 +441,7 @@ competency) is the ceiling this fork would go after.
 | item | disposition |
 |---|---|
 | follow term (`--follow-frac`, `follow_pass`, `guard_follow_share`) | RETIRE (Fork 1) — code kept for §F.1 |
+| live-gap staleness ratio (`sched_live_ce / seedlab_raw_step`); label-shaped content probe | RETIRE as reads (Forks 3/4: labels fresh by construction; the policy no longer reads the schedule) — scripts kept |
 | content_flip / argmax_flip / reliance_l1 gates; utilization floor; follow rate/CE reads | RETIRE as gates; `sched_reliance.py` stays telemetry |
 | v1 plan machinery (`--plan`, plan reliance, `guard_plan_share`) | already off; strip from the recipe |
 | seedlab term | KEEP as the mint anchor on the era-weighted pool |
@@ -444,8 +484,9 @@ at the fork point (schedule_sweep/sched_mint code reused), the label +
 arm spread written on the row, workers at 4g, the rate knob (`-points`
 × the bridge's accept rate) with an off switch, the era-zero anchor rule
 in the loader, the mint term moved into the RL pass on labeled rows; (5) the stratified paired read as a driver-callable
-script (the ADR-0078 binned-read machinery with a policy in the arm's
-place); (6) 4-game smoke: forced execution parity with the mint
+script (fixed baseline-generated v<0.45 population; two-policy paired
+completions on the M7/M4 fork machinery; day-zero + terminal invocations
+wired into the driver with the halt rule); (6) 4-game smoke: forced execution parity with the mint
 executor's semantics (land-first, post-land binding), carry tripwire 0,
 forced rows carry no logp; (7) day-zero banks + pre-flight pins + launch.
 
