@@ -607,3 +607,6 @@ said differently from the draft, all resolved with the user this session:
 - Read pipeline: `scripts/sched_paired_read.py` (population / run /
   read); driver wiring (day-zero + terminal invocations, halt rule) is
   session two with the learner side.
+
+**Day-zero read LANDED 2026-09-03 ([ADR-0095](../decisions/ADR-0095-m10-dayzero-read.md)): HALT** — −6.7pp ± 0.9 on 553 v<0.45 windows (z −7.6), context −12.6pp; 4.25 h measured (not "≈ an hour"); K=8/N=600 stands (read SE 0.9pp). Mechanism: trigger-2 mid-turn revisions re-decode empty at unlabeled states and bind as holds. Routes in the ADR; adjudication pending.
+

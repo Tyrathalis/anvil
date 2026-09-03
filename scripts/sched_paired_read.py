@@ -191,8 +191,19 @@ def population(args) -> None:
 
 def _lane_scripts(run: Path, side: str, tsv_lines: list[str], n_lanes: int,
                   jar: Path, pairs: Path, port: int, heap: str) -> list[Path]:
-    games = sorted({int(ln.split("\t", 1)[0]) for ln in tsv_lines})
-    lane_of = {g: i % n_lanes for i, g in enumerate(games)}
+    # balance by WINDOW count, not game count (round-robin by game left one
+    # lane 20% longer on the day-zero read: games carry 1-4 windows each);
+    # a game stays whole in one lane (one mainline replay per game)
+    per_game: dict[int, int] = {}
+    for ln in tsv_lines:
+        g = int(ln.split("\t", 1)[0])
+        per_game[g] = per_game.get(g, 0) + 1
+    load = [0] * n_lanes
+    lane_of: dict[int, int] = {}
+    for g, n in sorted(per_game.items(), key=lambda kv: (-kv[1], kv[0])):
+        i = min(range(n_lanes), key=lambda j: (load[j], j))
+        lane_of[g] = i
+        load[i] += n
     gui = jar.resolve().parent.parent.parent / "forge-gui"
     outdir = run / f"lanes-{side}"
     outdir.mkdir(exist_ok=True)
