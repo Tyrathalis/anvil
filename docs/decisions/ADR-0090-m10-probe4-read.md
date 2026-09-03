@@ -53,6 +53,15 @@ of emission." **This is not ADR-0085's empty fixed point** (self-
 referential targets); the targets are grounded and non-degenerate, the
 decode turns a calibrated distribution into a length collapse.
 
+## Note (2026-09-02 evening): first-window numbers
+
+The table above lumps first-window and revision emissions (the
+counter split was found at probe6). First-window only, probe4
+iteration 1: **pure-hold 18.9%, mean length 1.55** against labels at
+8% / 2.45 — the argmax collapse was real at the turn's plan, and the
+mechanism argument stands verbatim. (Probe5 under the corrected rule:
+0.1% / 2.87 at the same point.)
+
 ## Decision
 
 1. **Serve decode rule (`sched_slot_pick`, model.py): STOP only when

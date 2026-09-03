@@ -64,6 +64,24 @@ over a full probe.**
    behaved as designed on a run whose verdict the veto already
    carried.
 
+## Correction (2026-09-02 evening, from probe6's read): finding 2 RETRACTED as measured
+
+The serve counters `sched_len_*` lump FIRST-WINDOW emissions (the
+turn's plan) with REVISION emissions (opponent-action / end-step /
+exhaust / veto re-emits, ~81% of rows), and revisions are legitimately
+emptier late in the turn. Splitting probe5's mu rows by the `rev`
+flag: first-window pure-hold **0.1% / 9.0% / 6.3% / 4.1%** and mean
+length **2.87 / 2.42 / 1.73 / 2.14** at iterations 1–4 — the emitter
+tracked its labels (8.1% / 2.45) throughout. **There was no off-
+support hold-drift**; the 6.9% → 29.7% → 27.4% → 18.4% trajectory was
+the revision share. The NO-FUND verdict stands unchanged (utilization
+is not an emission axis). The label-support gap remains a design
+argument (positives-only labels cover ~19% of states), not a measured
+drift; ADR-0092 Fork 2 stands on that argument and on the user's
+every-turn direction. Read convention from here: **the degeneracy
+veto's emission axes read first-window emissions**; the counter split
+by `rev` is routed as serve telemetry.
+
 ## Decision
 
 1. **probe5 closes NO FUND on the degeneracy veto (utilization).**

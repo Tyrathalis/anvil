@@ -101,11 +101,15 @@ silently delete.
   traj_per_step, the probe3 false-halt lesson) guards from first
   launch ([ADR-0088](decisions/ADR-0088-grounded-driver.md),
   re-based at [ADR-0090](decisions/ADR-0090-m10-probe4-read.md)).
-- **A supervised emission head needs FULL-SUPPORT labels** —
-  positives-only labels (certified windows, ~19% of states) drift the
-  head off-support toward its terminal class (probe5: pure-hold 6.9% →
-  ~28% under labels at 8%); the natural line's witnessed realized casts
-  are the honest label where nothing certified beats natural
+- **The degeneracy veto's emission axes (pure-hold, length) read
+  FIRST-WINDOW emissions only** — revision emissions (opponent-action /
+  end-step re-emits, ~80% of emission rows) are legitimately emptier
+  late in the turn; the lumped `sched_len_*` counters mis-read probe5
+  as drifting to ~28% hold when its first-window hold stayed ≤ 9%
+  (ADR-0091 correction; split by the mu `rev` flag until the counters
+  split). Full-support emitter labels (certified arm + the natural
+  line's witnessed casts) stand as a DESIGN decision — schedule every
+  turn — not as a fix for a measured drift
   ([ADR-0092](decisions/ADR-0092-consumer-coupling.md)).
 - **An autoregressive emission head with a STOP class decodes
   stop-vs-continue (p_stop vs Σ candidates), never whole-row argmax**

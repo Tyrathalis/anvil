@@ -74,10 +74,13 @@ states).
 
 ## Consequences
 
-- Standing rule born (→ standing-rules.md): **a supervised emission
-  head needs FULL-SUPPORT labels — positives-only labels drift the
-  head off-support toward its terminal class** (probe5: hold 6.9% →
-  ~28% under labels at 8%).
+- Standing rule born (→ standing-rules.md), CORRECTED the same
+  evening: the probe5 "hold-drift" that motivated Fork 2 empirically
+  was a lumped-counter artifact (first-window hold stayed ≤ 9%; see
+  the ADR-0091 correction). Fork 2 stands as a DESIGN decision —
+  schedule every turn, on the positives-only support argument and the
+  user's direction — and the rule that survives is: **the veto's
+  emission axes read first-window emissions only.**
 - Build order: full-support label mint → follow term (on the seedlab
   batch machinery, with fed-schedule side tensors synthesized from
   the label) → day-zero banks at the init ckpt → guard windowed-min →
