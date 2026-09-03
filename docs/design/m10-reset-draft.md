@@ -9,6 +9,13 @@ hierarchy, moves execution to the regime the ceiling was measured in,
 makes the certifier the loop's signal source, inverts the probe reads,
 and lists what retires. Six forks with drafted leans; the learned-
 fidelity follower is recorded by name as the deferred alternative.
+**Fork 1 ADJUDICATED 2026-09-02 (user): binding execution, all three
+sub-pins.** Forks 2–6 pending.
+
+Adjudication principle, stated by the user at Fork 1 and carried into
+the remaining forks: **prefer the simpler, more elegant architecture that
+lets the model act correctly and coherently, even when it costs more
+data and training time.**
 
 ## A. The facts the step back starts from
 
@@ -138,6 +145,44 @@ own-plan follow term. Sub-pins for the lean:
   and attributed to the planner (§6c's veto penalty applies to the
   planner's action at that window, not to the cast head).
 
+**ADJUDICATED (user, 2026-09-02): binding execution with all three
+sub-pins, on the principle above.** The tradeoff as discussed, recorded
+so it does not have to be re-derived:
+
+- The objection to binding is "no plan survives contact with the enemy."
+  But the revision mechanism is already built and orthogonal to this
+  fork: revise-on-trigger at the four engine-detectable events (slot
+  vetoed, any opponent action resolved during our turn, end of turn,
+  exhausted), with unprovoked revision structurally impossible (user pin
+  2026-08-27). Advisory coupling adds a SECOND channel on top — silent
+  deviation by the cast head between triggers — and the fork is whether
+  that channel earns its keep. It does not: it lets a different component
+  absorb fragility, so the planner never pays for it and never learns
+  robustness.
+- Binding is cheaper here than it sounds because of the plan's scope:
+  own-turn casts only (off-turn windows carry no schedule; hold-up is
+  the hold-set's job). Own-turn interaction is almost entirely reactive
+  — counters and removal in response to a cast — and arrives as trigger
+  1 or trigger 2, both wire-visible.
+- What binding buys: fragility becomes reward-visible. A plan that dies
+  at the first counterspell costs a turn, and a reward-trained planner
+  learns plans that survive (bait first, hold mana, sequence around the
+  likely response). "Put the implication of interaction into the plan"
+  is what this produces, learned rather than designed; an explicit
+  contingency language is a later extension of the planner's action.
+- What binding costs, both promoted to pre-flight items: (1) **trigger-
+  detector misses** — trigger 2 is an honest approximation (rolling
+  wire-history non-self signature); under binding a missed interaction
+  plays a stale plan until the next trigger. Illegality self-corrects
+  (the NEXT slot is legality-checked at every own window; failure is a
+  revision); the residual is a slot still legal but now wrong — the
+  missed-trigger residual becomes a load-bearing read (Fork 4).
+  (2) **Revision windows are the least-supervised decodes** — the mint
+  labels the MAIN1 emission window; a revision decodes from a partially
+  executed state and is trained only by reward. Binding makes revisions
+  matter more; labeling post-interaction states is a named certifier
+  extension (Fork 3), a cost item not a design problem.
+
 ### Fork 2 — planner training
 
 **Lean: PG on the schedule action with the mint CE as the anchor.**
@@ -188,6 +233,12 @@ own-plan follow term. Sub-pins for the lean:
   critical path). Full-support labels (certified arm + natural casts)
   are minted per window exactly as `mint_full_support.py` does.
 - Alternative (recorded): per-era re-mint only (the current cadence).
+- **Named extension (from the Fork 1 adjudication): revision-window
+  labels.** The certifier forks at any window; certifying arms from the
+  post-interaction state at trigger windows (sampled from live revision
+  rows) gives the planner grounded supervision where binding makes it
+  matter most. Not in probe7's budget unless the emission-window
+  labeler lands early; priced by the same 44 s/window bench.
 
 ### Fork 4 — the reads (inverted)
 
@@ -208,6 +259,10 @@ own-plan follow term. Sub-pins for the lean:
   mint CE by label class (certified vs natural — a split the probe6
   read lacked); live-gap ratio re-based on the full-support batch; the
   label-shaped content probe as telemetry.
+  **Missed-trigger residual** (from the Fork 1 adjudication): the rate
+  at which an opponent action during our turn resolves without a
+  trigger-2 revision (the canonical-register instrument's territory);
+  under binding it is the rate at which stale plans play out.
 - Retired as gates: content_flip, argmax_flip, reliance_l1, utilization
   floor, follow rate, follow CE. The pinned day-zero population's
   schedules are garbage-shaped and the surface is no longer advisory.
