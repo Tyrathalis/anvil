@@ -303,3 +303,30 @@ draft §I). Noted: the cast head's own pointer reproduces the natural
 line's first cast at 85% on the mint's windows; the planner's slot 0 is
 in effect the executor's pointer, and the plan's content is the rest.
 
+## Addendum — the HAND-BASIS planner's day-zero read (2026-09-04 13:40)
+
+`m10-planner-distill-hand` (§I key space: legal + virtual candidates
+from the mined ability table; lands in the plan; WAIT semantics; mana
+abilities excluded) under release, 800 windows, 3.65 h, clean:
+**primary (560) −0.0184 ± 0.0071, z −2.6** — above −bar, CI excludes 0
+(the script's NEGATIVE-ABOVE-MINUS-BAR band); context −0.024 ± 0.012.
+By value +0.1 / −1.9 / +1.9 / **−5.6 ± 1.5** (v 0.3–0.45). **Against the
+legal-basis planner on the same 560 windows: −0.7 ± 0.75pp — the same
+read.** Bound windows 195K: forced cast 37% / land 10% / hold 8% /
+**WAIT 46%**; 251K released; failed slots 16K (13.4K "unactivatable":
+the planner over-emits battlefield activations; the fail is fast).
+Emitted plans: 53% empty (incl. revisions), 31% one slot.
+
+Reading: at day zero the two bases cost the same (−1 to −2pp on the
+stratum, −3 to −6 on winnable states). The hand basis did not buy a
+better number; it bought a plan object that can NAME the land drop,
+post-land casts and activations (first-cast agreement 92% vs 77%;
+certified arms representable) — the day-zero cost is COMMITMENT (a
+forced plan vs window-by-window choice; a WAIT closes spells for a
+slot not castable yet), and that is what training and the certifier's
+labels are for. First hand-basis run stopped at t+100m on three
+wait-rule defects (mana abilities as virtual candidates; used
+activations waited on; resolved hosts waited on), fixed before this
+read. Named refinement: WAIT closes sorcery-speed spells only
+(instants/flash stay the executor's through combat).
+
