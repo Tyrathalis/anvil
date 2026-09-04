@@ -291,3 +291,15 @@ terminal read against advisory from a −1.1 ± 0.6 start. Named, not
 taken: moving the emission window POST-land (the pre-land basis leaves
 28% of casts unplannable; a design change to the emission point).
 
+## Addendum — certified-on-parity (2026-09-04): the 543 certified arms are not learnable at that size
+
+On a 20% hash holdout (129 certified windows), certified oversampled
+×10: parity head + mint → exact 5% / first-cast 18%; fresh head on the
+mint alone → 3% / 23%; fresh head + everything → 3% / 18%. A near-parity
+foundation does not make the certified improvements learnable from a
+few hundred examples (ADR-0087's rule holds); they need scale — the
+inline certifier — and a key space they fit in (the hand basis, reset
+draft §I). Noted: the cast head's own pointer reproduces the natural
+line's first cast at 85% on the mint's windows; the planner's slot 0 is
+in effect the executor's pointer, and the plan's content is the rest.
+
