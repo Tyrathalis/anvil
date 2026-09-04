@@ -199,3 +199,35 @@ decodes get their supervision; post-land casts become plannable where
 they become castable); lands are excluded from targets (the plan is
 casts; the executor keeps the land drop).
 
+## Addendum — route 1 GATE READ (2026-09-03 21:40): FLAT under release; the pinned hold rule superseded
+
+The executor-strategy planner (`m10-planner-distill-v2`: the graft with
+its planner pointer fitted on 1,900 argmax games of the ckpt of record —
+holdout first-cast agreement 77%, exact plan 64% at emission windows,
+vs probe6's 25% / 12%), served on the same 100 windows as the
+diagnostics, vs its own advisory play (= iter-019 exactly, zero-init slot
+tokens):
+
+| serve rule | Δwr vs advisory (56 primary) | context (36) | bound mix |
+|---|---|---|---|
+| pinned (empty = hold) | −0.080 ± 0.022, z −3.6 | −0.111 ± 0.033 | hold 82% (98% under an exhausted plan) |
+| **release** (empty re-decode → executor) | **+0.009 ± 0.013, z +0.7 — FLAT** | −0.035 ± 0.021 | cast 49% / land 17% / hold 34% |
+
+A faithful planner reads ≈ 0 against the executor it copies — the gate
+the adjudication set. The pinned rule cannot pass it for a structural
+reason found in the build: **the emission basis is pre-land, so a plan is
+partial by construction** (28% of the executor's casts are unplannable
+at MAIN1); "exhausted ⇒ hold" then closes the spells the plan could not
+name. Fork 1's "hold is binding" sub-pin is amended: **a hold binds only
+where the planner EMITS it (an empty first-window plan, an explicit
+non-empty revision); an empty re-decode at a revision trigger releases
+the rest of the turn to the executor** (`--sched-empty-rev release`).
+Both instruments and the estimator behaved: within-run CRN pairs at
+1.3pp SE on 56 windows.
+
+Consequences: (1) the ADR-0094 mid-point rule reads FLAT as "training is
+the open question; proceed"; (2) probe7's init becomes the distilled
+graft (its planner matches its executor) rather than probe6 iter-5;
+(3) the full 600-window read of this ckpt under release is the terminal
+read's own baseline; (4) session two builds on the release rule.
+

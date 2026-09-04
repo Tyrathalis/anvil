@@ -610,3 +610,11 @@ said differently from the draft, all resolved with the user this session:
 
 **Day-zero read LANDED 2026-09-03 ([ADR-0095](../decisions/ADR-0095-m10-dayzero-read.md)): HALT** — −6.7pp ± 0.9 on 553 v<0.45 windows (z −7.6), context −12.6pp; 4.25 h measured (not "≈ an hour"); K=8/N=600 stands (read SE 0.9pp). Mechanism: trigger-2 mid-turn revisions re-decode empty at unlabeled states and bind as holds. Routes in the ADR; adjudication pending.
 
+**Route 1 GATE PASSED 2026-09-03 (ADR-0095 addendum): the executor-strategy
+planner (`m10-planner-distill-v2`, `scripts/sched_distill.py`) reads
+FLAT (+0.9 ± 1.3pp) against advisory under the RELEASE rule; the pinned
+"exhausted = hold" rule still −8pp because the emission basis is
+pre-land (a plan is partial by construction). Fork 1 sub-pin amended: a
+hold binds only where emitted; an empty re-decode at a revision trigger
+releases the turn to the executor. probe7 init → the distilled graft.**
+
