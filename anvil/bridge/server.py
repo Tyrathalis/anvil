@@ -164,6 +164,7 @@ class ModelBackend:
         empty_rev: str = "hold",
         land_first: bool = True,
         bind_slots: int = 0,
+        empty_emit: str = "hold",
     ):
         import torch
 
@@ -240,7 +241,7 @@ class ModelBackend:
 
             self.sched_serve = SchedServe(
                 self.feat, binding=sched_binding, empty_rev=empty_rev,
-                land_first=land_first, bind_slots=bind_slots,
+                land_first=land_first, bind_slots=bind_slots, empty_emit=empty_emit,
             )
             self.batcher.sched_decode = True
         elif sched_binding != "off":
@@ -775,6 +776,14 @@ def main() -> None:
         "adjudication instruments",
     )
     ap.add_argument(
+        "--sched-empty-emit",
+        choices=["hold", "release"],
+        default="hold",
+        help="an EMPTY first-window emission: hold (the ADR-0094 pin — an "
+        "emitted empty plan binds spells closed for the turn) or release "
+        "(binds nothing; only non-empty plans ever force)",
+    )
+    ap.add_argument(
         "--sched-no-land-first",
         action="store_true",
         help="isolation: lands are never forced under binding (rule 1 off; "
@@ -833,6 +842,7 @@ def main() -> None:
             empty_rev=args.sched_empty_rev,
             land_first=not args.sched_no_land_first,
             bind_slots=args.sched_bind_slots,
+            empty_emit=args.sched_empty_emit,
         )
         if args.drill_ckpt:
             drill_backend = ModelBackend(
@@ -848,6 +858,7 @@ def main() -> None:
                 empty_rev=args.sched_empty_rev,
                 land_first=not args.sched_no_land_first,
                 bind_slots=args.sched_bind_slots,
+                empty_emit=args.sched_empty_emit,
             )
         if not args.no_warmup:
             for b in (backend, drill_backend):

@@ -110,6 +110,7 @@ class SchedServe:
         empty_rev: str = "hold",
         land_first: bool = True,
         bind_slots: int = 0,
+        empty_emit: str = "hold",
     ):
         if binding not in BINDING_MODES:
             raise ValueError(f"binding must be one of {BINDING_MODES}: {binding!r}")
@@ -138,6 +139,16 @@ class SchedServe:
         # the turn is released to the executor (0 = all slots bind).
         self.land_first = land_first
         self.bind_slots = bind_slots
+        # empty_emit="release": an EMPTY first-window emission binds nothing
+        # (the turn is the executor's until a non-empty revision) — binding
+        # then only ever forces the planner's non-empty plans; "hold" = the
+        # reset's pin (an emitted empty plan IS a hold for the turn). The
+        # full-scale distilled read: 73% of remaining holds sat under an
+        # empty first-window emission, 74% of those turns held a castable
+        # spell — the planner's false empties cost 3.5pp on winnable states.
+        if empty_emit not in EMPTY_REV_MODES[:1] + ("release",):
+            raise ValueError(f"empty_emit must be hold|release: {empty_emit!r}")
+        self.empty_emit = empty_emit
         self.states: dict[tuple, _State] = {}
         # forks mode: wire session wid -> the seat whose window opened it
         # (the fork fires at the target seat's own MAIN1 priority, so the
@@ -524,6 +535,10 @@ class SchedServe:
                 ns.released = True
                 row["released"] = 1
                 self.counts["sched_rev_empty_release"] += 1
+            elif self.empty_emit == "release" and st is None and not new_slots:
+                ns.released = True
+                row["released"] = 1
+                self.counts["sched_emit_empty_release"] += 1
             elif st is not None and st.released and not new_slots:
                 ns.released = True  # stays released until a non-empty revision
             with self.lock:

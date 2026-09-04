@@ -231,3 +231,25 @@ graft (its planner matches its executor) rather than probe6 iter-5;
 (3) the full 600-window read of this ckpt under release is the terminal
 read's own baseline; (4) session two builds on the release rule.
 
+## Addendum — FULL-SCALE gate read of the distilled planner (2026-09-04 02:00): FLAT by rule, −1.1 ± 0.6
+
+`sched-paired-dayzero-distill-release-20260903-221758` (800 windows,
+K=8, release rule, 3.57 h, zero lane failures / fallbacks): **primary
+v<0.45 (568 windows) Δwr −0.0108 ± 0.0057, z −1.9, CI [−0.022, +0.0004]
+— FLAT by the pre-registered rule** (mean above −bar, CI touching 0);
+context (185) −0.0405 ± 0.0109. The structure by value: flat where the
+game is lost (+0.1 / +0.3 / −0.3pp at v<0.3), **−3.5 ± 1.3pp at v
+0.3–0.45 and −4.1 on context** — binding a 77%-faithful planner costs
+nothing where nothing is winnable and ~3.5–4pp where the executor's
+choices matter. Instrument at full scale: within-run paired SE 0.077 per
+window (floor 0.20), read SE 0.57pp; 120 windows worse / 93 better / 355
+tied. Bound windows 102K: cast 52% / land 18% / hold 30%; 329K windows
+released; **73% of the remaining holds sit under an EMPTY first-window
+emission** (23% of turns; 74% of those turns later held a castable
+spell) — the planner's false empties (empty-recall 76% on the holdout;
+the executor holds at 33% of emission windows) are the residual. A last
+variant is built and measured on the diagnostic windows: an empty
+first-window emission binds nothing (`--sched-empty-emit release`) —
+binding then only ever forces the planner's NON-EMPTY plans, at the cost
+of the "hold is a decision" degree of freedom at day zero.
+

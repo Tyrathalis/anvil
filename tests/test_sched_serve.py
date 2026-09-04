@@ -399,3 +399,21 @@ def test_isolation_no_land_first_and_bind_slots():
     ctx3 = ss.inject(ex3, aux3, dec3, HDR, "priority")
     assert ss.states[(5, 0)].released and ss.counts["sched_bind_slots_released"] == 1
     assert ss.bind(ctx3, ex3, aux3, dec3) is None and "cand_allow" not in ex3
+
+
+def test_empty_first_emission_release():
+    opts = _opts((10, "Cast Foo", "spell"))
+    ss = SchedServe(_bind_feat(), binding="all", empty_rev="release", empty_emit="release")
+    aux, dec = _aux_for(opts), _dec(opts=opts)
+    ex = {}
+    ctx = ss.inject(ex, aux, dec, HDR, "priority")
+    row = ss.after(ctx, _out(picks=(0, 0, 0, 0, 0, 0)), aux, dec, track=False)
+    assert row["emit"] == 1 and row["new"] == [] and row["released"] == 1
+    assert ss.bind({**ctx, "decode": False}, ex, aux, dec) is None
+    assert ss.counts["sched_emit_empty_release"] == 1
+    # default (hold): the same empty emission binds spells closed
+    ss2 = SchedServe(_bind_feat(), binding="all", empty_rev="release")
+    ex2 = {}
+    ctx2 = ss2.inject(ex2, aux, dec, HDR, "priority")
+    ss2.after(ctx2, _out(picks=(0, 0, 0, 0, 0, 0)), aux, dec, track=False)
+    assert ss2.bind({**ctx2, "decode": False}, ex2, aux, dec)["kind"] == "hold"
