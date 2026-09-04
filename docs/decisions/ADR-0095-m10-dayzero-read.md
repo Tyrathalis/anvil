@@ -267,3 +267,27 @@ the subset, −1.1 at full scale), so the full 800-window read of this
 variant was launched overnight (landing ~06:30) as the number for the
 morning's adjudication of the rule.
 
+## Addendum — FULL-SCALE empty-emission variant (2026-09-04 06:30): the two release rules are the same read
+
+`sched-paired-dayzero-distill-emptyemit-20260904-025704` (800 windows,
+3.54 h, clean): **primary −0.0099 ± 0.0055 (z −1.8), FLAT by rule**;
+context −0.027 ± 0.010; by value +0.1 / −0.3 / −0.7 / −2.7pp. Against the
+release-only read on the SAME 568 windows: **+0.0009 ± 0.0034** — no
+difference. The subset's +3.1 was a fluctuation (the 56-window subset
+runs ~2pp hot on every variant). Bound windows 73K: cast 73% / land 20% /
+hold 7%; 15.6K empty first-window emissions released.
+
+**The day-zero number for a 77%-faithful executor-strategy planner is
+−1.0 ± 0.55pp on the behind stratum under any non-degenerate binding
+rule, −3 to −4pp on winnable states, and the residual is the forced
+NON-EMPTY plans (the price of committing at MAIN1 to a sequence the
+executor decides window by window), not the empties.** By the ADR-0094
+mid-point rule this is FLAT: binding + distillation are worth about
+nothing at day zero and training is the open question. Session two's
+recipe: the distilled graft as init, `--sched-empty-rev release`
+(keeps the emitted hold as a planner decision — the empty-emit variant
+buys nothing measurable and removes that degree of freedom), the
+terminal read against advisory from a −1.1 ± 0.6 start. Named, not
+taken: moving the emission window POST-land (the pre-land basis leaves
+28% of casts unplannable; a design change to the emission point).
+
