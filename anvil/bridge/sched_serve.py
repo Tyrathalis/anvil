@@ -229,7 +229,24 @@ class SchedServe:
         if slot.opt.get("kind") == "ability":
             return "wait"
         views = source_views_of(obs, p)
-        full_views = views._replace(now=views.full)
+        full = list(views.full)
+        try:
+            land_drop_open = not obs["players"][p].get("lands", 0)
+        except (KeyError, IndexError, TypeError):
+            land_drop_open = False
+        if land_drop_open:
+            # an unplayed land in hand is one more source this turn (optimistic
+            # any-color unit — the executor may develop it before the slot)
+            from anvil.training.sched_targets import card_table
+
+            tbl = card_table()
+            for e in obs.get("ents", []):
+                if e.get("c") == p and e.get("z") == "hand":
+                    info = tbl.get(e.get("n") or "")
+                    if info is not None and any(u.zone == "battlefield" for u in info.prod):
+                        full.append(frozenset("WUBRG"))
+                        break
+        full_views = views._replace(now=full)
         return "wait" if slot_afford(slot.opt, obs, p, full_views) > 0 else "unaffordable"
 
     @staticmethod
