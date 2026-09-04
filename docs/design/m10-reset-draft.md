@@ -702,3 +702,45 @@ hand-basis build):**
   with the certifier's h2 labels; tutor targets when M11 re-opens (the
   reachable-cards basis is the argument that raises that ceiling — a
   tutor is worth more to a planner than to a window-by-window head).
+
+## J. Decision-surface completeness — candidates surfaced 2026-09-04 (user question; UNROUTED until a scoping session)
+
+Grounded in the callback census (DC pool: 1,136 callbacks/game, the
+bridged tag set ≈ 52% of them) and the plan object as built:
+1. **Slot TIMING, not just order.** A plan slot is executed at the first
+   legal window (ASAP); the plan cannot say "after combat" (bluff-sized
+   creature post-combat, pump pre-block, removal after blocks). Ordering
+   ≠ timing; a per-slot phase anchor (MAIN1 / combat / MAIN2 / end
+   step) makes the plan canonical over the turn's structure — the same
+   class of gap as the land-timing point, and the executor's realized
+   lines already contain the answer (distillation targets can carry the
+   window's phase).
+2. **One generic mid-resolution choice tag.** Tutor/fetch targets,
+   `chooseCardsForEffect`, `confirmAction`, modes at resolution,
+   `chooseColor`, counter types, replacement/static-effect choices are
+   all SELECT-ONE/SELECT-K over an option list with obs — the pay_class
+   mechanism (positional options, pointer head) already does that
+   shape. M11 measured two genres separately; one mechanism would
+   amortize the family (~40% of callbacks the heuristic answers today).
+3. **Trigger ordering** (`orderAndPlaySimultaneousSa`, 12.6/game, every
+   game): which ETB/upkeep trigger resolves first is the heuristic's; a
+   planning-relevant choice never measured.
+4. **Combat damage assignment** (`assignCombatDamage`, 6.5/game, 81% of
+   games): which blocker dies is the heuristic's; attack/block are
+   bridged, the third combat decision is not.
+5. **Mulligan tuck at serve:** `TAG_TUCK` exists Java-side and the loader
+   trains `mull_tuck`, but the server's TAG_TASK does not advertise it —
+   verify; likely a free completion.
+6. **Optional costs / modes inside the one-shot cast** (kicker 29/game
+   in 35% of games): the census says fold them into the priority pick;
+   verify what CastPlan carries today.
+7. **Target intent on plan slots:** a slot names card + ability, the cast
+   head picks targets at execution; certified arms are "soft-emission"
+   the same way. A plan that sequences "removal on X, then attack"
+   needs the target in the slot for the label to be faithful.
+8. **Explicit hold language / off-turn plan** (named in §I).
+9. **Reachable-cards basis + multi-turn horizon** (named in §I).
+Routing rule: each item gets a name and a measured argument at the next
+scoping session (the ADR-0077 no-silent-loss rule); 1 and 7 ride the
+hand-basis plan object; 2–6 are bridge completions with their own
+ceilings; none gate the current build.
