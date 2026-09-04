@@ -146,3 +146,20 @@ question the adjudication now poses is planner quality first (more /
 certified-heavier labels, or head-only distillation that fits) versus
 reward training under binding from −8pp.
 
+## Addendum — isolation passes (2026-09-03 19:40): the damage is monotone in the amount bound
+
+Same 56 primary windows and rolls, Δwr vs advisory (control null ≈ 0
+± 0.008): pinned HOLD −0.096 · NO-OP −0.096 · RELEASE −0.078 ·
+RELEASE + no land-first −0.089 (land forcing is not the cost) · RELEASE
++ **first slot only −0.045 ± 0.026** (vs pinned +0.054 ± 0.023, z +2.3;
+context −0.010, was −0.118). Every reduction in what binds moves the
+number toward advisory and none reaches it: **the planner's plan is
+worse than the executor's own choice at every slot, including the
+first.** A distilled planner whose labels are 75% the executor's own
+line cannot beat the executor when executed as written unless the copy
+is faithful; at mint CE 1.24 it is not, and its errors are pure loss.
+Consequence for the adjudication: binding pays only where the planner
+is better than the executor — planner quality (or a serve-time
+confidence gate on WHERE to bind) precedes any binding regime; reward
+training from −4.5pp on slot-0 binding is the alternative bet.
+
