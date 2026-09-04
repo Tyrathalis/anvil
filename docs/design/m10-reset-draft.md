@@ -761,3 +761,14 @@ is the seat-view invariant (obs perspective, the `full_vis` gate for
 the critic only) applied to the planner's key space — the featurizer
 builds virtual candidates from obs-visible zones and the decklist, and
 nothing else. The hand-basis build (§I) starts 2026-09-04.
+
+**§I status 2026-09-04 (user):** built and read (ADR-0095 addenda): the
+hand-basis planner reads −1.8 ± 0.7pp at day zero (the same read as the
+legal basis on shared windows); adopted as the plan object for session
+two with the release rule and the distilled-hand graft as probe7's
+init. **Two refinements ROUTED INTO SESSION TWO:** (a) WAIT closes
+sorcery-speed spells only (instants/flash stay the executor's through
+combat; speed from the card table's types/keywords); (b) the featurizer
+excludes activations of tapped / summoning-sick / already-used board
+hosts from the virtual candidates (13.4K fast-failing slots per read).
+
