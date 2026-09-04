@@ -165,6 +165,8 @@ class ModelBackend:
         land_first: bool = True,
         bind_slots: int = 0,
         empty_emit: str = "hold",
+        sched_basis: str = "legal",
+        ability_table: "str | None" = None,
     ):
         import torch
 
@@ -202,7 +204,10 @@ class ModelBackend:
         ).to(device)
         self.net.load_compat(ckpt["model"])
         self.net.eval()
-        self.feat = Featurizer(cfg["embed"], default_methods())
+        self.feat = Featurizer(
+            cfg["embed"], default_methods(),
+            ability_table=ability_table if sched_basis == "hand" else None,
+        )
         if self.n_sa and self.n_sa != len(self.feat.sa_vocab):
             raise ValueError(
                 f"checkpoint sa_vocab_size {self.n_sa} != pinned sa_vocab "
@@ -242,6 +247,7 @@ class ModelBackend:
             self.sched_serve = SchedServe(
                 self.feat, binding=sched_binding, empty_rev=empty_rev,
                 land_first=land_first, bind_slots=bind_slots, empty_emit=empty_emit,
+                basis=sched_basis,
             )
             self.batcher.sched_decode = True
         elif sched_binding != "off":
@@ -776,6 +782,19 @@ def main() -> None:
         "adjudication instruments",
     )
     ap.add_argument(
+        "--sched-basis",
+        choices=["legal", "hand"],
+        default="legal",
+        help="the planner's key space: legal = the window's option list; "
+        "hand = the m10-reset-draft §I superset (virtual candidates from "
+        "the mined ability table; binding WAITs for held-but-not-yet-legal "
+        "slots; land-first off — the plan orders the drop)",
+    )
+    ap.add_argument(
+        "--ability-table",
+        default=str(Path(__file__).resolve().parents[2] / "data/pool/ability-table.json"),
+    )
+    ap.add_argument(
         "--sched-empty-emit",
         choices=["hold", "release"],
         default="hold",
@@ -843,6 +862,8 @@ def main() -> None:
             land_first=not args.sched_no_land_first,
             bind_slots=args.sched_bind_slots,
             empty_emit=args.sched_empty_emit,
+            sched_basis=args.sched_basis,
+            ability_table=args.ability_table,
         )
         if args.drill_ckpt:
             drill_backend = ModelBackend(
@@ -859,6 +880,8 @@ def main() -> None:
                 land_first=not args.sched_no_land_first,
                 bind_slots=args.sched_bind_slots,
                 empty_emit=args.sched_empty_emit,
+                sched_basis=args.sched_basis,
+                ability_table=args.ability_table,
             )
         if not args.no_warmup:
             for b in (backend, drill_backend):

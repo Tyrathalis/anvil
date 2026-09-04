@@ -111,6 +111,7 @@ class SchedServe:
         land_first: bool = True,
         bind_slots: int = 0,
         empty_emit: str = "hold",
+        basis: str = "legal",
     ):
         if binding not in BINDING_MODES:
             raise ValueError(f"binding must be one of {BINDING_MODES}: {binding!r}")
@@ -149,6 +150,15 @@ class SchedServe:
         if empty_emit not in EMPTY_REV_MODES[:1] + ("release",):
             raise ValueError(f"empty_emit must be hold|release: {empty_emit!r}")
         self.empty_emit = empty_emit
+        # basis="hand" (m10-reset-draft §I): the decode's key space is the
+        # featurizer's sched_cand superset (legal + virtual candidates);
+        # land-first forcing is OFF (the plan orders the land drop) and an
+        # absent NEXT slot WAITs while its card is held and affordable.
+        if basis not in ("legal", "hand"):
+            raise ValueError(f"basis must be legal|hand: {basis!r}")
+        self.basis = basis
+        if basis == "hand":
+            self.land_first = False
         self.states: dict[tuple, _State] = {}
         # forks mode: wire session wid -> the seat whose window opened it
         # (the fork fires at the target seat's own MAIN1 priority, so the
@@ -194,6 +204,33 @@ class SchedServe:
             i = first_opt[c]
             kinds.append(opts[i].get("kind") if 0 <= i < len(opts) else None)
         return kinds
+
+    @staticmethod
+    def _wait_or_gone(slot: _Slot, dec: dict, p: int) -> str:
+        """Hand basis: is a not-yet-legal NEXT slot worth waiting for?
+        'wait' = its host is still in the seat's hand/board/command zone
+        and (for a spell) affordable this turn under the FULL source view
+        (all own sources, sick and tapped included — the optimistic bound
+        of what the executor could develop); 'gone' = the host left the
+        seat's zones; 'unaffordable' = cannot be paid this turn; 'land'
+        = a land slot after the drop was used."""
+        from anvil.training.sched_targets import slot_afford, source_views_of
+
+        obs = dec["obs"]
+        ent = next((e for e in obs.get("ents", []) if e.get("e") == slot.e), None)
+        if ent is None or ent.get("c") != p or ent.get("z") not in ("hand", "battlefield", "command"):
+            return "gone"
+        if slot.opt.get("kind") == "land":
+            try:
+                lands = obs["players"][p].get("lands", 0)
+            except (KeyError, IndexError, TypeError):
+                lands = 0
+            return "land" if lands else "wait"
+        if slot.opt.get("kind") == "ability":
+            return "wait"
+        views = source_views_of(obs, p)
+        full_views = views._replace(now=views.full)
+        return "wait" if slot_afford(slot.opt, obs, p, full_views) > 0 else "unaffordable"
 
     @staticmethod
     def _cand_of(slot: _Slot, dec: dict, aux: dict) -> "int | None":
@@ -294,18 +331,27 @@ class SchedServe:
                 st.pending_revise = st.pending_revise or "exhaust"
 
         if st is not None and bind and task == "priority" and self.quiescent_main(dec):
-            # binding rule 3: NEXT absent at a quiescent post-land main
-            # window = the slot failed (trigger 1 by another road) — a
-            # revision, never a silent deviation
+            # binding rule 3: NEXT absent at a quiescent main window.
+            # Legal basis: post-land, absent = the slot failed (trigger 1).
+            # Hand basis (§I): absent but the card still held and affordable
+            # this turn under the FULL source view = WAIT (the executor
+            # develops toward it); gone from the seat's zones, or knowably
+            # unaffordable this turn = the slot failed (trigger 1).
             ni = st.next_idx()
-            if (
-                ni is not None
-                and "land" not in self._cand_kinds(dec, aux)
-                and self._cand_of(st.slots[ni], dec, aux) is None
-            ):
-                st.slots[ni].st = "f"
-                st.pending_revise = st.pending_revise or "absent"
-                self.counts["sched_bind_absent"] += 1
+            if ni is not None and self._cand_of(st.slots[ni], dec, aux) is None:
+                if self.basis == "hand":
+                    why = self._wait_or_gone(st.slots[ni], dec, p)
+                    if why == "wait":
+                        self.counts["sched_bind_wait"] += 1
+                    else:
+                        st.slots[ni].st = "f"
+                        st.pending_revise = st.pending_revise or "absent"
+                        self.counts["sched_bind_absent"] += 1
+                        self.counts["sched_bind_absent_" + why] += 1
+                elif "land" not in self._cand_kinds(dec, aux):
+                    st.slots[ni].st = "f"
+                    st.pending_revise = st.pending_revise or "absent"
+                    self.counts["sched_bind_absent"] += 1
 
         decode = False
         trigger = None
@@ -367,7 +413,9 @@ class SchedServe:
             if c is not None:
                 allow[c] = True
                 kind, slot = "cast", ni
-                if not self.land_first:
+                if kinds[c] == "land":
+                    kind = "land"  # a planned land drop, forced when legal
+                if not self.land_first and kinds[c] != "land":
                     for c2 in lands:
                         allow[c2] = True  # never forced, never forbidden
             else:
@@ -375,7 +423,9 @@ class SchedServe:
                 for c in range(1, cw):
                     if kinds[c] != "spell":
                         allow[c] = True
-                kind = "hold"
+                # hand basis: a held-but-not-yet-legal NEXT slot = WAIT (the
+                # executor develops: land / rock / ability); telemetry kind
+                kind = "wait" if (self.basis == "hand" and ni is not None) else "hold"
         if "cand_rows" in ex and ex["cand_rows"].shape[0] != cw:
             # the featurizer's candidate basis IS first_opt's — a mismatch
             # means the window was built by another path; never mask blind
@@ -610,13 +660,23 @@ class SchedServe:
 
         picks = out["sched_picks"][0].tolist()
         first_opt = aux["cand_first_opt"]
+        # hand-basis planner (m10-reset-draft §I): the decode indexes the
+        # sched_cand superset — legal candidates first (opt from the wire),
+        # then virtual ones (a synthetic opt {e, sa, kind} from the ability
+        # table; not castable yet — binding WAITs for them)
+        sched_opts = aux.get("sched_cand_opts")
         slots: list[_Slot] = []
         for c in picks:
             if c == 0:
                 break
-            if c >= len(first_opt) or first_opt[c] < 0:
+            if sched_opts is not None:
+                if c >= len(sched_opts) or sched_opts[c] is None:
+                    continue
+                opt = sched_opts[c]
+            elif c >= len(first_opt) or first_opt[c] < 0:
                 continue
-            opt = dec["opts"][first_opt[c]]
+            else:
+                opt = dec["opts"][first_opt[c]]
             sa = norm_sa(opt.get("sa", ""))
             slots.append(
                 _Slot(

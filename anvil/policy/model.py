@@ -307,25 +307,33 @@ class AnvilNet(nn.Module):
         (m10-build-spec §2): index 0 = STOP (the PASS slot repurposed —
         cand_mask masks both identically), 1..C-1 = candidates. Shared by
         the teacher-forced and greedy decodes — the plumbing must not fork."""
-        rows = batch["cand_rows"].clamp(min=0)
+        # hand-basis planner (m10-reset-draft §I): the decode's key space is
+        # the sched_cand_* superset when the batch carries it (legal
+        # candidates as a prefix + virtual ones), else the legal list
+        pre = "sched_" if "sched_cand_rows" in batch else ""
+        c_rows, c_sa, c_kind, c_mask = (
+            batch[pre + "cand_rows"], batch[pre + "cand_sa"],
+            batch[pre + "cand_kind"], batch[pre + "cand_mask"],
+        )
+        rows = c_rows.clamp(min=0)
         d = ent_out.shape[-1]
         k = self.sched_key(ent_out).gather(1, rows.unsqueeze(-1).expand(-1, -1, d))
         sa = self.sched_sa_proj(
             torch.cat(
                 [
-                    self.sa_emb(batch["cand_sa"].clamp(min=0)),
-                    self.kind_emb(batch["cand_kind"].clamp(min=0)),
+                    self.sa_emb(c_sa.clamp(min=0)),
+                    self.kind_emb(c_kind.clamp(min=0)),
                 ],
                 dim=-1,
             )
         )
-        k = k + sa * (batch["cand_sa"] >= 0).unsqueeze(-1)
+        k = k + sa * (c_sa >= 0).unsqueeze(-1)
         vecs = ent_out.gather(1, rows.unsqueeze(-1).expand(-1, -1, d))
-        vecs = vecs * (batch["cand_rows"] >= 0).unsqueeze(-1)
+        vecs = vecs * (c_rows >= 0).unsqueeze(-1)
         b = ent_out.shape[0]
         k = torch.cat([self.sched_stop_key.expand(b, 1, -1), k[:, 1:]], dim=1)
         vecs = torch.cat([torch.zeros_like(vecs[:, :1]), vecs[:, 1:]], dim=1)
-        return k, vecs, batch["cand_mask"]
+        return k, vecs, c_mask
 
     def _sched_decode_tf(
         self, state: torch.Tensor, plan: torch.Tensor, ent_out: torch.Tensor, batch: dict

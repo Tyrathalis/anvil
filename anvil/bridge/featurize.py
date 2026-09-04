@@ -97,13 +97,85 @@ def store_wire_hist(prior: list[dict], now_pos: int, k: int = HISTORY_K) -> list
     return out
 
 
+SCHED_VIRTUAL_CAP = 48  # virtual candidates per window (hand casts + activations + board)
+
+
+def load_ability_table(path: str | Path) -> dict:
+    """The mined ability table (scripts/mine_ability_table.py): card name ->
+    {cast/activate/command/...: [{sa (normalized), n, kind}, ...]}."""
+    return json.loads(Path(path).read_text())["cards"]
+
+
 class Featurizer:
     def __init__(
-        self, embedding_stem: str | Path, methods: list[str], sa_vocab: list[str] | None = None
+        self,
+        embedding_stem: str | Path,
+        methods: list[str],
+        sa_vocab: list[str] | None = None,
+        ability_table: "str | Path | dict | None" = None,
     ):
         self.embed = EmbeddingCache(Path(embedding_stem))
         self.methods = MethodVocab(methods)
         self.sa_vocab = SaVocab(sa_vocab or default_sa_vocab())
+        # M10 hand-basis planner (m10-reset-draft §I): with a table, priority
+        # windows carry the schedule decode's SUPERSET key space (legal
+        # candidates as a prefix + virtual candidates: each own hand card's
+        # primary cast ability and activations, each own permanent's
+        # activations not legal now, the commander's cast from the command
+        # zone). Information-set principle: virtual candidates come only from
+        # the seat's visible zones + card knowledge, never engine state.
+        self.ability_table = (
+            ability_table if isinstance(ability_table, dict)
+            else (load_ability_table(ability_table) if ability_table else None)
+        )
+
+    def _sched_superset(self, dec: dict, p: int, row_of: dict, cand_rows: list,
+                        cand_sa: list, cand_kind: list, cand_first_opt: list) -> tuple:
+        """-> (rows, sa, kind, opts) over the superset; opts[i] = the wire opt
+        (legal prefix) or a synthetic {e, sa, kind} (virtual); opts[0] None."""
+        opts = dec.get("opts") or []
+        s_rows, s_sa, s_kind = list(cand_rows), list(cand_sa), list(cand_kind)
+        s_opts: list = [None] + [opts[fo] if fo >= 0 else None for fo in cand_first_opt[1:]]
+        seen = {(r, sa) for r, sa in zip(cand_rows[1:], cand_sa[1:])}
+        seen_key = set()
+        for o in opts:
+            r = row_of.get(o.get("e"))
+            if r is not None:
+                seen_key.add((r, norm_sa(o.get("sa", ""))))
+        n_virtual = 0
+        for e in dec["obs"].get("ents", []):
+            if e.get("c") != p or n_virtual >= SCHED_VIRTUAL_CAP:
+                continue
+            z = e.get("z")
+            info = self.ability_table.get(e.get("n") or "")
+            if info is None:
+                continue
+            r = row_of.get(e.get("e"))
+            if r is None:
+                continue
+            buckets = []
+            if z == "hand":
+                buckets = [("cast", 1), ("activate", 1)]   # primary cast + primary activation
+            elif z == "battlefield":
+                buckets = [("activate", 3)]                  # up to 3 activations not legal now
+            elif z == "command":
+                buckets = [("command", 1)]
+            for bucket, top in buckets:
+                for entry in (info.get(bucket) or [])[:top]:
+                    sa = entry["sa"]
+                    if (r, sa) in seen_key:
+                        continue  # legal now: already in the prefix
+                    sid = self.sa_vocab.id(sa)
+                    if (r, sid) in seen:
+                        continue
+                    seen.add((r, sid)); seen_key.add((r, sa))
+                    s_rows.append(r); s_sa.append(sid)
+                    s_kind.append(KINDS.get(entry.get("kind"), KINDS["other"]))
+                    s_opts.append({"e": e.get("e"), "sa": sa, "kind": entry.get("kind"), "virtual": 1})
+                    n_virtual += 1
+                    if n_virtual >= SCHED_VIRTUAL_CAP:
+                        break
+        return s_rows, s_sa, s_kind, s_opts
 
     def example(
         self, dec: dict, header: dict, task: str, full_vis: bool = False
@@ -192,6 +264,17 @@ class Featurizer:
         for i, h in enumerate(out["history"][-HISTORY_K:]):
             hist[i] = (self.methods.id(h["m"]), h["self"], row_of.get(h["e"], -1))
 
+        sched_ex: dict = {}
+        sched_opts = None
+        if task == "priority" and self.ability_table is not None:
+            s_rows, s_sa, s_kind, sched_opts = self._sched_superset(
+                dec, p, row_of, cand_rows, cand_sa, cand_kind, cand_first_opt
+            )
+            sched_ex = {
+                "sched_cand_rows": torch.tensor(s_rows, dtype=torch.int64),
+                "sched_cand_sa": torch.tensor(s_sa, dtype=torch.int64),
+                "sched_cand_kind": torch.tensor(s_kind, dtype=torch.int64),
+            }
         ex = {
             "entities": torch.from_numpy(out["entities"]),
             "ent_emb": torch.tensor(
@@ -204,6 +287,7 @@ class Featurizer:
             "cand_sa": torch.tensor(cand_sa, dtype=torch.int64),
             "cand_kind": torch.tensor(cand_kind, dtype=torch.int64),
             "cand_paykind": torch.tensor(cand_paykind, dtype=torch.int64),
+            **sched_ex,
             "label": torch.tensor(0, dtype=torch.int64),
             "label_row": torch.tensor(-1, dtype=torch.int64),
             "tgt_kind": torch.from_numpy(np.full(T_MAX + 1, -1, dtype=np.int64)),
@@ -232,6 +316,10 @@ class Featurizer:
         }
 
         # ---- answer-translation maps ----
+        if sched_opts is not None:
+            aux_sched = {"sched_cand_opts": sched_opts}
+        else:
+            aux_sched = {}
         row_min_id: dict[int, int] = {}
         for eid, r in row_of.items():
             if r not in row_min_id or eid < row_min_id[r]:
@@ -257,5 +345,6 @@ class Featurizer:
             "cmb_members": {r: sorted(ids) for r, ids in cmb_members.items()},
             "blk_atk_rows": blk_atk_rows,
             "seats": [p] + [q for q in range(n_players) if q != p],
+            **aux_sched,
         }
         return ex, aux

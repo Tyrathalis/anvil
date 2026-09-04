@@ -417,3 +417,33 @@ def test_empty_first_emission_release():
     ctx2 = ss2.inject(ex2, aux, dec, HDR, "priority")
     ss2.after(ctx2, _out(picks=(0, 0, 0, 0, 0, 0)), aux, dec, track=False)
     assert ss2.bind({**ctx2, "decode": False}, ex2, aux, dec)["kind"] == "hold"
+
+
+def test_hand_basis_wait_gone_and_virtual_decode():
+    """§I: a virtual slot (hand card not castable yet) WAITs while held and
+    affordable-in-principle, is a failed slot once the card is gone, and the
+    decode maps superset picks through aux['sched_cand_opts']."""
+    opts = _opts((10, "Cast Foo", "spell"))
+    ss = SchedServe(_bind_feat(), binding="all", empty_rev="release", basis="hand")
+    assert ss.land_first is False
+    # superset: [STOP, Foo (legal), Bar (virtual, in hand, not castable yet)]
+    ents = [{"e": 10, "n": "Foo", "z": "hand", "c": 0}, {"e": 11, "n": "Bar", "z": "hand", "c": 0}]
+    aux = {**_aux_for(opts), "sched_cand_opts": [None, opts[1], {"e": 11, "sa": "Cast Bar", "kind": "spell", "virtual": 1}]}
+    dec = _dec(opts=opts, ents=ents)
+    ex = {}
+    ctx = ss.inject(ex, aux, dec, HDR, "priority")
+    ss.after(ctx, _out(picks=(2, 1, 0, 0, 0, 0)), aux, dec, track=False)  # plan: Bar (virtual) then Foo
+    st = ss.states[(5, 0)]
+    assert [s.e for s in st.slots] == [11, 10] and st.slots[0].sa == "Cast Bar"
+    # Bar not castable now: WAIT — spells closed, pass open; no failed slot
+    ss._wait_or_gone = staticmethod(lambda slot, dec, p: "wait")
+    b = ss.bind({**ctx, "decode": False}, ex, aux, dec)
+    assert b["kind"] == "wait" and b["allow"] == [0]
+    assert st.slots[0].st == "n" and ss.counts["sched_bind_absent"] == 0
+    # next window: Bar left the hand (countered/discarded) -> failed slot, revision
+    ss._wait_or_gone = staticmethod(lambda slot, dec, p: "gone")
+    ents2 = [{"e": 10, "n": "Foo", "z": "hand", "c": 0}]
+    dec2 = _dec(opts=opts, ents=ents2, s=101)
+    ctx2 = ss.inject({}, aux, dec2, HDR, "priority")
+    assert ctx2["decode"] and ctx2["trigger"] == "absent"
+    assert ss.counts["sched_bind_absent_gone"] == 1 and st.slots[0].st == "f"

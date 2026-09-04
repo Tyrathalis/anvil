@@ -698,6 +698,24 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             for k in ("task", "bool_label", "num_label", "num_lo", "num_hi", "ctx_row", "forced")
         },
     }
+    if any("sched_cand_rows" in x for x in batch):
+        # M10 hand-basis planner (m10-reset-draft §I): the schedule decode's
+        # key space = the legal candidates (a prefix, same indices) + virtual
+        # candidates (hand cards' cast/activation abilities, non-legal board
+        # activations). Items without one fall back to their legal list.
+        cs = max((x["sched_cand_rows"] if "sched_cand_rows" in x else x["cand_rows"]).shape[0] for x in batch)
+        out["sched_cand_rows"] = torch.full((b, cs), -1, dtype=torch.int64)
+        out["sched_cand_sa"] = torch.full((b, cs), -1, dtype=torch.int64)
+        out["sched_cand_kind"] = torch.full((b, cs), -1, dtype=torch.int64)
+        out["sched_cand_mask"] = torch.zeros(b, cs, dtype=torch.bool)
+        for i, x in enumerate(batch):
+            pre = "sched_" if "sched_cand_rows" in x else ""
+            r = x[pre + "cand_rows"]
+            ci = r.shape[0]
+            out["sched_cand_rows"][i, :ci] = r
+            out["sched_cand_sa"][i, :ci] = x[pre + "cand_sa"]
+            out["sched_cand_kind"][i, :ci] = x[pre + "cand_kind"]
+            out["sched_cand_mask"][i, :ci] = True
     if any("cand_allow" in x for x in batch):
         # ADR-0094 binding execution: per-window answerable-candidate mask
         # (serve sets it from the schedule; the loader reconstructs it from

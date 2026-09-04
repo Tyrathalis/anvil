@@ -87,7 +87,10 @@ def build(args) -> None:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ck = torch.load(args.ckpt, map_location="cpu", weights_only=False)
-    feat = Featurizer(ck["config"]["embed"], default_methods())
+    feat = Featurizer(ck["config"]["embed"], default_methods(),
+                      ability_table=args.ability_table if args.basis == "hand" else None)
+    if args.basis == "hand":
+        args.include_lands = True  # the plan orders the land drop (§I)
     stats = Counter()
     examples: list[dict] = []
     rng = random.Random(20280903)
@@ -158,11 +161,19 @@ def build(args) -> None:
                         continue
                     cand_of: dict[tuple, int] = {}
                     opts = dec.get("opts") or []
-                    for j, fo in enumerate(aux["cand_first_opt"]):
-                        if j == 0 or fo < 0:
-                            continue
-                        o = opts[fo]
-                        cand_of.setdefault((o.get("e"), norm_sa(o.get("sa", ""))), j)
+                    sched_opts = aux.get("sched_cand_opts")
+                    if sched_opts is not None:
+                        # hand basis: the superset (legal prefix + virtual)
+                        for j, o in enumerate(sched_opts):
+                            if j == 0 or o is None:
+                                continue
+                            cand_of.setdefault((o.get("e"), norm_sa(o.get("sa", ""))), j)
+                    else:
+                        for j, fo in enumerate(aux["cand_first_opt"]):
+                            if j == 0 or fo < 0:
+                                continue
+                            o = opts[fo]
+                            cand_of.setdefault((o.get("e"), norm_sa(o.get("sa", ""))), j)
                     slots = []
                     for i, e, sa in realized:
                         if i < wi:
@@ -196,7 +207,8 @@ def build(args) -> None:
     for lab in args.certified or []:
         _build_certified(lab, feat, examples, stats, args)
     torch.save({"examples": examples, "stats": dict(stats), "stores": args.stores,
-                "certified": args.certified, "include_lands": args.include_lands}, out / "windows.pt")
+                "certified": args.certified, "include_lands": args.include_lands,
+                "basis": args.basis}, out / "windows.pt")
     for role in ("emit", "later"):
         n = stats[role]
         print(f"[build] {role}: {n} windows; mean len {stats['slots_' + role] / max(n, 1):.2f}; "
@@ -511,6 +523,9 @@ def main() -> None:
                    help="featurizer config source (embed manifest)")
     b.add_argument("--max-games", type=int, default=0, help="per store")
     b.add_argument("--include-lands", action="store_true")
+    b.add_argument("--basis", choices=["legal", "hand"], default="legal",
+                   help="hand = the §I superset key space (virtual candidates from the ability table)")
+    b.add_argument("--ability-table", default=str(REPO / "data/pool/ability-table.json"))
     b.add_argument("--certified", nargs="*", default=None,
                    help="mint labels-full.jsonl files (their emission windows join as roles cert/natcf)")
     b.add_argument("--later-empty-keep", type=float, default=0.3,
