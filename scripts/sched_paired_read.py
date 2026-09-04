@@ -402,7 +402,8 @@ def read(args) -> dict:
 
 def _start_server(port: int, log: Path, ckpt_main: str, ckpt: str, binding: str,
                   counts: Path, trace: "Path | None" = None,
-                  empty_rev: str = "hold") -> subprocess.Popen:
+                  empty_rev: str = "hold", no_land_first: bool = False,
+                  bind_slots: int = 0) -> subprocess.Popen:
     cmd = [
         sys.executable, "-m", "anvil.bridge.server", "--mode", "model",
         "--ckpt", ckpt_main, "--drill-ckpt", ckpt, "--port", str(port),
@@ -412,6 +413,10 @@ def _start_server(port: int, log: Path, ckpt_main: str, ckpt: str, binding: str,
         cmd += ["--bind-trace", str(trace)]
     if empty_rev != "hold":
         cmd += ["--sched-empty-rev", empty_rev]
+    if no_land_first:
+        cmd += ["--sched-no-land-first"]
+    if bind_slots:
+        cmd += ["--sched-bind-slots", str(bind_slots)]
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen(cmd, stdout=open(log, "w"), stderr=subprocess.STDOUT, env=env,
                             cwd=str(REPO))
@@ -473,7 +478,7 @@ def run(args) -> None:
         "jar_sha256": hashlib.sha256(jar.read_bytes()).hexdigest(),
         "lanes_per_side": args.lanes, "heap": args.heap,
         "ports": {"A": args.port_a, "B": args.port_b},
-        "empty_rev": args.empty_rev,
+        "empty_rev": args.empty_rev, "no_land_first": args.no_land_first, "bind_slots": args.bind_slots,
         "sides": {"A": "candidate, --sched-binding forks (BINDING)",
                   "B": "candidate, --sched-binding off (ADVISORY)"},
         "windows": len(lines), "k_rolls": pins.K_ROLLS, "bar": args.bar,
@@ -496,7 +501,8 @@ def run(args) -> None:
         servers["A"] = _start_server(args.port_a, run_dir / "server-A.log", args.ckpt_main,
                                      args.ckpt, "forks", run_dir / "server-A.counts.json",
                                      trace=(run_dir / "bind-trace-A.jsonl") if args.bind_trace else None,
-                                     empty_rev=args.empty_rev)
+                                     empty_rev=args.empty_rev, no_land_first=args.no_land_first,
+                                     bind_slots=args.bind_slots)
         servers["B"] = _start_server(args.port_b, run_dir / "server-B.log", args.ckpt_main,
                                      args.ckpt, "off", run_dir / "server-B.counts.json")
         procs = []
@@ -560,6 +566,8 @@ def main() -> None:
     rp.add_argument("--watchd", action="store_true")
     rp.add_argument("--empty-rev", choices=["hold", "noop", "release"], default="hold",
                     help="side A's empty-revision semantics (see server --sched-empty-rev)")
+    rp.add_argument("--no-land-first", action="store_true", help="side A: lands never forced")
+    rp.add_argument("--bind-slots", type=int, default=0, help="side A: bind only the first N slots, then release")
     rp.add_argument("--bind-trace", action="store_true",
                     help="side A writes one JSON line per bound window (diagnostics)")
     rp.set_defaults(fn=run)

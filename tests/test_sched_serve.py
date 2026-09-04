@@ -377,3 +377,25 @@ def test_empty_revision_release_hands_turn_to_executor():
     assert ctx4["decode"] and ctx4["trigger"] == "emit"
     ss.after(ctx4, _out(picks=(1, 0, 0, 0, 0, 0)), aux2, dec4, track=False)
     assert ss.bind({**ctx4, "decode": False}, ex4, aux2, dec4)["kind"] == "cast"
+
+
+def test_isolation_no_land_first_and_bind_slots():
+    opts = _opts((10, "Cast Foo", "spell"), (11, "Cast Bar", "spell"), (12, "Play Land", "land"))
+    # lands never forced: NEXT binds with the land left open
+    ss = SchedServe(_bind_feat(), binding="all", empty_rev="release", land_first=False)
+    ss, ctx, ex, aux, dec = _emit_bound(ss, opts, picks=(1, 2, 0, 0, 0, 0))
+    b = ss.bind(ctx, ex, aux, dec)
+    assert b["kind"] == "cast" and b["allow"] == [1, 3]
+    # bind_slots=1: after slot 0 executes the turn is released
+    ss = SchedServe(_bind_feat(), binding="all", empty_rev="release", bind_slots=1)
+    ss, ctx, ex, aux, dec = _emit_bound(ss, opts, picks=(1, 2, 0, 0, 0, 0))
+    opts2 = _opts((10, "Cast Foo", "spell"), (11, "Cast Bar", "spell"))
+    aux2, dec2 = _aux_for(opts2), _dec(opts=opts2, s=101)
+    ctx2 = ss.inject({}, aux2, dec2, HDR, "priority")
+    assert ss.bind(ctx2, {}, aux2, dec2)["kind"] == "cast"
+    ss.after(ctx2, _out(choice=1), aux2, dec2)  # slot 0 executed
+    aux3, dec3 = _aux_for(opts2), _dec(opts=opts2, s=102)
+    ex3 = {}
+    ctx3 = ss.inject(ex3, aux3, dec3, HDR, "priority")
+    assert ss.states[(5, 0)].released and ss.counts["sched_bind_slots_released"] == 1
+    assert ss.bind(ctx3, ex3, aux3, dec3) is None and "cand_allow" not in ex3

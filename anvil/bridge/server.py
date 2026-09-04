@@ -162,6 +162,8 @@ class ModelBackend:
         sched_binding: str = "off",
         bind_trace: "str | None" = None,
         empty_rev: str = "hold",
+        land_first: bool = True,
+        bind_slots: int = 0,
     ):
         import torch
 
@@ -236,7 +238,10 @@ class ModelBackend:
         if self.carry_sched:
             from anvil.bridge.sched_serve import SchedServe
 
-            self.sched_serve = SchedServe(self.feat, binding=sched_binding, empty_rev=empty_rev)
+            self.sched_serve = SchedServe(
+                self.feat, binding=sched_binding, empty_rev=empty_rev,
+                land_first=land_first, bind_slots=bind_slots,
+            )
             self.batcher.sched_decode = True
         elif sched_binding != "off":
             print(
@@ -770,6 +775,19 @@ def main() -> None:
         "adjudication instruments",
     )
     ap.add_argument(
+        "--sched-no-land-first",
+        action="store_true",
+        help="isolation: lands are never forced under binding (rule 1 off; "
+        "a land option stays open alongside the bound answer)",
+    )
+    ap.add_argument(
+        "--sched-bind-slots",
+        type=int,
+        default=0,
+        help="isolation: only the first N slots of an emitted plan bind, "
+        "then the turn is released to the executor (0 = all)",
+    )
+    ap.add_argument(
         "--bind-trace",
         default=None,
         help="ADR-0094 diagnostics: append one JSON line per BOUND window "
@@ -813,6 +831,8 @@ def main() -> None:
             sched_binding=args.sched_binding,
             bind_trace=args.bind_trace,
             empty_rev=args.sched_empty_rev,
+            land_first=not args.sched_no_land_first,
+            bind_slots=args.sched_bind_slots,
         )
         if args.drill_ckpt:
             drill_backend = ModelBackend(
@@ -826,6 +846,8 @@ def main() -> None:
                 sched_binding=args.sched_binding,
                 bind_trace=args.bind_trace,
                 empty_rev=args.sched_empty_rev,
+                land_first=not args.sched_no_land_first,
+                bind_slots=args.sched_bind_slots,
             )
         if not args.no_warmup:
             for b in (backend, drill_backend):

@@ -103,7 +103,14 @@ MAIN_PHASES = ("MAIN1", "MAIN2")
 
 
 class SchedServe:
-    def __init__(self, feat, binding: str = "off", empty_rev: str = "hold"):
+    def __init__(
+        self,
+        feat,
+        binding: str = "off",
+        empty_rev: str = "hold",
+        land_first: bool = True,
+        bind_slots: int = 0,
+    ):
         if binding not in BINDING_MODES:
             raise ValueError(f"binding must be one of {BINDING_MODES}: {binding!r}")
         if empty_rev not in EMPTY_REV_MODES:
@@ -123,6 +130,14 @@ class SchedServe:
         # trace: 75% of holds sat under a post-exhaustion empty re-decode).
         # Advisory mode: no behavioral difference.
         self.empty_rev = empty_rev
+        # Isolation instruments (day-zero adjudication, 2026-09-03):
+        # land_first=False — lands are never FORCED (rule 1 off); at a
+        # quiescent main window a land option stays open alongside the
+        # bound answer, the cast head picks. bind_slots=N>0 — only the
+        # first N slots of an emitted plan bind; once N are done/failed
+        # the turn is released to the executor (0 = all slots bind).
+        self.land_first = land_first
+        self.bind_slots = bind_slots
         self.states: dict[tuple, _State] = {}
         # forks mode: wire session wid -> the seat whose window opened it
         # (the fork fires at the target seat's own MAIN1 priority, so the
@@ -229,6 +244,13 @@ class SchedServe:
                     st.advance_next()
                     self.counts["sched_slot_done"] += 1
                 st.awaiting = None
+                if (
+                    self.bind_slots
+                    and not st.released
+                    and sum(1 for x in st.slots if x.st in ("d", "f")) >= self.bind_slots
+                ):
+                    st.released = True
+                    self.counts["sched_bind_slots_released"] += 1
             # -- trigger 2: ANY opponent action resolved during our turn.
             # An opponent PRIORITY entry with no host is their PASS answer —
             # not an action (the serve smoke measured 485 pass-driven fires
@@ -324,7 +346,7 @@ class SchedServe:
         allow = [False] * cw
         slot = None
         lands = [c for c in range(1, cw) if kinds[c] == "land"]
-        if lands and self.quiescent_main(dec):
+        if lands and self.land_first and self.quiescent_main(dec):
             for c in lands:
                 allow[c] = True
             kind = "land"
@@ -334,6 +356,9 @@ class SchedServe:
             if c is not None:
                 allow[c] = True
                 kind, slot = "cast", ni
+                if not self.land_first:
+                    for c2 in lands:
+                        allow[c2] = True  # never forced, never forbidden
             else:
                 allow[0] = True
                 for c in range(1, cw):
