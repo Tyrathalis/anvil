@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import random
 import sys
 import time
@@ -110,7 +109,6 @@ def build(args) -> None:
             players = traj.header.get("players") or []
             seats = [i for i, p in enumerate(players) if str(p.get("name", "")).startswith("Anvil")]
             decs = traj.decisions
-            prior: list = []
             # own-turn priority windows per (seat, turn), in order
             turns: dict[tuple, list] = {}
             for i, d in enumerate(decs):
@@ -228,7 +226,7 @@ def _build_certified(labels_path: str, feat, examples: list, stats: Counter, arg
     'natcf'."""
     from anvil.bridge.featurize import store_wire_hist
     from anvil.store.trajectories import TrajectoryStore
-    from anvil.training.dataset import SCHED_CAP, norm_sa
+    from anvil.training.dataset import SCHED_CAP
 
     rows = [json.loads(x) for x in open(labels_path)]
     meta = rows[0] if rows and rows[0].get("k") == "meta" else {}

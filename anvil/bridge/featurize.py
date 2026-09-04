@@ -183,8 +183,10 @@ class Featurizer:
                     sid = self.sa_vocab.id(sa)
                     if (r, sid) in seen:
                         continue
-                    seen.add((r, sid)); seen_key.add((r, sa))
-                    s_rows.append(r); s_sa.append(sid)
+                    seen.add((r, sid))
+                    seen_key.add((r, sa))
+                    s_rows.append(r)
+                    s_sa.append(sid)
                     s_kind.append(KINDS.get(entry.get("kind"), KINDS["other"]))
                     s_opts.append({"e": e.get("e"), "sa": sa, "kind": entry.get("kind"), "virtual": 1})
                     n_virtual += 1
