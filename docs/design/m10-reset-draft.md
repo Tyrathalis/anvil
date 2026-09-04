@@ -744,3 +744,20 @@ Routing rule: each item gets a name and a measured argument at the next
 scoping session (the ADR-0077 no-silent-loss rule); 1 and 7 ride the
 hand-basis plan object; 2–6 are bridge completions with their own
 ceilings; none gate the current build.
+
+**§J adopted by the user (2026-09-04) with one principle added, which
+binds §I's key space and every reachable-cards extension:**
+*the plan's basis is the seat's INFORMATION SET, never the engine's
+truth.* Virtual candidates come only from what the player legitimately
+knows: the hand (visible), the board, the seat's own decklist minus
+known departures — and a library card is "reachable" only up to what
+the player could know (an opponent's unrevealed exile or face-down
+removal means the deck's true contents are NOT known; the model may
+not assume a card is still there). Choices WITHIN abilities (tutor
+targets, modes, cards-for-effect) are decided when the engine presents
+the legal options, never assumed ahead; a plan slot naming a tutor's
+target is an INTENT, and legality is the engine's at the window. This
+is the seat-view invariant (obs perspective, the `full_vis` gate for
+the critic only) applied to the planner's key space — the featurizer
+builds virtual candidates from obs-visible zones and the decklist, and
+nothing else. The hand-basis build (§I) starts 2026-09-04.
