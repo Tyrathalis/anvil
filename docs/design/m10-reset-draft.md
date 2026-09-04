@@ -678,3 +678,27 @@ rebuild + distillation (an hour), the day-zero read (3.5 h). **Read
 first:** the executor-agreement ceiling should rise (the 77% plateau is
 partly the basis), and the day-zero number of a hand-basis planner is
 the new baseline.
+
+**§I named extensions (user, 2026-09-04; routed by name, none in the
+hand-basis build):**
+- *Abilities in the key space:* activations of board permanents (legal
+  now — already plannable) AND of hand cards for after they resolve
+  (cast the creature, then equip; cast the rock, then tap it) — mined
+  activation strings per card; WAIT until the permanent exists. IN the
+  hand-basis build.
+- *Mana abilities in the plan:* deferred (Fork 6 / schedule-consistent
+  payment); eventually in — the user's lean.
+- *Multi-turn horizon + the explicit hold language:* "flash Maralen at
+  the opponent's end step so next upkeep's tutor is live" is (1) an
+  off-turn cast the hold-set must be able to NAME (hold X for window W),
+  (2) a two-turn plan (this turn's setup, next turn's payoff — the
+  certifier's h2 horizon already scores two turns), (3) a *reachable-
+  cards* basis for the next-turn plan (hand ∪ tutorable library ∪ known
+  top). Prerequisite found: **tutor/fetch target choices are not
+  bridged** (`chooseSingleEntityForEffect` — the heuristic picks the
+  card; ceiling measured 1.41pp/game vs the 2.2 bar and re-deferred at
+  ADR-0080) — the model cannot "assume any card" until it chooses the
+  card. Routing: the hold language after the hand basis; the horizon
+  with the certifier's h2 labels; tutor targets when M11 re-opens (the
+  reachable-cards basis is the argument that raises that ceiling — a
+  tutor is worth more to a planner than to a window-by-window head).
