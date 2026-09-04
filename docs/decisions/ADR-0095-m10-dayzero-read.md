@@ -1,10 +1,12 @@
 # ADR-0095: M10 reset day-zero read — binding execution of the distilled planner is WORTH −6.7pp on the behind stratum (HALT for adjudication)
 
 - **Date:** 2026-09-03
-- **Status:** measurement complete (verdict mechanical from the ADR-0094
-  Fork 4/5 rules); **adjudication PENDING (user)** — the mid-point rule
-  routes a below-minus-the-bar day-zero read to a human decision, not
-  to session two and not to an auto-kill
+- **Status:** accepted — measurement complete (verdict mechanical from
+  the ADR-0094 Fork 4/5 rules); **ADJUDICATED 2026-09-03 (user): route 1
+  — train the planner on the existing model's strategy before any
+  binding regime.** Session two (the learner side) waits on a planner
+  that matches the executor as written at the windows it binds, gated
+  by a re-run of this read on the same population.
 - **Design-doc anchor:** m10-reset-draft.md §D4 (the read), §D5 (the
   staged budget + mid-point rule), §H (build status); ADR-0094
 
@@ -162,4 +164,38 @@ Consequence for the adjudication: binding pays only where the planner
 is better than the executor — planner quality (or a serve-time
 confidence gate on WHERE to bind) precedes any binding regime; reward
 training from −4.5pp on slot-0 binding is the alternative bet.
+
+## Adjudication (user, 2026-09-03 evening): ROUTE 1
+
+"It definitely sounds like we need to train the planner on the existing
+model's strategy before proceeding." The planner is distilled on the
+executor's own realized turn plans (the natural line at scale, from
+stores where no planner influenced play), fit to convergence with a
+holdout, with the mint's certified labels as overrides where present;
+the gate is this read re-run on the same population (first-slot-only
+and the full rule): a faithful planner reads ≈ 0 against advisory, and
+the certified quarter is what remains to add. Standing rule born (→
+standing-rules.md): **a binding execution regime is gated by a day-zero
+read of the planner against the executor it replaces — binding pays only
+where the planner is at least the executor's equal at the bound
+windows.**
+
+## Addendum — route 1 build note (2026-09-03 20:20): the emission basis is PRE-LAND
+
+Building the executor-strategy corpus (`scripts/sched_distill.py`)
+surfaced a structural fact behind the mechanism: the emission window is
+the first own MAIN1 priority window, which is BEFORE the land drop, so
+its candidate basis lacks every cast that only becomes affordable after
+the drop — **25% of the executor's realized casts are not in the
+emission basis** (83 of 339 on the 20-game smoke; probe6's own loader
+counted 18% unmatched). A planner labeled only at emission windows can
+never plan those casts, and under binding they can only re-enter through
+a revision decode the mint never labeled — the exhaustion re-decode that
+came back empty. The sweep's arms had the same pre-land basis (the
+ceiling was measured with that handicap and still cleared). Route 1's
+corpus therefore labels EVERY own-turn priority window with the
+executor's remaining in-basis casts from that window on (revision
+decodes get their supervision; post-land casts become plannable where
+they become castable); lands are excluded from targets (the plan is
+casts; the executor keeps the land drop).
 

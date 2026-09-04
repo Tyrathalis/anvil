@@ -250,6 +250,12 @@ silently delete.
 - Content breadth scales in set-sized dataset-boundary chunks after
   core features ([ADR-0018](decisions/ADR-0018-ruleset-scope-clarification.md)
   recipe-first).
+- **A binding execution regime is gated by a DAY-ZERO read of the
+  planner against the executor it replaces** — binding pays only where
+  the planner is at least the executor's equal at the bound windows
+  (the distilled planner read −6.7pp as pinned and −4.5pp binding its
+  first slot alone; the damage is monotone in the amount bound)
+  ([ADR-0095](decisions/ADR-0095-m10-dayzero-read.md)).
 - **Design forks lead with the simpler, more coherent architecture and
   price its extra data/compute honestly** (user principle, stated at the
   M10 reset), **and a build is staged around its cheapest decisive read**
