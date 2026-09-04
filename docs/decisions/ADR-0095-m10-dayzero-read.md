@@ -130,3 +130,19 @@ exhausted-binds-closed**. Route 1' = "release": an empty re-decode at
 any revision trigger hands the rest of the turn to the executor
 (built; measured next on the same windows).
 
+## Addendum — route 1' (release) measured (2026-09-03 18:10)
+
+Same 56 primary windows and rolls: **release vs day-zero binding +0.022
+± 0.013** (context +0.056 ± 0.034); **release vs advisory −0.078 ±
+0.030, z −2.59** (context −0.052 ± 0.048). Bound windows under release:
+forced cast 69% / land 12% / hold 19%. On one subset vs advisory: HOLD
+−9.6 / NO-OP −9.6 / RELEASE −7.8. **The first-window plan executed as
+written is the residual cost**: the distilled planner's plans are a
+lossy imitation of the executor's own line (75% of its labels are the
+natural line; mint CE 1.24) and forcing them replaces the cast head's
+choices with the imitation's errors. Binding cannot pay until the
+planner is better than the executor at the windows it binds — the
+question the adjudication now poses is planner quality first (more /
+certified-heavier labels, or head-only distillation that fits) versus
+reward training under binding from −8pp.
+
