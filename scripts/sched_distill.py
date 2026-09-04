@@ -193,8 +193,10 @@ def build(args) -> None:
             if stats["games"] % 100 == 0:
                 print(f"[build] {stats['games']} games, {stats['emit']}+{stats['later']} windows, "
                       f"{time.monotonic() - t0:.0f}s", flush=True)
+    for lab in args.certified or []:
+        _build_certified(lab, feat, examples, stats, args)
     torch.save({"examples": examples, "stats": dict(stats), "stores": args.stores,
-                "include_lands": args.include_lands}, out / "windows.pt")
+                "certified": args.certified, "include_lands": args.include_lands}, out / "windows.pt")
     for role in ("emit", "later"):
         n = stats[role]
         print(f"[build] {role}: {n} windows; mean len {stats['slots_' + role] / max(n, 1):.2f}; "
@@ -202,6 +204,99 @@ def build(args) -> None:
               f"unmatched {stats['unmatched_' + role]}")
     print(f"[build] {stats['games']} games in {time.monotonic() - t0:.0f}s; "
           f"lands_skipped {stats['land_skipped']} -> {out / 'windows.pt'}")
+
+
+def _build_certified(labels_path: str, feat, examples: list, stats: Counter, args) -> None:
+    """The mint's labeled emission windows (ADR-0088/0089 full-support labels:
+    per (store, g, t, seat) the search-adjudicated best of {natural line,
+    arms}; `arm` 0 = the natural line CONFIRMED, >0 = a CERTIFIED
+    improvement). Featurized from the label's own store at the emission
+    window (the same first-own-MAIN1 rule); target = the label's (e, sa)
+    sequence mapped to that window's candidate basis. Roles: 'cert' /
+    'natcf'."""
+    from anvil.bridge.featurize import store_wire_hist
+    from anvil.store.trajectories import TrajectoryStore
+    from anvil.training.dataset import SCHED_CAP, norm_sa
+
+    rows = [json.loads(x) for x in open(labels_path)]
+    meta = rows[0] if rows and rows[0].get("k") == "meta" else {}
+    rows = [r for r in rows if r.get("k") != "meta"]
+    store_path = REPO / meta["store"] if meta.get("store") else None
+    if store_path is None or not store_path.exists():
+        print(f"[build] certified: store missing for {labels_path}: {meta.get('store')}")
+        return
+    st = TrajectoryStore(store_path)
+    sname = store_path.name
+    by_game: dict[int, list] = {}
+    for r in rows:
+        by_game.setdefault(r["g"], []).append(r)
+    for g, labs in by_game.items():
+        try:
+            traj = st.game(g)
+        except Exception:  # noqa: BLE001
+            stats["cert_undecodable"] += 1
+            continue
+        decs = traj.decisions
+        for r in labs:
+            p, t = r["seat"], r["t"]
+            emis_i = next(
+                (i for i, d in enumerate(decs)
+                 if d.get("m") == "chooseSpellAbilityToPlay" and d.get("p") == p
+                 and d.get("t") == t and d.get("obs")
+                 and d["obs"].get("glob", {}).get("ph") == "MAIN1"
+                 and d["obs"].get("glob", {}).get("ap") == p),
+                None,
+            )
+            if emis_i is None:
+                stats["cert_no_window"] += 1
+                continue
+            dec = decs[emis_i]
+            wire = dict(dec)
+            if "hist" not in dec:
+                wire["hist"] = store_wire_hist(decs[:emis_i], dec.get("_pos", emis_i))
+            try:
+                ex, aux = feat.example(wire, traj.header, "priority")
+            except Exception:  # noqa: BLE001
+                stats["cert_featurize_error"] += 1
+                continue
+            # the mint's label basis is Census.str: (entity, sa[:60]) — the
+            # seedlabels loader's key, mirrored exactly
+            cand_of: dict[tuple, int] = {}
+            opts = dec.get("opts") or []
+            for j, fo in enumerate(aux["cand_first_opt"]):
+                if j == 0 or fo < 0:
+                    continue
+                o = opts[fo]
+                cand_of.setdefault((o.get("e"), str(o.get("sa") or "")[:60]), j)
+            slots = []
+            miss = 0
+            for e, sa in r.get("seq") or []:
+                j = cand_of.get((e, str(sa or "")[:60]))
+                if j is None:
+                    miss += 1
+                    continue
+                slots.append(j)
+            if miss:
+                stats["cert_unmatched_slots"] += miss
+            tgt = torch.full((SCHED_CAP + 1,), -1, dtype=torch.int64)
+            for k, j in enumerate(slots[:SCHED_CAP]):
+                tgt[k] = j
+            if len(slots) < SCHED_CAP:
+                tgt[len(slots)] = 0
+            role = "cert" if r.get("arm", 0) > 0 else "natcf"
+            ex = {k: v for k, v in ex.items() if torch.is_tensor(v)}
+            ex["_sched_tgt"] = tgt
+            ex["_key"] = (sname, g, p, t)
+            ex["_role"] = role
+            examples.append(ex)
+            stats[role] += 1
+            stats["slots_" + role] += len(slots)
+            stats[f"len_{role}_{min(len(slots), 6)}"] += 1
+    for role in ("cert", "natcf"):
+        n = stats[role]
+        if n:
+            print(f"[build] {role} ({sname}): {n} windows; mean len {stats['slots_' + role] / n:.2f}; "
+                  f"unmatched slots {stats['cert_unmatched_slots']}")
 
 
 # ---------------------------------------------------------------------- fit
@@ -224,7 +319,7 @@ def _batches(exs: list[dict], bs: int, shuffle: bool, rng: random.Random):
 
 def _eval(net, exs, dev, bs=128) -> dict:
     res = {"all": _eval_role(net, exs, dev, bs)}
-    for role in ("emit", "later"):
+    for role in ("emit", "later", "cert", "natcf"):
         sub = [e for e in exs if e.get("_role", "emit") == role]
         if sub:
             res[role] = _eval_role(net, sub, dev, bs)
@@ -305,13 +400,25 @@ def fit(args) -> None:
     print(f"[fit] dropped {len(big)} turns with > {args.max_turn_windows} windows "
           f"({sum(per_turn[k] for k in big)} windows); {len(exs)} remain")
     rng = random.Random(args.seed)
+    import hashlib
+
+    def _is_hold(key) -> bool:  # per-game hash: stable across role filters and corpora
+        h = int(hashlib.sha1(f"{key[0]}:{key[1]}:{args.seed}".encode()).hexdigest()[:8], 16)
+        return (h % 10000) < int(args.holdout * 10000)
+
     games = sorted({(e["_key"][0], e["_key"][1]) for e in exs})
-    rng.shuffle(games)
-    n_hold = int(len(games) * args.holdout)
-    hold_games = set(games[:n_hold])
+    hold_games = {g for g in games if _is_hold(g)}
+    n_hold = len(hold_games)
+    keep = set(args.roles.split(",")) if args.roles else None
+    if keep:
+        exs = [e for e in exs if e.get("_role", "emit") in keep]
     train = [e for e in exs if (e["_key"][0], e["_key"][1]) not in hold_games]
     hold = [e for e in exs if (e["_key"][0], e["_key"][1]) in hold_games]
-    print(f"[fit] {len(train)} train / {len(hold)} holdout windows ({n_hold} holdout games) on {dev}")
+    if args.cert_weight > 1:
+        extra = [e for e in train if e.get("_role") == "cert"]
+        train = train + extra * (args.cert_weight - 1)
+    print(f"[fit] {len(train)} train / {len(hold)} holdout windows ({n_hold} holdout games) on {dev}; "
+          f"roles {dict(Counter(e.get('_role', 'emit') for e in exs))}")
 
     ck = torch.load(args.ckpt, map_location=dev, weights_only=False)
     cfg = ck["config"]
@@ -404,6 +511,8 @@ def main() -> None:
                    help="featurizer config source (embed manifest)")
     b.add_argument("--max-games", type=int, default=0, help="per store")
     b.add_argument("--include-lands", action="store_true")
+    b.add_argument("--certified", nargs="*", default=None,
+                   help="mint labels-full.jsonl files (their emission windows join as roles cert/natcf)")
     b.add_argument("--later-empty-keep", type=float, default=0.3,
                    help="keep fraction of LATER windows whose target is empty (class balance + memory)")
     b.add_argument("--no-all-windows", dest="all_windows", action="store_false",
@@ -420,6 +529,8 @@ def main() -> None:
     f.add_argument("--seed", type=int, default=20280903)
     f.add_argument("--max-turn-windows", type=int, default=40)
     f.add_argument("--init-from-cast-head", action="store_true")
+    f.add_argument("--roles", default=None, help="csv of roles to train/eval on (default all)")
+    f.add_argument("--cert-weight", type=int, default=1, help="oversample 'cert' windows k-fold")
     f.add_argument("--eval-only", action="store_true", help="report the ckpt's holdout numbers, no fit")
     f.set_defaults(fn=fit)
     a = ap.parse_args()

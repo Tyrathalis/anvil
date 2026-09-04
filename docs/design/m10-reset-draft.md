@@ -618,3 +618,63 @@ pre-land (a plan is partial by construction). Fork 1 sub-pin amended: a
 hold binds only where emitted; an empty re-decode at a revision trigger
 releases the turn to the executor. probe7 init → the distilled graft.**
 
+
+## I. The hand-basis planner (proposed 2026-09-04, user direction; not yet built)
+
+**Finding (ADR-0095 route 1):** the planner's decode is a pointer over
+the window's legal-now candidate list, so at the first MAIN1 window —
+before the land drop, before rocks and rituals resolve — 28% of the
+executor's realized casts have no slot the plan could name. Post-land
+emission would only move the window; the user's examples (holding the
+land to end of MAIN2 to keep a fuller hand; rocks and rituals changing
+the mana mid-plan) say the plan must be able to name what is castable
+*later in the turn*, with the land drop and mana development inside
+the plan's order rather than ahead of it.
+
+**Design lean: the plan's basis is the HAND (plus the board's activated
+abilities), not the legal-now list; legality is the executor's job at
+each window.**
+
+1. *Key space.* The schedule decode's candidate set at a decode window
+   = the legal-now candidates ∪ one virtual candidate per own hand card
+   for its cast ability (entity row + the ability's `sa_vocab` id), and
+   lands as candidates (the land drop is a slot — which land, when).
+   The engine's ability labels are rules text (not constructible from
+   card data, verified 09-04), so the virtual candidates come from a
+   **mined cast-ability table**: card name → the cast-SA string(s) the
+   engine emitted for that card from hand across the stores (primary =
+   most frequent; alternates recorded), stored as a pool asset beside
+   the sa_vocab. No engine change; a card never cast in any store is
+   not plannable (nor was it ever cast).
+2. *Sequential mana.* Not simulated. The plan's ORDER carries it (rock
+   before the four-drop; ritual before the payoff); the per-slot
+   afford bit already fed on the slot tokens (`slot_afford`, the census
+   affordability heuristic under the now-source view) tells the planner
+   which slots are affordable at this window; a planner that orders
+   mana development first is what the labels teach (the executor's own
+   lines do exactly this) and what reward can sharpen.
+3. *Binding under a hand basis (serve).* At an own priority window:
+   NEXT slot legal now ⇒ forced (as today). NEXT not legal but its card
+   still in hand (or the ability still on the board) ⇒ **WAIT**: spells
+   closed, lands/abilities open — the executor develops toward it (the
+   plan may put the land later; a WAIT at a quiescent main window with
+   a land in the plan ahead is the plan's own ordering). NEXT's card
+   gone (countered, discarded, exiled) ⇒ trigger 1 (revision). End
+   step ⇒ the turn is over (trigger 3, as today). A guard against a
+   never-castable NEXT: WAIT is bounded by the executor's affordability
+   read — if NEXT is unaffordable under the max-mana view for the turn
+   (all sources + lands in hand), it is trigger 1 immediately.
+4. *Targets.* The executor's realized casts matched against the hand
+   basis: the unmatched rate falls from 28% to the cards drawn mid-turn.
+   Lands re-enter the targets (the plan includes the drop).
+5. *Loader / rows.* Slots stay (entity, sa_id) on the mu row; the
+   featurizer's superset tensors (`sched_cand_*`) ride the example;
+   `_sched_keys` reads them when present (fallback: the legal list).
+   The learner's decode targets (session two) use the same superset.
+
+**Cost:** the mining script (an afternoon, plus a full-corpus scan),
+featurizer + model key space + serve WAIT semantics (a session), corpus
+rebuild + distillation (an hour), the day-zero read (3.5 h). **Read
+first:** the executor-agreement ceiling should rise (the 77% plateau is
+partly the basis), and the day-zero number of a hand-basis planner is
+the new baseline.
