@@ -772,3 +772,61 @@ combat; speed from the card table's types/keywords); (b) the featurizer
 excludes activations of tapped / summoning-sick / already-used board
 hosts from the virtual candidates (13.4K fast-failing slots per read).
 
+**Both refinements BUILT (session two, part 1, 2026-09-04 afternoon).**
+(a) `SchedServe.bind`: under a WAIT the spell mask opens Instant-typed and
+Flash-keyworded spells (card knowledge from the veto_knowability card
+table; unknown names read as sorcery-speed = closed; effects that GRANT
+flash are not card knowledge of the spell and stay closed) — telemetry
+`sched_bind_wait_open(_spells)`; HOLD is unchanged. (b) the featurizer's
+`board_activation_open`: a board host's activation enters the virtual
+superset only with a road back this turn. The option scan does not filter
+by payability (AnvilOptions PAYCHECK off), so an absent board activation is
+absent for a NON-mana reason, and three such reasons never clear within
+the turn, all readable from the seat's own visible state: tapped host
+({T}/{Q} costs), summoning-sick host ({T}/{Q}; the engine's `sick` is
+creature-only), and **spent** — a loyalty-cost or "activate only once each
+turn" ability absent at a QUIESCENT MAIN window (sorcery-speed timing
+holds there, so absence means used; mid-stack the absence is timing and
+the candidate stays). "Used" is thus derived from visible state, not from
+per-turn action tracking (the wire history carries no turn/sa; a Java obs
+flag would be a serializer change needing the ADR-0025 forkcheck proof).
+Key-space consequence: the distilled-hand graft was fitted on the wider
+superset, so the corpus is REBUILT and the head refitted on the refined
+featurizer (`m10-planner-distill-hand2`) before the day-zero re-read on
+the same population — the standing day-zero-gated-binding rule.
+
+**Found while validating (b) — a serve-rule defect that predates the
+refinements: `quiescent_main` read the stack from entities only.** The obs
+carries the stack two ways: cards on the stack are entities with
+`z="stack"`, but triggered/activated ABILITIES on the stack never enter the
+zone and appear only in the separate `obs["stack"]` list (the Java option
+scan keys sorcery-speed legality on MagicStack for the same reason). In the
+ceiling census 9.3K of 79K priority windows had an ability on the stack
+and no stack entity — all read as quiescent. Consequences: binding rule 3
+(NEXT absent at a quiescent main window ⇒ failed slot) fired at trigger-
+on-stack MAIN windows and failed sorcery-speed slots for TIMING — the
+hand-basis read's 13.4K "unactivatable" fails were partly this (Quintorius
++1 absent under its own token trigger, activated at MAIN2 as planned); rule
+1 (land-first) misfired the same way on the legal basis; and the new
+loyalty/once-per-turn "spent" rule misread 117 of 1,010 realized
+activations in 150 census games (8 after the fix — untap lines and
+no-target loyalty, accepted). Fixed in one place (`featurize.quiescent_main`
+tests both representations; `SchedServe.quiescent_main` delegates), corpus
+rebuilt on the fixed helper. The day-zero re-read measures the fixed rule
+set as a whole; the earlier day-zero numbers (−1.1 legal, −1.8 hand) stand
+as read but carried this misfire.
+
+**Driver wiring (item 5) BUILT the same afternoon:** `selfplay.py` takes
+`--sched-binding/--sched-basis/--sched-empty-rev/--sched-empty-emit/
+--ability-table`; ONE derivation (`sched_flags(args)`) feeds every server
+the driver starts (generation and arms — the candidate always plays under
+the run's regime; the pre-reset driver never passed binding to any
+server). `--paired-read PLAN_DIR` runs the stratified paired read on the
+init ckpt at DAY ZERO (verdict HALT ⇒ `PAIRED-HALT`, notify, exit 5 — the
+mid-point rule) and on the final ckpt at the TERMINAL (verdict + day-zero
+baseline ride the COMPLETE notify); `--paired-every N` adds informational
+mid-run reads. Records live in `loop_state.json` (`paired_*`), idempotent
+on resume; the read's `read.json` is copied beside the loop as
+`paired-<tag>.json`. The command mirrors the regime (basis / empty-rev /
+empty-emit) and uses the harness's newest-jar rule.
+

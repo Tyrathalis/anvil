@@ -462,3 +462,122 @@ def test_hand_basis_ability_wait_rule_and_mana_filter():
     rock = _Slot(e=21, sa_id=2, sa="{T}: Add", opt={"e": 21, "sa": "{T}: Add", "kind": "ability"}, pay=0)
     assert SchedServe._wait_or_gone(tef, dec, 0) == "unactivatable"
     assert SchedServe._wait_or_gone(rock, dec, 0) == "wait"
+
+
+def test_wait_opens_instant_speed_spells_only():
+    """§I refinement (a): under a WAIT (hand basis, NEXT slot held but not
+    legal yet) sorcery-speed spells bind closed while Instant/Flash spells
+    stay the executor's; a HOLD (no NEXT slot) is unchanged."""
+    opts = _opts((10, "Cast Foo", "spell"), (12, "Cast Bolt", "spell"), (13, "Cast Snap", "spell"),
+                 (14, "Tap: add", "ability"))
+    speed = {"Bolt": True, "Snap": True, "Foo": False}
+    ss = SchedServe(_bind_feat(), binding="all", empty_rev="release", basis="hand",
+                    speed_of=lambda n: speed.get(n, False))
+    ents = [{"e": 10, "n": "Foo", "z": "hand", "c": 0}, {"e": 11, "n": "Bar", "z": "hand", "c": 0},
+            {"e": 12, "n": "Bolt", "z": "hand", "c": 0}, {"e": 13, "n": "Snap", "z": "hand", "c": 0},
+            {"e": 14, "n": "Rock", "z": "battlefield", "c": 0}]
+    aux = {**_aux_for(opts), "sched_cand_opts": [None, *opts[1:], {"e": 11, "sa": "Cast Bar", "kind": "spell", "virtual": 1}]}
+    dec = _dec(opts=opts, ents=ents)
+    ex = {}
+    ctx = ss.inject(ex, aux, dec, HDR, "priority")
+    ss.after(ctx, _out(picks=(5, 0, 0, 0, 0, 0)), aux, dec, track=False)  # plan: Bar (virtual)
+    ss._wait_or_gone = staticmethod(lambda slot, dec, p: "wait")
+    b = ss.bind({**ctx, "decode": False}, ex, aux, dec)
+    # pass, Bolt, Snap (instant speed) and the ability open; Foo (sorcery speed) closed
+    assert b["kind"] == "wait" and b["allow"] == [0, 2, 3, 4]
+    assert b["spells_masked"] == 1
+    assert ss.counts["sched_bind_wait_open"] == 1 and ss.counts["sched_bind_wait_open_spells"] == 2
+    # legal basis HOLD: instants stay closed (the refinement is WAIT-only)
+    ss2 = SchedServe(_bind_feat(), binding="all", empty_rev="hold", basis="legal",
+                     speed_of=lambda n: True)
+    ctx2 = ss2.inject({}, _aux_for(opts), dec, HDR, "priority")
+    ss2.after(ctx2, _out(picks=(0, 0, 0, 0, 0, 0)), _aux_for(opts), dec, track=False)  # empty plan = hold
+    b2 = ss2.bind({**ctx2, "decode": False}, {}, _aux_for(opts), dec)
+    assert b2["kind"] == "hold" and b2["allow"] == [0, 4]
+
+
+def test_instant_speed_from_card_table_shape():
+    """The default speed_of reads the veto_knowability card table: Instant
+    type or Flash keyword; unknown names are sorcery-speed (closed)."""
+    import types as _t
+
+    from anvil.bridge import sched_serve as m
+    from anvil.training import sched_targets
+
+    fake = {
+        "Bolt": _t.SimpleNamespace(types="Instant", keywords=""),
+        "Snap": _t.SimpleNamespace(types="Creature Human Wizard", keywords="Flash;"),
+        "Bear": _t.SimpleNamespace(types="Creature Bear", keywords="Flying;"),
+        "Blink": _t.SimpleNamespace(types="Instant", keywords="Rebound;"),
+    }
+    saved = sched_targets._TABLE
+    sched_targets._TABLE = fake
+    try:
+        assert m.instant_speed("Bolt") and m.instant_speed("Snap") and m.instant_speed("Blink")
+        assert not m.instant_speed("Bear") and not m.instant_speed("Nope") and not m.instant_speed(None)
+    finally:
+        sched_targets._TABLE = saved
+
+
+def test_board_activation_filter():
+    """§I refinement (b): a board host's activation enters the virtual
+    superset only with a road back this turn — not on a tapped or summoning-
+    sick host ({T}/{Q} costs), not a loyalty / once-each-turn ability absent
+    at a quiescent main window (spent)."""
+    from anvil.bridge.featurize import (
+        Featurizer,
+        ability_cost,
+        board_activation_open,
+        quiescent_main,
+    )
+
+    assert ability_cost("{1}{B}{G}, {T}, Sacrifice a creature: Return target") == "{1}{B}{G}, {T}, Sacrifice a creature"
+    assert ability_cost("+1: Until your next turn") == "+1"
+    assert ability_cost("Crew 5 (Tap any number...)") == ""
+    tap_ab = "{T}: Draw a card."
+    mana_ab = "{2}: Target creature gets +1/+1 until end of turn."
+    loyal = "-2: You may sacrifice a creature."
+    once = "{1}, {T}: Add a charge counter. Activate only once each turn."
+    fresh = {"e": 20, "z": "battlefield", "c": 0}
+    tapped = {**fresh, "tap": 1}
+    sick = {**fresh, "sick": 1}
+    assert board_activation_open(tap_ab, fresh, quiet=True)
+    assert not board_activation_open(tap_ab, tapped, quiet=True)
+    assert not board_activation_open(tap_ab, sick, quiet=False)
+    assert board_activation_open(mana_ab, tapped, quiet=True)  # no {T}: tapped is irrelevant
+    assert not board_activation_open(loyal, fresh, quiet=True)  # absent at quiescent main = used
+    assert board_activation_open(loyal, fresh, quiet=False)  # mid-stack: timing, not spent
+    assert not board_activation_open(once, fresh, quiet=True)
+    # through the superset builder: Teferi's used +1 and a tapped Rock's tap
+    # ability are gone; the untapped Rock's mana-costed ability stays; hand
+    # cards are untouched
+    feat = Featurizer.__new__(Featurizer)
+    feat.sa_vocab = types.SimpleNamespace(id=lambda s: hash(s) % 1000)
+    feat.ability_table = {
+        "Teferi": {"activate": [{"sa": "+1: Until your next turn", "n": 5, "kind": "ability"}]},
+        "Rock": {"activate": [{"sa": tap_ab, "n": 5, "kind": "ability"}, {"sa": mana_ab, "n": 3, "kind": "ability"}]},
+        "Foo": {"cast": [{"sa": "Cast Foo", "n": 9, "kind": "spell"}]},
+    }
+    ents = [{"e": 20, "n": "Teferi", "z": "battlefield", "c": 0},
+            {"e": 21, "n": "Rock", "z": "battlefield", "c": 0, "tap": 1},
+            {"e": 10, "n": "Foo", "z": "hand", "c": 0}]
+    dec = _dec(opts=[{"e": -1, "sa": "Pass"}], ents=ents)
+    assert quiescent_main(dec)
+    row_of = {20: 0, 21: 1, 10: 2}
+    rows, sa, kind, sopts = feat._sched_superset(dec, 0, row_of, [-1], [0], [0], [-1])
+    assert [o["sa"] for o in sopts[1:]] == [mana_ab, "Cast Foo"]
+    # same board mid-stack: Teferi's loyalty ability is a timing absence, kept
+    dec2 = _dec(opts=[{"e": -1, "sa": "Pass"}], ents=ents + [{"e": 50, "n": "Trig", "z": "stack", "c": 1}])
+    assert not quiescent_main(dec2)
+    _, _, _, sopts2 = feat._sched_superset(dec2, 0, row_of, [-1], [0], [0], [-1])
+    assert [o["sa"] for o in sopts2[1:]] == ["+1: Until your next turn", mana_ab, "Cast Foo"]
+    # an ABILITY on the stack lives only in obs["stack"] (never an entity):
+    # the window is not quiescent either
+    dec3 = _dec(opts=[{"e": -1, "sa": "Pass"}], ents=ents)
+    dec3["obs"]["stack"] = [{"e": 82, "c": 0, "lbl": "Whenever you create a token, ..."}]
+    assert not quiescent_main(dec3)
+    _, _, _, sopts3 = feat._sched_superset(dec3, 0, row_of, [-1], [0], [0], [-1])
+    assert [o["sa"] for o in sopts3[1:]] == ["+1: Until your next turn", mana_ab, "Cast Foo"]
+    # binding rule 3 keys on the same helper: a trigger on the stack is not a
+    # quiescent window, so an absent NEXT slot is not failed there
+    assert not SchedServe.quiescent_main(dec3) and SchedServe.quiescent_main(dec)

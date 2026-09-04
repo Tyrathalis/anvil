@@ -109,6 +109,66 @@ def is_mana_ability(sa: str) -> bool:
     return bool(_MANA_ABILITY.search(sa or ""))
 
 
+MAIN_PHASES = ("MAIN1", "MAIN2")
+
+
+def quiescent_main(dec: dict) -> bool:
+    """A main-phase priority window with an EMPTY stack (sorcery-speed
+    legality holds). Shared by the featurizer's virtual-candidate filter and
+    the serve carry's binding rules (sched_serve.SchedServe.quiescent_main).
+
+    The obs carries the stack two ways and both must be empty: cards on the
+    stack are entities with z="stack"; triggered/activated ABILITIES on the
+    stack never enter the zone and appear only in the separate obs["stack"]
+    list (the Java option scan keys sorcery-speed legality on MagicStack for
+    the same reason). Found 2026-09-04: the entities-only test read 9.3K of
+    79K census windows with an ability on the stack as quiescent — binding
+    rule 3 then failed sorcery-speed slots for timing (the hand-basis
+    day-zero read's "unactivatable" pile) and the loyalty/once-per-turn
+    filter below saw "absent at quiescence" where it was a trigger."""
+    obs = dec["obs"]
+    glob = obs.get("glob", {})
+    if glob.get("ph") not in MAIN_PHASES:
+        return False
+    if obs.get("stack"):
+        return False
+    return not any(e.get("z") == "stack" for e in obs.get("ents", []))
+
+
+# Board-host activation filter (m10-reset-draft §I refinement (b), session
+# two): a permanent's activation that is not offered now is a plannable
+# virtual candidate only if a road back exists this turn. The option scan
+# does NOT filter by payability (AnvilOptions PAYCHECK off), so an absent
+# board activation is absent for a NON-mana reason — and three of those
+# reasons never clear within the turn, all readable from the seat's own
+# visible state: the host is tapped ({T}/{Q} costs), the host is summoning-
+# sick ({T}/{Q} costs; the engine's `sick` is creature-only already), or the
+# ability was already used (loyalty abilities and "activate only once each
+# turn" abilities absent at a QUIESCENT MAIN window — sorcery-speed timing
+# holds there, so absence means spent). The hand-basis day-zero read paid
+# 13.4K fast-failing slots per read to exactly these (ADR-0095 addendum).
+_LOYALTY_COST = re.compile(r"^[+\-−]?\d+$")
+_ONCE_PER_TURN = re.compile(r"only once each turn", re.IGNORECASE)
+
+
+def ability_cost(sa: str) -> str:
+    """The cost half of an activation's rules text ('{1}{B}, {T}: ...' ->
+    '{1}{B}, {T}'); '' when the text carries no cost separator."""
+    head, sep, _ = (sa or "").partition(":")
+    return head if sep else ""
+
+
+def board_activation_open(sa: str, ent: dict, quiet: bool) -> bool:
+    """False = this board host's activation has no road back this turn."""
+    cost = ability_cost(sa)
+    taps = "{T}" in cost or "{Q}" in cost
+    if taps and (ent.get("tap") or ent.get("sick")):
+        return False
+    if quiet and (_LOYALTY_COST.match(cost.strip()) or _ONCE_PER_TURN.search(sa or "")):
+        return False
+    return True
+
+
 def load_ability_table(path: str | Path) -> dict:
     """The mined ability table (scripts/mine_ability_table.py): card name ->
     {cast/activate/command/...: [{sa (normalized), n, kind}, ...]}."""
@@ -152,6 +212,7 @@ class Featurizer:
             if r is not None:
                 seen_key.add((r, norm_sa(o.get("sa", ""))))
         n_virtual = 0
+        quiet = quiescent_main(dec)
         for e in dec["obs"].get("ents", []):
             if e.get("c") != p or n_virtual >= SCHED_VIRTUAL_CAP:
                 continue
@@ -177,6 +238,8 @@ class Featurizer:
                     sa = entry["sa"]
                     if bucket in ("activate",) and is_mana_ability(sa):
                         continue
+                    if z == "battlefield" and not board_activation_open(sa, e, quiet):
+                        continue  # tapped / sick / spent host: no road back this turn
                     taken += 1
                     if (r, sa) in seen_key:
                         continue  # legal now: already in the prefix

@@ -13,6 +13,12 @@ released between the serve and train phases.
 
 Stop file: touch <out>/STOP to finish the current iteration and exit; resume
 by re-running the same command (loop_state.json carries the chain).
+
+M10 reset (ADR-0094): --sched-binding/--sched-basis/--sched-empty-rev pin
+the serve regime every driver-started server plays under (sched_flags), and
+--paired-read wires the stratified paired strength read (the PRIMARY read)
+at day zero (HALT below minus the bar, exit 5) and at the terminal — both
+recorded in loop_state, idempotent on resume.
 """
 
 from __future__ import annotations
@@ -124,7 +130,7 @@ def _start_server(
     drill_sample: bool = False,
     drill_mu_out: Path | None = None,
     instrument: bool = False,
-    sched_binding: str = "off",
+    sched_flags: "list[str] | None" = None,
 ):
     cmd = [
         sys.executable,
@@ -145,9 +151,9 @@ def _start_server(
         # M7: sampled serving for wire-only fork sessions (no -forkobs, no
         # mu) — sampled-mainline drill maps and forced-branch instruments
         cmd += ["--fork-instrument"]
-    if sched_binding != "off":
-        # M10 reset (ADR-0094): binding execution of the carried schedule
-        cmd += ["--sched-binding", sched_binding]
+    # M10 reset (ADR-0094): binding execution of the carried schedule + the
+    # planner's basis / empty-revision rule (sched_flags(args))
+    cmd += list(sched_flags or [])
     if drill_ckpt:
         cmd += ["--drill-ckpt", drill_ckpt]
         if drill_sample:
@@ -162,6 +168,92 @@ def _start_server(
         proc.kill()
         raise
     return proc
+
+
+def sched_flags(a) -> list[str]:
+    """The server's schedule-surface flags from the driver's args — ONE
+    derivation for every server the driver starts (generation, arms), so the
+    candidate always plays under the run's serve regime. Advisory (binding
+    off) = no flags: the pre-reset surface."""
+    binding = getattr(a, "sched_binding", "off")
+    if binding == "off":
+        return []
+    flags = ["--sched-binding", binding]
+    if getattr(a, "sched_basis", "legal") != "legal":
+        flags += ["--sched-basis", a.sched_basis]
+        if getattr(a, "ability_table", None):
+            flags += ["--ability-table", a.ability_table]
+    if getattr(a, "sched_empty_rev", "hold") != "hold":
+        flags += ["--sched-empty-rev", a.sched_empty_rev]
+    if getattr(a, "sched_empty_emit", "hold") != "hold":
+        flags += ["--sched-empty-emit", a.sched_empty_emit]
+    return flags
+
+
+PAIRED_CKPT_MAIN = "data/training/d6-run11/iter-019/train/last.pt"  # the census's generating ckpt
+
+
+def paired_read_cmd(a, ckpt: str, tag: str, jar: str) -> list[str]:
+    """scripts/sched_paired_read.py `run` for the candidate ckpt under the
+    run's serve regime (basis / empty-revision rule; side A binds, side B is
+    the same ckpt advisory — the script's contract)."""
+    cmd = [
+        sys.executable, str(REPO / "scripts/sched_paired_read.py"), "run",
+        "--plan", a.paired_read, "--name", f"{a.name}-{tag}",
+        "--ckpt-main", a.paired_ckpt_main, "--ckpt", ckpt, "--jar", jar,
+        "--lanes", str(a.paired_lanes), "--heap", a.paired_heap,
+    ]
+    if getattr(a, "sched_basis", "legal") != "legal":
+        cmd += ["--basis", a.sched_basis]
+    if getattr(a, "sched_empty_rev", "hold") != "hold":
+        cmd += ["--empty-rev", a.sched_empty_rev]
+    if getattr(a, "sched_empty_emit", "hold") != "hold":
+        cmd += ["--empty-emit", a.sched_empty_emit]
+    if a.paired_limit:
+        cmd += ["--limit", str(a.paired_limit)]
+    return cmd
+
+
+def _paired_read(a, state: dict, state_path: Path, out: Path, ckpt: str, tag: str) -> dict:
+    """The stratified paired strength read (ADR-0094 Fork 4; the PRIMARY
+    read) on `ckpt`, recorded in loop_state under paired_<tag> (idempotent
+    on resume). Returns the read's summary; the caller applies the rule."""
+    key = f"paired_{tag}"
+    if state.get(key):
+        print(f"[selfplay] paired read {tag}: present in loop_state, skipping ({state[key]['run']})")
+        return state[key]
+    from anvil.bridge.harness.orchestrator import _find_jar
+
+    jar = str(_find_jar())
+    log = out / f"paired-{tag}.log"
+    cmd = paired_read_cmd(a, ckpt, tag, jar)
+    print(f"[selfplay] paired read {tag}: {' '.join(cmd)}")
+    t0 = time.monotonic()
+    with open(log, "w") as lf:
+        rc = subprocess.run(cmd, stdout=lf, stderr=subprocess.STDOUT, cwd=str(REPO)).returncode
+    if rc != 0:
+        raise RuntimeError(f"paired read {tag} exited {rc}; see {log}")
+    run_dir = None
+    for line in log.read_text().splitlines():
+        if line.startswith("[paired] run "):
+            run_dir = line[len("[paired] run "):].split(":")[0].strip()
+    if run_dir is None or not (Path(run_dir) / "read.json").exists():
+        raise RuntimeError(f"paired read {tag}: no read.json behind {log}")
+    res = json.loads((Path(run_dir) / "read.json").read_text())
+    prim = res.get("primary_v_below") or {}
+    ctx = res.get("context_v_above") or {}
+    rec = {
+        "run": run_dir, "ckpt": ckpt, "verdict": res.get("verdict"),
+        "mean": prim.get("mean"), "se": prim.get("se"), "ci95": prim.get("ci95"), "n": prim.get("n"),
+        "context_mean": ctx.get("mean"), "context_se": ctx.get("se"),
+        "wall_s": round(time.monotonic() - t0),
+    }
+    state[key] = rec
+    state_path.write_text(json.dumps(state, indent=2))
+    shutil.copy(Path(run_dir) / "read.json", out / f"paired-{tag}.json")
+    print(f"[selfplay] paired read {tag}: {rec['verdict']} dwr {rec['mean']} +/- {rec['se']} "
+          f"(n {rec['n']}; context {rec['context_mean']} +/- {rec['context_se']}) -> {run_dir}")
+    return rec
 
 
 def _stop_server(proc) -> None:
@@ -970,6 +1062,47 @@ def main() -> None:
         help="carry iteration-0's w_sched for the whole run (the "
         "--plan-carry-w twin; ADR-0057 default = per-iteration recalib)",
     )
+    # ---- M10 reset (ADR-0094): the serve regime every driver-started server
+    # plays under, and the primary read ----
+    ap.add_argument(
+        "--sched-binding", choices=["off", "all", "forks"], default="off",
+        help="binding execution of the carried schedule at serve (ADR-0094 "
+        "Fork 1): off = advisory (the pre-reset surface); all = every bridged "
+        "seat binds (generation + arms). Requires a sched-grafted ckpt.",
+    )
+    ap.add_argument(
+        "--sched-basis", choices=["legal", "hand"], default="legal",
+        help="the planner's key space (m10-reset-draft §I): hand = the "
+        "superset with virtual candidates from the ability table + WAIT",
+    )
+    ap.add_argument(
+        "--sched-empty-rev", choices=["hold", "noop", "release"], default="hold",
+        help="an EMPTY revision decode under binding: release = hands the "
+        "turn back to the executor (the ADR-0095 rule of record)",
+    )
+    ap.add_argument("--sched-empty-emit", choices=["hold", "release"], default="hold")
+    ap.add_argument(
+        "--ability-table", default=str(REPO / "data/pool/ability-table.json"),
+        help="the mined ability table (hand basis); pinned into loop_config",
+    )
+    ap.add_argument(
+        "--paired-read", default=None, metavar="PLAN_DIR",
+        help="the stratified paired strength read's population dir "
+        "(scripts/sched_paired_read.py population; ADR-0094 Fork 4). Runs "
+        "at DAY ZERO on the init ckpt (below minus the bar = HALT for "
+        "adjudication, exit 5 — the mid-point rule) and at the TERMINAL on "
+        "the final ckpt; both recorded in loop_state (idempotent on resume).",
+    )
+    ap.add_argument("--paired-ckpt-main", default=PAIRED_CKPT_MAIN,
+                    help="the population census's generating ckpt (mainline replay)")
+    ap.add_argument("--paired-lanes", type=int, default=6, help="lanes PER SIDE")
+    ap.add_argument("--paired-heap", default="3g")
+    ap.add_argument("--paired-limit", type=int, default=0,
+                    help="first N population windows only (smoke)")
+    ap.add_argument("--paired-every", type=int, default=0,
+                    help="ALSO read after every N-th iteration (informational; "
+                    "the terminal read covers the last). 0 = day zero + terminal only",
+    )
     ap.add_argument(
         "--guard-sched-share",
         type=float,
@@ -1340,6 +1473,13 @@ def main() -> None:
         )
     if bool(args.drill_eval_set) != bool(args.drill_eval_every):
         ap.error("--drill-eval-set and --drill-eval-every go together")
+    if args.paired_read and not Path(args.paired_read, "sched-paired.tsv").exists():
+        ap.error(f"--paired-read {args.paired_read}: no sched-paired.tsv (run `population` first)")
+    if args.paired_read and args.sched_binding == "off":
+        print("[selfplay] WARNING: --paired-read with --sched-binding off — the read binds "
+              "the candidate on side A while generation serves advisory; the two regimes differ")
+    if args.sched_basis == "hand" and not Path(args.ability_table).exists():
+        ap.error(f"--sched-basis hand: no ability table at {args.ability_table}")
 
     # GPU cotenancy insurance (2026-07-16 OOMs beside a resident ComfyUI):
     # reclaims allocator fragmentation for this process and all subprocesses
@@ -1367,6 +1507,25 @@ def main() -> None:
     # Deliberate exits unregister; a crash leaves the registration so the
     # watcher fires GONE within a tick.
     _watch_register(args.name, out)
+
+    # ---- day-zero read (ADR-0094 Fork 4 + the mid-point rule): the init
+    # ckpt under the run's serve regime vs itself advisory, BEFORE any
+    # training. Below minus the bar = halt for adjudication (a bad
+    # distillation wants better labels, not a training loop); flat or
+    # positive = proceed. Standing rule: day-zero-gated binding. ----
+    if args.paired_read and state["iteration"] == 0:
+        rec = _paired_read(args, state, state_path, out, state["ckpt"], "dayzero")
+        if rec["verdict"] == "HALT":
+            msg = (f"day-zero read HALT: dwr {rec['mean']} +/- {rec['se']} (n {rec['n']}) "
+                   f"below minus the bar — adjudication, not training; {rec['run']}")
+            (out / "PAIRED-HALT").write_text(msg + "\n")
+            print(f"[selfplay] !!! {msg}")
+            _notify(f"anvil {args.name}: DAY-ZERO HALT", msg)
+            _watch_unregister(args.name)
+            sys.exit(5)
+        _notify(f"anvil {args.name}: day-zero read {rec['verdict']}",
+                f"dwr {rec['mean']} +/- {rec['se']} (n {rec['n']}; context {rec['context_mean']}); "
+                f"proceeding to iteration 0")
 
     while state["iteration"] < args.iterations:
         if (out / "STOP").exists():
@@ -1411,6 +1570,7 @@ def main() -> None:
                     sample=True,
                     mu_out=mu_path,
                     temperature=args.temperature,
+                    sched_flags=sched_flags(args),
                 )
                 try:
                     for j, (bp, n, off, seats) in enumerate(batches):
@@ -1985,7 +2145,8 @@ def main() -> None:
         if args.arms_every and (k + 1) % args.arms_every == 0 and args.arms_pairs:
             arm_dirs = []
             server = _start_server(
-                state["ckpt"], args.port, it_dir / "arms-server.log", sample=False
+                state["ckpt"], args.port, it_dir / "arms-server.log", sample=False,
+                sched_flags=sched_flags(args),
             )
             try:
                 for seat in (0, 1):
@@ -2037,7 +2198,23 @@ def main() -> None:
         if args.drill_eval_every and (k + 1) % args.drill_eval_every == 0:
             _drill_eval_phase(args, state, k, it_dir)
 
+        # ---- mid-run paired read (informational; the terminal read decides) ----
+        if (args.paired_read and args.paired_every and (k + 1) % args.paired_every == 0
+                and k + 1 < args.iterations):
+            rec = _paired_read(args, state, state_path, out, state["ckpt"], f"iter{k:03d}")
+            _notify(f"anvil {args.name}: paired read iter {k} {rec['verdict']}",
+                    f"dwr {rec['mean']} +/- {rec['se']} (n {rec['n']}; context {rec['context_mean']})")
+
     print(f"[selfplay] loop complete: {state['iteration']} iterations, final ckpt {state['ckpt']}")
+    # ---- terminal paired read: the final ckpt under the serve regime vs
+    # itself advisory — the PRIMARY read (ADR-0094 Fork 4); the day-zero
+    # record beside it is the run's own baseline ----
+    paired_txt = ""
+    if args.paired_read and state["iteration"] > 0:
+        rec = _paired_read(args, state, state_path, out, state["ckpt"], "final")
+        dz = state.get("paired_dayzero") or {}
+        paired_txt = (f"; paired read {rec['verdict']}: dwr {rec['mean']} +/- {rec['se']} "
+                      f"(n {rec['n']}; day zero {dz.get('mean')} +/- {dz.get('se')})")
     # ---- run-end battery: full curves + holding trajectory + behavioral
     # delta (init vs final). The anomaly lines ride the COMPLETE notify so
     # the report gets read by default (run-analysis-protocol rule 2) ----
@@ -2047,7 +2224,7 @@ def main() -> None:
     an_txt = "; ".join(end_an) if end_an else "none"
     _notify(
         f"anvil {args.name}: COMPLETE",
-        f"{state['iteration']} iterations, final ckpt {state['ckpt']}; "
+        f"{state['iteration']} iterations, final ckpt {state['ckpt']}{paired_txt}; "
         f"battery anomalies: {an_txt} (report {out / 'analysis' / 'analysis.md'})",
     )
     _watch_unregister(args.name)

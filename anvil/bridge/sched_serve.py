@@ -38,7 +38,9 @@ stays advisory-exact). The rule mirrors the ceiling's engine executor
      pass first, then acts under the revised plan's mask);
   4. otherwise (no slot remains, or NEXT not castable here — stack up,
      combat, off-main) ⇒ HOLD on spells: pass + non-spell options only
-     (abilities and lands stay the executor's).
+     (abilities and lands stay the executor's). Hand basis: a held-but-not-
+     yet-legal NEXT slot is a WAIT — the same mask, except instant-speed
+     spells (Instant / Flash, card knowledge) stay open (§I refinement (a)).
 Mask = `ex["cand_allow"]` on the pointer logits; the mu row records
 `bind` (kind) + `allow` (the open candidate indices) so the loader
 reproduces the distribution bit-exactly, and `lp` = the emitted
@@ -53,11 +55,31 @@ from dataclasses import dataclass, field
 
 import torch
 
+from anvil.bridge.featurize import quiescent_main
 from anvil.training.dataset import (
     SCHED_CAP,
     SCHED_PAY_NONE,
     norm_sa,
 )
+
+
+def instant_speed(name: str) -> bool:
+    """Card-knowledge speed class (m10-reset-draft §I refinement (a)): an
+    Instant, or a card with Flash, may be cast whenever the seat holds
+    priority — a WAIT closes sorcery-speed spells only, these stay the
+    executor's through combat. Unknown names read as sorcery-speed (closed):
+    the conservative side. Card table = veto_knowability's (types/keywords
+    from the Forge scripts); effects that grant flash (Orrery-class) are not
+    card knowledge of the spell and stay closed."""
+    from anvil.training.sched_targets import card_table
+
+    info = card_table().get(name or "")
+    if info is None:
+        return False
+    if "Instant" in (info.types or "").split():
+        return True
+    return "Flash" in [k.strip() for k in (info.keywords or "").split(";")]
+
 
 ST_CHR = {0: "p", 1: "n", 2: "d", 3: "f"}
 CHR_ST = {v: k for k, v in ST_CHR.items()}
@@ -99,7 +121,6 @@ class _State:
 
 BINDING_MODES = ("off", "all", "forks")
 EMPTY_REV_MODES = ("hold", "noop", "release")
-MAIN_PHASES = ("MAIN1", "MAIN2")
 
 
 class SchedServe:
@@ -112,6 +133,7 @@ class SchedServe:
         bind_slots: int = 0,
         empty_emit: str = "hold",
         basis: str = "legal",
+        speed_of=None,
     ):
         if binding not in BINDING_MODES:
             raise ValueError(f"binding must be one of {BINDING_MODES}: {binding!r}")
@@ -159,6 +181,11 @@ class SchedServe:
         self.basis = basis
         if basis == "hand":
             self.land_first = False
+        # §I refinement (a): under a WAIT, spells at instant speed (Instant /
+        # Flash — card knowledge) stay open to the executor; only sorcery-
+        # speed spells bind closed. speed_of(name) -> bool; default = the
+        # card table (tests inject a stub).
+        self.speed_of = speed_of if speed_of is not None else instant_speed
         self.states: dict[tuple, _State] = {}
         # forks mode: wire session wid -> the seat whose window opened it
         # (the fork fires at the target seat's own MAIN1 priority, so the
@@ -190,10 +217,7 @@ class SchedServe:
 
     @staticmethod
     def quiescent_main(dec: dict) -> bool:
-        glob = dec["obs"].get("glob", {})
-        if glob.get("ph") not in MAIN_PHASES:
-            return False
-        return not any(e.get("z") == "stack" for e in dec["obs"].get("ents", []))
+        return quiescent_main(dec)
 
     @staticmethod
     def _cand_kinds(dec: dict, aux: dict) -> list:
@@ -453,6 +477,21 @@ class SchedServe:
                 # hand basis: a held-but-not-yet-legal NEXT slot = WAIT (the
                 # executor develops: land / rock / ability); telemetry kind
                 kind = "wait" if (self.basis == "hand" and ni is not None) else "hold"
+                if kind == "wait":
+                    # refinement (a): a WAIT closes sorcery-speed spells only —
+                    # instants / flash stay the executor's through combat
+                    opts = dec.get("opts") or []
+                    names = {e.get("e"): e.get("n") for e in dec["obs"].get("ents", [])}
+                    opened = 0
+                    for c in range(1, cw):
+                        i = first_opt[c]
+                        if kinds[c] == "spell" and 0 <= i < len(opts) and not allow[c]:
+                            if self.speed_of(names.get(opts[i].get("e"))):
+                                allow[c] = True
+                                opened += 1
+                    if opened:
+                        self.counts["sched_bind_wait_open"] += 1
+                        self.counts["sched_bind_wait_open_spells"] += opened
         if "cand_rows" in ex and ex["cand_rows"].shape[0] != cw:
             # the featurizer's candidate basis IS first_opt's — a mismatch
             # means the window was built by another path; never mask blind
