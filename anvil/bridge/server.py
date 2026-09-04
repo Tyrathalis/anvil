@@ -761,11 +761,13 @@ def main() -> None:
     )
     ap.add_argument(
         "--sched-empty-rev",
-        choices=["hold", "noop"],
+        choices=["hold", "noop", "release"],
         default="hold",
         help="under binding, an EMPTY revision decode with slots still "
-        "pending: hold (the ADR-0094 pin: spells bind closed) or noop (keep "
-        "the remaining plan) — the day-zero adjudication instrument",
+        "pending: hold (the ADR-0094 pin: spells bind closed), noop (keep "
+        "the remaining plan) or release (an empty re-decode at any revision "
+        "trigger hands the rest of the turn to the executor) — the day-zero "
+        "adjudication instruments",
     )
     ap.add_argument(
         "--bind-trace",

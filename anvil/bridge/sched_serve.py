@@ -84,6 +84,7 @@ class _State:
     pending_revise: "str | None" = None
     eot_fired: bool = False
     exhaust_fired: bool = False
+    released: bool = False  # empty_rev="release": binding off for the rest of the turn
 
     def next_idx(self) -> "int | None":
         return next((i for i, s in enumerate(self.slots) if s.st == "n"), None)
@@ -97,7 +98,7 @@ class _State:
 
 
 BINDING_MODES = ("off", "all", "forks")
-EMPTY_REV_MODES = ("hold", "noop")
+EMPTY_REV_MODES = ("hold", "noop", "release")
 MAIN_PHASES = ("MAIN1", "MAIN2")
 
 
@@ -115,7 +116,12 @@ class SchedServe:
         # of the turn); "noop" = an empty re-decode at a trigger with slots
         # still pending keeps the remaining plan (the least-supervised
         # decodes never had a label at mid-turn states; empty there is the
-        # min-CE hedge, not a plan). Advisory mode: no behavioral difference.
+        # min-CE hedge, not a plan); "release" = an empty re-decode at any
+        # revision trigger (incl. exhaustion) RELEASES the turn to the
+        # executor — spells open, the surface stays fed; binding covers
+        # only the first-window plan and non-empty revisions (the day-zero
+        # trace: 75% of holds sat under a post-exhaustion empty re-decode).
+        # Advisory mode: no behavioral difference.
         self.empty_rev = empty_rev
         self.states: dict[tuple, _State] = {}
         # forks mode: wire session wid -> the seat whose window opened it
@@ -309,6 +315,9 @@ class SchedServe:
         st = ctx["state"]
         if st is None:
             return None
+        if st.released:
+            self.counts["sched_bind_released"] += 1
+            return None  # the executor owns the rest of the turn
         first_opt = aux["cand_first_opt"]
         cw = len(first_opt)
         kinds = self._cand_kinds(dec, aux)
@@ -481,6 +490,17 @@ class SchedServe:
                 new_slots[0].st = "n"
             ns.opp_sig = st.opp_sig if st is not None else ()
             ns.eot_fired = st.eot_fired if st is not None else False
+            if (
+                self.empty_rev == "release"
+                and st is not None
+                and not new_slots
+                and ctx["trigger"] not in ("emit", "eot")
+            ):
+                ns.released = True
+                row["released"] = 1
+                self.counts["sched_rev_empty_release"] += 1
+            elif st is not None and st.released and not new_slots:
+                ns.released = True  # stays released until a non-empty revision
             with self.lock:
                 self.states[ctx["key"]] = ns
                 while len(self.states) > self._cap:

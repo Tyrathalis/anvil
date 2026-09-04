@@ -351,3 +351,29 @@ def test_empty_revision_noop_keeps_pending_plan_only_in_noop_mode():
         assert b["kind"] == ("hold" if mode == "hold" else "cast")
         if mode == "noop":
             assert row.get("empty_noop") == 1 and ss.counts["sched_rev_empty_noop"] == 1
+
+
+def test_empty_revision_release_hands_turn_to_executor():
+    opts = _opts((10, "Cast Foo", "spell"), (11, "Cast Bar", "spell"))
+    ss = SchedServe(_bind_feat(), binding="all", empty_rev="release")
+    ss, ctx, ex, aux, dec = _emit_bound(ss, opts, picks=(1, 0, 0, 0, 0, 0))
+    assert ss.bind(ctx, ex, aux, dec)["kind"] == "cast"
+    ss.after(ctx, _out(choice=1), aux, dec)  # slot 0 executed
+    # next window: slot done -> exhaust trigger -> empty re-decode -> RELEASED
+    aux2, dec2 = _aux_for(opts), _dec(opts=opts, s=101)
+    ex2 = {}
+    ctx2 = ss.inject(ex2, aux2, dec2, HDR, "priority")
+    assert ctx2["decode"] and ctx2["trigger"] == "exhaust"
+    row = ss.after(ctx2, _out(picks=(0, 0, 0, 0, 0, 0)), aux2, dec2, track=False)
+    assert row["released"] == 1 and ss.states[(5, 0)].released
+    assert ss.bind({**ctx2, "decode": False}, ex2, aux2, dec2) is None
+    assert "cand_allow" not in ex2 and ss.counts["sched_bind_released"] == 1
+    # later windows this turn stay released (no mask), a new turn binds again
+    ex3, dec3 = {}, _dec(opts=opts, s=102, ph="MAIN2")
+    ctx3 = ss.inject(ex3, aux2, dec3, HDR, "priority")
+    assert ss.bind(ctx3, ex3, aux2, dec3) is None
+    ex4, dec4 = {}, _dec(opts=opts, s=103, t=5)
+    ctx4 = ss.inject(ex4, aux2, dec4, HDR, "priority")
+    assert ctx4["decode"] and ctx4["trigger"] == "emit"
+    ss.after(ctx4, _out(picks=(1, 0, 0, 0, 0, 0)), aux2, dec4, track=False)
+    assert ss.bind({**ctx4, "decode": False}, ex4, aux2, dec4)["kind"] == "cast"

@@ -115,3 +115,18 @@ PG would train on top of a −6.7pp execution regime.
 - Instruments born: `sched_paired_read.py` (the primary read, proven at
   N=553 with CRN halving the noise), the server bind trace, the
   empty-revision flag.
+
+## Addendum — route 1 measured (2026-09-03 17:35): FALSIFIED
+
+`--sched-empty-rev noop` vs the day-zero binding side on the same 56
+primary windows and rolls: **Δwr +0.0000 ± 0.0096** (context −0.021 ±
+0.020); control null across runs +0.011 ± 0.014. The bind trace on the
+candidate seat: 90% of holds have NO slots left — the post-exhaustion
+re-decode replaces a finished 1–2-slot plan with empty, and that empty
+binds as "exhausted = pass" while spells remain castable (77% of holds
+mask one). Mid-plan empty revisions (the no-op's target) are ~9% of
+holds. Route 1 is closed; the dominant term is **short plans +
+exhausted-binds-closed**. Route 1' = "release": an empty re-decode at
+any revision trigger hands the rest of the turn to the executor
+(built; measured next on the same windows).
+

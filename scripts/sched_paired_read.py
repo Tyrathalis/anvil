@@ -558,7 +558,7 @@ def main() -> None:
     rp.add_argument("--bar", type=float, default=pins.PAIRED_BAR)
     rp.add_argument("--limit", type=int, default=0, help="first N population rows only (smoke)")
     rp.add_argument("--watchd", action="store_true")
-    rp.add_argument("--empty-rev", choices=["hold", "noop"], default="hold",
+    rp.add_argument("--empty-rev", choices=["hold", "noop", "release"], default="hold",
                     help="side A's empty-revision semantics (see server --sched-empty-rev)")
     rp.add_argument("--bind-trace", action="store_true",
                     help="side A writes one JSON line per bound window (diagnostics)")
