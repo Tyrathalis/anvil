@@ -296,6 +296,14 @@ def fit(args) -> None:
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     data = torch.load(out / "windows.pt", weights_only=False)
     exs = data["examples"]
+    # degenerate (combo/loop) turns: hundreds of casts in one turn produce
+    # hundreds of windows with cap-length targets (12 turns held 5,589 of
+    # 151,921 windows and the whole length-6 spike on the first corpus)
+    per_turn = Counter(e["_key"] for e in exs)
+    big = {k for k, n in per_turn.items() if n > args.max_turn_windows}
+    exs = [e for e in exs if e["_key"] not in big]
+    print(f"[fit] dropped {len(big)} turns with > {args.max_turn_windows} windows "
+          f"({sum(per_turn[k] for k in big)} windows); {len(exs)} remain")
     rng = random.Random(args.seed)
     games = sorted({(e["_key"][0], e["_key"][1]) for e in exs})
     rng.shuffle(games)
@@ -311,6 +319,24 @@ def fit(args) -> None:
                     n_sa=cfg.get("sa_vocab_size", 0)).to(dev)
     net.load_compat(ck["model"])
     net.eval()  # frozen trunk: eval-mode dropout/norm throughout (the executor as served)
+    if args.init_from_cast_head:
+        # the planner's slot-0 pointer starts as the cast head's own pointer:
+        # sched_query's STATE block <- ptr_query (plan/prev blocks zero),
+        # sched_key <- ptr_key, sched_sa_proj <- sa_proj. The head's first
+        # pick then equals the executor's preference at that window before
+        # any fitting; STOP stays a fresh key (pass is the cast head's
+        # separate pass_head, not a pointer key).
+        with torch.no_grad():
+            d = net.ptr_query.weight.shape[1]
+            net.sched_query.weight.zero_()
+            net.sched_query.weight[:, :d] = net.ptr_query.weight
+            net.sched_query.bias.copy_(net.ptr_query.bias)
+            net.sched_key.weight.copy_(net.ptr_key.weight)
+            net.sched_key.bias.copy_(net.ptr_key.bias)
+            if net.sched_sa_proj.weight.shape == net.sa_proj.weight.shape:
+                net.sched_sa_proj.weight.copy_(net.sa_proj.weight)
+                net.sched_sa_proj.bias.copy_(net.sa_proj.bias)
+        print("[fit] planner pointer initialized from the cast head's pointer")
     for name, p in net.named_parameters():
         p.requires_grad_(name.split(".")[0] in HEAD_PARAMS)
     params = [p for p in net.parameters() if p.requires_grad]
@@ -320,6 +346,8 @@ def fit(args) -> None:
 
     day0 = _eval(net, hold, dev)
     print(f"[fit] day-zero holdout: {day0}")
+    if args.eval_only:
+        return
     hist = [{"epoch": 0, **day0}]
     best = day0["all"]["ce"]
     best_state = {k: v.detach().clone() for k, v in net.state_dict().items()
@@ -390,6 +418,9 @@ def main() -> None:
     f.add_argument("--holdout", type=float, default=0.1)
     f.add_argument("--patience", type=int, default=2)
     f.add_argument("--seed", type=int, default=20280903)
+    f.add_argument("--max-turn-windows", type=int, default=40)
+    f.add_argument("--init-from-cast-head", action="store_true")
+    f.add_argument("--eval-only", action="store_true", help="report the ckpt's holdout numbers, no fit")
     f.set_defaults(fn=fit)
     a = ap.parse_args()
     a.fn(a)
