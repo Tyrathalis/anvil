@@ -98,6 +98,15 @@ def store_wire_hist(prior: list[dict], now_pos: int, k: int = HISTORY_K) -> list
 
 
 SCHED_VIRTUAL_CAP = 48  # virtual candidates per window (hand casts + activations + board)
+# mana abilities appear in the mined activation bucket (the engine offers
+# them as options in some windows) but are never a plannable cast-window
+# action — the plan waits forever on "tap the Signet". Payment is the
+# executor's (Fork 6 names the extension).
+_MANA_ABILITY = re.compile(r"(^|: )Add (\{|one |two |three |X |an amount|that much|mana)", re.IGNORECASE)
+
+
+def is_mana_ability(sa: str) -> bool:
+    return bool(_MANA_ABILITY.search(sa or ""))
 
 
 def load_ability_table(path: str | Path) -> dict:
@@ -161,8 +170,14 @@ class Featurizer:
             elif z == "command":
                 buckets = [("command", 1)]
             for bucket, top in buckets:
-                for entry in (info.get(bucket) or [])[:top]:
+                taken = 0
+                for entry in info.get(bucket) or []:
+                    if taken >= top:
+                        break
                     sa = entry["sa"]
+                    if bucket in ("activate",) and is_mana_ability(sa):
+                        continue
+                    taken += 1
                     if (r, sa) in seen_key:
                         continue  # legal now: already in the prefix
                     sid = self.sa_vocab.id(sa)

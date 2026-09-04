@@ -447,3 +447,18 @@ def test_hand_basis_wait_gone_and_virtual_decode():
     ctx2 = ss.inject({}, aux, dec2, HDR, "priority")
     assert ctx2["decode"] and ctx2["trigger"] == "absent"
     assert ss.counts["sched_bind_absent_gone"] == 1 and st.slots[0].st == "f"
+
+
+def test_hand_basis_ability_wait_rule_and_mana_filter():
+    from anvil.bridge.featurize import is_mana_ability
+    from anvil.bridge.sched_serve import SchedServe, _Slot
+
+    assert is_mana_ability("{T}: Add one mana of any color") and is_mana_ability("{T}: Add {G}")
+    assert is_mana_ability("{1}, {T}: Add two mana in any combination of colors")
+    assert not is_mana_ability("{T}, Pay 1 life, Sacrifice Scalding Tarn: Search your library")
+    assert not is_mana_ability("+1: Until your next turn, up to one target")
+    dec = _dec(ents=[{"e": 20, "n": "Teferi", "z": "battlefield", "c": 0}, {"e": 21, "n": "Rock", "z": "hand", "c": 0}])
+    tef = _Slot(e=20, sa_id=1, sa="+1: Until", opt={"e": 20, "sa": "+1: Until", "kind": "ability"}, pay=0)
+    rock = _Slot(e=21, sa_id=2, sa="{T}: Add", opt={"e": 21, "sa": "{T}: Add", "kind": "ability"}, pay=0)
+    assert SchedServe._wait_or_gone(tef, dec, 0) == "unactivatable"
+    assert SchedServe._wait_or_gone(rock, dec, 0) == "wait"

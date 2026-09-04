@@ -218,7 +218,7 @@ class SchedServe:
 
         obs = dec["obs"]
         ent = next((e for e in obs.get("ents", []) if e.get("e") == slot.e), None)
-        if ent is None or ent.get("c") != p or ent.get("z") not in ("hand", "battlefield", "command"):
+        if ent is None or ent.get("c") != p or ent.get("z") not in ("hand", "battlefield", "command", "stack"):
             return "gone"
         if slot.opt.get("kind") == "land":
             try:
@@ -227,9 +227,17 @@ class SchedServe:
                 lands = 0
             return "land" if lands else "wait"
         if slot.opt.get("kind") == "ability":
-            return "wait"
+            # an activation waits only while its host is still on the way
+            # (in hand / resolving); a battlefield host whose ability is not
+            # offered at a quiescent main window is not activatable this
+            # turn (used, tapped, sick, unaffordable) — the slot failed
+            return "wait" if ent.get("z") != "battlefield" else "unactivatable"
         views = source_views_of(obs, p)
-        full = list(views.full)
+        # usable THIS turn: the conditional view (unconditional + spend-
+        # restricted production), NOT `full` (summoning-sick tap sources
+        # cannot be used this turn — waiting on them holds the turn for a
+        # slot that cannot come)
+        full = list(views.cond)
         try:
             land_drop_open = not obs["players"][p].get("lands", 0)
         except (KeyError, IndexError, TypeError):
