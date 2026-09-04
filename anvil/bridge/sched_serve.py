@@ -226,6 +226,8 @@ class SchedServe:
             except (KeyError, IndexError, TypeError):
                 lands = 0
             return "land" if lands else "wait"
+        if slot.opt.get("kind") in ("spell", "land") and ent.get("z") == "battlefield":
+            return "gone"  # already resolved (or cast by another road): nothing to wait for
         if slot.opt.get("kind") == "ability":
             # an activation waits only while its host is still on the way
             # (in hand / resolving); a battlefield host whose ability is not
