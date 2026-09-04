@@ -253,3 +253,17 @@ first-window emission binds nothing (`--sched-empty-emit release`) —
 binding then only ever forces the planner's NON-EMPTY plans, at the cost
 of the "hold is a decision" degree of freedom at day zero.
 
+## Addendum — empty-emission release on the diagnostic windows (2026-09-04 03:10): +3.1 ± 1.3
+
+`--sched-empty-rev release --sched-empty-emit release` (binding forces
+only the planner's NON-EMPTY plans; every empty decode leaves the turn to
+the executor), distilled planner, same 56 primary windows: **Δwr +0.031 ±
+0.013, z +2.4** (context −0.038 ± 0.026); release-only on the same
+windows +0.009, pinned −0.096. Bound windows 9.5K: cast 73% / land 20% /
+hold 7%. The series on one subset: HOLD −9.6 → NO-OP −9.6 → RELEASE
+−7.8 → (distilled) RELEASE +0.9 → RELEASE + EMPTY-EMIT RELEASE +3.1.
+The subset reads ~2pp hotter than the population (release-only: +0.9 on
+the subset, −1.1 at full scale), so the full 800-window read of this
+variant was launched overnight (landing ~06:30) as the number for the
+morning's adjudication of the rule.
+
