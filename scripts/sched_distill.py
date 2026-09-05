@@ -422,6 +422,20 @@ def fit(args) -> None:
     keep = set(args.roles.split(",")) if args.roles else None
     if keep:
         exs = [e for e in exs if e.get("_role", "emit") in keep]
+    if getattr(args, "label_frac", 1.0) < 1.0:
+        # learning-curve diagnostic (2026-09-05): keep a deterministic hash
+        # fraction of the LABELED windows (roles cert/natcf) in the TRAIN
+        # split; the holdout and the executor corpus are untouched
+        import hashlib
+
+        def _keep(e):
+            if e.get("_role") not in ("cert", "natcf") or (e["_key"][0], e["_key"][1]) in hold_games:
+                return True
+            h = hashlib.blake2b(repr(e["_key"]).encode(), digest_size=8).digest()
+            return int.from_bytes(h, "big") / 2**64 < args.label_frac
+        before = len(exs)
+        exs = [e for e in exs if _keep(e)]
+        print(f"[fit] label_frac {args.label_frac}: labeled train windows subsampled ({before} -> {len(exs)} examples)")
     train = [e for e in exs if (e["_key"][0], e["_key"][1]) not in hold_games]
     hold = [e for e in exs if (e["_key"][0], e["_key"][1]) in hold_games]
     if args.cert_weight > 1:
@@ -544,6 +558,8 @@ def main() -> None:
     f.add_argument("--init-from-cast-head", action="store_true")
     f.add_argument("--roles", default=None, help="csv of roles to train/eval on (default all)")
     f.add_argument("--cert-weight", type=int, default=1, help="oversample 'cert' windows k-fold")
+    f.add_argument("--label-frac", type=float, default=1.0,
+                   help="learning-curve diagnostic: keep this hash-fraction of labeled (cert/natcf) train windows")
     f.add_argument("--eval-only", action="store_true", help="report the ckpt's holdout numbers, no fit")
     f.set_defaults(fn=fit)
     a = ap.parse_args()
