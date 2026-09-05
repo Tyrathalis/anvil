@@ -330,3 +330,40 @@ activations waited on; resolved hosts waited on), fixed before this
 read. Named refinement: WAIT closes sorcery-speed spells only
 (instants/flash stay the executor's through combat).
 
+
+## Addendum 2026-09-04 evening — the re-read on the refined rule set: HALT by the mid-point rule (adjudication pending)
+
+**Setup.** Same 800-window population (600 primary v<0.45 + 200 context), K=8, release
+rule, hand basis, run THROUGH the driver's new `--paired-read` wiring
+(`m10-dayzero-hand2`, 4.1 h, 6 lanes/side). Candidate = `m10-planner-distill-hand2`:
+the executor-strategy graft re-distilled on the refined superset (holdout CE 0.6928,
+first-cast agreement 91.5%). Rule set = the two §I WAIT refinements (WAIT opens
+Instant/Flash; tapped/sick/spent board activations leave the virtual superset) **plus
+the `quiescent_main` fix** (abilities on the stack; binding rule 3 had failed
+sorcery-speed slots for timing in every earlier read).
+
+**Read: primary −2.33 ± 0.70pp (z −3.33; n 559; wr A 0.2114 vs B 0.2347) — below
+minus the bar (0.022) ⇒ HALT by the pre-registered mid-point rule.** Context (v ≥ 0.45,
+n 184) −4.42 ± 1.37. Drops: 43 crash pairs (three whole windows from games 109/161/479
++ two from 423 — the known copy+resume class, symmetric), 57 windows too few pairs.
+Previous hand-basis read on the same population: −1.84 ± 0.71 (NEGATIVE-ABOVE-MINUS-BAR).
+The two are 0.5pp apart, within run-to-run noise (argmax serving is not bit-deterministic
+across runs; ~10% of completions differ) — **the honest statement is that the faithful
+hand-basis planner bound at day zero is worth about −2pp against itself advisory, at or
+past the bar, and the refinements did not move it.**
+
+**The fixes did what they were designed to do (bound-side counts, old → new):** absent-
+fails 16,051 → 6,611 (unactivatable 13,430 → 5,428 — the rule-3 timing misfire removed;
+unaffordable 1,273 → 18); absence-triggered revisions 11,945 → 5,112; WAIT 89.8K → 69.2K
+(46% → 38% of bound windows), and at 48.2K of those WAIT windows the mask opened 143K
+instant-speed spells to the executor; forced casts 71.5K → 79.5K (cast share 37% → 44%),
+slots done 144K → 151K; releases 251K → 259K. **So the plan bound MORE and failed less,
+and the number went slightly the other way — the same monotone-in-binding signature the
+09-03 isolation passes read: at day zero the distilled planner's forced casts are worse
+than the executor's free choices, and cleaner execution of the same plans does not
+help.** Opening instants under WAIT did not rescue it.
+
+**Status:** HALT ⇒ adjudication (the reset's mid-point rule: the cheap response to a bad
+distillation is better labels, not a training loop; a training run is NOT launched on
+this baseline without the user's call). Facts recorded here; the adjudication and its
+routing go in a further addendum / ADR.
