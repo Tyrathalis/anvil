@@ -1,9 +1,9 @@
 # ADR-0096: M10 closeout — the generative planner route is NEGATIVE at the hierarchy level; the root constraint is named; the scorer flywheel is the next charter
 
 - **Date:** 2026-09-05
-- **Status:** PROPOSED — awaiting user acceptance (the user agreed on 09-05 to close M10 with an
-  ADR after the two diagnostics; this is that ADR). On acceptance: move the M10 Status bullet to
-  the archive, add the standing rules below to standing-rules.md, run the kill list.
+- **Status:** ACCEPTED 2026-09-05 (user; ADR + kill list). M10 CLOSED — the Status bullet
+  moved verbatim to docs/status-archive.md; the three standing rules added to standing-rules.md;
+  kill list executed the same day.
 - **Design-doc anchor:** m10-plan.md (doc of record), m10-reset-draft.md §C–§K, ADR-0094,
   ADR-0095; anvil-design-v2 §3/§6 (the scheduling competency, the drill economy)
 

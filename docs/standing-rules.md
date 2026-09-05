@@ -59,6 +59,10 @@ silently delete.
   (presence, lumped counters, natural-line inflation) while the prize
   sat unmeasured; a day-zero read decomposes the claim before training
   is spent ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
+- **Measure a learning target's label reliability (split-half / test-retest) before building a
+  head on it, and read the head's learning curve before scaling data or compute** — an hour of
+  diagnostics answered what two build sessions could not
+  ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
 
 ## Training-loop design
 
@@ -148,6 +152,9 @@ silently delete.
   plan, the enumerated arms} — never label an unrolled window with the
   policy's own play (the ADR-0085 self-target in a new coat)
   ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
+- **A distilled clone of the executor cannot learn where the executor is wrong from the
+  executor's own features**; search-adjudicated labels need a representation trained on them
+  ([ADR-0096](decisions/ADR-0096-m10-closeout.md), the ADR-0050 density argument sharpened).
 
 ## Curation, drills, and the critic
 
@@ -235,6 +242,9 @@ silently delete.
   with research (`launch --pool` hash-gates it); **never check out
   `playable` in the research worktree**; pool selection rides
   `data/pool/CURRENT`, never mtime.
+- **Replay parity of a SAMPLED mainline is bounded by serving jitter (~20% of games flip a
+  near-tied pick under micro-batch composition)**: replay instruments pair within-run (CRN) and
+  budget cross-run divergence, never assume it ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
 
 ## Scoping and routing
 
