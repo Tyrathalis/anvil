@@ -505,7 +505,11 @@ def classify_window(cen: dict, dec: dict, table: dict[str, CardInfo],
         if flashy:
             return {"verdict": "not_knowable", "why": "timing_flexible", "card": name}
         glob = obs.get("glob", {})
-        stack = any(e.get("z") == "stack" for e in obs.get("ents", []))
+        # both stack representations (anvil.bridge.featurize.quiescent_main):
+        # cards on the stack are entities; triggered/activated abilities live
+        # only in obs["stack"] (found 2026-09-04; this branch misrouted ~1
+        # window per report into timing_unexplained before the fix)
+        stack = bool(obs.get("stack")) or any(e.get("z") == "stack" for e in obs.get("ents", []))
         offphase = glob.get("ph") not in ("MAIN1", "MAIN2") or glob.get("ap") != seat
         if offphase or stack:
             return {"verdict": "knowable", "why": "timing", "card": name}

@@ -740,6 +740,16 @@ bridged tag set ≈ 52% of them) and the plan object as built:
    needs the target in the slot for the label to be faithful.
 8. **Explicit hold language / off-turn plan** (named in §I).
 9. **Reachable-cards basis + multi-turn horizon** (named in §I).
+10. **Abilities on the stack are invisible to the policy except as a
+   count** (surfaced 2026-09-04 while fixing `quiescent_main`). The obs
+   carries them only in `obs["stack"]` (label + targets); the encoder
+   feeds `stack_size` as a global and cards on the stack as entities, so
+   a pending trigger's identity and its targets never reach the model —
+   the executor answers "respond to this trigger?" windows blind to what
+   the trigger is. A stack-entry token (host embedding + controller +
+   target refs, the entity token's shape) is the natural completion; it
+   is a representational gap, not a bug, and none of the day-zero reads
+   depend on it.
 Routing rule: each item gets a name and a measured argument at the next
 scoping session (the ADR-0077 no-silent-loss rule); 1 and 7 ride the
 hand-basis plan object; 2–6 are bridge completions with their own
@@ -815,6 +825,29 @@ tests both representations; `SchedServe.quiescent_main` delegates), corpus
 rebuilt on the fixed helper. The day-zero re-read measures the fixed rule
 set as a whole; the earlier day-zero numbers (−1.1 legal, −1.8 hand) stand
 as read but carried this misfire.
+
+**WAIT affordability guard AUDITED (user request, 2026-09-04 evening) —
+a corner-case surface after the quiescence fix, wrong in one class.**
+Method (the board-filter diagnostic's twin): for every spell/land the
+executor realized later in an own turn, evaluate `_wait_or_gone` at every
+earlier GENUINELY quiescent own main window where the card was held but its
+cast was not among the options. Census store, 300 games, 9,867 realized
+casts: that population is **54 cases** — because payability is not filtered
+from the option scan, a hand spell at a quiescent main window is essentially
+always listed (affordable or not), so absence means legality/timing, never
+mana. Verdicts: wait 28 (correct), **unaffordable 15 — all alternative-cost
+VARIANTS** (Lashknife's tap-a-creature cost, Pyrokinesis, Grief's evoke: the
+printed-cost cast is in the options, the variant's condition is not met yet,
+and the guard priced the printed cost), land 11 (extra land drops later in
+the turn). Reading: (1) the guard's mana arithmetic decides ~0.5% of realized
+casts post-fix and is wrong when it decides; (2) the 89.8K WAITs of the
+hand-basis day-zero read were overwhelmingly rule-3 firings at MISREAD
+mid-stack windows (sorcery-speed spells absent for timing), so the re-read
+should show WAIT collapse to a residual; (3) the coherent rule, if the
+residual matters, is not better mana arithmetic but "a hand spell absent at
+a quiescent main window is conditional — fail the slot (a revision is cheap
+under release) unless NO cast variant of the card is legal" — deferred to
+the re-read (no serve-rule change mid-read; day-zero-gated binding).
 
 **Driver wiring (item 5) BUILT the same afternoon:** `selfplay.py` takes
 `--sched-binding/--sched-basis/--sched-empty-rev/--sched-empty-emit/
