@@ -115,6 +115,26 @@ deployment-time lookahead. Search is amortized at training time; deployment is t
    and snapshot (a one-step `ScheduleDirective` with horizon "after this action"); Python: the
    critic on the resulting state vs the rollout spread, Spearman within window on the harvest's
    806 points. One session; decides Fork C.
+   **As built (2026-09-05, user-adjudicated):** the harvest's rolled-out windows replay through the
+   `-forceschedule` lane with their own arms at K=8/h2 **and `-forkobs`** (the exclusion lifted;
+   `doSchedRollouts` opens fork-store sessions with arm-aware synthetic ids and `"a"` in the fork
+   header — recording only, no game-path change; the ADR-0025 jar proof is DEFERRED to the first
+   jar that generates a training store, Build 2). Every completion's decision windows are stored,
+   so one lane reads several cells: the critic at the first window of turn t+1 (**eot** — the
+   cheap labeler's horizon) and at the last window before the h2 stop, from roll 0 alone (K=1)
+   and averaged over the 8 rolls, for the full-vis critic of record AND the policy's masked value
+   head (the deployment critic; a separate read, ADR-0097); plus the cost-matched comparators
+   (one rollout's composite vs the other seven; the label's own split-half on the same sample).
+   Score per arm = mean over rolls of V(arm) − V(natural), paired by roll seed. Script:
+   `scripts/critic_lookahead_read.py`.
+   **PRE-REGISTERED bars** on the headline cell (full-vis / eot / K=1 vs the 8-roll composite;
+   mean within-window Spearman, windows with ≥ 3 scored arms): **≥ 0.40 ADOPT** (critic
+   lookahead labels most windows; rollouts certify the pivotality-aimed stratum only);
+   **0.20–0.40 HYBRID** (critic aims and pre-filters; rollouts stay the label of record);
+   **< 0.20 RETIRE** (rollouts only; lookahead survives as a deployment-gate question). Reference
+   points: label reliability 0.66 at K=8 (observable ceiling ≈ 0.8), the label's split-half 0.50,
+   the frozen-trunk scorer probe 0.08. Scale: a 200-window uniform subset (seed 20260905) read hot,
+   the full 806 overnight decides.
 1. **Option-content encoding + scorer head on a trainable trunk**, fitted on mint + harvest
    spreads (3,475 windows, ~45K option scores); read = Spearman/AUC vs the frozen probe at equal
    N and the learning curve. The first build read; the KILL lives here.
