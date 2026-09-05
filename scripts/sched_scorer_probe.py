@@ -214,6 +214,56 @@ def train_eval(windows: list[dict], frac: float, seed: int, dev, epochs: int = 6
             "gate_recall": round(gate_tp / max(1, cert_n), 3), "windows_with_certified": cert_n}
 
 
+def pivotality_eval(windows: list[dict], frac: float, seed: int, dev, d_state: int, epochs: int = 80) -> dict:
+    """State-level PIVOTALITY: from the [STATE] read-out alone, predict whether the
+    window has an arm at/above θ (the search certified something) — AUC on
+    game-hash holdout; also the top-decile precision (certify-by-scorer yield)."""
+    rng = random.Random(seed)
+    def hold(w):
+        h = hashlib.blake2b(repr(w["key"][:2]).encode(), digest_size=8).digest()
+        return int.from_bytes(h, "big") / 2**64 < 0.25
+    test = [w for w in windows if hold(w)]
+    train = [w for w in windows if not hold(w)]
+    rng.shuffle(train)
+    train = train[: max(8, int(len(train) * frac))]
+    def xy(ws):
+        x = torch.stack([w["x"][0, :d_state] for w in ws]).to(dev)
+        y = torch.tensor([1.0 if max(w["score"]) >= 2.0 else 0.0 for w in ws]).to(dev)
+        return x, y
+    xtr, ytr = xy(train)
+    xte, yte = xy(test)
+    torch.manual_seed(seed)
+    net = torch.nn.Sequential(torch.nn.Linear(d_state, 128), torch.nn.GELU(), torch.nn.Dropout(0.2),
+                              torch.nn.Linear(128, 1)).to(dev)
+    opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-2)
+    pos = ytr.mean().clamp(min=1e-3)
+    for _ in range(epochs):
+        net.train()
+        perm = torch.randperm(len(xtr), device=dev)
+        for i in range(0, len(xtr), 64):
+            idx = perm[i:i + 64]
+            logit = net(xtr[idx]).squeeze(-1)
+            loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                logit, ytr[idx], pos_weight=((1 - pos) / pos))
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+    net.eval()
+    with torch.no_grad():
+        p = net(xte).squeeze(-1).cpu().tolist()
+    y = yte.cpu().tolist()
+    # AUC by rank statistic
+    pairs = [(pi, yi) for pi, yi in zip(p, y)]
+    pos_s = [pi for pi, yi in pairs if yi == 1]
+    neg_s = [pi for pi, yi in pairs if yi == 0]
+    auc = sum((1.0 if a > b else 0.5 if a == b else 0.0) for a in pos_s for b in neg_s) / max(1, len(pos_s) * len(neg_s))
+    order = sorted(range(len(p)), key=lambda i: -p[i])
+    k = max(1, len(order) // 10)
+    top_dec = sum(y[i] for i in order[:k]) / k
+    return {"frac": frac, "n_train": len(train), "n_test": len(test), "base_rate": round(sum(y) / len(y), 3),
+            "auc": round(auc, 3), "top_decile_precision": round(top_dec, 3)}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", default=str(REPO / "data/training/m10-planner-distill-hand2/last.pt"))
@@ -221,6 +271,7 @@ def main() -> None:
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--arch", choices=["mlp", "linear"], default="mlp")
     ap.add_argument("--feats", choices=["all", "arms", "state"], default="all")
+    ap.add_argument("--task", choices=["rank", "pivotality"], default="rank")
     a = ap.parse_args()
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     windows = featurize(a, dev)
@@ -228,6 +279,15 @@ def main() -> None:
     print(f"[scorer] {len(windows)} windows, {n_arms} (window, arm) pairs featurized")
     d_state = (windows[0]["x"].shape[-1] - 1) // 3  # [state d | mean d | sum d | len]
     res = {"windows": len(windows), "pairs": n_arms, "arch": a.arch, "feats": a.feats, "curve": []}
+    if a.task == "pivotality":
+        res["pivotality"] = []
+        for frac in (0.25, 0.5, 1.0):
+            rs = [pivotality_eval(windows, frac, seed, dev, d_state) for seed in range(a.seeds)]
+            agg = {k: (round(sum(r[k] for r in rs) / len(rs), 3) if isinstance(rs[0][k], float) else rs[0][k]) for k in rs[0]}
+            res["pivotality"].append(agg)
+            print(f"[pivotality] frac {frac}: {agg}")
+        json.dump(res, open(a.out, "w"), indent=2)
+        return
     for frac in (0.25, 0.5, 1.0):
         rs = [train_eval(windows, frac, seed, dev, arch=a.arch, feats=a.feats, d_state=d_state)
               for seed in range(a.seeds)]
