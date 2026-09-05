@@ -148,7 +148,17 @@ def featurize(args, dev) -> list[dict]:
     return windows
 
 
-def train_eval(windows: list[dict], frac: float, seed: int, dev, epochs: int = 60) -> dict:
+def _slice(x: torch.Tensor, feats: str, d: int) -> torch.Tensor:
+    """feature ablation: all | arms (pooled keys + len only) | state (state only)"""
+    if feats == "arms":
+        return x[:, d:]
+    if feats == "state":
+        return x[:, :d]
+    return x
+
+
+def train_eval(windows: list[dict], frac: float, seed: int, dev, epochs: int = 60,
+               arch: str = "mlp", feats: str = "all", d_state: int = 0) -> dict:
     rng = random.Random(seed)
     def hold(w):
         h = hashlib.blake2b(repr(w["key"][:2]).encode(), digest_size=8).digest()
@@ -157,16 +167,20 @@ def train_eval(windows: list[dict], frac: float, seed: int, dev, epochs: int = 6
     train = [w for w in windows if not hold(w)]
     rng.shuffle(train)
     train = train[: max(8, int(len(train) * frac))]
-    d_in = windows[0]["x"].shape[-1]
+    d_in = _slice(windows[0]["x"], feats, d_state).shape[-1]
     torch.manual_seed(seed)
-    net = torch.nn.Sequential(torch.nn.Linear(d_in, 256), torch.nn.GELU(), torch.nn.Dropout(0.1),
-                              torch.nn.Linear(256, 64), torch.nn.GELU(), torch.nn.Linear(64, 1)).to(dev)
-    opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-2)
+    if arch == "linear":
+        net = torch.nn.Linear(d_in, 1).to(dev)
+        opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-1)
+    else:
+        net = torch.nn.Sequential(torch.nn.Linear(d_in, 256), torch.nn.GELU(), torch.nn.Dropout(0.1),
+                                  torch.nn.Linear(256, 64), torch.nn.GELU(), torch.nn.Linear(64, 1)).to(dev)
+        opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-2)
     for _ in range(epochs):
         rng.shuffle(train)
         net.train()
         for w in train:
-            x = w["x"].to(dev)
+            x = _slice(w["x"], feats, d_state).to(dev)
             y = w["y"].to(dev)
             p = net(x).squeeze(-1)
             # pairwise ranking within the window + a small MSE anchor on scale
@@ -181,7 +195,7 @@ def train_eval(windows: list[dict], frac: float, seed: int, dev, epochs: int = 6
     rhos, top1, gate_tp, gate_fp, cert_n = [], 0, 0, 0, 0
     with torch.no_grad():
         for w in test:
-            p = net(w["x"].to(dev)).squeeze(-1).cpu().tolist()
+            p = net(_slice(w["x"], feats, d_state).to(dev)).squeeze(-1).cpu().tolist()
             y = w["y"].tolist()
             rhos.append(spearman(p, y))
             top1 += int(max(range(len(p)), key=lambda i: p[i]) == max(range(len(y)), key=lambda i: y[i]))
@@ -205,14 +219,18 @@ def main() -> None:
     ap.add_argument("--ckpt", default=str(REPO / "data/training/m10-planner-distill-hand2/last.pt"))
     ap.add_argument("--out", default=str(REPO / "data/runs/sched-scorer-probe.json"))
     ap.add_argument("--seeds", type=int, default=3)
+    ap.add_argument("--arch", choices=["mlp", "linear"], default="mlp")
+    ap.add_argument("--feats", choices=["all", "arms", "state"], default="all")
     a = ap.parse_args()
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     windows = featurize(a, dev)
     n_arms = sum(len(w["arm"]) for w in windows)
     print(f"[scorer] {len(windows)} windows, {n_arms} (window, arm) pairs featurized")
-    res = {"windows": len(windows), "pairs": n_arms, "curve": []}
+    d_state = (windows[0]["x"].shape[-1] - 1) // 3  # [state d | mean d | sum d | len]
+    res = {"windows": len(windows), "pairs": n_arms, "arch": a.arch, "feats": a.feats, "curve": []}
     for frac in (0.25, 0.5, 1.0):
-        rs = [train_eval(windows, frac, seed, dev) for seed in range(a.seeds)]
+        rs = [train_eval(windows, frac, seed, dev, arch=a.arch, feats=a.feats, d_state=d_state)
+              for seed in range(a.seeds)]
         agg = {k: (round(sum(r[k] for r in rs) / len(rs), 3) if isinstance(rs[0][k], float) else rs[0][k]) for k in rs[0]}
         res["curve"].append(agg)
         print(f"[scorer] frac {frac}: {agg}")
