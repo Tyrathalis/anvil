@@ -1494,6 +1494,39 @@ shipping builds to other people's machines.
 > the STALE 2.0.14 jar/apk won over the fresh 2.0.15 build — the Android
 > script actually signed and staged the Aug-2 APK before the catch; both
 > now select newest-by-mtime.**
+>
+> **Upstream sync PUBLISHED as v23 2026-09-05 (`d5daf04f23`, version
+> `2.0.15-SNAPSHOT-09.05`; desktop + Android together): `playable` merged
+> onto upstream master `89806371a4d` — 108 upstream commits since the v16
+> sync point `23c3d2a85d`; versionCode still 2.0.15.** Four conflict files,
+> none in fork-only code: `FCollectionTest` (upstream replaced the racy test
+> with a deterministic one, #11677 — our synchronized workaround dropped),
+> `Forge.java` (kept `parseTapAngle`; upstream's neighbouring deletions were
+> its render refactor), `Graphics.java` (upstream moved every shader into
+> `ShaderUtil`; kept only our `resize()` re-projection), `SettingsScene`
+> (kept the tap-angle + alt-zone-tab selectors on upstream's local
+> `localizer`). **One follow-through the compiler forced (item 4's resize
+> fix):** upstream moved the transition batch out of `Forge` into a new
+> `Adventure` singleton and turned `FrameRate` into a singleton drawing
+> through the main `Graphics` batch — so `Adventure` gained a `resize()`
+> that re-projects its batches, `Forge.resize()` calls it, and the FrameRate
+> re-projection is gone because it now rides on `Graphics.resize()`.
+> Verified by driving the jar (isolated `-Duser.home`, `xdotool
+> windowsize`, `import -window`): the mode menu re-lays out correctly at
+> 1000×760 and 1500×640. Desktop suite 528 green (11 skipped) under an
+> isolated home. Fork delta vs upstream is the same 204 files before and
+> after the merge (nothing leaked either way). Post-publish routine in full:
+> published jar sha256 = local and appears in the manifest; stamps match
+> (`build.txt` = desktop jar's, Android uploaded first); the published
+> manifest parses through the shipped jar's own `DeltaManifest.parse` via
+> jshell (55,022 files, version + commit correct, space-path entry present);
+> raw fetches at the manifest commit hash-match for two new upstream cards
+> and `res/chronicle/rivals.txt`; `commits/playable.atom` 200s. Android APK
+> re-signed [v2,v3] same debug keystore, staged to Syncthing; the stale
+> 08.22 and 08.23 APK assets deleted from the release. Pipeline note: `mvn
+> -rf :forge-gui-mobile` cannot resume a `-pl … -am` reactor build (sibling
+> modules are not installed), so re-run the full command — it is incremental
+> anyway.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
