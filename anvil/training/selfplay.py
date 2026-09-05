@@ -214,6 +214,40 @@ def paired_read_cmd(a, ckpt: str, tag: str, jar: str) -> list[str]:
     return cmd
 
 
+PAIRED_HEARTBEAT_S = 300  # progress row cadence during a paired read (watchd stall is 75 min)
+
+
+def _paired_run_dir(log: Path) -> "str | None":
+    """The read script's run dir from its opening narration line, once written."""
+    try:
+        for line in log.read_text().splitlines():
+            if line.startswith("[paired] run "):
+                return line[len("[paired] run "):].split(":")[0].strip()
+    except OSError:
+        pass
+    return None
+
+
+def paired_progress(run_dir: "str | None") -> dict:
+    """Per-side completed rolls + crashes from the run dir's lane outputs
+    (lanes-A/lane-*.out.jsonl, one JSON row per completed roll). Empty
+    counts before the run dir exists."""
+    row: dict = {"rolls_a": 0, "rolls_b": 0, "crashes_a": 0, "crashes_b": 0}
+    if not run_dir:
+        return row
+    for side in ("A", "B"):
+        for f in glob.glob(str(Path(run_dir) / f"lanes-{side}" / "lane-*.out.jsonl")):
+            try:
+                with open(f) as fh:
+                    for line in fh:
+                        row[f"rolls_{side.lower()}"] += 1
+                        if '"crash":true' in line:
+                            row[f"crashes_{side.lower()}"] += 1
+            except OSError:
+                continue
+    return row
+
+
 def _paired_read(a, state: dict, state_path: Path, out: Path, ckpt: str, tag: str) -> dict:
     """The stratified paired strength read (ADR-0094 Fork 4; the PRIMARY
     read) on `ckpt`, recorded in loop_state under paired_<tag> (idempotent
@@ -229,14 +263,31 @@ def _paired_read(a, state: dict, state_path: Path, out: Path, ckpt: str, tag: st
     cmd = paired_read_cmd(a, ckpt, tag, jar)
     print(f"[selfplay] paired read {tag}: {' '.join(cmd)}")
     t0 = time.monotonic()
+    # The read script narrates only at start and end; its progress lives in
+    # the run dir's per-lane files under data/runs. The watcher is keyed on
+    # OUR dir, so a blocking wait read as a 75-min stall (false STALLED
+    # notice, 2026-09-04 17:50). Poll instead: every PAIRED_HEARTBEAT_S
+    # append one telemetry row (per-side rolls, crashes) beside the loop —
+    # the watcher's heartbeat and the read's monitor curve in one artifact.
+    progress = out / f"paired-{tag}.progress.jsonl"
+    run_dir = None
     with open(log, "w") as lf:
-        rc = subprocess.run(cmd, stdout=lf, stderr=subprocess.STDOUT, cwd=str(REPO)).returncode
+        proc = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT, cwd=str(REPO))
+        next_beat = time.monotonic() + PAIRED_HEARTBEAT_S
+        while proc.poll() is None:
+            time.sleep(5.0)
+            if run_dir is None:
+                run_dir = _paired_run_dir(log)
+            if time.monotonic() >= next_beat:
+                next_beat = time.monotonic() + PAIRED_HEARTBEAT_S
+                row = {"t": time.strftime("%Y-%m-%dT%H:%M:%S"), "tag": tag,
+                       "elapsed_s": round(time.monotonic() - t0), **paired_progress(run_dir)}
+                with open(progress, "a") as pf:
+                    pf.write(json.dumps(row) + "\n")
+        rc = proc.returncode
     if rc != 0:
         raise RuntimeError(f"paired read {tag} exited {rc}; see {log}")
-    run_dir = None
-    for line in log.read_text().splitlines():
-        if line.startswith("[paired] run "):
-            run_dir = line[len("[paired] run "):].split(":")[0].strip()
+    run_dir = run_dir or _paired_run_dir(log)
     if run_dir is None or not (Path(run_dir) / "read.json").exists():
         raise RuntimeError(f"paired read {tag}: no read.json behind {log}")
     res = json.loads((Path(run_dir) / "read.json").read_text())

@@ -4,7 +4,7 @@ function of the args, and the paired read command carries the same regime."""
 
 import argparse
 
-from anvil.training.selfplay import PAIRED_CKPT_MAIN, paired_read_cmd, sched_flags
+from anvil.training.selfplay import PAIRED_CKPT_MAIN, paired_progress, paired_read_cmd, sched_flags
 
 
 def _args(**kw):
@@ -40,3 +40,17 @@ def test_paired_read_cmd_mirrors_regime():
     # legal basis / hold rule / no limit: none of the optional flags ride
     cmd0 = paired_read_cmd(_args(sched_binding="all"), "c.pt", "final", "j")
     assert not ({"--basis", "--empty-rev", "--empty-emit", "--limit"} & set(cmd0))
+
+
+def test_paired_progress_counts_lane_rows(tmp_path):
+    """The paired-read heartbeat: per-side rolls + crashes from the lane
+    outputs; zeros before the run dir exists (no false STALLED notices)."""
+    assert paired_progress(None) == {"rolls_a": 0, "rolls_b": 0, "crashes_a": 0, "crashes_b": 0}
+    for side, rows in (("A", ['{"ev":"sched","crash":false}', '{"ev":"sched","crash":true}']),
+                       ("B", ['{"ev":"sched","crash":false}'] * 3)):
+        d = tmp_path / f"lanes-{side}"
+        d.mkdir()
+        (d / "lane-0.out.jsonl").write_text("\n".join(rows) + "\n")
+        (d / "lane-1.out.jsonl").write_text('{"ev":"sched","crash":false}\n')
+        (d / "lane-1.sh").write_text("echo not counted\n")
+    assert paired_progress(str(tmp_path)) == {"rolls_a": 3, "rolls_b": 4, "crashes_a": 1, "crashes_b": 0}
