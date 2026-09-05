@@ -266,6 +266,11 @@ silently delete.
   (the distilled planner read −6.7pp as pinned and −4.5pp binding its
   first slot alone; the damage is monotone in the amount bound)
   ([ADR-0095](decisions/ADR-0095-m10-dayzero-read.md)).
+- **One decision MECHANISM per milestone; surfaces attribute through
+  per-tag reads** (the certifier's per-tag spreads + the paired read with
+  the mask closed per tag) — amends design-doc §3d′'s "one decision
+  surface per milestone", which still binds any surface lacking its own
+  per-tag read ([ADR-0097](decisions/ADR-0097-m11-charter-adjudication.md)).
 - **Design forks lead with the simpler, more coherent architecture and
   price its extra data/compute honestly** (user principle, stated at the
   M10 reset), **and a build is staged around its cheapest decisive read**

@@ -130,8 +130,12 @@ revealed-info memory beyond the `HISTORY_K` window.
 
 **Standing rule:** every expansion follows the §3c template — probe the
 premise, build behind an engine capability audit, attribute with its own
-pre-registered read. One decision surface per milestone (the M9 lesson:
-attribution dies at two).
+pre-registered read. One decision MECHANISM per milestone; surfaces attribute
+through per-tag reads (the certifier's per-tag spreads + the paired read with
+the mask closed per tag) — amended 2026-09-05 at
+[ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md); originally "one
+decision surface per milestone" (the M9 lesson: attribution dies at two), which
+still binds any surface lacking its own per-tag read.
 
 ### 3d. Concession & degenerate endings
 - Engine-side: repetition detection via the canonicalization hash (recurring canonical state, no progress delta); CR-compliant loop handling (mandatory loops draw, optional loops shortcut with declared iteration counts) enforced as caps and shortcuts, never simulated at length. Turn/decision caps with **cap-aware reward design** — draws must not be exploitable by a stalling leader.
