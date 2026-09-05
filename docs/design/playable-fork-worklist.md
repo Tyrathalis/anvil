@@ -1527,6 +1527,41 @@ shipping builds to other people's machines.
 > -rf :forge-gui-mobile` cannot resume a `-pl … -am` reactor build (sibling
 > modules are not installed), so re-run the full command — it is incremental
 > anyway.
+>
+> **v24 PUBLISHED 2026-09-05 (`fe86deded9`, same version stamp
+> `2.0.15-SNAPSHOT-09.05`, desktop + Android): the Android res refresh had
+> NEVER run on device between versionCode bumps.** Diagnosed from the
+> user's report that the v23 APK installed with no second data download,
+> the same defect as the 08-23 missing `rivals.txt`. Mechanism:
+> `AssetsDownloader`'s Android startup fallback returns early when the
+> APK's `versionName` equals the version saved after the last res
+> download — BEFORE it compares build stamps or prices the res delta.
+> `versionName` comes from the Android manifest, not the dated
+> `version.txt`, and the `android-debug` profile's `manifest-merger`
+> execution had no `manifestVersionName` (the release profiles do), so
+> every fork APK since v16 carried the bare `2.0.15-SNAPSHOT`. v16's
+> 2.0.14→2.0.15 bump opened the gate once; v17–v23 all closed it. The
+> Android delta path (item 2's mobile half) had therefore never executed
+> on a real phone. Fix, three parts: (1) the debug profile stamps
+> `versionName` with `${snapshot-version}` — as a side effect the merger
+> derives `versionCode` from it (200001500 → 200150905, a proper upgrade);
+> (2) the gate also requires the installed `res/build.txt` to equal the
+> APK's, so a bare versionName can never re-close it; (3) the Android diff
+> skips `.xcf` manifest entries that `assets.zip` never ships (13 files
+> that would otherwise be fetched as "missing" on the first real run).
+> Published with the desktop jar rebuilt (the guard lives in shared mobile
+> code) so the shared `build.txt` stays the desktop stamp; post-publish
+> routine in full. **Known residue:** the size-only diff cannot see the
+> three loose files this sync changed at equal size (`shops.json`,
+> `Conflux.txt`, `Spotlight Series.txt`); they refresh at the next
+> full-package pull. **Watch (inherited from upstream):** `versionCode`
+> now derives from `2.0.15` + `MM.dd`, so a year rollover before upstream
+> bumps 2.0.15 would produce a LOWER code and the installer would refuse
+> the update as a downgrade. **Unverified until the phone boots it:** the
+> expected sequence is APK offer (published build 22:55:33 is after the
+> phone's 22:30:07) → install → "updated resource files … only changed
+> files will be fetched: N file(s) … plus a refreshed card archive" →
+> delta applied → restart.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
