@@ -125,6 +125,12 @@ message DecisionResponse {
   }
   bool fallback = 8;             // server declines; worker answers locally, tags it
   bytes yield_directive = 9;     // reserved, M1 (design §3b macro-stops)
+  // M10 reset Fork 3 (inline certification): the server's answer to the
+  // "anvil.certify" ask at a fork point — the enumerated schedule ARMS as
+  // ordered option-index lists (armId = position + 1; the natural line is
+  // implicit). Empty = no rollouts at this window (declined by rate, or the
+  // window is ineligible). General shape: a list of ordered index lists.
+  repeated IndexList index_lists = 10;
 }
 
 message Construct {

@@ -367,3 +367,11 @@ help.** Opening instants under WAIT did not rescue it.
 distillation is better labels, not a training loop; a training run is NOT launched on
 this baseline without the user's call). Facts recorded here; the adjudication and its
 routing go in a further addendum / ADR.
+
+**ADJUDICATED (user, 2026-09-04 evening): option 1 — follow the mid-point rule as
+pinned.** A planner distilled from the executor's own lines cannot beat the executor when
+bound (at best a tie, minus commitment); better labels are the fix, and the reset's label
+source is the inline certifier (Fork 3). Session two REORDERS: item 4 (the inline
+certifier) is built first and run under ADVISORY generation to harvest search-adjudicated
+labels; those distill into the planner; this read re-runs on the same population as the
+gate. Planner PG + KL (items 2–3) follow the gate. No training launch on the −2.33 baseline.

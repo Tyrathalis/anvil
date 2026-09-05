@@ -220,6 +220,10 @@ class Run:
             if m.get("seq_arms"):
                 # M8 D1: single-natural-arm OBSERVE mode ('nat')
                 cmd += ["-seqarms", str(m["seq_arms"])]
+        if m.get("certify_horizon") is not None:
+            # M10 reset Fork 3: inline certification (arms decided at the
+            # window by the bridge; rate = the server's --certify-rate)
+            cmd += ["-certify", str(m["certify_horizon"])]
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
         # Forge's Main inits Sentry + AWT before CLI dispatch; with no
@@ -424,7 +428,7 @@ def launch(a) -> Path:
         # reached Forge's GUI bug-report dialog and wedged two headless
         # workers forever (model-mirror run, 2026-07-12). The fork also
         # installs a headless uncaught handler; this is the JVM-level belt.
-        "heap": "2g",
+        "heap": getattr(a, "heap", None) or "2g",
         "jvm_opts": ["-XX:ActiveProcessorCount=2", "-XX:+ExitOnOutOfMemoryError"],
         "bridge": a.bridge,
         "tags": a.tags,
@@ -445,6 +449,8 @@ def launch(a) -> Path:
         "force_branch": getattr(a, "force_branch", False),
         "force_seq": getattr(a, "force_seq", None),
         "seq_arms": getattr(a, "seq_arms", None),
+        # M10 reset Fork 3: inline certification horizon (None = off)
+        "certify_horizon": getattr(a, "certify", None),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(

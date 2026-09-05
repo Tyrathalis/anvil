@@ -37,6 +37,7 @@ from pathlib import Path
 
 import grpc
 
+from anvil.bridge.certify import CERTIFY_TAG, Certifier
 from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 
@@ -582,11 +583,17 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         deadline_ms: int = 5000,
         backend: ModelBackend | None = None,
         drill_backend: ModelBackend | None = None,
+        certifier=None,
     ):
         self.mode = mode
         self.bridged_tags = bridged_tags
         self.deadline_ms = deadline_ms
         self.backend = backend
+        # M10 reset Fork 3: inline certification — the worker's fork-point
+        # "which arms?" ask (anvil.certify) is answered here, model-free
+        # (rate gate + eligibility + the sweep's arm enumeration); None = the
+        # tag is not served (an ask would fall back = no rollouts).
+        self.certifier = certifier
         # Dual-policy drill serving (M4 D2.4): fork wire sessions (wid
         # contains ".f", e.g. "g42.f0r3") are answered by drill_backend while
         # the mainline replay stays on the pinned backend — per-checkpoint
@@ -659,7 +666,9 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 self.requests_by_tag[msg.request.decision_tag] += 1
                 if use_drill:
                     self.drill_requests += 1
-                if self.mode == "model":
+                if msg.request.decision_tag == CERTIFY_TAG:
+                    yield pb.ServerMsg(response=self._certify_answer(msg.request, game_seed))
+                elif self.mode == "model":
                     yield pb.ServerMsg(
                         response=self._model_answer(
                             msg.request,
@@ -675,6 +684,26 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             elif kind == "ping":
                 yield pb.ServerMsg(ping=msg.ping)
         print(f"[server] stream closed: worker={worker}")
+
+    def _certify_answer(self, req: pb.DecisionRequest, game_seed: int) -> pb.DecisionResponse:
+        """anvil.certify: the fork point's arm set as index lists; empty (no
+        index_lists) = no rollouts. Any error is a loud empty answer — a
+        missed certification costs a label, never a game."""
+        resp = pb.DecisionResponse(decision_seq=req.decision_seq)
+        if self.certifier is None or not req.observation:
+            self.fallbacks[req.decision_tag] += 1
+            return resp
+        try:
+            peek = json.loads(req.observation)
+            labels = [o.label for o in req.options]
+            arms = self.certifier.arms(peek, labels, game_seed)
+        except Exception as e:  # noqa: BLE001
+            print(f"[server] CERTIFY ERROR seq={req.decision_seq}: {e!r}")
+            self.fallbacks[req.decision_tag] += 1
+            return resp
+        for arm in arms:
+            resp.index_lists.add().indices.extend(arm)
+        return resp
 
     def _model_answer(
         self,
@@ -704,6 +733,8 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         lines += [f"  {t}: {n}" for t, n in self.requests_by_tag.most_common()]
         if self.fallbacks:
             lines += [f"  FALLBACK {t}: {n}" for t, n in self.fallbacks.most_common()]
+        if self.certifier is not None:
+            lines += [f"  certify {k}: {n}" for k, n in self.certifier.counts.most_common()]
         if self.backend is not None:
             lines += [f"  model {k}: {n}" for k, n in self.backend.counts.most_common()]
         return "\n".join(lines)
@@ -713,6 +744,19 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=50051)
     ap.add_argument("--mode", choices=["echo", "random", "model"], default="echo")
+    ap.add_argument(
+        "--certify-rate",
+        type=float,
+        default=0.0,
+        help="M10 reset Fork 3 inline certification: answer the worker's "
+        "fork-point anvil.certify ask with schedule arms at this rate "
+        "(deterministic in game seed/turn/seat; 0 = off = the tag is not "
+        "served). Rate 0.02 for probe7 (draft §D.3).",
+    )
+    ap.add_argument("--certify-arm-cap", type=int, default=None,
+                    help="arms per certified point (default sched_pins.ARM_CAP)")
+    ap.add_argument("--certify-salt", type=int, default=0,
+                    help="rate-gate salt (a second harvest of the same games picks other windows)")
     ap.add_argument(
         "--tags",
         default=None,
@@ -900,8 +944,14 @@ def main() -> None:
             else DEFAULT_TAGS
         )
     )
+    certifier = None
+    if args.certify_rate > 0:
+        certifier = Certifier(args.certify_rate, arm_cap=args.certify_arm_cap, salt=args.certify_salt)
+        tags = tags + "," + CERTIFY_TAG
+        print(f"[server] inline certification ON: rate {args.certify_rate} arm cap {certifier.arm_cap}")
     servicer = DecisionServicer(
-        args.mode, tags.split(","), backend=backend, drill_backend=drill_backend
+        args.mode, tags.split(","), backend=backend, drill_backend=drill_backend,
+        certifier=certifier,
     )
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=32))
     pb_grpc.add_DecisionBridgeServicer_to_server(servicer, server)
@@ -935,6 +985,8 @@ def main() -> None:
                 if drill_backend.sched_serve is not None:
                     dump.update({"drill_" + k: v for k, v in drill_backend.sched_serve.counts.items()})
             dump["fallbacks"] = dict(servicer.fallbacks)
+            if servicer.certifier is not None:
+                dump.update({"certify_" + k: v for k, v in servicer.certifier.counts.items()})
             Path(counts_path).write_text(json.dumps(dump, indent=1) + "\n")
         server.stop(grace=1)
 

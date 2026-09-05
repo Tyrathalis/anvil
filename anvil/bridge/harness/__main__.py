@@ -132,6 +132,23 @@ def main() -> None:
         "planner assigns and the manifest records it)",
     )
     la.add_argument(
+        "--certify",
+        type=int,
+        default=None,
+        metavar="HORIZON",
+        help="M10 reset Fork 3 inline certification: at -points-sampled quiescent "
+        "MAIN1 fork points the worker asks the bridge for schedule arms and "
+        "rolls them out K times to this turn horizon (0 = natural end); the "
+        "server's --certify-rate is the accept gate (requires --rollout-k; "
+        "excludes --fork-obs/--drill-file/--force-branch/--force-seq)",
+    )
+    la.add_argument(
+        "--heap",
+        default="2g",
+        help="worker JVM heap (-Xms/-Xmx); certifying workers run 4g (the mint's "
+        "AiCache mainline-accumulation OOM class)",
+    )
+    la.add_argument(
         "--force-branch",
         action="store_true",
         help="forced-branch paired rollouts (M7 D2): act/hold "

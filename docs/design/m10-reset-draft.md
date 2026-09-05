@@ -863,3 +863,67 @@ on resume; the read's `read.json` is copied beside the loop as
 `paired-<tag>.json`. The command mirrors the regime (basis / empty-rev /
 empty-emit) and uses the harness's newest-jar rule.
 
+
+## K. Build status — the inline certifier (session two item 4, 2026-09-04 evening)
+
+Built after the day-zero HALT adjudication (ADR-0095 addendum: better labels
+before any training). Every piece reuses the pinned machinery where it is
+pinned; the new surface is the per-window decision of WHICH arms, made over
+the wire instead of from a launch-time TSV.
+
+- **Protocol.** `DecisionResponse.index_lists` (field 10, `repeated
+  IndexList`): a list of ordered option-index lists — the general shape for
+  "arms". Python stubs regenerated (grpc_tools), the fork's proto copy synced.
+- **Java worker.** `AnvilRun -certify <horizon>` (requires `-rollout k` +
+  `-labels`; excludes forkobs/forcebranch/forceseq/drillfile/forceschedule):
+  at each `-points`-sampled quiescent MAIN1 fork point of a BRIDGED active
+  seat, `RolloutMonitor.doCertifyRollouts` scans the options
+  (`AnvilOptions.priorityOptions`), renders `Obs.peekPriority` (a dec-shaped
+  record — turn/phase/seat, structured opts, obs snapshot — that touches no
+  session, seq id, history ring or store frame; the mainline's own dec for
+  the window is logged by the controller's ask that follows), and asks the
+  bridge `anvil.certify` (`AnvilBridge.certifyArms`, `GrpcBridge` SELECT_K
+  request with the Census.str option labels). Empty answer = a counted skip
+  row (`skip: declined` / `certify_unserved`). Non-empty = a transient
+  `SchedPoint` (horizon = the flag, seat = the fork seat, arms = the index
+  lists mapped back to labels, joint payment) runs through
+  `doSchedRollouts` UNCHANGED (natural + arms × K, the same completion rows,
+  the same rollSeed identity keyed on the target turn), plus one
+  `sched_arms` labels row carrying the arm definitions. Clock budget counts
+  1 + 16 arms per point.
+- **Python server.** `anvil/bridge/certify.py`: the rate gate is a pure
+  function of (game seed, turn, seat, salt) — a replayed game asks and
+  answers identically; eligibility + enumeration = `schedule_sweep`'s
+  `eligible_turns` rule (≥ 2 affordable casts) and `build_arms` verbatim on
+  the peek's opts + obs (resolve_cost / source_views / can_pay); arms come
+  back as option indices (first-fit by label, the executor's own match
+  convention). `--certify-rate` (0 = off = the tag is not advertised),
+  `--certify-arm-cap`, `--certify-salt`; counters ride `--counts-out` as
+  `certify_*`. Model-free: the ask is answered in the servicer, not the
+  backend.
+- **Harness.** `launch --certify HORIZON --heap 4g` → `run.json`
+  `certify_horizon`/`heap` → worker `-certify`.
+- **Finish** (`scripts/sched_certify_finish.py`): per-worker labels.jsonl
+  (completion rows + `sched_arms`) + the run's INGESTED store → the seed-
+  label format the distiller (`--certified`) and the learner
+  (`--seed-labels/--seed-store`) already consume. Adjudication =
+  `schedule_read.certify_turn` verbatim (select/score split, θ 2.0,
+  consistency 0.75; void arms excluded). Label rule = §D.3: certified arm →
+  `src: certified`, `seq` = the arm's labels at the emission window; natural
+  wins → `src: natural` with the seat's realized casts from the emission
+  window on (`natural_hold` when none) — every rolled-out window yields a
+  label. The ARM SPREAD (per-arm select/score means vs natural) is written
+  beside the labels from the first certification (`.spread.jsonl`; the
+  pivotal-moment head's data). No replay, no parity witness: the labels
+  rejoin the live game's own store row by the emission dec id.
+- **Harvest driver** (`scripts/sched_harvest.py`): the ckpt of record served
+  SAMPLED at the generation temperature with `--fork-instrument` (wire-only
+  completions) and `--certify-rate`; N batches of `launch --certify`;
+  ingest → finish per batch; `harvest-manifest.json` lists the (labels,
+  store) pairs as loader flags; progress rows for the watcher.
+- **Known cost, inherited from the sweep:** arms whose first item has no
+  legal target at the window degrade at step 0 ("veto") and come back VOID
+  (excluded by the adjudicator) — affordability ≠ legality; at instant-heavy
+  windows roughly half the arm rollouts are void. A legality pre-filter on
+  the Java side (drop arms whose first item is not castable now) is the
+  obvious yield fix; deferred until the first harvest's void rate is read.
