@@ -983,6 +983,51 @@ name while sending another's bytes was refused with *"the image does not match
 the sleeve it claims to be"*, writing nothing. The driver is kept for re-running
 it; its javadoc carries the recipe.
 
+## 10. Engine bug: cancelling a cast half-reverses a chained mana ability (Cabal Coffers +2 mana) — upstream PR (found by the user in play, 2026-09-06)
+
+**Symptom (user, 2026-09-06):** start casting a spell, activate Cabal Coffers
+({2},{T}: add {B} per Swamp), tap two lands to pay Coffers' {2}, then back out
+of the cast. Coffers stays tapped and its black mana stays in the pool, but the
+two lands that paid for Coffers untap — two extra mana that turn. Repeatable
+against the AI in the GUI.
+
+**Mechanism (archaeology 2026-09-06, engine `f4824f3d6`-era code, unchanged
+upstream):** `forge-game/.../mana/ManaRefundService.refundManaPaid()` reverses a
+cancelled cast in three steps — (1) move the spell's paid mana back to the
+pool, (2) `am.undo()` on each mana ability that produced it, (3) recursively
+refund each such ability's OWN payment. Step 2's boolean result is ignored:
+`SpellAbility.undo()` returns false when `isUndoable()` fails or when
+`ManaPool.accountFor(getManaPart())` cannot match the produced mana (an
+X-amount producer like Coffers, `Amount$ X`, is the likely miss), and step 3
+runs regardless — the lands' tap-only abilities are undoable, so they untap,
+while Coffers (not undone) stays tapped with its mana in the pool.
+`MagicStack.undo()` (line ~196) has the correct pattern: when `sa.undo()` is
+false it clears the undo stack for that ability's paying mana and refunds
+nothing. CR 728.1: mana abilities activated during an illegal action may be
+reversed only if none of their mana was spent on another mana ability that
+was not reversed — reversal is all-or-nothing down the chain.
+
+**Fix (~5 lines + test):** in `refundManaPaid()`, recurse into an ability's
+payment only when its `undo()` returned true; when it did not, leave the
+ability activated (tapped, mana in pool) and clear its undo-stack entries, as
+the stack path does. Second, check why `accountFor` misses X producers and
+fix that so Coffers reverses cleanly in the common case. Regression test in
+the existing `forge-gui-desktop/src/test/java/forge/game/mana/ManaRefundServiceTest.java`
+(`testManaRefundsToManaPlayer` is the template): Swamps + Coffers, cancel a
+cast after chaining, assert either full reversal or none — never lands
+untapped with Coffers tapped.
+
+**Exposure on the research fork: none today** (why this lives here, not in
+Build 0): bridged-seat vetoes are pre-payment test-mode; the auto-payer tests
+before paying and its candidate filter drops mana abilities that cost mana
+(the Coffers class never enters an AI payment); the M9 directed executor's
+failure leaves mana floating with sources tapped (rules-legal, telemetered as
+float residue), no untap. The playable build is where humans hit it, and
+Mentor would coach a bug. Upstream-PR discipline: small, tested,
+human-reviewed; land on `playable` first, upstream next; the research fork
+picks it up at its next boundary (or as an ADR-0025-exempt commit with the
+forkcheck proof if directed payment ever makes it reachable).
+
 ## Shared user store: the playable build and the research harness read the same decks
 
 Noticed on the instance's first real run (2026-07-27): Deck Manager shows the
@@ -1588,6 +1633,9 @@ shipping builds to other people's machines.
    cheap.
 7. **Item 4 tiers T2/T3** — only if T1's fixed-scale compromise actually annoys
    someone in play. Do not pre-pay for it.
+8. **Item 10** (added 2026-09-06) — the Coffers refund bug: a small upstream
+   PR with a regression test; do it at the next playable session, before the
+   next Commander night, since a human can farm it against the AI.
 
 **Ordering agreed by the user 2026-07-26.** Still not a scheduled milestone, but
 it now has a rough horizon rather than none: Commander night ran on 2026-07-26,
