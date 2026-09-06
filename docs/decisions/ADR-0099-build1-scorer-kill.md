@@ -1,7 +1,7 @@
 # ADR-0099: M11 Build 1 — the option scorer on certifier spreads is KILLED by the pre-registered curve (0.158 at N=607, 0.204 at full N, rising but under the 0.30 bar); the trunk's gradient buys +0.02 over frozen; a length prior explains most of it
 
 - **Date:** 2026-09-06
-- **Status:** PROPOSED — the KILL is adjudicated by the bars; the ROUTE after it is the user's
+- **Status:** ACCEPTED (addendum below: routes R1 and R2 read negative the same day; R3 / R5 remain, the user adjudicates)
   (options below)
 - **Design-doc anchor:** m11-plan.md Build 1 + done-when 2; ADR-0097 (single network, spread
   loss on certified windows); ADR-0096 (the frozen probe at 0.08); ADR-0098 (the one-turn
@@ -92,3 +92,55 @@ learnable; is the head fine on single options); the lean is to run BOTH before a
 - Assets: `option_scorer_fit.py` (build/fit/report), `AnvilNet.score_options`, the 3,655-window
   spread corpus (`m11-scorer-b1/windows.pt`, 44 MB), best-full / best-frozen ckpts (instrument
   only; 276 MB each — kill-list candidates at the route decision).
+
+## Addendum (2026-09-06, same day): routes R1 and R2 READ — both negative; status → ACCEPTED as the mechanism's kill
+
+**R1 — distill one-step lookahead.** The same head fitted on the 655 harvest windows that carry
+cl2's critic targets (502 train / 153 holdout; targets = the full-vis critic's eot Δ, K=1 and K=8):
+
+| target | n_train | full | frozen | vs spread (full) |
+|---|---|---|---|---|
+| critic eot K=1 | 251 | 0.199 | 0.181 | 0.11 |
+| critic eot K=1 | 502 | 0.160 (0.25 / 0.15 / 0.08) | 0.147 | 0.06 |
+| critic eot K=8 | 251 | 0.221 | 0.229 | 0.08 |
+| critic eot K=8 | 502 | 0.165 (0.17 / 0.25 / 0.08) | 0.193 | 0.03 |
+
+Pre-registered: learnability ≥ 0.5 vs the critic targets AND ≥ 0.25 vs spreads → fund a lane.
+**KILL**: the critic's one-ply ranking is no more learnable from (state, option) than the
+rollout spread is — seed variance ±0.08, no rise with N. The critic's 0.30 lives in the
+post-action state, which the head never sees.
+
+**R2 — the single-option surface (payment classes).** 276 observed drill windows (evalset v2 +
+the 13 retired phyrexian positives; 1,258 options; 64 positive), the pointer logits as scores
+(option 0 = auto = 0), three game-hash splits × 2 seeds, N ≈ 205 train / 70 holdout:
+
+| split | full (2 seeds) | frozen (2 seeds) | top-1 | full: auto-correct stratum | full: POSITIVE stratum |
+|---|---|---|---|---|---|
+| 0 | 0.360, 0.368 | 0.360, 0.384 | 0.58–0.65 | 0.53, 0.51 | −0.35, −0.23 |
+| 1 | 0.290, 0.242 | 0.271, 0.257 | 0.47–0.51 | 0.33, 0.36 | 0.18, −0.06 |
+| 2 | 0.230, 0.231 | 0.180, 0.237 | 0.46–0.50 | 0.37, 0.40 | −0.04, −0.10 |
+| mean | **0.287** | 0.282 | | 0.42 | **−0.10** |
+
+Pre-registered (same bands as arms, N ≈ 200): PASS > 0.30 / KILL ≤ 0.15 / between → fund a
+ratesweep-observe lane. The mean lands BETWEEN — but the stratum split says what the 0.29 is:
+on auto-correct windows (81% of the corpus) the head learns that every option is worse than
+auto (the sign of the margin, a base rate); on the POSITIVE windows — the only ones where a
+choice carries the +2.96pp ceiling — it ranks at −0.10 (12 seed×split reads, 10 ≤ 0, at ~16
+holdout positives each). The trunk's gradient adds nothing (0.287 vs 0.282). **Funding more N on
+the strength of the between-band mean would be funding the base rate; the positive stratum is
+the read, and it is null.** (Caveat recorded: 64 positives is a small universe; the ADR-0075
+class-CE competency was measured as memorization of these same windows, ADR-0088.)
+
+**Status → ACCEPTED as the mechanism's kill.** Three surfaces of the option scorer read at or
+below a prior: schedule arms (length prior +0.05), critic-distilled arms (no learnability), and
+single-option payment classes (sign prior on auto-correct; null on positives). The
+representation does not expose within-window option quality from the pre-action state at the
+data scales any certifier of ours produces.
+
+Remaining routes: **R3** (serve-side one-ply lookahead with the masked head as the acting rule,
+margin-gated; a bounded day-zero paired read, ~1 day; abandons amortization) and **R5** (close
+M11 negative; scoping session). Lean: R5, with R3 as the only bounded read left in the family.
+
+Assets from the route reads (instrument only; kill-list candidates at the closeout pass):
+`m11-scorer-r1-k1/`, `m11-scorer-r1-k8/`, `m11-scorer-r2-pay/` (~2.2 GB of best-*.pt ckpts;
+the corpora are small). `option_scorer_fit.py` gains `--targets`, `build-pay`, `--hold-salt`.

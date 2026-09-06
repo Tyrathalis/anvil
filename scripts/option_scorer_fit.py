@@ -52,9 +52,13 @@ BANDS = {"kill_at_607": 0.15, "pass": 0.30, "pivotality_auc": 0.70, "probe_n": 6
 HOLD_FRAC = 0.25
 
 
+HOLD_SALT = {"v": ""}  # --hold-salt: a different game-hash holdout (small corpora read 3 splits)
+
+
 def hold(key) -> bool:
     """game-hash holdout on (store, g) — the probe's split, so the read is comparable."""
-    h = hashlib.blake2b(repr(tuple(key[:2])).encode(), digest_size=8).digest()
+    k = tuple(key) if key[0] == "pay" else tuple(key[:2])  # pay windows are one census game each
+    h = hashlib.blake2b((repr(k) + HOLD_SALT["v"]).encode(), digest_size=8).digest()
     return int.from_bytes(h, "big") / 2**64 < HOLD_FRAC
 
 
@@ -205,6 +209,89 @@ def build(args) -> None:
           f"holdout {sum(hold(w['key']) for w in windows)}")
 
 
+# ---------------------------------------------------------------- build-pay (R2, ADR-0099)
+
+PAY_OBSERVE = REPO / "data/census/run-20260828-revalidation-cousins"
+PAY_CERTOUT = {"b1": "data/census/run-20260820-paygoals3/certify.out.jsonl",
+               "b2": "data/census/run-20260820-paygoals3/certify2.out.jsonl",
+               "b3": "data/census/run-20260820-paygoals3/certify3.out.jsonl",
+               "b4": "data/census/run-20260821-handbuilt/certify4.out.jsonl"}
+
+
+@torch.no_grad()
+def build_pay(args) -> None:
+    """The SINGLE-OPTION surface: ADR-0075/0082 payment-class drills as
+    per-option spreads. Options = the observe frame's goal options (index 0 =
+    auto = the natural line, score 0); target per option = the shape-score
+    margin over arm 0, paired by roll (payment_certify._score verbatim), mean
+    over faithfully-executed rolls. Windows = the 293 observed drills
+    (evalset v2 positives + auto-correct + the 13 retired phyrexian
+    positives, flagged); the ratesweep holdout has no observe frames yet."""
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "scripts"))
+    from payment_certify import _axes, _score
+    from payment_drill_score import _observe_frames
+
+    from anvil.bridge.featurize import Featurizer
+    from anvil.training.dataset import default_methods
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    ck = torch.load(CKPT_INIT, map_location="cpu", weights_only=False)
+    feat = Featurizer(ck["config"]["embed"], default_methods())
+    rows: dict = defaultdict(lambda: defaultdict(list))
+    for b, path in PAY_CERTOUT.items():
+        for ln in open(REPO / path):
+            r = json.loads(ln)
+            if r.get("ev") == "certify":
+                rows[b][(r["job"], r["arm"])].append(r)
+    frames = _observe_frames(sorted(str(p) for p in PAY_OBSERVE.glob("observe-lane-*.obs.zst")))
+    stats: Counter = Counter()
+    windows = []
+    for j in map(json.loads, open(PAY_OBSERVE / "observe-jobs.jsonl")):
+        f = frames.get(j["job"])
+        if f is None:
+            stats["no_frame"] += 1
+            continue
+        header, w = f
+        if len(w["opts"]) != j["exp_options"] + 1:
+            stats["option_mismatch"] += 1
+            continue
+        seat = 0 if j["deck1"].removesuffix(".dck") in j["p"] else 1
+        base = sorted(rows[j["batch"]].get((j["orig_job"], 0), []), key=lambda x: x["roll"])
+        if not base:
+            stats["no_baseline"] += 1
+            continue
+        arms = [{"arm": 0, "idxs": [0], "target": 0.0}]
+        for a in range(1, j["exp_options"] + 1):
+            arows = sorted(rows[j["batch"]].get((j["orig_job"], a), []), key=lambda x: x["roll"])
+            paired = [_score(j["shape"], _axes(r, seat), _axes(bb, seat))
+                      for r, bb in zip(arows, base) if r["fired"] and r.get("exec") == "directed_ok"]
+            if not paired:
+                stats["arm_unexecuted"] += 1
+                continue
+            arms.append({"arm": a, "idxs": [a], "target": float(sum(paired) / len(paired))})
+        if len(arms) < 3:
+            stats["lt3_options"] += 1
+            continue
+        try:
+            ex, _aux = feat.example(w, header, "pay_class")
+        except Exception as e:  # noqa: BLE001
+            stats[f"featurize_{type(e).__name__}"] += 1
+            continue
+        if max(a["arm"] for a in arms) >= ex["cand_rows"].shape[0]:
+            stats["cand_short"] += 1
+            continue
+        ex = {k: v for k, v in ex.items() if torch.is_tensor(v)}
+        windows.append({"key": ("pay", j["batch"], j["orig_job"]), "src": j["shape"], "seat": seat,
+                        "ex": ex, "arms": arms, "certified": j["kind"] == "positive",
+                        "retired": j["batch"] == "b1" and j["shape"] == "phyrexian"})
+        stats["windows"] += 1
+    torch.save({"windows": windows, "stats": dict(stats), "ckpt_init": str(CKPT_INIT), "surface": "pay"}, out / "windows.pt")
+    print(f"[build-pay] {stats} -> {len(windows)} windows, {sum(len(w['arms']) for w in windows)} options; "
+          f"holdout {sum(hold(w['key']) for w in windows)}; certified {sum(w['certified'] for w in windows)}")
+
+
 # ---------------------------------------------------------------- fit
 
 def _net(dev):
@@ -229,6 +316,11 @@ def _net(dev):
     return net, cfg
 
 
+SURFACE = {"mode": "sched"}  # "sched" = plan-type options (score_options); "pay" = the pointer logits
+HEAD_NAMES = {"sched": ("opt_", "sched_key", "sched_sa_proj"),
+              "pay": ("ptr_", "pay_", "pass_head", "sa_proj")}
+
+
 def _scores(net, batch_windows, dev):
     from anvil.training.dataset import collate
     bt = collate([w["ex"] for w in batch_windows])
@@ -239,6 +331,12 @@ def _scores(net, batch_windows, dev):
     state = out[:, 0]
     n_ent = bt["entities"].shape[1]
     ent_out = out[:, 2:2 + n_ent]
+    if SURFACE["mode"] == "pay":
+        # single-option surface: the pointer logits ARE the scores; option 0
+        # (auto = the natural line) anchors at 0 (advantage semantics)
+        logits = net._pointer_logits(state, ent_out, bt)
+        return [logits[b, [a["arm"] for a in w["arms"]]] - logits[b, 0]
+                for b, w in enumerate(batch_windows)]
     keys, _vecs, _mask = net._sched_keys(ent_out, bt)
     return net.score_options(state, keys, [[a["idxs"] for a in w["arms"]] for w in batch_windows])
 
@@ -263,6 +361,10 @@ def evaluate(net, windows, dev, bs=8) -> dict:
             if rho != rho:
                 continue
             rhos.append(rho)
+            if "spread" in w["arms"][0]:
+                r2 = spearman(p, [a["spread"] for a in w["arms"]])
+                if r2 == r2:
+                    by_src["vs_spread"].append(r2)
             by_src[w["src"]].append(rho)
             by_cert[w["certified"]].append(rho)
             top1 += int(max(range(len(p)), key=lambda k: p[k]) == max(range(len(y)), key=lambda k: y[k]))
@@ -281,7 +383,7 @@ def fit_one(train, test, mode: str, seed: int, dev, args, save_to: Path | None =
     torch.manual_seed(seed)
     rng = random.Random(seed)
     net, _cfg = _net(dev)
-    head_names = ("opt_", "sched_key", "sched_sa_proj")
+    head_names = HEAD_NAMES[SURFACE["mode"]]
     head, trunk = [], []
     for name, p in net.named_parameters():
         if name.startswith(head_names):
@@ -329,11 +431,40 @@ def fit_one(train, test, mode: str, seed: int, dev, args, save_to: Path | None =
     return {"mode": mode, "seed": seed, "n_train": len(train), "best": best, "epochs_run": len(hist), "hist": hist}
 
 
+def _apply_targets(windows: list[dict], path: str, col: str) -> list[dict]:
+    """R1 (ADR-0099): swap the fit target for an alternate per-arm label (the
+    critic's one-step Δ from a lookahead read); the spread target survives as
+    a["spread"] so evaluate() reads both. Windows/arms without the alternate
+    label are dropped."""
+    tg = json.load(open(path))
+    kept = []
+    for w in windows:
+        rec = tg.get("|".join(map(str, w["key"])))
+        if not rec:
+            continue
+        arms = []
+        for a in w["arms"]:
+            v = rec.get(str(a["arm"]), {}).get(col)
+            if v is None:
+                continue
+            arms.append({**a, "spread": a["target"], "target": float(v)})
+        if len(arms) >= 3:
+            kept.append({**w, "arms": arms})
+    print(f"[fit] alternate targets {col}: {len(kept)}/{len(windows)} windows kept")
+    return kept
+
+
 def fit(args) -> None:
     out = Path(args.out)
     dev = "cuda" if torch.cuda.is_available() else "cpu"
-    data = torch.load(out / "windows.pt", weights_only=False)
+    data = torch.load(args.windows or (out / "windows.pt"), weights_only=False)
     windows = data["windows"]
+    SURFACE["mode"] = data.get("surface", "sched")
+    HOLD_SALT["v"] = args.hold_salt
+    print(f"[fit] surface {SURFACE['mode']}")
+    if args.targets:
+        windows = _apply_targets(windows, args.targets, args.target_col)
+        out.mkdir(parents=True, exist_ok=True)
     test = [w for w in windows if hold(w["key"])]
     train_all = [w for w in windows if not hold(w["key"])]
     print(f"[fit] {len(train_all)} train / {len(test)} holdout windows; "
@@ -402,6 +533,8 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build")
     b.add_argument("--out", required=True)
+    bp = sub.add_parser("build-pay")
+    bp.add_argument("--out", required=True)
     f = sub.add_parser("fit")
     f.add_argument("--out", required=True)
     f.add_argument("--modes", default="full,frozen")
@@ -412,10 +545,14 @@ def main() -> None:
     f.add_argument("--batch", type=int, default=8)
     f.add_argument("--lr-head", type=float, default=1e-3)
     f.add_argument("--lr-trunk", type=float, default=1e-5)
+    f.add_argument("--windows", default=None, help="alternate windows.pt (default <out>/windows.pt)")
+    f.add_argument("--targets", default=None, help="alternate per-arm targets json (R1: critic lookahead)")
+    f.add_argument("--target-col", default="fv_eot_k1")
+    f.add_argument("--hold-salt", default="")
     r = sub.add_parser("report")
     r.add_argument("--out", required=True)
     a = ap.parse_args()
-    {"build": build, "fit": fit, "report": lambda a: report(Path(a.out))}[a.cmd](a)
+    {"build": build, "build-pay": build_pay, "fit": fit, "report": lambda a: report(Path(a.out))}[a.cmd](a)
 
 
 if __name__ == "__main__":
