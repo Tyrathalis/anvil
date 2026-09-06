@@ -142,6 +142,21 @@ deployment-time lookahead. Search is amortized at training time; deployment is t
 1. **Option-content encoding + scorer head on a trainable trunk**, fitted on mint + harvest
    spreads (3,475 windows, ~45K option scores); read = Spearman/AUC vs the frozen probe at equal
    N and the learning curve. The first build read; the KILL lives here.
+   **As built (2026-09-06, user-adjudicated):** the head lives in the model (`AnvilNet.score_options`:
+   q([STATE]) · opt_pool(mean ⊕ sum of the arm's `sched_key` vectors ⊕ length embedding), ~0.8M
+   params, `opt_` prefix tolerated by `load_compat`). Init = `m10-sched-init` (the ckpt of record's
+   trunk) with the option keys copied from the executor's own pointer (sched_key ← ptr_key,
+   sched_sa_proj ← sa_proj, opt_query ← ptr_query). Two trunk modes on the same head/data/recipe:
+   **full fine-tune** (trunk lr 1e-5, heads 1e-3, AdamW, deterministic forward) and a **frozen-trunk
+   twin** (the probe's control). Loss = within-window pairwise ranking hinge (|Δy| > 0.5) + 0.05 MSE
+   anchor on the 8-roll composite mean; game-hash holdout 25% (the probe's split). Corpus =
+   harvest h1 spreads + mint spreads recomputed from the mint's lane rows with the pinned
+   select/score scoring (`scripts/option_scorer_fit.py build`). Curve: N = 607 (the probe's N),
+   then 25/50/100% of the train split, 3 seeds each.
+   **PRE-REGISTERED bands** (full-trunk mode, mean holdout within-window Spearman): at N = 607,
+   **≤ 0.15 KILL** (not clearly above the probe's 0.08), **> 0.30 PASS** (done-when 2); between,
+   the full-N curve decides — rising AND > 0.30 at full N passes, otherwise KILL. Pivotality AUC
+   ≥ 0.70 read alongside (the scorer's max-arm score vs the certified flag).
 2. **Certifier by tag + pivotality-aimed sampling** (server: weight function; Java: SELECT-ONE
    arms for tagged windows; the void-arm legality pre-filter); harvest 2 under advisory
    generation with the scorer aiming. **2b. The payment surface**: `mtg.pay_mana_class` options

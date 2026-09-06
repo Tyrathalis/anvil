@@ -177,6 +177,43 @@ class AnvilNet(nn.Module):
             self.sched_r_head = nn.Sequential(
                 nn.Linear(2 * d_model, d_model), nn.GELU(), nn.Linear(d_model, 2)
             )
+            # M11 OPTION SCORER (m11-plan §1-2, ADR-0097): one score per
+            # presented option = q([STATE]) · v(option), advantage semantics
+            # (the natural line scores 0 by construction). Plan-type options
+            # (a schedule arm) pool the arm's candidate keys (the sched_key
+            # space): mean ⊕ sum ⊕ length embedding -> opt_pool. Single-
+            # candidate options are the pointer logits themselves (Build 3
+            # wires acting); Build 1 fits this head on certifier spreads.
+            self.opt_query = nn.Linear(d_model, d_model)
+            self.opt_len_emb = nn.Embedding(SCHED_CAP + 2, 16)
+            self.opt_pool = nn.Linear(2 * d_model + 16, d_model)
+
+    def score_options(
+        self, state: torch.Tensor, keys: torch.Tensor, arms: list[list[list[int]]]
+    ) -> list[torch.Tensor]:
+        """Per batch item: scores over its plan-type options. keys = the
+        window's _sched_keys output (B, C, d) — index 0 is STOP/PASS and is
+        never an arm member; arms[b] = one candidate-index list per option
+        (empty = hold-all). Returns one (n_options,) tensor per item."""
+        q = self.opt_query(state)  # (B, d)
+        d = keys.shape[-1]
+        out = []
+        for b, opts in enumerate(arms):
+            vecs = []
+            for idxs in opts:
+                n = min(len(idxs), self.opt_len_emb.num_embeddings - 1)
+                if idxs:
+                    kv = keys[b, torch.tensor(idxs, device=keys.device)]
+                    pooled = torch.cat([kv.mean(0), kv.sum(0)])
+                else:
+                    pooled = keys.new_zeros(2 * d)
+                vecs.append(torch.cat([pooled, self.opt_len_emb.weight[n]]))
+            if not vecs:
+                out.append(keys.new_zeros(0))
+                continue
+            v = self.opt_pool(torch.stack(vecs))  # (n_opt, d)
+            out.append((v @ q[b]) / d**0.5)
+        return out
 
     # params new at M2 D5 (combat heads) / M9 rung 3 (pay_*) / M9 D6
     # (plan_* aux heads + the assembler's carry projection); absent from
@@ -193,6 +230,7 @@ class AnvilNet(nn.Module):
         "assemble.plan_proj.",
         "sched_",
         "assemble.sched_",
+        "opt_",
     )
 
     def load_compat(self, state: dict) -> None:
