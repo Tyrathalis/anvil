@@ -184,6 +184,12 @@ silently delete.
   run18/19/20 ([ADR-0077](decisions/ADR-0077-m9-closeout.md)) —
   permanent.
 
+- **Critic lookahead is NOT a one-turn labeler; K is the cheap-label dial** — the full-vis
+  critic after one applied option ranks the rollout spread at 0.30 (label reliability 0.66) while
+  ONE two-turn rollout's composite ranks it at 0.47 at ~2× the copy cost; the learned pivotality
+  read-out aims certification at zero search cost (AUC 0.69 vs the critic's 0.65)
+  ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
+
 ## Engine, fork, and data hygiene
 
 - **Replaying a model-generated store requires the generating run's
@@ -245,6 +251,12 @@ silently delete.
 - **Replay parity of a SAMPLED mainline is bounded by serving jitter (~20% of games flip a
   near-tied pick under micro-batch composition)**: replay instruments pair within-run (CRN) and
   budget cross-run divergence, never assume it ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
+
+- **Readers over fork/trajectory stores STREAM one game (or one window's completions) at a time
+  and keep floats only; big reads/ingests launch under a cgroup cap** (`systemd-run --user --scope
+  -p MemoryMax=…`) — decoded obs are ~10× raw JSON in Python objects; a retained-trajectory read
+  of 96K completions hit 51.6 GB and OOM-killed the desktop session 2026-09-06
+  ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
 
 ## Scoping and routing
 

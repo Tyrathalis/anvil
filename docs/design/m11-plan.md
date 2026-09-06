@@ -1,6 +1,6 @@
 # M11 plan — the OPTION SCORER (CHARTER DRAFT, 2026-09-05)
 
-*Status: CHARTER ADJUDICATED 2026-09-05 ([ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md))
+*Status: BUILD 0 DONE 2026-09-06 (Fork C adjudicated, [ADR-0098](../decisions/ADR-0098-build0-critic-lookahead-read.md)); CHARTER ADJUDICATED 2026-09-05 ([ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md))
 at the M11 scoping session, the same day it was drafted at the M10 closeout
 ([ADR-0096](../decisions/ADR-0096-m10-closeout.md)). Forks A, B, E, F adjudicated (single network;
 payment classes as the second surface; the standard read closes); C and D keep their leans and are
@@ -91,9 +91,13 @@ deployment-time lookahead. Search is amortized at training time; deployment is t
   spreads alone. Build 1's read is identical under both forms (a scorer fitted on a trainable copy
   of the trunk). Guard: the paired read at day zero when the scorer's training first touches
   acting logits; the executor's strength under the scorer must not move.
-- **C. Label target.** **The pinned h2 composite spread for training (reliability measured), the
-  critic-lookahead read FIRST as the cheap substitute**; horizon-0 win as the strength truth.
-  Adjudicated by Build 0's read.
+- **C. Label target — ADJUDICATED 2026-09-06 ([ADR-0098](../decisions/ADR-0098-build0-critic-lookahead-read.md)): HYBRID band (0.301 ± 0.022).**
+  The pinned h2 composite spread from K=8 rollouts stays the label of record; critic lookahead is
+  NOT the labeler (one two-turn rollout's composite out-ranks it, 0.47 vs 0.30, at ~2× the copy
+  cost — **K is the cheap-label dial**, a Build 2 pin); the learned pivotality read-out aims
+  certification (AUC 0.69 free vs the critic's 0.65 at ~14 copies/window); critic lookahead
+  survives only as the deployment-gate candidate, whose masked-head reliability is now measured
+  (0.28 at eot, tracking full-vis within 0.03). Horizon-0 win stays the strength truth.
 - **D. Certification weighting.** **Uniform floor (30%) + pivotality-proportional**; the floor
   keeps the head learning about dull windows and keeps a comparable stratum with era zero.
   Pinned at Build 2's launch.
@@ -152,8 +156,9 @@ deployment-time lookahead. Search is amortized at training time; deployment is t
 
 ## Done-when
 
-1. Build 0 read recorded (critic-lookahead Spearman vs rollout spreads on the harvest's 806
-   points); Fork C adjudicated on it.
+1. ~~Build 0 read recorded (critic-lookahead Spearman vs rollout spreads on the harvest's 806
+   points); Fork C adjudicated on it.~~ **DONE 2026-09-06 (ADR-0098): 0.301 ± 0.022 on 800
+   windows, HYBRID; Fork C adjudicated.**
 2. Build 1 clears the KILL: trainable-trunk scorer Spearman > 0.3 at the frozen probe's N, with a
    rising learning curve; pivotality AUC ≥ 0.70.
 3. The certifier by tag runs inline with pivotality-aimed sampling; per-option spreads ride the

@@ -339,6 +339,12 @@ def _pick_windows(decs: list[dict], tt: int) -> dict[str, dict | None]:
 
 
 def read(args) -> dict:
+    """STREAMING: one window's completions decoded, valued and dropped at a
+    time. The first version held every completion trajectory (~90 decisions
+    with obs each) in one dict — 24K frames fit (cl1), 96K did not: the read
+    process hit 51.6 GB RSS and the kernel OOM-killed it AND the desktop
+    session (2026-09-06 00:03). Never retain decoded fork frames across
+    windows; run big reads under a cgroup memory cap."""
     out = Path(args.run)
     man = json.loads((out / "lookahead-manifest.json").read_text())
     store_dir = Path(args.store) if args.store else REPO / "data/trajectories" / f"{out.name}-forks"
@@ -346,19 +352,19 @@ def read(args) -> dict:
     st = TrajectoryStore(store_dir)
     rows = load_rows([str(out / "lanes" / "lane-*.out.jsonl")])
     tally: Counter = Counter()
-    # completions: (pg, tt) -> (arm, roll) -> traj
-    comp: dict[tuple, dict[tuple, object]] = defaultdict(dict)
-    for traj in st.games(skip_undecodable=True):
-        fk = traj.header.get("fork") or {}
+    # completions: (pg, tt) -> [(arm, roll, synthetic g)] from games.jsonl (no decoding)
+    comp: dict[tuple, list[tuple]] = defaultdict(list)
+    for ln in open(store_dir / "games.jsonl"):
+        r = json.loads(ln)
+        fk = r.get("fork") or {}
         if "a" not in fk:
             tally["frame_no_arm"] += 1
             continue
-        comp[(fk["pg"], fk["tt"])][(fk["a"], fk["r"])] = traj
+        comp[(fk["pg"], fk["tt"])].append((fk["a"], fk["r"], r["i"]))
     critics = {"fullvis": Critic(CKPT_FULLVIS, None), "masked": Critic(CKPT_MAIN, False)}
-    # gather examples per critic, evaluate in one batch each
-    pending: dict[str, list[dict]] = {c: [] for c in critics}
-    slots: dict[str, list[tuple]] = {c: [] for c in critics}   # (win_i, arm, roll, horizon)
     windows = []
+    t0 = time.time()
+    n_valued = 0
     for w in man["windows"]:
         if args.limit and len(windows) >= args.limit:
             break
@@ -367,9 +373,7 @@ def read(args) -> dict:
         if entry is None or entry["skips"]:
             tally["window_skipped_or_missing"] += 1
             continue
-        comps = comp.get(key, {})
         seat = w["seat"]
-        win_i = len(windows)
         rec = {**w, "vals": {c: {} for c in critics}, "comp": {}, "void": [], "certified_lane": _certified(entry, seat)}
         # composites per (arm, roll), the label's own axes
         for arm_id, arows in sorted(entry["arms"].items()):
@@ -381,12 +385,19 @@ def read(args) -> dict:
                 if n is None or r.get("crash") or n.get("crash") or "snap" not in r or "snap" not in n:
                     continue
                 rec["comp"][f"{arm_id}:{roll}"] = pins.composite(pins.axes(r, seat), pins.axes(n, seat))
-        # critic values per (arm, roll, horizon), natural included (arm 0)
-        for (arm_id, roll), traj in comps.items():
+        # critic values per (arm, roll, horizon), natural included (arm 0) — per window, then dropped
+        pending: dict[str, list[dict]] = {c: [] for c in critics}
+        slots: dict[str, list[tuple]] = {c: [] for c in critics}
+        for arm_id, roll, g in comp.get(key, []):
             if arm_id in rec["void"]:
                 continue
             lab = entry["nat"].get(roll) if arm_id == 0 else entry["arms"].get(arm_id, {}).get(roll)
             if lab is None or lab.get("crash"):
+                continue
+            try:
+                traj = st.game(g)
+            except Exception as e:  # noqa: BLE001
+                tally[f"frame_undecodable_{type(e).__name__}"] += 1
                 continue
             picks = _pick_windows(traj.decisions, w["t"])
             for hz, dec in picks.items():
@@ -404,14 +415,17 @@ def read(args) -> dict:
                     except Exception as e:  # noqa: BLE001
                         tally[f"featurize_fail_{type(e).__name__}"] += 1
                         continue
-                    slots[c].append((win_i, arm_id, roll, hz))
+                    slots[c].append((arm_id, roll, hz))
+            del traj
+        for c, cr in critics.items():
+            vals = cr.values(pending[c])
+            for (arm_id, roll, hz), v in zip(slots[c], vals):
+                rec["vals"][c][f"{arm_id}:{roll}:{hz}"] = v
+            n_valued += len(vals)
         windows.append(rec)
-    for c, cr in critics.items():
-        t0 = time.time()
-        vals = cr.values(pending[c])
-        for (win_i, arm_id, roll, hz), v in zip(slots[c], vals):
-            windows[win_i]["vals"][c][f"{arm_id}:{roll}:{hz}"] = v
-        print(f"[lookahead] {c}: {len(vals)} states valued in {time.time() - t0:.0f}s", flush=True)
+        if len(windows) % 50 == 0:
+            print(f"[lookahead] {len(windows)} windows, {n_valued} states valued, {time.time() - t0:.0f}s", flush=True)
+    print(f"[lookahead] {len(windows)} windows, {n_valued} states valued (both critics) in {time.time() - t0:.0f}s", flush=True)
 
     # ---- cells
     def pred(rec, c, hz, roll_set):
