@@ -38,6 +38,20 @@ from pathlib import Path
 import grpc
 
 from anvil.bridge.certify import CERTIFY_TAG, Certifier
+
+# M12 Build 0 (ADR-0101 §1): the search-leaf value ask. The worker sends the
+# leaf window's peek record (obs + opts + the copy session's hist) under this
+# tag with INT_IN_RANGE [0, 1e6]; the answer is the MASKED value head's win
+# probability for the peek's seat in micro-units (information-set principle:
+# the policy checkpoint's own head on the seat's own observation; full-vis
+# never serves). Search-copy sessions (game_id "g<i>.s<w>r<r>o<c>") are
+# served GREEDY (argmax, no noise, no mu) whatever the server's sampling mode
+# — fork A's "intermediate decisions played greedily by both seats".
+VALUE_TAG = "anvil.value"
+
+
+def is_search_session(game_id: str) -> bool:
+    return ".s" in game_id
 from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 
@@ -317,8 +331,27 @@ class ModelBackend:
         except Exception as e:  # noqa: BLE001 — best-effort by design
             print(f"[server] warm-up skipped: {e!r}")
 
+    def value(self, req: pb.DecisionRequest, header: dict | None) -> pb.DecisionResponse | None:
+        """anvil.value: the masked head's win probability for the peek's seat,
+        in micro-units on the INT_IN_RANGE answer. None = decline (NaN at the
+        worker, the leaf is counted "unserved")."""
+        if not req.observation or header is None:
+            return None
+        dec = json.loads(req.observation)
+        ex, _aux = self.feat.example(dec, header, "priority")
+        out = self.batcher.submit(ex, 0.0, None)
+        win = float(out["win"][0])
+        self.counts["value"] += 1
+        resp = pb.DecisionResponse(decision_seq=req.decision_seq)
+        resp.value = int(round(max(0.0, min(1.0, win)) * 1_000_000))
+        return resp
+
     def answer(
-        self, req: pb.DecisionRequest, header: dict | None, game_seed: int | None = None
+        self,
+        req: pb.DecisionRequest,
+        header: dict | None,
+        game_seed: int | None = None,
+        greedy: bool = False,
     ) -> pb.DecisionResponse | None:
         """None = decline (worker falls back, tagged). Any exception is the
         caller's to turn into a loud decline — silence would poison an arm."""
@@ -354,7 +387,9 @@ class ModelBackend:
             self.counts["forbid_decline"] += 1
         wire_fork = header.get("g", -1) < 0
         noise = None
-        if self.sample:
+        if greedy:
+            self.counts["greedy"] += 1
+        if self.sample and not greedy:
             if wire_fork and not self.instrument:
                 # A wire-only fork header (g=-1): every completion would share
                 # (g, s) mu keys AND the parent's noise seed. Sampled drill
@@ -420,7 +455,7 @@ class ModelBackend:
                             "choice": int(out["choice"][0]),
                             "n_cands": len(aux["cand_first_opt"]),
                         }) + "\n")
-        if self.sample and not wire_fork:
+        if self.sample and not wire_fork and not greedy:
             self._write_mu(header["g"], dec, task, ex, aux, out, sched=sched_row)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
         if task == "priority":
@@ -637,6 +672,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         header: dict | None = None
         game_seed = 0
         use_drill = False
+        greedy = False
         for msg in request_iterator:
             kind = msg.WhichOneof("msg")
             if kind == "hello":
@@ -656,6 +692,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 # Requests belong to the stream's last-announced game; the
                 # worker re-announces the mainline after each fork block.
                 use_drill = self.drill_backend is not None and ".f" in msg.game_start.game_id
+                greedy = is_search_session(msg.game_start.game_id)
                 header = None
                 if msg.game_start.header:
                     try:
@@ -668,6 +705,8 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                     self.drill_requests += 1
                 if msg.request.decision_tag == CERTIFY_TAG:
                     yield pb.ServerMsg(response=self._certify_answer(msg.request, game_seed))
+                elif msg.request.decision_tag == VALUE_TAG:
+                    yield pb.ServerMsg(response=self._value_answer(msg.request, header))
                 elif self.mode == "model":
                     yield pb.ServerMsg(
                         response=self._model_answer(
@@ -675,6 +714,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                             header,
                             game_seed,
                             self.drill_backend if use_drill else self.backend,
+                            greedy=greedy,
                         )
                     )
                 else:
@@ -705,17 +745,31 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             resp.index_lists.add().indices.extend(arm)
         return resp
 
+    def _value_answer(self, req: pb.DecisionRequest, header: dict | None) -> pb.DecisionResponse:
+        """anvil.value (M12 Build 0): the masked head at a search leaf; any
+        error is a loud decline (the worker counts the leaf unserved)."""
+        try:
+            resp = self.backend.value(req, header) if self.mode == "model" else None
+        except Exception as e:  # noqa: BLE001
+            print(f"[server] VALUE ERROR seq={req.decision_seq}: {e!r}")
+            resp = None
+        if resp is None:
+            self.fallbacks[req.decision_tag] += 1
+            return pb.DecisionResponse(decision_seq=req.decision_seq, fallback=True)
+        return resp
+
     def _model_answer(
         self,
         req: pb.DecisionRequest,
         header: dict | None,
         game_seed: int = 0,
         backend: ModelBackend | None = None,
+        greedy: bool = False,
     ) -> pb.DecisionResponse:
         if backend is None:
             backend = self.backend
         try:
-            resp = backend.answer(req, header, game_seed)
+            resp = backend.answer(req, header, game_seed, greedy=greedy)
         except Exception as e:  # loud decline; a silent wrong answer poisons the arm
             print(f"[server] MODEL ERROR on {req.decision_tag} seq={req.decision_seq}: {e!r}")
             resp = None
@@ -944,6 +998,8 @@ def main() -> None:
             else DEFAULT_TAGS
         )
     )
+    if args.mode == "model":
+        tags = tags + "," + VALUE_TAG  # M12 Build 0: the search-leaf value ask
     certifier = None
     if args.certify_rate > 0:
         certifier = Certifier(args.certify_rate, arm_cap=args.certify_arm_cap, salt=args.certify_salt)
