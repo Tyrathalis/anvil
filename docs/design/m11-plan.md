@@ -1,6 +1,6 @@
 # M11 plan — the OPTION SCORER (CHARTER DRAFT, 2026-09-05)
 
-*Status: BUILD 0 DONE 2026-09-06 (Fork C adjudicated, [ADR-0098](../decisions/ADR-0098-build0-critic-lookahead-read.md)); CHARTER ADJUDICATED 2026-09-05 ([ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md))
+*Status: BUILD 1 KILLED 2026-09-06 ([ADR-0099](../decisions/ADR-0099-build1-scorer-kill.md) PROPOSED, route pending); BUILD 0 DONE 2026-09-06 (Fork C adjudicated, [ADR-0098](../decisions/ADR-0098-build0-critic-lookahead-read.md)); CHARTER ADJUDICATED 2026-09-05 ([ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md))
 at the M11 scoping session, the same day it was drafted at the M10 closeout
 ([ADR-0096](../decisions/ADR-0096-m10-closeout.md)). Forks A, B, E, F adjudicated (single network;
 payment classes as the second surface; the standard read closes); C and D keep their leans and are
@@ -174,8 +174,12 @@ deployment-time lookahead. Search is amortized at training time; deployment is t
 1. ~~Build 0 read recorded (critic-lookahead Spearman vs rollout spreads on the harvest's 806
    points); Fork C adjudicated on it.~~ **DONE 2026-09-06 (ADR-0098): 0.301 ± 0.022 on 800
    windows, HYBRID; Fork C adjudicated.**
-2. Build 1 clears the KILL: trainable-trunk scorer Spearman > 0.3 at the frozen probe's N, with a
-   rising learning curve; pivotality AUC ≥ 0.70.
+2. ~~Build 1 clears the KILL: trainable-trunk scorer Spearman > 0.3 at the frozen probe's N, with a
+   rising learning curve; pivotality AUC ≥ 0.70.~~ **KILLED 2026-09-06 by the pre-registered
+   curve ([ADR-0099](../decisions/ADR-0099-build1-scorer-kill.md), PROPOSED): 0.158 at N=607,
+   0.204 at full N (rising, under 0.30); frozen twin 0.183; arm length alone 0.148; pivotality AUC
+   0.57. Route pending the user's adjudication (R1 distill one-step lookahead / R2 payment
+   single-option surface / R3 serve-side lookahead / R5 close).**
 3. The certifier by tag runs inline with pivotality-aimed sampling; per-option spreads ride the
    store row for BOTH surfaces (schedule/cast, payment class).
 4. The scorer acts (argmax/sampled on single-option windows, margin-gated on plan options) with
