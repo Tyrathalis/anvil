@@ -352,3 +352,12 @@ moves verbatim to the status archive and this section stays here as the record.*
   corrected. Next: the fork — (a) mask ON + cache key + obs-diff gate, (b) caps, (c) provenance +
   sv=3 + bridge fields + Python reader/harness, (d) the boundary jar's forkcheck vs the 08-21
   seeds + the bridged smoke, (e) the value RPC + directive + enumerators as exempt commits.
+- **2026-09-06 (session 4, later)** — the boundary bundle landed in the fork (`5d5283eb233`:
+  executor-predicate mask + payshadow counter, deterministic caps 52 / 1,650 with the
+  draw-status fix, sv=3 provenance header); Python side (`de3d23a`); the smoke chain launched
+  15:12 (A filter-on / B cache-on / C payshadow / the boundary forkcheck); the search directive
+  scaffold compiled (SearchDirective, anvil.value, SearchMonitor with fork J determinization) and
+  the server's value ask + greedy search sessions committed. Latent bug fixed on the way: a forced
+  Draw recorded a WIN since M0 (~1/2,000). Devlog
+  [2026-09-06-session4](../devlog/2026-09-06-session4.md). Next: the smoke read + cache decision +
+  cap pins, the search jar + its smoke (the multiplier), the enumerators, Build 1.
