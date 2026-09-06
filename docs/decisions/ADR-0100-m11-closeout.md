@@ -90,7 +90,7 @@ value-head sharpening read, the 3,655-window spread corpus (44 MB). Retired: the
 build, pivotality-aimed sampling as a training lever, the payment surface as a label surface
 (Build 2b), the scorer's spread loss.
 
-## Stale-data pass (kill list — deletion on user sign-off; nothing operational references these)
+## Stale-data pass (kill list — user signed off 2026-09-06 evening; EXECUTED as listed)
 
 | dir | size | keep / kill | why |
 |---|---|---|---|
@@ -103,4 +103,4 @@ build, pivotality-aimed sampling as a training lever, the payment surface as a l
 | `data/training/m11-scorer-r2-pay/split*/best-*.pt` | 1.6 GB | KILL ckpts, keep windows.pt + curve/read | R2 read of record is in ADR-0099 |
 | `data/runs/critic-lookahead-cl1,cl2` (lanes, logs, read.json) | ~300 MB | KEEP | reads of record |
 
-Kill total ≈ 7.4 GB.
+Kill total ≈ 7.4 GB — executed 2026-09-06; remaining M11 footprint: cl2 run dir ~1.0 GB (lane rows, serve-mu, read.json), cl2 forks store 893 MB, scorer corpora + curves ~50 MB.
