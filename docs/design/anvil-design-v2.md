@@ -1,5 +1,7 @@
 # Anvil — Consolidated Design v2
 
+**Doc status:** living · the canonical design doc; §1–§15 are referenced everywhere
+
 A neural agent for Magic: The Gathering built on the Forge rules engine: unified deckbuilding + piloting, a drill-driven data economy, luck-adjusted evaluation, coaching as a product surface, and mobile deployment as the upstream contribution. Non-commercial, GPL-aligned, designed to be contributed back to Forge.
 
 **Module naming scheme** (Magic vocabulary under the smithy umbrella):
@@ -79,21 +81,30 @@ attackers/blockers (M2 D5 constructs).
    mana-ability zero-mana/nested windows, ~61/g cast/activation
    `effect=false` — the M9 v1 scope — ~54/g `effect=true`;
    `chooseColor` ~17/g; re-measured 2026-08-19 at the D3 session) —
-   dork/color/chain residuals. **M9 §3c, in flight.**
+   dork/color/chain residuals. **Built at M9 (§3c, [ADR-0077](../decisions/ADR-0077-m9-closeout.md)):
+   legality-derived enumeration + float-then-apply executor, carried as
+   infrastructure; the headroom is real (+2.96pp/g, ADR-0075) and not yet
+   converted into strength.**
    1a. **Resolution-effect payments** (`payManaCost` `effect=true`,
    ~54/g — pay-or-suffer during resolution, often opponent's turn) —
    deferred OUT of M9 v1 (D3 pin 2026-08-19: zero contribution to the
-   veto-collapse read, different genre). Queued at priority 3 on the
-   m9-plan **payment-completion queue** (no-silent-loss routing at M10
-   scoping); the whether-to-pay confirm is a separate callback already.
+   veto-collapse read, different genre). Ceiling probed at
+   [ADR-0080](../decisions/ADR-0080-m11-routing-probes.md) (0.69pp/g,
+   below the bar; force-decline costs 2.5pp/window and the heuristic
+   already captures it) — RE-DEFERRED; the whether-to-pay confirm is a
+   separate callback already.
 2. **Mid-resolution object choices** (`chooseSingleEntityForEffect`,
    `chooseCardsForEffect`, `chooseCardsToDiscard`, …) — tutor and fetch
    targets, discard/sac picks. In a tutor-defined format this is the
    largest excluded class by game impact: the model casts, the heuristic
    resolves. Expansion shape: one generic entity-set answer over the
-   observation — the pointer decoder's native operation. Unscheduled.
-3. **Attention/stops** (`autoPassCancel` ~39/g) — §3b, **named M10
-   candidate.**
+   observation — the pointer decoder's native operation. Ceiling probed at
+   [ADR-0080](../decisions/ADR-0080-m11-routing-probes.md) (1.41pp/g, no
+   single-candidate policy beats the heuristic; residual value is
+   state-dependent selection) — RE-DEFERRED; in the M12 queue by name.
+3. **Attention/stops** (`autoPassCancel` ~39/g) — §3b; shelved on
+   ceiling grounds at M10 ([ADR-0078](../decisions/ADR-0078-m10-ceiling-measurement.md)),
+   in the M12 queue by name.
 4. **Cost-composition cousins** (`chooseCardsForConvokeOrImprovise`
    ~28/g where live, `chooseCardsToDelve`, `payCombatCost`) — the same
    residual logic as §3c payment classes (which creature taps, which
@@ -101,11 +112,11 @@ attackers/blockers (M2 D5 constructs).
    OUT of M9, graftable** — the §3c class abstraction is written as a
    resource-commitment set so these attach without redesign; their
    callbacks are already `SELECT_K` on the wire, so the deferred cost
-   is model-side only. Queued at priority 2 on the m9-plan
-   **payment-completion queue** (no-silent-loss routing at M10 scoping
-   — §3b may outrank it, but only as a recorded decision).
+   is model-side only. LANDED at M10 R6
+   ([ADR-0083](../decisions/ADR-0083-cousins-touch.md), the cousins touch).
 5. **Trigger ordering** (`orderSimultaneousSa`/`orderAndPlay…` ~12.6/g,
-   100% of games) — ETB/death-trigger stacking. Unscheduled candidate.
+   100% of games) — ETB/death-trigger stacking. In the M12 queue by name (with combat
+   damage assignment).
 6. **Modal choice** (`chooseModeForAbility`, both interception points) —
    spec'd in the §3 preamble, cut at M1 rung 1; its absence is already
    measured as the `no_shape_fit` veto family. Re-entry rides any
@@ -120,7 +131,7 @@ attackers/blockers (M2 D5 constructs).
    encoder's card-embedding table already ranks names). Unscheduled.
 10. **Mulligan bottoming** (`tuckCardsViaMulligan`) — keep is
     model-decided, tuck is not; cheap completion, needs a card-subset
-    answer. Unscheduled.
+    answer. In the M12 queue by name.
 11. **Concession** — §3d, designed and gated, not yet built.
 
 **Capability floors (representation, not decision windows):** choice-state
@@ -278,15 +289,18 @@ Pro games punch above volume: eval benchmark, Grindstone seeds from the true com
 ## 13. Sequencing
 
 - **M0 — Harness:** batch harness + bridge + random-legal agent. Exists to measure games/sec; **the number calibrates every schedule after it** (2 min/game instead of 20 sec → everything stretches 5x, Rust bet moves to phase one). Survey ygo-agent and MageZero first. **Done 2026-07-04 ([ADR-0003](../decisions/ADR-0003-m0-closeout.md)): ~1,700 g/h bridged / 3,016 g/h heuristic at w=16, bridge tax 2.6% — no stretch, Rust bet stays phase-two.**
-- **M1 — BC:** encoder + trunk + policy head, pure supervised. Validates representations with zero RL machinery.
-- **M2 — RL:** critic + Ante certification test + first V-trace self-play from BC start.
+- **M1 — BC:** encoder + trunk + policy head, pure supervised. Validates representations with zero RL machinery. **Done 2026-07-10 ([ADR-0009](../decisions/ADR-0009-m1-closeout.md)): held-out agreement 0.9758, 46.8% vs the teacher.**
+- **M2 — RL:** critic + Ante certification test + first V-trace self-play from BC start. **Done 2026-07-17 ([ADR-0020](../decisions/ADR-0020-m2-closeout.md)): the loop runs end-to-end; first RL ckpt superseded BC.**
 - **Then, attaching to a running loop:** Grindstone + error accounting → match play & sideboarding → Tutor → Mentor → pro-data pipeline → skill conditioning → pivotal-turn search + distillation → Android + recording. Build vertically to a trained artifact at each stage.
+- **Measured record, M3 onward** (one row per milestone in CLAUDE.md's milestone table; the closeout ADRs are the record): M3 strength parity with the heuristic, +6.69pp over BC ([ADR-0026](../decisions/ADR-0026-m3-closeout.md)) · M4 Grindstone online, the one promotion to date ([ADR-0033](../decisions/ADR-0033-m4-closeout.md)) · M5–M8 the curation × credit × representation family measured out, every gate a TIE ([ADR-0037](../decisions/ADR-0037-m5-closeout.md), [0050](../decisions/ADR-0050-m6-closeout.md), [0058](../decisions/ADR-0058-m7-closeout.md), [0062](../decisions/ADR-0062-m8-closeout.md)) · M9 the payment interface, veto collapse falsified ([ADR-0077](../decisions/ADR-0077-m9-closeout.md)) · M10 the generative turn planner NEGATIVE ([ADR-0096](../decisions/ADR-0096-m10-closeout.md)) · M11 the option scorer NEGATIVE ([ADR-0100](../decisions/ADR-0100-m11-closeout.md)) · M12 search as the behavior policy — the "pivotal-turn search + distillation" item of the list above, reached after the loop's own signal ran out ([m12-plan](m12-plan.md)).
 
 ## 14. Budget to "Beats the Heuristic AI"
 
 ~20–30K lines (60/40 Python/Java; the Java is archaeology-heavy); ~500K BC games (2–4K core-days) + 1–3M self-play games; ~200–500 4090-hours total; the existing 4090 + a 32-core box (~$1–2K used or $3–6K cloud); 4–8 months solo at nights-and-weekends with heavy LLM assistance. Risk concentrated almost entirely in the M0 games/hour number — measure first. **Measured ([ADR-0003](../decisions/ADR-0003-m0-closeout.md)): throughput risk retired — 64 games/min heuristic / 29 games/min bridged at w=16 on the existing box, no 32-core purchase; the ~500K-game BC corpus ≈ 6 days wall-clock. Remaining calendar risk shifts to representation quality (M1) and RL machinery (M2).**
 
 ## 15. Standing Probability Estimates (selected)
+
+*Frozen 2026-09-06 as the pre-M0 planning estimates (last recalibrated at [ADR-0003](../decisions/ADR-0003-m0-closeout.md)). Measured outcomes live in the closeout ADRs and CLAUDE.md's milestone table; this table is not updated per ADR. Rows since resolved, for the record: BC agreement high-80s → 0.9758 (ADR-0009); "turn-plan latent alone handles 3–4 action lines post-drilling" → negative at M9/M10 ([ADR-0077](../decisions/ADR-0077-m9-closeout.md), [ADR-0096](../decisions/ADR-0096-m10-closeout.md)); "with pivotal-turn search layered on" is M12's charter; learnable stops (§3b) unbuilt; belief head parked since M2.*
 
 | Claim | P |
 |---|---|
@@ -322,4 +336,4 @@ Pro games punch above volume: eval benchmark, Grindstone seeds from the true com
 
 ---
 
-**Design invariants:** the engine adjudicates every claim any learned component makes; every LLM judgment is downstream-verified; every drill is provenance-traced to a real game; the value function is continuously audited against rollouts; detection is the engine's job and response is the model's; the error-accounting queue is the spine everything reports to. Recurring economy: the expensive infrastructure (goal conditioning, provenance store, forking, the ladder, the canonicalization hash) keeps making each new feature nearly free — one function, three jobs.
+**Design invariants:** the engine adjudicates every claim any learned component makes; every LLM judgment is downstream-verified; every drill is provenance-traced to a real game; the value function is continuously audited against rollouts; detection is the engine's job and response is the model's; the error-accounting queue is the spine everything reports to; the model never sees the engine version (formats are rules to play to; versions are bugs not to learn). Recurring economy: the expensive infrastructure (goal conditioning, provenance store, forking, the ladder, the canonicalization hash) keeps making each new feature nearly free — one function, three jobs.

@@ -1,5 +1,7 @@
 # M10 consumer coupling — ADOPTED (user-adjudicated 2026-09-02, [ADR-0092](../decisions/ADR-0092-consumer-coupling.md))
 
+**Doc status:** historical · adopted at ADR-0092
+
 Session: the probe5 read ([ADR-0091](../decisions/ADR-0091-m10-probe5-read.md)).
 All four forks adjudicated on the drafted leans (Fork 2 revised on user
 direction — schedule EVERY turn — before adjudication). This file is

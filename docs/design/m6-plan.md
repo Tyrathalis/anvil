@@ -1,5 +1,7 @@
 # M6 plan — the representation question
 
+**Doc status:** historical · M6 plan (closed 2026-08-10, ADR-0050)
+
 **Date:** 2026-08-05 (seeded by [ADR-0038](../decisions/ADR-0038-m6-opening-sequence.md); structure user-agreed same session — M6 is OPEN).
 **Anchors:** [ADR-0037](../decisions/ADR-0037-m5-closeout.md) (M5 closeout + scoping inputs); [ADR-0036](../decisions/ADR-0036-d3-critic-calibration.md) (ranking blindness — the measurement this milestone answers); [ADR-0035](../decisions/ADR-0035-d2-compounding-read-resolution.md) (one-shot verdict); [ADR-0015](../decisions/ADR-0015-d4-closeout.md) (the parked rollout-label machinery); [ADR-0033](../decisions/ADR-0033-m4-closeout.md) (carried fork inventory); [m5-plan.md](m5-plan.md) (the pattern this doc follows).
 **Question answered:** can we change what the gradient sees — and does that reopen improvement?

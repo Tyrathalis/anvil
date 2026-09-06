@@ -1,5 +1,7 @@
 # M0 batch-harness spec
 
+**Doc status:** reference · chunk mechanism, run.json pinning
+
 **Date:** 2026-07-03. **Anchors:** design §9 (disposable workers, pause/resume, throughput priorities); ADR-0002 (worker-count/JVM-flag defaults, measured scaling curve); [bridge-protocol-v0.md](bridge-protocol-v0.md) (Drain verb, worker-side trajectory logs, three-arm measurement plan); [playercontroller-override-plan.md](playercontroller-override-plan.md) (launcher precedent); `scripts/soak/run_scaling.sh` (conventions this formalizes).
 **Question answered:** how the M0 harness launches, feeds, recycles, stops, resumes, and accounts for a fleet of Forge workers — the last design item before M0 goes to implementation. This is mostly transcription of decisions already measured and made; the one new mechanism is the **chunk**.
 

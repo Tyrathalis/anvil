@@ -1,5 +1,7 @@
 # M10 build spec — the v2 schedule surface as built (graft mechanics of record)
 
+**Doc status:** historical · M10 as-built graft mechanics (milestone closed 2026-09-05, ADR-0096)
+
 *Status: BUILD IN PROGRESS (opened 2026-08-27, the ADR-0081 inheritance
 session). This is the implementation-mechanics record under the
 adjudicated structure in [m10-plan.md](m10-plan.md) — every fork there

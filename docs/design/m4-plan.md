@@ -1,5 +1,7 @@
 # M4 plan — Grindstone: a different signal source
 
+**Doc status:** historical · M4 plan (closed 2026-08-03, ADR-0033)
+
 **Date:** 2026-07-28. **Anchors:** [ADR-0027](../decisions/ADR-0027-m4-opening-sequence.md) (this plan's seed — opening sequence + user decisions); [ADR-0026](../decisions/ADR-0026-m3-closeout.md) (M3 closeout, standing agenda); [ADR-0024](../decisions/ADR-0024-run8-batch-lever.md) (the absent-signal diagnosis this milestone answers); [ADR-0025](../decisions/ADR-0025-d4-rebase-closeout.md) (re-baseline; the mechanism question D1 resolves); `data/runs/early-doom-run7b-{i14,d4crit}/` (curation method + old-scale list); design doc §6 (Grindstone), §7 (Ante); [m3-candidates.md](m3-candidates.md) (leftover menu); [m3-plan.md](m3-plan.md) (the pattern this doc follows).
 **Question answered:** what M4 builds, in what order, and what closes it — such that the training loop gains a signal source that reaches the measured headroom the standing recipe cannot, on the engine we actually live on, without the generation cost silently eating the milestone.
 

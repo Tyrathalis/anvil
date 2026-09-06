@@ -1,5 +1,7 @@
 # Collection / Incremental Mode — design sketch
 
+**Doc status:** reference · Chronicle's founding design record (the MVP plan cites it)
+
 **Status: SCHEDULED (2026-07-31,
 [ADR-0029](../decisions/ADR-0029-chronicle-scheduling.md)).** The promotion rule
 fired: implementation plan lives at

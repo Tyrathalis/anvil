@@ -1,5 +1,7 @@
 # PlayerController callback census — results
 
+**Doc status:** reference · measured PlayerController callback traffic on the pool
+
 **Date:** 2026-07-03. **Anchors:** [playercontroller-override-plan.md](playercontroller-override-plan.md) (this was its "first implementation step"); [bridge-protocol-v0.md](bridge-protocol-v0.md) (ranks tag coverage; sizes the bridge-tax napkin math).
 **Setup:** 500 games (4×125, disjoint seed ranges from base 20260800), Commander precons (Abzan Armor vs Arcane Maelstrom — same pair as the soak/scaling runs), heuristic AI both seats, `forge census` (fork commit `9c4a7cd4cf`; `CensusPlayerController` logs all 109 callbacks with turn/phase/stack depth). Data: `data/census/run-20260703/`; analyzer: `scripts/census/analyze_census.py`. All 500 games decisive (the 300 s census draw clock never fired), median 19 turns.
 

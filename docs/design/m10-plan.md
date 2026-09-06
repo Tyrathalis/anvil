@@ -1,5 +1,7 @@
 # M10 plan — the unified resource-scheduling competency (SCOPING DRAFT)
 
+**Doc status:** historical · M10 plan (closed 2026-09-05, ADR-0096)
+
 *Status: SCOPING (opened 2026-08-25 at the M9 closeout,
 [ADR-0077](../decisions/ADR-0077-m9-closeout.md)). This is the
 skeleton the design round fills in; every fork below is user-adjudicated

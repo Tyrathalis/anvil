@@ -1,5 +1,7 @@
 # Bridge protocol v0 — draft
 
+**Doc status:** reference · wire schema — six game-agnostic answer shapes
+
 **Date:** 2026-07-03. **Anchors:** ADR-0001 (day-one invariants), design §9 (inference-server bridge), §1 (cross-game schema hygiene), §2 (entity tokens, dedup), §3 (pointer decoder, learnable stops, payment default); [playercontroller-override-plan.md](playercontroller-override-plan.md) (decision surface, envelope shape, provenance rule).
 **Question answered:** what crosses the JVM↔Python boundary, in what shapes, for the M0 harness — such that M1 (real observations, one-shot cast, yield macros) is additive, not a rewrite.
 

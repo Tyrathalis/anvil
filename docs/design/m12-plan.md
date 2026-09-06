@@ -1,5 +1,7 @@
 # M12 plan — SEARCH AS THE BEHAVIOR POLICY (CHARTER DRAFT, 2026-09-06)
 
+**Doc status:** living · the open milestone plan — charter draft + running record
+
 *Status: DRAFT at the M11 closeout ([ADR-0100](../decisions/ADR-0100-m11-closeout.md)). Forks
 carry leans; the scoping session adjudicates. Principle the user set for the milestone: the
 project can identify strength opportunities and cannot teach them — the next priority is the
@@ -153,3 +155,13 @@ The certifier and spread labels (read instruments only); the option scorer's spr
 (retired, ADR-0099); tree search on device; tutor targets, trigger order / combat damage, §3b
 stops, mull tuck (re-ranked at the scoping session); stack-entry tokens and semantic option
 content (M12's representation completions, funded after Build 2 moves strength).
+
+## Running record
+
+*Appended per session, newest last: what moved, what broke, what the next session picks up. The
+CLAUDE.md Now paragraph is a summary of this section; when the milestone closes, the paragraph
+moves verbatim to the status archive and this section stays here as the record.*
+
+- **2026-09-06** — charter drafted at the M11 closeout (ADR-0100). Documentation restructure the
+  same evening (running records live here from now on). Next: the scoping session adjudicates
+  forks A–F and pre-registers the Build 1 numbers against the Build 0 cells.

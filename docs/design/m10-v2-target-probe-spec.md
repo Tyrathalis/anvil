@@ -1,5 +1,7 @@
 # M10 v2 aux-target probe — pre-registration spec (RESOLVED 2026-08-26: E PASS, R PASS, F FAIL — [ADR-0079](../decisions/ADR-0079-v2-target-probe.md))
 
+**Doc status:** historical · resolved at ADR-0079
+
 *Design-round obligation 2 ([m10-plan.md](m10-plan.md)), the ADR-0074
 pattern run inside the design round so the target is co-designed with
 the actuation surface. Instrument = `scripts/plan_probe.py` extended

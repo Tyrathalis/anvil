@@ -1,5 +1,7 @@
 # M3 candidates — pre-planning list
 
+**Doc status:** historical · M3 pre-planning menu (2026-07-17)
+
 2026-07-17. Deliberately light: this is the menu for the dedicated M3
 planning session (fresh context), not the plan. M2's arc was "RL machinery
 end-to-end"; the M3 north-star question is on the table below. Inputs: all

@@ -1,5 +1,7 @@
 # Chronicle MVP — implementation plan v1
 
+**Doc status:** living · Chronicle side-stream implementation plan (D5 dogfood open)
+
 - **Date:** 2026-07-31 (planning session 3; promotion recorded in
   [ADR-0029](../decisions/ADR-0029-chronicle-scheduling.md))
 - **Status:** active

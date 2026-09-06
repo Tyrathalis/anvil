@@ -1,5 +1,7 @@
 # M9 D6 — the §3a turn-plan latent: design spec (the promotion-slot attempt)
 
+**Doc status:** historical · M9 D6 turn-plan latent spec, resolved at ADR-0076
+
 > **PROBE RESOLVED 2026-08-25
 > ([ADR-0076](../decisions/ADR-0076-d6-probe-read.md), `d6-run20`, closed
 > at iteration 2 by user decision): the mechanism VALIDATES — consumed in

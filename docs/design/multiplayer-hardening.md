@@ -1,5 +1,7 @@
 # Forge multiplayer hardening — what we contributed, and what the trust model actually guarantees
 
+**Doc status:** reference · public record of the security track (9 findings, 3 merged upstream)
+
 Between 2026-07-26 and 2026-07-30 the playable-fork track picked up a question
 that started as a one-line note ("the multiplayer wire deserializes anything")
 and ended as nine findings, four private reports to upstream, and three merged

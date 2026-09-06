@@ -1,5 +1,7 @@
 # Run-3 iter-013 veto forensics — what a 41%-veto policy tries to cast
 
+**Doc status:** historical · M3 input: what a 41%-veto policy tries to cast
+
 2026-07-17. M3-plan input (ADR-0019 named veto drift the open front). Data:
 census of `d6-run3-i013` (the guard-rejected iteration, 480 games) vs
 `d6-run3-i000` (baseline, same run).

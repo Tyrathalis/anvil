@@ -1,5 +1,7 @@
 # Run-analysis protocol — the standing post-run battery
 
+**Doc status:** living · the standing post-run analysis battery (anvil/evals/battery.py)
+
 **Pinned:** 2026-08-12 (user-approved; grew out of
 [visualization-opportunities.md](visualization-opportunities.md)).
 **Implementation:** `anvil/evals/battery.py` (battery v1 folded into the

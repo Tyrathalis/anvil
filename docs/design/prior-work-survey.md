@@ -1,5 +1,7 @@
 # Prior-Work Survey (pre-M0)
 
+**Doc status:** survey · pre-M0 prior-work survey, 2026-07-02
+
 *2026-07-02. The survey the design doc (§12, §13) requires before M0. Organized by project, then by what it changes for Anvil. Web-researched; every load-bearing claim has a source link. Author-reported numbers are flagged as such.*
 
 ---

@@ -1,5 +1,7 @@
 # Deep dive: manabrew's Forge-integration layer (vs Anvil)
 
+**Doc status:** survey · deep dive: manabrew's Forge-integration layer
+
 Repo: github.com/witchesofthehill/manabrew (clone at scratchpad/manabrew, HEAD as of 2026-07-16).
 Forge fork: github.com/witchesofthehill/forge, branch `manabrew`, submodule pin `6ab838980b`.
 All paths below are repo-relative unless noted. "Evidenced" = read in source; "inferred" flagged inline.

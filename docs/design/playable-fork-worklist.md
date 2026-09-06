@@ -1,5 +1,7 @@
 # Playable-fork worklist
 
+**Doc status:** living · playable-track doc of record
+
 Notes for a **human-facing build** of the Forge fork — distinct from the
 pinned research fork Anvil trains against. Prompted 2026-07-26: friends are
 weighing Forge against Tabletop Simulator for a 1v1/multiplayer Commander

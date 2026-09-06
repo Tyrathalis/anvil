@@ -1,5 +1,7 @@
 # M10 ceiling sweep — exploratory reads (2026-08-26)
 
+**Doc status:** historical · M10 ceiling secondary reads (2026-08-26)
+
 *The spec's named secondary reads ([m10-ceiling-spec.md](m10-ceiling-spec.md)
 "Secondary / exploratory reads": inform routing, NEVER gate), run after
 [ADR-0078](../decisions/ADR-0078-m10-ceiling-measurement.md) closed the

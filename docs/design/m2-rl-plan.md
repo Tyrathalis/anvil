@@ -1,5 +1,7 @@
 # M2 plan — RL from the BC start
 
+**Doc status:** historical · M2 plan (closed 2026-07-17, ADR-0020)
+
 **Date:** 2026-07-10. **Anchors:** design §3 (action decomposition), §4 (value/critic), §6 phase 2 (V-trace), §7 (Ante), §9 (state forking); [ADR-0009](../decisions/ADR-0009-m1-closeout.md) (M1 closeout, entry points); [ADR-0010](../decisions/ADR-0010-m2-opening-sequence.md) (opening sequence — this plan's seed); [ADR-0002](../decisions/ADR-0002-fork-api-gate-resolution.md) (fork fidelity characterization, `forkcheck`); [ADR-0005](../decisions/ADR-0005-d3-label-mask-semantics.md) (candidate/label semantics); [m1-bc-plan.md](m1-bc-plan.md) (the pattern this doc follows).
 **Question answered:** what M2 builds, in what order, and what closes it — such that the RL loop inherits an action space that knows which action it took, a critic that beats the matchup-entropy floor, and forking machinery trusted enough to label value now and power search later.
 

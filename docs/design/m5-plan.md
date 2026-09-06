@@ -1,5 +1,7 @@
 # M5 plan — Grindstone cycle 2: the compounding question
 
+**Doc status:** historical · M5 plan (closed 2026-08-05, ADR-0037)
+
 **Date:** 2026-08-03 (seeded by [ADR-0034](../decisions/ADR-0034-m5-opening-sequence.md); structure confirmed by user same session — M5 is OPEN).
 **Anchors:** [ADR-0033](../decisions/ADR-0033-m4-closeout.md) (M4 closeout + carried inventory); [ADR-0031](../decisions/ADR-0031-a2-resolution.md) (the cycle-1 win; the curation-staleness rule this milestone obeys); [ADR-0030](../decisions/ADR-0030-d3-experiment-a-resolution.md) (curriculum-composition mechanism); [ADR-0032](../decisions/ADR-0032-d4-serving-path-resolution.md) (w=16 recipe); [m4-plan.md](m4-plan.md) (the pattern this doc follows).
 **Question answered:** does the drill loop compound — and if not, why not, precisely enough to decide what replaces cycling.

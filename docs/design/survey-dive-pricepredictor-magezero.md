@@ -1,5 +1,7 @@
 # Survey skim: npiguet/price-predictor + WillWroble/MageZero
 
+**Doc status:** survey · skim: price-predictor + MageZero
+
 Skim tier, docs/specs only. Clones under the scratchpad (`price-predictor/`, `MageZero/`). "Evidenced" = read in a doc; "inferred" = my read between the lines.
 
 ## Top takeaways for Anvil

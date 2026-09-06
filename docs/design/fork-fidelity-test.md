@@ -1,5 +1,7 @@
 # Fork-fidelity differential test — design note
 
+**Doc status:** reference · forkcheck — the standing engine-bump gate
+
 **Date:** 2026-07-03. **Anchors:** ADR-0001 M0 deliverable (b); design doc §9 (state forking), §15; survey §5.3.
 **Question answered:** when you fork a live Forge game via `GameCopier` and let the fork play forward untouched, does it reproduce the mainline trajectory? This is the second measurement (after the soak) gating the "stable single-step fork API as flagship upstream contribution" bet → ADR-0002.
 

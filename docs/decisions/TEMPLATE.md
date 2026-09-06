@@ -14,4 +14,4 @@ What changed or got resolved.
 
 ## Consequences
 
-What this recalibrates (schedules, bets, §15 probabilities), and any follow-up work it creates.
+What this recalibrates (schedules, bets, standing rules — if it births one, add the line to docs/standing-rules.md in the same commit), and any follow-up work it creates, routed by name.

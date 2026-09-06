@@ -1,5 +1,7 @@
 # manabrew protocol v1 (PR #445) — AI-decision-coverage review
 
+**Doc status:** survey · delivered protocol review, 2026-07-18
+
 2026-07-18. M3 plan D3(c): review manabrew's protocol against Anvil's
 decision-surface census (109 PlayerController callbacks, 64 firing on the
 competitive pool, [callback-census-results.md](callback-census-results.md))

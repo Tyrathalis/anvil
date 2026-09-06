@@ -1,5 +1,7 @@
 # PlayerController override plan — design note
 
+**Doc status:** reference · the 109-method decision surface
+
 **Date:** 2026-07-03. **Anchors:** ADR-0001 (bridge-protocol invariants), design §9 (bridge), §3 (pointer decoder); remaining-M0-scope item 2 of 3.
 **Question answered:** where does Anvil's controller hook into Forge, what is the full decision surface it must cover, and — per decision family — can a decision be answered in one bridge round-trip or does engine structure force micro-steps? This note feeds the bridge-protocol draft directly.
 

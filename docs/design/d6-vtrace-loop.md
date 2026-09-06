@@ -1,5 +1,7 @@
 # D6: first V-trace self-play loop — build plan
 
+**Doc status:** reference · the self-play loop design (M2 D6), still the loop in use
+
 2026-07-14. Implements m2-rl-plan §D6. Deliverable (plan's words): **a loop
 that runs, doesn't collapse, and improves the arms.** First runs are
 tens-to-hundreds of K games; Grindstone position economy is the M3-era scale

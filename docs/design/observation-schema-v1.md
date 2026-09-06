@@ -1,5 +1,7 @@
 # Observation schema v1 + trajectory store v0 (M1 D1)
 
+**Doc status:** reference · trajectory/obs format
+
 **Date:** 2026-07-04. **Anchors:** [m1-bc-plan.md](m1-bc-plan.md) D1; [ADR-0004](../decisions/ADR-0004-m1-scope.md) decisions 1–2 (featurization line, labels-for-everything); design §1 (cross-game hygiene), §2 (entity tokens), §4 (belief head, M2), §9 (trajectory store); [bridge-protocol-v0.md](bridge-protocol-v0.md) (`observation: bytes` socket); [playercontroller-override-plan.md](playercontroller-override-plan.md) (decision surface).
 **Question answered:** what the Java worker writes per decision, in what container, and how Python reads it back — such that feature iteration never forces corpus regeneration, the same record rides the bridge at eval (D8), and M2's belief head finds its ground truth already logged.
 

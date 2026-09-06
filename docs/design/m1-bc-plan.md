@@ -1,5 +1,7 @@
 # M1 plan — behavior cloning
 
+**Doc status:** historical · M1 plan (closed 2026-07-10, ADR-0009)
+
 **Date:** 2026-07-04. **Anchors:** design §1–3 (encoder, state, policy head), §6 phase 1 (BC + value), §9 (bridge, trajectory store); [ADR-0003](../decisions/ADR-0003-m0-closeout.md) (sequencing out of M0, ledgered caveats); [ADR-0004](../decisions/ADR-0004-m1-scope.md) (scope decisions this plan builds on); [bridge-protocol-v0.md](bridge-protocol-v0.md) (`observation` socket, `CastPlan` sketch); [callback-census-results.md](callback-census-results.md) (tag traffic on pool `f568b187`); [dc-pool-pipeline.md](dc-pool-pipeline.md) (pool `cf2ca6ba`, 1,701 cards / 113 decks).
 **Question answered:** what M1 builds, in what order, and what number closes it — such that representations are validated with zero RL machinery (§13) and M2 inherits a working corpus + eval path, not a rewrite.
 

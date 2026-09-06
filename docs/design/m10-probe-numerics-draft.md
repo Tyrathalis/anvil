@@ -1,5 +1,7 @@
 # M10 training-probe numerics — ADOPTED (user-adjudicated 2026-08-28, [ADR-0084](../decisions/ADR-0084-m10-probe-preflight.md))
 
+**Doc status:** historical · adopted at ADR-0084
+
 Session: probe pre-flight. Structure was adjudicated 2026-08-26
 (m10-plan "Kill-signal + telemetry package"); the numbers below were
 adjudicated 2026-08-28, all four forks on the drafted leans

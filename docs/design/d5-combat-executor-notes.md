@@ -1,5 +1,7 @@
 # D5 combat executor — fork archaeology notes (2026-07-13, session 2)
 
+**Doc status:** historical · M2 D5 fork archaeology for the combat executor
+
 Read-through of the declare-combat paths in the fork ahead of the executor
 implementation (realizers + CONSTRUCT wire path). Companion to the D5 design
 settled 2026-07-13 (factorized heads; serve = legal-candidate materialization

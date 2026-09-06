@@ -1,5 +1,7 @@
 # M7 — the credit-assignment question: can dense per-decision signal reopen improvement?
 
+**Doc status:** historical · M7 plan (closed 2026-08-16, ADR-0058)
+
 **Opened:** 2026-08-10 (user-approved pins, this session).
 **Anchors:** [ADR-0049](../decisions/ADR-0049-flat-cycle-audit.md) (the
 bottleneck named: learning-signal density); [ADR-0050](../decisions/ADR-0050-m6-closeout.md)

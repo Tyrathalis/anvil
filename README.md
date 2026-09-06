@@ -45,20 +45,14 @@ the `forkcheck` fidelity-regression harness, and a
 
 ## Status
 
-M0 (throughput harness) and M1 (behavior cloning) are complete: the batch
-harness sustains ~1,700+ games/h with the Python bridge in the loop, and a
-behavior-cloned agent trained on ~114K self-play games (held-out expert
-agreement 0.976) plays full games at parity-minus-a-few-points against the
-heuristic AI it imitates. M2 (RL) is in flight: the state-forking rollout
-contract is certified and the `GameCopier` fidelity fixes are **merged
-upstream** ([#11203](https://github.com/Card-Forge/forge/pull/11203)); the
-SA-level action schema, luck-adjusted evaluation ledger (Ante), asymmetric
-critic, and combat constructs have landed; V-trace self-play is running —
-the current checkpoint reads 50.8% ± 2.5pp (luck-corrected) against the
-teacher, and the first guarded run following an instructive entropy-collapse
-post-mortem ([ADR-0017](docs/decisions/ADR-0017-run2-entropy-collapse.md)) is
-underway. See the [project map](docs/project-map.html) and
-[decision records](docs/decisions/) for the running narrative.
+Twelve milestones in: M0–M11 closed, M12 (search as the behavior policy) in
+scoping as of 2026-09-06. The RL checkpoint of record plays at 52.8% ± 1.1pp
+against Forge's heuristic AI on the current engine, +6.7pp over behavior
+cloning. The live state — one paragraph per open track and one row per
+milestone — is the Status section of [CLAUDE.md](CLAUDE.md); the
+[project map](docs/project-map.html) is the dashboard, the
+[decision records](docs/decisions/) are the record, and
+[docs/README.md](docs/README.md) indexes the rest.
 
 ## License
 

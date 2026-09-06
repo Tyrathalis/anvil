@@ -1,5 +1,7 @@
 # M3 plan — strength on a community-integrated platform
 
+**Doc status:** historical · M3 plan (closed 2026-07-28, ADR-0026)
+
 > **MILESTONE CLOSED 2026-07-28 ([ADR-0026](../decisions/ADR-0026-m3-closeout.md)) — all four done-when clauses resolved.** RL ckpt of record `d6-run7b/iter-014` at 0.5121 ± 0.0110 corrected on the post-rebase engine (+6.69pp over BC, t=4.32; parity vs the current heuristic). The M4 planning baseline is 0.5121; all pre-rebase numbers are old-scale.
 
 **Date:** 2026-07-17. **Anchors:** [m3-candidates.md](m3-candidates.md) (the pre-planning menu this plan resolves); [ADR-0020](../decisions/ADR-0020-m2-closeout.md) (M2 closeout); [ADR-0019](../decisions/ADR-0019-d6-donewhen4-resolution.md) (done-when #4, veto-drift lever list); [run3-veto-forensics.md](run3-veto-forensics.md) (commander-tax hypothesis); [ADR-0017](../decisions/ADR-0017-run2-entropy-collapse.md) (guards, hinge floor, lr bracket); [ADR-0018](../decisions/ADR-0018-ruleset-scope-clarification.md) (features-before-breadth); [discord-ai-plotting-survey.md](discord-ai-plotting-survey.md) + the #ai-plotting thread (2026-07-16/17); [upstream-worklist.md](upstream-worklist.md); [ADR-0021](../decisions/ADR-0021-m3-opening-sequence.md) (this plan's seed); [m2-rl-plan.md](m2-rl-plan.md) (the pattern this doc follows).

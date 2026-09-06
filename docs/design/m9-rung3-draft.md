@@ -1,5 +1,7 @@
 # M9 rung 3 — payment drill evalset + sub-head design
 
+**Doc status:** historical · M9 payment drill evalset + sub-head design
+
 **Status: PINNED (rung-3 design session, 2026-08-20; drafted overnight
 same day).** Anchors: [m9-plan](m9-plan.md) D3 item 3 + D4;
 [m9-payment-surface-spec §12](m9-payment-surface-spec.md) (the goal

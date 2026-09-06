@@ -1,5 +1,7 @@
 # Visualization opportunities — where and why plots would pay
 
+**Doc status:** historical · 2026-08-12 thinking note; the actionable part became run-analysis-protocol
+
 **Date:** 2026-08-12 (written during the documentation cleanup pause).
 **Status:** thinking note, deliberately NOT an implementation plan. Nothing here is scheduled; M7's queue (ADR-0049 instruments → C-bundle build → run) is untouched.
 **Prompt:** Talor is encouraging richer visualization — his stated workflow is "plot or generate a report of any data possible, as often as possible" (loss curves, game times/turns, which cards get/never get played), plus an embedding visualizer, and he suggests streamlit with "every data type should have a visualization and be linked to its inputs." He demonstrated with a pauper smoke report (10 games, HTML tables: deck records, turns distribution, priority-option widths, most/never-cast cards, decision-method census) and credits the workflow with finding real things — e.g. that stock Forge pulls sideboard cards into game 1s by default. Context: [discord-ai-plotting-survey.md](discord-ai-plotting-survey.md) records his Monte-Carlo rollout visualizer and the ecosystem's plotting habits.

@@ -1,5 +1,7 @@
 # Forge Discord #ai-plotting survey
 
+**Doc status:** survey · Forge Discord #ai-plotting, read 2026-07-16
+
 **Date read:** 2026-07-16 (full channel history, 2025-08-08 creation → present, ~965 messages, read via the desktop app; read-only — nothing posted).
 **Where:** Forge Discord server, channel `#ai-plotting` (under "Features"). One thread ("@infinitecursive did you publish"). Sibling channel `#ai-decks` hosted a 2022 tree-search plan by marthinwurer; `#ai-dumb-not-cheating` is player-complaint territory, not ML.
 **Why this doc:** complements [prior-work-survey.md](prior-work-survey.md). Design conversations for Forge happen in Discord/PRs, never issues — this is the standing record of who is doing AI-on-Forge and what they've hit.

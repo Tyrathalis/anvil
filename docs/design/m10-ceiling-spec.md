@@ -1,5 +1,7 @@
 # M10 planning/scheduling ceiling measurement — pre-registration spec
 
+**Doc status:** historical · M10 ceiling pre-registration, resolved at ADR-0078
+
 *Status: **ADJUDICATED (user, 2026-08-25)** — all five knobs accepted
 as drafted (knob (a) after the recorded power walkthrough + the stage-1b
 amendment). **`-forceschedule` BUILT + mechanical smoke PASSED

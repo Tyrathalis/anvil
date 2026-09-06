@@ -1,5 +1,7 @@
 # Card-addition pipeline sketch (upstream-track, NOT urgent)
 
+**Doc status:** historical · 2026-07-23 upstream-track sketch; nothing scheduled
+
 2026-07-23, from a planning conversation. Premise: if the model ever ships
 in Forge mainline, Forge devs and the custom-cards community must be able
 to add cards without us in the loop. Sketch of the tiers, their compute,

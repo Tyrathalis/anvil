@@ -1,5 +1,7 @@
 # M10 reset — ADOPTED (user-adjudicated 2026-09-02/03, [ADR-0094](../decisions/ADR-0094-m10-reset.md))
 
+**Doc status:** historical · adopted at ADR-0094
+
 Session: the probe6 adjudication ([ADR-0093](../decisions/ADR-0093-m10-probe6-read.md)
 addendum). The user adjudicated probe6 NO-FUND / no KILL and asked for a
 step back before the next probe: are there underlying issues in the

@@ -1,5 +1,7 @@
 # Upstream worklist
 
+**Doc status:** living · queued upstream contributions + diagnosed engine classes
+
 Seed-pinned, deterministically reproducible engine bugs harvested from Anvil
 runs, queued for upstream PRs to Card-Forge/forge (per ADR-0002: static-bug
 fixes are upstream PR #1; fork API is the flagship contribution, sequenced

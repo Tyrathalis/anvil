@@ -1,5 +1,7 @@
 # M9 D3 rung 2 — the §3c payment surface: fork-delta design spec
 
+**Doc status:** reference · the §3c payment surface as built (carried infrastructure since ADR-0077)
+
 **Pinned:** 2026-08-19 (D3 rung-2 design session).
 **Anchors:** [m9-plan.md](m9-plan.md) D3 (scope pins + rung-1
 resolution); [ADR-0065](../decisions/ADR-0065-d3-engine-capability-audit.md)

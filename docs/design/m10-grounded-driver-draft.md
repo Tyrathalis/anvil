@@ -1,5 +1,7 @@
 # M10 grounded-driver design — ADOPTED (user-adjudicated 2026-08-30, [ADR-0088](../decisions/ADR-0088-grounded-driver.md))
 
+**Doc status:** historical · adopted at ADR-0088
+
 Session: the post-probe2 build round, deepened. This document executes
 [ADR-0087](../decisions/ADR-0087-m10-probe2-read.md) decisions 2–3 but
 re-frames the round: the routed items ("calibration fix, then mint

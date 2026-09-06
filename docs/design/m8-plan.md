@@ -1,5 +1,7 @@
 # M8 — one lever to a promotion attempt: natural-timing credit, probe-gated, with a pre-registered pivot
 
+**Doc status:** historical · M8 plan (closed 2026-08-19, ADR-0062)
+
 **Opened:** 2026-08-17 (user-approved shape, this session).
 **Anchors:** [ADR-0058](../decisions/ADR-0058-m7-closeout.md) (M7 closeout
 + the chartered follow-up); [ADR-0053](../decisions/ADR-0053-sequence-probe-resolution.md)

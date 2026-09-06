@@ -1,5 +1,7 @@
 # M9 — the interface round: conscious mana payment, probe-gated, with the veto-collapse mechanism check; turn-plan latent as the second act
 
+**Doc status:** historical · M9 plan (closed 2026-08-25, ADR-0077)
+
 **Opened:** 2026-08-19 (user-approved shape, this session).
 **Anchors:** [ADR-0062](../decisions/ADR-0062-m8-closeout.md) (M8
 closeout + the routing + the standing veto account);

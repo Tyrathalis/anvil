@@ -1,5 +1,7 @@
 # DC card pool / decklist pipeline
 
+**Doc status:** reference · pool fetch/build/install pipeline
+
 **Status:** v0 spec, 2026-07-04. Implements design §8 source #2 (tournament decklists: "~80% of 'current meta' value for ~2% of the work") for the project's initial scope: 1v1 Duel Commander, curated ~1–2K card pool = union of DC meta decklists + flex slots.
 
 **What it feeds:** the census re-run (M1 tag coverage), the M1 BC corpus (deck population the harness plays), and eventually Tutor's candidate pool (§5).

@@ -1,6 +1,8 @@
 # M11 plan — the OPTION SCORER (CHARTER DRAFT, 2026-09-05)
 
-*Status: BUILD 1 KILLED 2026-09-06 ([ADR-0099](../decisions/ADR-0099-build1-scorer-kill.md) PROPOSED, route pending); BUILD 0 DONE 2026-09-06 (Fork C adjudicated, [ADR-0098](../decisions/ADR-0098-build0-critic-lookahead-read.md)); CHARTER ADJUDICATED 2026-09-05 ([ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md))
+**Doc status:** historical · M11 plan (closed 2026-09-06, ADR-0100)
+
+*Status: BUILD 1 KILLED 2026-09-06 ([ADR-0099](../decisions/ADR-0099-build1-scorer-kill.md) ACCEPTED; routes R1/R2 negative); **MILESTONE CLOSED 2026-09-06 ([ADR-0100](../decisions/ADR-0100-m11-closeout.md))**; BUILD 0 DONE 2026-09-06 (Fork C adjudicated, [ADR-0098](../decisions/ADR-0098-build0-critic-lookahead-read.md)); CHARTER ADJUDICATED 2026-09-05 ([ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md))
 at the M11 scoping session, the same day it was drafted at the M10 closeout
 ([ADR-0096](../decisions/ADR-0096-m10-closeout.md)). Forks A, B, E, F adjudicated (single network;
 payment classes as the second surface; the standard read closes); C and D keep their leans and are

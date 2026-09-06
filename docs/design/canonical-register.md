@@ -1,5 +1,7 @@
 # The canonical register — philosophically-correct future forms, named and priced
 
+**Doc status:** living · staged-vs-canonical forms, each priced with its promotion instrument; reviewed at scoping sessions
+
 *Born at the M10 build design session (2026-08-26, user direction):
 "canonical solutions that might require additional design work or
 computing power are still very much worth considering across the

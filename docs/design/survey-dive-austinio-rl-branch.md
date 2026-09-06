@@ -1,5 +1,7 @@
 # Dive: austinio7116/forge `ai_investigation` — BC→RL pipeline archaeology
 
+**Doc status:** survey · deep dive: austinio7116 BC→RL branch
+
 Clone: `<scratchpad>/austinio-forge`, HEAD `88105ef032` (2026-03-29). 147 commits since the first RL commit (`3cfa103af1`). All key docs at repo root: RLAI_PAPER.md (907 lines), RLAI_PLAN.md (723), RLAI_IMPROVEMENTS.md (210), ExIt.md (161), shaping.md (57). Java in `forge-ai-rl/src/main/java/forge/ai/rl/`, Python in `forge-ai-rl/src/main/python/`.
 
 ## Top takeaways for Anvil
