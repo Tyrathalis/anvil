@@ -320,6 +320,13 @@ silently delete.
 - **Every search cost is priced per game against generation rate**; throughput is the binding
   constraint until measured otherwise
   ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **The mask's legality predicate is the executor's apply-time predicate** — filter and
+  adjudicator agree by construction; residual veto classes are counted by name, never absorbed
+  by a penalty or a guard ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).
+- **A search copy is determinized to the acting seat's information set**: hidden zones are
+  resampled, never carried true, and the sampler is a named teacher setting in the store's
+  provenance; a value computed on a true-hand copy leaks regardless of channel width
+  ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).
 - **A big run is preceded by a shakedown run of the same loop shape** (~10% of its size, every
   flag on) that tests the training settings under the new label mix and supplies the
   learning-curve slope for the power statement's "games to produce" line

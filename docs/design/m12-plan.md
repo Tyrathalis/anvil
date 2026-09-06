@@ -1,4 +1,4 @@
-# M12 plan — SEARCH AS THE BEHAVIOR POLICY, built through to one big run (RECHARTERED 2026-09-06; SCOPED 2026-09-06 session 3)
+# M12 plan — SEARCH AS THE BEHAVIOR POLICY, built through to one big run (RECHARTERED 2026-09-06; SCOPED 2026-09-06 session 3; BUILD 0 OPEN session 4)
 
 **Doc status:** living · the open milestone plan — charter + running record
 
@@ -11,7 +11,7 @@ value head, search, the remaining decision surfaces), then one really big run wi
 the model must be strong WITHOUT search, or the project is "search for the heuristic"; search
 depth is a budget from day one. SCOPED 2026-09-06 (session 3, ADR-0101 addendum): forks A/G/H/I
 adjudicated, Build 1 numbers, day-zero arms and band rules, the shakedown run, full multi-format
-readiness — every pin below is the record; Build 0 opens next.*
+readiness — every pin below is the record. Build 0 OPENED 2026-09-06 session 4 ([ADR-0102](../decisions/ADR-0102-m12-build0-pins.md): six pins, fork J).*
 
 ## Charter
 
@@ -34,8 +34,11 @@ whether teaching is happening. The milestone's product is one big training run, 
   more doublings, which needs a trainable trunk and a representation that can carry the target
   (ADR-0096's rule) — hence the representation completions move BEFORE the big run.
 - The value head's STATE ranking is weak (Spearman 0.27–0.48 vs rollout truth) and it has never
-  been a milestone's object; 106K drill-fork games and thousands of K=8 composites sit in the
-  store unused as value targets (ADR-0101 finding 1).
+  been a milestone's object; rollout-mean labels sit in the store unused as value targets
+  (ADR-0101 finding 1) — **corrected at Build 0 (ADR-0102): 1,321 drill fork points, 806 harvest
+  windows, 3,294 mint per-arm rows, ~6,000 cl2 per-arm leaves over 800 windows — of order 10⁴,
+  not the "106K games" (95,616 of which are the cl2 store's completions)**; plus dense full-vis
+  h2 targets and terminal outcomes.
 - The loop has run at ~10K games per run against a design budget of 1–3M; throughput (800–1,600
   g/h bridged, game-time p90 19× the median) is binding (ADR-0101 finding 2). The gate (±1.1pp)
   cannot see the gains that compound.
@@ -94,19 +97,35 @@ whether teaching is happening. The milestone's product is one big training run, 
 
 ## Build order
 
-0. **The engine bundle** — ONE boundary event, forkcheck-proven before the first store:
-   - exact payability in the candidate mask (the M9 enumerator as a filter; retires §6c, the
-     veto guard and the void pre-filter — keep the veto counter as a tripline, expect ~0);
-   - game-time and repetition caps with cap-aware reward (design §3d) — read the throughput gain
-     on the p90 tail;
-   - the budgeted search directive (§1–§3 above) with compute telemetry in both units;
-   - the enumerators for the Build 3 surfaces (Java side only; heads come later);
-   - **explicit format id and pool id on every store/trajectory row** (rides the directive
-     provenance change; fork I) and a `CURRENT` pointer per pool directory.
-   Smoke: determinism under CRN, **network forward calls AND leaf evaluations per searched
-   window** (the budget unit is forward calls — fork A), decisions-per-leaf, games/hour with the
-   flag off and on at a fixed budget — the per-game search multiplier that sizes Build 5. **Prerequisite for everything below because a big run with search at
-   today's throughput is months, not weeks.**
+0. **The engine bundle** — pinned at Build 0's opening ([ADR-0102](../decisions/ADR-0102-m12-build0-pins.md)):
+   **the boundary carries only game-path changes**, forkcheck-proven against the 08-21 seed set
+   (which also discharges the recording jar's owed proof by transitivity):
+   - **exact payability in the mask = the executor's own predicate** (`canPayCost` before
+     targets, the existing `PAYCHECK` path ON by default) — filter and apply-time adjudicator
+     agree by construction; residual veto classes (late-priced cost modifiers, the model's own
+     X/mode) are counted, never absorbed. The M9 enumerator is an apply-time RESCUE only if the
+     smoke shows chain-payable casts dominating the residual. Mask cache key extended, re-gated
+     by the obs-diff protocol, ON/OFF decided by the smoke's games/hour;
+   - **deterministic caps**: a per-game priority-window cap and a turn cap at the rebaseline's
+     99.5th percentile (≤ 0.5% of games truncate), the wall-clock clock demoted to a crash
+     guard; reward unchanged (loss/draw/cap = 0 both seats). Repetition detection DEFERRED
+     with a tripline (cap or clock hits > 0.5% of games reopen it);
+   - **provenance in the game header + manifest, not in records**: registry ids for format and
+     pool, `-pool <id>` on `AnvilRun`, bridge `format_tag`/`fork_commit`/`engine_commit`
+     populated, **`OBS_SCHEMA_VERSION` → 3** as the era gate (reader takes the version per
+     store; sv=2 and sv=3 never join), `launch --pool` refuses a `pool_version` mismatch.
+   AFTER the boundary, as ADR-0025-exempt commits each with its 500-game proof:
+   - the value RPC + **the budgeted search directive** (§1–§3 above) with **uniform
+     determinization of the opponent's hand** (fork J) and compute telemetry in both units;
+   - the enumerators for the Build 3 surfaces (Java side only; heads come later).
+   Smoke (bridged, `iter-019`, on the boundary jar): residual veto classes, cap-hit rate,
+   games/hour cache off/on, the priority-window quantile; then with the directive: determinism
+   under CRN, **network forward calls AND leaf evaluations per searched window** (the budget
+   unit is forward calls — fork A), decisions-per-leaf, games/hour flag off/on at a fixed
+   budget — the per-game search multiplier that sizes Build 5. **Prerequisite for everything
+   below because a big run with search at today's throughput is months, not weeks.** Honest
+   sizing: the game-time tail is wide boards as much as long games (slowest decile = 31% of
+   wall time, 1.75× per-turn cost), so caps buy ≈10%; the multiplier is the search's.
 1. **The value head** — in parallel with Build 0, on existing stores (the 106K drill-fork games,
    the cl2 forks store, the harvest/mint composites): rank loss on rollout means + full-vis h2
    targets for the masked head **inside the shared trunk** (one network; not a standalone critic
@@ -114,7 +133,8 @@ whether teaching is happening. The milestone's product is one big training run, 
    reads = the Build 0 cells (one-ply ranking 0.277 ± 0.022 →) and the state-ranking Spearman
    (0.27–0.48 →). **Pre-registered: GO at one-ply ≥ 0.35 and/or state-ranking mean ≥ 0.50; KILL
    if neither clears 0.32** (two SE) → the leaf evaluator cannot be sharpened from banked labels;
-   adjudicate before spending search compute.
+   adjudicate before spending search compute. Read at the corrected label scale (~10⁴ rollout-mean labels, ADR-0102 item 6);
+   the ADR-0099 slope (+0.03 per doubling from 10³) is the prior.
 2. **Search + the day-zero read — THE ONE GATE.** Wire the directive to the sharpened masked
    head; the acting rule with margin bar and temperature pinned from the smoke's margin
    distribution. **The day-zero paired read on the fixed population, FOUR arms**: `iter-019`
@@ -202,6 +222,17 @@ whether teaching is happening. The milestone's product is one big training run, 
   on every row + per-pool `CURRENT` (Build 0), the onboarding recipe doc (with Build 4).
   Caveat on record: readiness = the interface exists; two formats in one network at
   near-specialist parity is the design's 65% bet and a later, separately powered run.
+
+- **J. (new, 09-06 s4) Hidden information in search copies.** **ADJUDICATED
+  ([ADR-0102](../decisions/ADR-0102-m12-build0-pins.md)): every copy is determinized to the
+  acting seat's information set** — libraries reshuffled (already default) AND the opponent's
+  hand resampled uniformly from their unknown set, one sample per leaf roll; the sampler is a
+  named teacher setting in provenance. A thinner channel (values only) does not close the
+  leak — the leak is what the value is conditioned on. Routed by name: **L2 belief-sampled
+  determinization** (the belief head's first consumer; labels free and dense; quality =
+  log-likelihood of the true hand vs uniform), consistency rejection later; **L3
+  information-set search** out of scope — the strategy-fusion residual is a named suspect if
+  the Build 5 gap holds while with-lookahead climbs.
 
 ## Done-when
 
@@ -306,3 +337,18 @@ moves verbatim to the status archive and this section stays here as the record.*
   ~0), then caps, then the directive + format/pool provenance; **Build 1 in parallel** on the
   106K drill-fork games, the cl2 forks store and the composites. Housekeeping unchanged: the
   recording jar's ADR-0025 proof is owed before any jar generates a training store.
+- **2026-09-06 (session 4) — Build 0 OPENED** ([ADR-0102](../decisions/ADR-0102-m12-build0-pins.md)).
+  State review against the tree: the payability filter already exists (`PAYCHECK`, off since M1
+  for late-pricing + cost reasons) and the apply-time veto uses the same Forge predicate; a 300 s
+  wall-clock draw clock exists and the trainer already scores caps as 0; no Java leaf-value
+  callback exists (the directive is new surface); the bridge hardcodes the format tag; the
+  "106K drill-fork games" double-counts cl2 (real: ~10⁴ rollout-mean labels); the game-time tail
+  is wide boards as much as long games. Six pins, all accepted by the user: the executor's own
+  predicate as the filter (enumerator = rescue only if the smoke says so); the boundary = mask +
+  caps + provenance header, the directive and enumerators after it as exempt commits; deterministic
+  window/turn caps at p99.5, repetition deferred with a tripline; provenance in the header +
+  manifest under sv=3; **fork J** — search copies determinized to the acting seat's information
+  set (uniform now, belief-sampled next, the belief head's first consumer); the Build 1 record
+  corrected. Next: the fork — (a) mask ON + cache key + obs-diff gate, (b) caps, (c) provenance +
+  sv=3 + bridge fields + Python reader/harness, (d) the boundary jar's forkcheck vs the 08-21
+  seeds + the bridged smoke, (e) the value RPC + directive + enumerators as exempt commits.
