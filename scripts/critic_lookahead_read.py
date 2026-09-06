@@ -181,6 +181,11 @@ def run(args) -> None:
             "--mu-out", str(out / "serve-mu.jsonl"), "--fork-instrument",
             "--counts-out", str(out / "server.counts.json")]
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    # watchd registration (stall = no artifact under the run dir for 30 min;
+    # completion rows land every few seconds while lanes are healthy)
+    subprocess.run([sys.executable, str(REPO / "scripts/anvil_watchd.py"), "register",
+                    "--name", run_id, "--pid", str(os.getpid()), "--dir", str(out),
+                    "--stall-min", "30"], check=False)
     server = subprocess.Popen(scmd, stdout=open(out / "server.log", "w"), stderr=subprocess.STDOUT,
                               env=env, cwd=str(REPO))
     import socket
@@ -219,6 +224,8 @@ def run(args) -> None:
                f"-> {res['verdict']}; lane failures {fails}; {manifest['wall_s'] // 60} min")
     except Exception as e:  # noqa: BLE001
         print(f"[lookahead] notify failed: {e}")
+    subprocess.run([sys.executable, str(REPO / "scripts/anvil_watchd.py"), "unregister",
+                    "--name", run_id], check=False)
 
 
 def ingest_and_read(out: Path) -> dict:
