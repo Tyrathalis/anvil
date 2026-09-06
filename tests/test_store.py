@@ -272,7 +272,7 @@ def test_undecodable_frame_quarantined(tmp_path):
         for r in [
             {
                 "k": "game",
-                "sv": 2,
+                "sv": OBS_SCHEMA_VERSION,
                 "g": 0,
                 "seed": 1,
                 "fmt": "Commander",

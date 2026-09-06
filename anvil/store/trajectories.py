@@ -29,9 +29,14 @@ import zstandard
 _SEAT = re.compile(r"\((\d+)\)")  # "Anvil(2)-dc-864160" / "Heur(1)-..." -> seat
 
 # v2 at the M9 boundary bundle (2026-08-21): entity choice-state kv ("cho")
-# + the payment-window kv blessed. The strict equality check below IS the
-# era gate — sv=1 stores are pre-boundary and never mix with v2 ingest.
-OBS_SCHEMA_VERSION = 2
+# + the payment-window kv blessed. v3 at the M12 Build 0 boundary
+# (2026-09-06, ADR-0102): explicit provenance on the game header ("pool",
+# "fork_commit"), "cap" on the end record, and the mask basis = payable by
+# the executor's own predicate. The version check IS the era gate: ingest
+# accepts only the current version; a reader takes the version from the
+# store's manifest (Build 1 opens sv=2 stores explicitly) and MultiStore
+# refuses to join stores of different versions or pools.
+OBS_SCHEMA_VERSION = 3
 TRAJECTORIES_DIR = Path(__file__).parents[2] / "data/trajectories"
 
 
@@ -52,8 +57,12 @@ class GameTrajectory:
         return self.header["g"]
 
 
-def decode_frame(data: bytes) -> tuple[dict, list[dict], dict | None, list[dict]]:
-    """Decode one game frame -> (header, decisions-with-ret-joined, end, marks)."""
+def decode_frame(
+    data: bytes, schema_version: int = OBS_SCHEMA_VERSION
+) -> tuple[dict, list[dict], dict | None, list[dict]]:
+    """Decode one game frame -> (header, decisions-with-ret-joined, end, marks).
+    schema_version: the era the caller expects (a store's manifest value);
+    the default is the current writer version (ingest)."""
     records = [
         json.loads(line)
         for line in zstandard.ZstdDecompressor()
@@ -63,8 +72,8 @@ def decode_frame(data: bytes) -> tuple[dict, list[dict], dict | None, list[dict]
     if not records or records[0].get("k") != "game":
         raise ValueError("frame does not start with a game header record")
     header = records[0]
-    if header["sv"] != OBS_SCHEMA_VERSION:
-        raise ValueError(f"schema version {header['sv']} != reader version {OBS_SCHEMA_VERSION}")
+    if header["sv"] != schema_version:
+        raise ValueError(f"schema version {header['sv']} != reader version {schema_version}")
     decisions: list[dict] = []
     marks: list[dict] = []
     by_seq: dict[int, dict] = {}
@@ -99,6 +108,8 @@ class TrajectoryStore:
     def __init__(self, root: Path | str):
         self.root = Path(root)
         self.manifest = json.loads((self.root / "manifest.json").read_text())
+        # The store's era: every frame in it was written at this version.
+        self.schema_version: int = int(self.manifest.get("obs_schema") or OBS_SCHEMA_VERSION)
         self.index: list[dict] = [
             json.loads(line) for line in (self.root / "index.jsonl").read_text().splitlines()
         ]
@@ -157,7 +168,7 @@ class TrajectoryStore:
         with open(self.root / entry["file"], "rb") as f:
             f.seek(entry["off"])
             data = f.read(entry["clen"])
-        header, decisions, end, marks = decode_frame(data)
+        header, decisions, end, marks = decode_frame(data, self.schema_version)
         if header["g"] != g:
             raise ValueError(f"index says game {g}, frame header says {header['g']}")
         return GameTrajectory(header, decisions, end, entry, marks)
@@ -195,6 +206,16 @@ class MultiStore:
 
     def __init__(self, roots):
         self.stores = [TrajectoryStore(r) for r in roots]
+        # ADR-0102: never join across eras or pools — a MultiStore is one
+        # corpus, and game index g means "one deterministic game" only within
+        # one (schema, pool) pair.
+        eras = {(s.schema_version, s.manifest.get("pool_version")) for s in self.stores}
+        if len(eras) > 1:
+            raise ValueError(
+                "MultiStore refuses to join stores of different (obs_schema, pool_version): "
+                + ", ".join(f"{s.root.name}=sv{s.schema_version}/{s.manifest.get('pool_version')}"
+                            for s in self.stores)
+            )
         self._store_of: dict[int, TrajectoryStore] = {}
         for s in self.stores:
             for g in s.game_indices():

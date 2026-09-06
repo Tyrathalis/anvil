@@ -51,6 +51,18 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _provenance_args(m: dict) -> list[str]:
+    """ADR-0102 item 4: the pool id and fork commit ride the worker command
+    line into the obs game header and the bridge hello (both from run.json,
+    so a replay carries the run's own pins)."""
+    args: list[str] = []
+    if m.get("pool_version"):
+        args += ["-pool", str(m["pool_version"])]
+    if m.get("fork_commit"):
+        args += ["-forkcommit", str(m["fork_commit"])]
+    return args
+
+
 def _git(repo: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
@@ -171,6 +183,7 @@ class Run:
             str(self.stop_file),
             "-b",
             m["bridge"],
+            *_provenance_args(m),
         ]
         if m.get("tags"):
             cmd += ["-tags", m["tags"]]
@@ -521,6 +534,7 @@ def replay(run_dir: Path, index: int) -> None:
         str(m["seed_base"]),
         "-b",
         m["bridge"],
+        *_provenance_args(m),
     ]
     if m.get("tags"):
         cmd += ["-tags", m["tags"]]
