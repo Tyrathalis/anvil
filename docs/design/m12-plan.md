@@ -1,4 +1,4 @@
-# M12 plan — SEARCH AS THE BEHAVIOR POLICY, built through to one big run (RECHARTERED 2026-09-06)
+# M12 plan — SEARCH AS THE BEHAVIOR POLICY, built through to one big run (RECHARTERED 2026-09-06; SCOPED 2026-09-06 session 3)
 
 **Doc status:** living · the open milestone plan — charter + running record
 
@@ -9,8 +9,9 @@ the user set: the project can identify strength and cannot teach it — the teac
 the priority; do more training and less design; push through a complete structure first (engine,
 value head, search, the remaining decision surfaces), then one really big run with everything;
 the model must be strong WITHOUT search, or the project is "search for the heuristic"; search
-depth is a budget from day one. The scoping session pins forks and pre-registered numbers
-against this doc.*
+depth is a budget from day one. SCOPED 2026-09-06 (session 3, ADR-0101 addendum): forks A/G/H/I
+adjudicated, Build 1 numbers, day-zero arms and band rules, the shakedown run, full multi-format
+readiness — every pin below is the record; Build 0 opens next.*
 
 ## Charter
 
@@ -99,44 +100,76 @@ whether teaching is happening. The milestone's product is one big training run, 
    - game-time and repetition caps with cap-aware reward (design §3d) — read the throughput gain
      on the p90 tail;
    - the budgeted search directive (§1–§3 above) with compute telemetry in both units;
-   - the enumerators for the Build 3 surfaces (Java side only; heads come later).
-   Smoke: determinism under CRN, evaluations per searched window, games/hour with the flag off
-   and on at a fixed budget. **Prerequisite for everything below because a big run with search at
+   - the enumerators for the Build 3 surfaces (Java side only; heads come later);
+   - **explicit format id and pool id on every store/trajectory row** (rides the directive
+     provenance change; fork I) and a `CURRENT` pointer per pool directory.
+   Smoke: determinism under CRN, **network forward calls AND leaf evaluations per searched
+   window** (the budget unit is forward calls — fork A), decisions-per-leaf, games/hour with the
+   flag off and on at a fixed budget — the per-game search multiplier that sizes Build 5. **Prerequisite for everything below because a big run with search at
    today's throughput is months, not weeks.**
 1. **The value head** — in parallel with Build 0, on existing stores (the 106K drill-fork games,
    the cl2 forks store, the harvest/mint composites): rank loss on rollout means + full-vis h2
-   targets for the masked head; reads = the Build 0 cells (one-ply ranking 0.28 →) and the
-   state-ranking Spearman (0.27–0.48 →). Pre-registered movement pinned at the scoping session.
-   KILL: no movement on either cell → the leaf evaluator cannot be sharpened from banked labels;
+   targets for the masked head **inside the shared trunk** (one network; not a standalone critic
+   grafted later — so this is the pre-training pass that produces the day-zero checkpoint);
+   reads = the Build 0 cells (one-ply ranking 0.277 ± 0.022 →) and the state-ranking Spearman
+   (0.27–0.48 →). **Pre-registered: GO at one-ply ≥ 0.35 and/or state-ranking mean ≥ 0.50; KILL
+   if neither clears 0.32** (two SE) → the leaf evaluator cannot be sharpened from banked labels;
    adjudicate before spending search compute.
 2. **Search + the day-zero read — THE ONE GATE.** Wire the directive to the sharpened masked
    head; the acting rule with margin bar and temperature pinned from the smoke's margin
-   distribution. **The day-zero paired read on the fixed population: with-lookahead vs the
-   executor** (bars carried from the draft: **≥ +1.5pp GO / ≤ 0 KILL-CANDIDATE**; one re-read
-   after a value-head pass; a second ≤ 0 kills the charter), plus a **heuristic + lookahead
-   control arm** (same masked head): if it matches network + lookahead, the network contributes
-   nothing yet and the strength lives in the value head — known before the run, not after.
+   distribution. **The day-zero paired read on the fixed population, FOUR arms**: `iter-019`
+   alone (the 0.5279 reference), the Build 1 checkpoint alone, the Build 1 checkpoint +
+   lookahead, heuristic + lookahead (same masked head). Bars: **≥ +1.5pp GO / ≤ 0
+   KILL-CANDIDATE**; **in-band (0, 1.5) proceeds to Build 3 but the big run cannot launch
+   without a second read ≥ +1.5pp after Build 4**; a value-head pass for the re-read = one more
+   banked-label fit + the day-zero run's own composites; a second ≤ 0 after that pass kills the
+   charter. **Control-arm rule:** heuristic + lookahead within 1.0pp of network + lookahead is
+   recorded as *the value head carries it* — not a kill; it sets the Build 5 expectation that
+   network-alone must climb from below — and heuristic + lookahead vs heuristic alone is banked
+   as what a masked-head lookahead buys any policy.
 3. **The decision surfaces** — one per evening, no gates: the three answer-shape heads and the
    enumerator tags (targets, discard/sac, mull tuck, modal, trigger order, library ordering,
    naming, payment classes, combat damage). Each integration: forkcheck + a one-hour smoke run +
    a 600-game paired read (a check that nothing broke — every shipped surface has landed a
    silent landmine caught by its first run).
-4. **Representation completions** — stack-entry tokens (§J-10) and embedded ability text (the
-   pinned LLM in place of the 33K string-id table). Prerequisite, not a reward: dense distillation
-   targets need a representation that can carry them.
-5. **The big run.** ≥ 300K games (sized by the power statement at launch: games to detect the
-   target, games to produce it), resume-friendly at seeded game granularity, `nice -n 19`,
-   overnight-and-away cadence. Read mid-run ONLY for guards, the network-alone vs with-lookahead
-   gap, and the state-ranking Spearman (the plateau-together tripline). The pivotality head
-   regenerates from the run's own margins each cycle; the uniform floor stays on.
+4. **Representation completions** — stack-entry tokens (§J-10), embedded ability text (the
+   pinned LLM in place of the 33K string-id table `sa_emb`, ADR-0012; **cache keyed by text hash,
+   not pool version**, so a new set is an append — fork I), and **format-as-features emitted**
+   (design §2: starting life, deck size, singleton flag, command zone, mulligan variant + a small
+   learned format embedding; fork I). Prerequisite, not a reward: dense distillation targets need
+   a representation that can carry them. **Blast radius is a named step:** replacing `sa_emb`
+   re-initializes a learned 64-dim input path, so the checkpoint gets a **re-warm on banked
+   labels after Build 4** (D4-standalone cost, ~2 h) read by the Build 1 cells as its smoke.
+   The **format-onboarding recipe doc** (`docs/design/format-onboarding.md`: pairs file + fixed
+   population, Ante certification, ladder anchor, era-scoped calibration maps, pool `CURRENT`)
+   is written when the format block lands.
+4½. **The shakedown run** — ~20–30K games with everything on, same loop shape as Build 5. The
+   loop's lr 1e-5 / KL 0.06 / replay 4 were tuned for sparse PG from a fixed checkpoint and dense
+   distillation turns the KL guard into a brake; the shakedown tests those settings, is the last
+   landmine catcher, and supplies the learning-curve slope the power statement's "games to
+   produce" line needs.
+5. **The big run.** **Envelope: four to six weeks of unattended box time**; games × per-game
+   budget derived from it with Build 0's measured search multiplier (300K games at today's
+   800–1,600 g/h is 8–16 days flag-off; ×3 is 3–7 weeks; ×10 is 2.5–5 months). Power statement
+   at launch — *detect*: the 2,000-game read resolves ±1.1pp so the promotable target is ≥ +2.5pp
+   over 0.5279, the paired read resolves 1.4pp at two SE per checkpoint pair; *produce*: the
+   shakedown's slope, re-issued at the 50K-game checkpoint from the run's own curve.
+   Resume-friendly at seeded game granularity, `nice -n 19`, overnight-and-away cadence. **Fork H
+   (the Android ship of `iter-019`) runs during this build on the playable branch.** Read
+   mid-run ONLY for guards, the network-alone vs with-lookahead gap, and the state-ranking
+   Spearman (the plateau-together tripline). The pivotality head regenerates from the run's own
+   margins each cycle; the uniform floor stays on.
 6. **Close by the standard 2,000-game read** vs 0.5279 ± 0.0110 (network alone; promote on
    cleared gate), with-lookahead alongside as the deployment ceiling, the ladder of own checkpoints
    updated (ADR-0101 §7), and the queue routed by name.
 
 ## Forks (state after the 2026-09-06 review; the scoping session pins the rest)
 
-- **A. Leaf event for d=1.** Lean unchanged: **the acting seat's next quiescent priority window**
-  (cheap, generic across tags) vs end of the acting turn. *Scoping session.*
+- **A. Leaf event for d=1.** **ADJUDICATED (09-06 s3): the acting seat's next quiescent priority
+  window.** ADR-0098: eot K=1 ≈ K=8 (0.30 vs 0.33) and h2 within 0.01 of eot, so the cheap leaf
+  loses nothing measurable. Sub-pins: **intermediate decisions on the path to the leaf are played
+  greedily by both seats** (CRN-stable, low-variance leaf); **the budget unit is network forward
+  calls** (policy + value), not leaf count — it is what the per-device map converts.
 - **B. Amortization term.** **ADJUDICATED: distillation (dense label term) + PG.**
 - **C. Behavior at searched windows.** **ADJUDICATED: sampled from the leaf-value softmax at a
   pinned temperature; the anytime search is Gumbel-shaped so its sampled action is the behavior
@@ -150,10 +183,25 @@ whether teaching is happening. The milestone's product is one big training run, 
 - **F. Depth as the lever.** **ADJUDICATED (amended): depth, breadth and leaf rolls are what a
   budget buys, not flags** — the scaling curve is budget-per-game vs paired strength, read on
   the big run's checkpoints at two budgets, not as a separate build.
-- **G. (new) Format testbed.** Pauper (`anvil/pool/pauper`) or another short, repetitive
-  format for loop-mechanism questions, Commander for the promotable number. *Scoping session.*
-- **H. (new) Ship `iter-019` on Android** through the playable build (ONNX export + Java ORT
-  session replacing the gRPC call) before or during the big run. *Scoping session.*
+- **G. Format testbed.** **ADJUDICATED (09-06 s3): no Pauper in M12.** The Pauper pool dir
+  holds a flex list only (builder exists, raw decks do not); a switch is pool + decks + ruleset +
+  every per-format asset at once, and it depends on Build 4. Commander is the run. Routed by
+  name to the closeout; taken early only if the Build 5 mid-run kill fires.
+- **H. Ship `iter-019` on Android** (ONNX export + Java ORT session replacing the gRPC call).
+  **ADJUDICATED (09-06 s3): DURING Build 5, not before.** No ONNX export exists in the tree; the
+  pointer decoder is awkward to export; the Python-side featurizer needs a Java port — real
+  weeks, and the weeks the box is busy are the ones it fits. Playable-branch only; zero delta on
+  the research fork.
+- **I. (new) Multi-format readiness.** **ADJUDICATED (09-06 s3): full readiness lands in this
+  round; training on a second format is decided later.** Already there: the ruleset is a flag
+  (`AnvilRun -f`, default Commander; Forge has a Pauper deck format under Constructed; the only
+  Commander-specific Anvil branch is the commander-player constructor), the pool pipeline is
+  generic (`anvil.pool.pauper`), the Python schema is not Commander-bound (life clipped to
+  [−10, 150], race features relative), cards are text-embedded, ADR-0018 lands content in chunks.
+  Lands now: format-as-features + text-hash-keyed ability embeddings (Build 4), format/pool ids
+  on every row + per-pool `CURRENT` (Build 0), the onboarding recipe doc (with Build 4).
+  Caveat on record: readiness = the interface exists; two formats in one network at
+  near-specialist parity is the design's 65% bet and a later, separately powered run.
 
 ## Done-when
 
@@ -165,9 +213,12 @@ whether teaching is happening. The milestone's product is one big training run, 
 3. The day-zero paired read and the control arm recorded and adjudicated on their bars.
 4. Every §3d′ family answered by the model under search (three answer shapes, enumerators with
    the natural line), each with its smoke read on file.
-5. Stack-entry tokens and embedded ability text in the representation.
-6. The big run launched with a power statement, completed or resumed to its sized length; the gap
-   and state-ranking series on file.
+5. Stack-entry tokens, embedded ability text (text-hash-keyed cache) and format-as-features in
+   the representation; the post-Build-4 re-warm read on file; format id + pool id on every row;
+   the format-onboarding recipe doc written.
+5½. The shakedown run on file with its slope and the settings it pinned.
+6. The big run launched with a power statement inside a four-to-six-week envelope, completed or
+   resumed to its sized length; the gap and state-ranking series on file.
 7. Closed by the standard 2,000-game read — or early by a pre-registered kill with an ADR.
 8. The closeout routes by name: the skill token / human-shaped levels, ponder-time search,
    belief head, match play, Tutor/Mentor product surfaces, the Pauper testbed if not taken, the
@@ -175,8 +226,9 @@ whether teaching is happening. The milestone's product is one big training run, 
 
 ## Kill conditions (pre-registered)
 
-- Build 1: no movement on either value-head cell from banked labels.
-- Build 2: a second ≤ 0 day-zero read after a value-head pass.
+- Build 1: neither value-head cell clears 0.32 (one-ply Spearman) from banked labels.
+- Build 2: a second ≤ 0 day-zero read after a value-head pass. In-band (0, 1.5) is not a kill but
+  blocks the Build 5 launch until a post-Build-4 read clears +1.5pp.
 - Build 5: **with-lookahead climbs while network-alone stays flat** at the mid-point — the
   teaching channel is broken; the project would be "search for the heuristic." Adjudicate
   capacity / encoding, not more compute.
@@ -209,7 +261,10 @@ The certifier and spread labels (read instruments only); the option scorer's spr
 generative planner (retired, ADR-0096/0099); the turn-plan latent as a supervised channel
 (inert); the skill token and human-shaped levels (after the big run, needs human games); belief
 head; match play; Tutor / Mentor as products; the Rust subset engine (re-priced only if the engine
-bundle leaves throughput binding at the big run's sizing).
+bundle leaves throughput binding at the big run's sizing); **the Pauper testbed** (fork G — the
+closeout, or early on the Build 5 mid-run kill); **training on a second format** (fork I — after
+the readiness lands, its own powered run); **the standing-rules prune** (the next documentation
+pass).
 
 ## Running record
 
@@ -234,3 +289,20 @@ moves verbatim to the status archive and this section stays here as the record.*
   `iter-019`) to the scoping session. Five standing rules added. Next: the scoping session pins
   the Build 1 numbers, the day-zero bars' re-read rule, the big run's power statement shape, and
   forks A/G/H; then Build 0 opens in the fork.
+- **2026-09-06 (session 3) — the scoping session** ([ADR-0101 addendum](../decisions/ADR-0101-architecture-review-m12-recharter.md),
+  status → ACCEPTED). The plan reviewed as coherent; what was missing was arithmetic and pins.
+  The big run priced (8–16 days flag-off at 300K games; a leaf evaluation = copy + intermediate
+  decisions + one value call, so the search multiplier was unpriced) → **envelope pinned at four
+  to six weeks of box time**, games × budget derived. Pinned: the value head inside the shared
+  trunk from Build 1 (four day-zero arms); Build 1 GO 0.35 / 0.50, KILL < 0.32; the in-band rule
+  (proceed, but no Build 5 launch without a post-Build-4 read ≥ +1.5pp); the control-arm 1.0pp
+  rule; fork A = next quiescent window, greedy intermediates, budget unit = forward calls; fork G
+  = no Pauper in M12; fork H = Android ship during Build 5; **fork I (new) = full multi-format
+  readiness in this round** (format-as-features, text-hash-keyed ability embeddings, format/pool
+  ids on every row, the onboarding recipe doc), training on a second format decided later. Two
+  amendments: **Build 4½ shakedown run** (settings under the dense label mix + the slope for the
+  power statement) and the **post-Build-4 re-warm** as a named step. Two standing rules. Next:
+  **Build 0 opens in the fork** — exact payability filter first (the veto tripline should drop to
+  ~0), then caps, then the directive + format/pool provenance; **Build 1 in parallel** on the
+  106K drill-fork games, the cl2 forks store and the composites. Housekeeping unchanged: the
+  recording jar's ADR-0025 proof is owed before any jar generates a training store.

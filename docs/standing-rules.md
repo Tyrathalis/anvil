@@ -280,6 +280,10 @@ silently delete.
 - Content breadth scales in set-sized dataset-boundary chunks after
   core features ([ADR-0018](decisions/ADR-0018-ruleset-scope-clarification.md)
   recipe-first).
+- **Every store row carries an explicit format id and pool id**, and a new format onboards by
+  the recipe doc (`docs/design/format-onboarding.md`) as one boundary event — extends the
+  content-in-chunks rule to formats
+  ([ADR-0101 addendum](decisions/ADR-0101-architecture-review-m12-recharter.md)).
 - **A binding execution regime is gated by a DAY-ZERO read of the
   planner against the executor it replaces** — binding pays only where
   the planner is at least the executor's equal at the bound windows
@@ -316,3 +320,7 @@ silently delete.
 - **Every search cost is priced per game against generation rate**; throughput is the binding
   constraint until measured otherwise
   ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **A big run is preceded by a shakedown run of the same loop shape** (~10% of its size, every
+  flag on) that tests the training settings under the new label mix and supplies the
+  learning-curve slope for the power statement's "games to produce" line
+  ([ADR-0101 addendum](decisions/ADR-0101-architecture-review-m12-recharter.md)).
