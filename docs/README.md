@@ -14,7 +14,7 @@
 
 ## Directories
 
-- **`decisions/`** — ADRs, numbered sequentially (0001–0100 so far; `TEMPLATE.md` at the root). Authoritative for every resolved design question. The project map carries a one-line-per-ADR index. Numbering hazard: parallel sessions collide — `ls` for max+1 at write time.
+- **`decisions/`** — ADRs, numbered sequentially (0001–0101 so far; `TEMPLATE.md` at the root). Authoritative for every resolved design question. The project map carries a one-line-per-ADR index. Numbering hazard: parallel sessions collide — `ls` for max+1 at write time.
 - **`design/`** — design docs, plans, specs, drafts and surveys (breakdown below, grouped by the status line each file carries).
 - **`devlog/`** — one dated file per working session (`YYYY-MM-DD[-sessionN].md`, from `TEMPLATE.md`). The session-by-session narrative; nothing else duplicates it.
 
@@ -25,7 +25,7 @@
 - [anvil-design-v2.md](design/anvil-design-v2.md) — the canonical design doc; §1–§15 are referenced everywhere
 - [canonical-register.md](design/canonical-register.md) — staged-vs-canonical forms, each priced with its promotion instrument; reviewed at scoping sessions
 - [chronicle-mvp-plan.md](design/chronicle-mvp-plan.md) — Chronicle side-stream implementation plan (D5 dogfood open)
-- [m12-plan.md](design/m12-plan.md) — the open milestone plan — charter draft + running record
+- [m12-plan.md](design/m12-plan.md) — the open milestone plan — charter + running record
 - [playable-fork-worklist.md](design/playable-fork-worklist.md) — playable-track doc of record
 - [run-analysis-protocol.md](design/run-analysis-protocol.md) — the standing post-run analysis battery (anvil/evals/battery.py)
 - [upstream-worklist.md](design/upstream-worklist.md) — queued upstream contributions + diagnosed engine classes

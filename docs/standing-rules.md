@@ -296,3 +296,23 @@ silently delete.
   M10 reset), **and a build is staged around its cheapest decisive read**
   (the day-zero read needed a third of the build)
   ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
+
+## Search, budgets, and run sizing
+
+- **Size every run to its effect**: a power statement (games needed to detect the target,
+  games needed to produce it) precedes every launch; a gate that cannot resolve the effect it
+  seeks is a null generator, not a measurement
+  ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **The natural line is always in the searched option set**; under a margin-gated acting rule a
+  surface cannot be dramatically worse than its fallback, so search-acted surfaces bundle
+  without per-surface attribution (amends the ADR-0097 one-mechanism rule for search-acted
+  surfaces only) ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **Search budgets are in evaluations during training, never wall-clock**; a per-device
+  calibration map converts at deployment; the model never sees the clock
+  ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **A gated search keeps a uniform exploration floor**, and its pivotality labels are the
+  search's own margins, era-scoped and regenerated per cycle (the §3d self-sealing hazard)
+  ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **Every search cost is priced per game against generation rate**; throughput is the binding
+  constraint until measured otherwise
+  ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
