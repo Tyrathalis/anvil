@@ -260,6 +260,14 @@ silently delete.
 
 ## Scoping and routing
 
+- **Measuring a ceiling is not evidence a route can learn it**: a label route funds its mint only
+  after a learnability read at ~10³ windows clears a pre-registered bar ABOVE a trivial prior on
+  the same holdout (arm length 0.15, the auto-correct sign prior 0.42 — ADR-0099)
+  ([ADR-0100](decisions/ADR-0100-m11-closeout.md)).
+- **Plan-type (composite) option quality is not regressible from the pre-action state at harvest
+  scale** — three head shapes, two targets, both trunk modes; a future plan-type surface shows a
+  within-window ranking above a length prior before a training run funds it
+  ([ADR-0099](decisions/ADR-0099-build1-scorer-kill.md), [ADR-0100](decisions/ADR-0100-m11-closeout.md)).
 - **Every deferral is routed BY NAME** at the next scoping session and
   the closeout ADR — scheduled, or re-deferred with a recorded reason;
   silent loss is not an outcome (the payment-queue rule, m9-plan;
