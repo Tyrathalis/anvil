@@ -38,7 +38,6 @@ from pathlib import Path
 import grpc
 
 from anvil.bridge.certify import CERTIFY_TAG, Certifier
-
 from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 
