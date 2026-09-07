@@ -39,6 +39,9 @@ import grpc
 
 from anvil.bridge.certify import CERTIFY_TAG, Certifier
 
+from anvil.bridge.pb import anvil_bridge_pb2 as pb
+from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
+
 # M12 Build 0 (ADR-0101 §1): the search-leaf value ask. The worker sends the
 # leaf window's peek record (obs + opts + the copy session's hist) under this
 # tag with INT_IN_RANGE [0, 1e6]; the answer is the MASKED value head's win
@@ -52,8 +55,6 @@ VALUE_TAG = "anvil.value"
 
 def is_search_session(game_id: str) -> bool:
     return ".s" in game_id
-from anvil.bridge.pb import anvil_bridge_pb2 as pb
-from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 
 PROTOCOL_VERSION = 0
 DEFAULT_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"

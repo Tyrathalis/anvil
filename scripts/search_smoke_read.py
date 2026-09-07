@@ -39,7 +39,8 @@ def main() -> int:
     a = ap.parse_args()
     rows = [json.loads(l) for l in open(a.labels) if l.startswith('{"ev":"search"')]
     if not rows:
-        print("no search rows"); return 1
+        print("no search rows")
+        return 1
     kinds: Counter = Counter()
     calls_leaf, ms_window, ms_opt, copy_share, margins, n_opts = [], [], [], [], [], []
     argmax_differs = agree = 0
@@ -102,7 +103,8 @@ def main() -> int:
     if gp.exists():
         for l in open(gp):
             try:
-                g = json.loads(l); games[g["i"]] = g
+                g = json.loads(l)
+                games[g["i"]] = g
             except (json.JSONDecodeError, KeyError):
                 continue
     if games:
