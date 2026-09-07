@@ -230,8 +230,18 @@ whether teaching is happening. The milestone's product is one big training run, 
   (d) replace outright (not favoured: learns engine versions, invariant seven; loses the prior).
   First step regardless: the ADR-0049 frozen-probe benchmark asked the new question — is an
   ability's effect class linearly decodable from the pinned embedding? Decodable → nothing to
-  gain; not → (a) or (b) at the Build 4 evening. Prior: ADR-0049 (representation was not the
-  bottleneck at M6). His results are the external read.
+  gain; not → (a) or (b) at the Build 4 evening (user 09-07: both are cheap and sound right; the
+  model will learn cards over a long run anyway, so what a better embedding buys is INTAKE SPEED
+  and canonicity, not ceiling). **The read that measures exactly that (user, 09-07): the held-out-card
+  probe** — once card editions are fully supported (fork I / ADR-0018 chunks), hold a set of cards
+  out of every training store and introduce them at test time: does the model play them? Shape:
+  the held-out cards enter through the pool's flex slots (ADR-0018) into otherwise-seen decks, read
+  paired against the same decks with seen substitutes; per-card cast rate given candidacy, veto
+  rate, the search margin on their windows (the search directive values them by engine effect, so
+  it is the natural teacher for a card the network has never seen); intake speed = the slope of
+  those numbers under continued training on a chunk that contains them. The next ADR-0018 chunk is
+  the held-out set by construction. Prior: ADR-0049 (representation was not the bottleneck at M6).
+  His results are the external read.
 - **I. (new) Multi-format readiness.** **ADJUDICATED (09-06 s3): full readiness lands in this
   round; training on a second format is decided later.** Already there: the ruleset is a flag
   (`AnvilRun -f`, default Commander; Forge has a Pauper deck format under Constructed; the only
