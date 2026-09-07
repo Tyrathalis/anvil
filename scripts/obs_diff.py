@@ -43,6 +43,9 @@ def main() -> int:
     games = identical = 0
     windows = windows_same = 0
     divergent: list[tuple[int, int, str]] = []
+    from collections import Counter
+
+    classes: Counter = Counter()
     for g in common:
         try:
             ta, tb = sa.game(g), sb.game(g)
@@ -64,13 +67,27 @@ def main() -> int:
         windows_same += i
         da = ta.decisions[i] if i < len(ta.decisions) else {}
         db = tb.decisions[i] if i < len(tb.decisions) else {}
-        why = f"t{da.get('t', db.get('t'))} {da.get('m', db.get('m'))} s{da.get('s', db.get('s'))}"
+        # Classify the first divergence: MASK = the recorded option sets differ
+        # (a cache/filter defect); ANSWER = same mask, different pick (serving
+        # jitter under micro-batch composition, ADR-0096); LENGTH = one stream
+        # ended first (a capped/clocked game); OTHER = seat/method/turn.
+        if not da or not db:
+            cls = "length"
+        elif (da.get("opts") or None) != (db.get("opts") or None):
+            cls = "mask"
+        elif (da.get("m"), da.get("p"), da.get("t")) != (db.get("m"), db.get("p"), db.get("t")):
+            cls = "other"
+        else:
+            cls = "answer"
+        classes[cls] += 1
+        why = f"{cls}: t{da.get('t', db.get('t'))} {da.get('m', db.get('m'))} s{da.get('s', db.get('s'))}"
         divergent.append((g, i, why))
         if a.dump_first and len(divergent) == 1:
             print(json.dumps({"a": {k: v for k, v in da.items() if k != "obs"},
                               "b": {k: v for k, v in db.items() if k != "obs"}}, indent=1)[:4000])
     print(f"games compared {games}  identical {identical}  divergent {len(divergent)}")
     print(f"windows {windows}  identical-prefix {windows_same}  ({windows_same / max(windows, 1):.4f})")
+    print(f"first-divergence classes {dict(classes)}  (mask = the gate's failure class)")
     for g, i, why in divergent[:20]:
         print(f"  game {g}: first divergence at record {i} ({why})")
     return 1 if divergent else 0
