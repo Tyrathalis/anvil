@@ -30,7 +30,7 @@ Initial scope: 1v1 Commander (40-life Commander ruleset), curated ~1–2K card p
 | Eval / Ante critic | `d4-critic-fullvis` (full-vis; never serves) |
 | BC certification ckpt | `d5-combat/last.pt` (`forkcheck` at every engine bump) |
 | Card pool | `cf2ca6ba` — 1,701 cards from 113/120 DC decks (`anvil.pool`; pinned by `data/pool/CURRENT`) |
-| Research fork pin | engine `23c3d2a85d`, bundle tip `2f87180cdf` (ADR-0068); recording jar `f4824f3d6` owes its ADR-0025 proof |
+| Research fork pin | engine `23c3d2a85d`; **Build 0 boundary tip `aac9f808bcf`** (ADR-0102; obs sv=3; forkcheck 499/500 vs the 08-21 seeds on `5d5283e`, final-jar proof overnight 09-06); the recording jar's ADR-0025 proof discharged by transitivity |
 | Fork checkout | `../forge` (blobless; `origin` Tyrathalis/forge, `upstream` Card-Forge/forge; `~/.local/opt/maven/bin/mvn -P windows-linux`, Java 17 on JDK 26) |
 | Playable release | v24 `fe86deded9` |
 
