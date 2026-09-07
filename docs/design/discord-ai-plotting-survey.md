@@ -92,3 +92,22 @@ Both checks ran over the whole BC corpus (113,592 games / 65.8M priority windows
 - The prior-work survey's "Forge's GameCopier/simulation layer is reportedly unstable" now has a named community witness (Hanmac, Jan 2026): the boardstate-simulation AI path "isn't used that much, I think because it's too expensive" — cost, not just instability.
 - The channel is livelier than "lightly-used" suggests: bursty (dead Oct–Dec 2025; very hot Mar–Jun 2026), driven by Claude Code/codex lowering the barrier — three independent BC→RL pipelines appeared in four months, all hitting walls Anvil has already documented and passed.
 - Nobody in the channel knows about Anvil (searches for the project return only the Oni-Cult Anvil card).
+- **2026-09-07 update (LordOfThePigs, Discord, two messages):** (1) he is now training embeddings
+  *effect-grounded* — the tokens of an ability's cost related directly to the observed effect (what
+  card was tapped, what mana left the pool) and likewise for every effect type (replacements,
+  stack-based effects); concept doc
+  [2026-09-04-ability-effect-model-design.md](https://github.com/npiguet/price-predictor/blob/master/experiments/2026-09-04-ability-effect-model-design.md),
+  no results yet. His claim: token embeddings that have proven able to predict their own game effect
+  are a much better basis for a game-playing agent than his current ones, and raw-text pre-trained
+  embeddings from another project cannot do it well because words carry MTG-specific meaning general
+  embeddings miss. (2) On the teacher-bias line in §2: most of his three models' bias comes from the
+  *target* they optimise (decks the Forge AI plays well), not from the teacher (Forge's deck builder /
+  drafter); the models' behaviour is fairly different from their teachers'. He was disappointed the
+  card embeddings carried little information, surprised that even so the models vastly outperform the
+  teacher; the probes gave him what the new version needs. **Anvil relevance:** claim (1) is a direct
+  challenge to ADR-0007/0012 (pinned Qwen3 text embeddings) at the moment Build 4 of M12 re-decides
+  the ability-text path (text-hash-keyed LLM embeddings, fork I). Our store already carries the
+  observed effects (the obs stream + the payment telemetry), so an effect-grounded target is buildable
+  from banked data. Routed by name as a **Build 4 fork** for the user: effect-grounded ability
+  embeddings vs the pinned LLM text embeddings, with ADR-0049 (representation was not the bottleneck
+  at M6) as the prior and his results, when they land, as the external read. Not acted on.

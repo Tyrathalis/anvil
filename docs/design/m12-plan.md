@@ -212,6 +212,13 @@ whether teaching is happening. The milestone's product is one big training run, 
   pointer decoder is awkward to export; the Python-side featurizer needs a Java port — real
   weeks, and the weeks the box is busy are the ones it fits. Playable-branch only; zero delta on
   the research fork.
+- **K. (new, 09-07, from the community watch) Effect-grounded ability embeddings.** LordOfThePigs
+  is retraining his card/ability embeddings on observed game effects (cost tokens ↔ what was tapped /
+  what mana left the pool; effect tokens ↔ replacements, stack effects), arguing general-purpose text
+  embeddings cannot carry MTG-specific meaning. OPEN for Build 4: the text-hash-keyed LLM embeddings
+  as pinned (fork I) vs an effect-grounded target our store can already supply. Prior: ADR-0049
+  (representation was not the bottleneck at M6). User decision at the Build 4 evening; his results
+  are the external read.
 - **I. (new) Multi-format readiness.** **ADJUDICATED (09-06 s3): full readiness lands in this
   round; training on a second format is decided later.** Already there: the ruleset is a flag
   (`AnvilRun -f`, default Commander; Forge has a Pauper deck format under Constructed; the only
