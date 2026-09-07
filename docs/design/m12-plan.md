@@ -468,3 +468,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   `loop:<method>` + the search clock allowance 3,600 → 900 s), replay-verified in 36 s; the
   state-hash repetition detector and a per-turn discount routed by name to the shakedown
   (ADR-0104 addendum). Community watch banked (fork K). The read itself: the next entry.
+- **2026-09-07 (11:01) — THE ONE GATE read: IN-BAND** ([ADR-0104 addendum](../decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
+  ref 0.538 / dz 0.522 / dzla(0.05) 0.530 / dzla10 0.538 vs the heuristic on 2,000 paired games
+  each; **dzla − dz = +0.92pp ± 1.10** (the gate arm; in-band → Build 3 proceeds, the big run
+  needs a post-Build-4 read ≥ +1.5pp); dzla10 − dz = +1.58 ± 1.04 (the bracket's second arm —
+  not the gate; the acts between margins 0.05 and 0.10 are net negative → the shakedown's bar
+  starts at 0.10, pinned now); **dz − ref = −1.63 ± 1.15** (the value-head pretrain cost policy
+  strength; the lookahead only recovers to `ref`; network-alone starts from `dz`); act rate 15% /
+  9%; multiplier 1.75× forward calls / 2.1× wall vs the heuristic at eight workers. Next: the
+  heuristic control arms on the loop-guard jar after its forkcheck (`build2_control_read.sh`),
+  then Build 3.

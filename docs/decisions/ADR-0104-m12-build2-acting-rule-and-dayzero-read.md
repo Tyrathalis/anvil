@@ -1,7 +1,7 @@
 # ADR-0104: M12 Build 2 — the search directive as the behavior policy (the acting rule), and the day-zero read moved to the 2,000-game instrument
 
 - **Date:** 2026-09-06 (session 6)
-- **Status:** accepted (arms launched; the verdict lands in the addendum)
+- **Status:** accepted — day-zero read IN-BAND (addendum 09-07 11:01)
 - **Design-doc anchor:** m12-plan.md Build 2 (the one gate) + canonical shape §2 (the acting
   rule) + fork C (sampled behavior); ADR-0101 §3 items 2/4/5 (four arms, band rules, the
   control-arm rule); ADR-0102 (the directive), ADR-0103 addendum (the margin distribution)
@@ -132,3 +132,39 @@ K=8 completions from a fixed 800-window population, CRN across arms):
 ## Addendum (2026-09-07, 10:50): the loop game and the loop guard
 
 - **The loop game (09-07, 09:51–10:56):** the dzla10 arm's game 989 spent 65 min in one MAIN1 window — the bridged seat activated Dark Sphere's prevention ability with an empty stack, `ChooseSourceEffect`'s unbounded `do … while (o == null)` re-asked the AI's `NeedsPrevention` chooser (which only answers from the stack or unblocked attackers) 150K+ times, no priority pass so no cap could count it, and the wall-clock guard under search sat at 300 + 3,600 s. The heuristic never enters that state (its `canPlayAI` gates the activation); a learned policy picking from the legality mask does — the same shape as the Cabal Coffers refund bug (engine code assuming the AI's own gating). **Fixed in the fork (`b4825285529`, user-approved 09-07):** the engine re-ask bounded (two attempts, then the first real source — upstream PR candidate, `upstream-worklist.md`); `Census.loopCheck` — consecutive identical controller callbacks per game past 256 cap the game as a Draw with reason `loop:<method>` and the Surfaces force hooks answer the first option so any such loop exits (counted like a cap; the 0.5% tripline reopens repetition detection); the search allowance on the wall-clock guards 3,600 → 900 s. Replay of the loop game on the fixed jar: 20 turns, 36 s, exactly two source asks per activation. Routed by name to the shakedown: a state-hash repetition detector at priority grants for model-driven no-progress cycles (bounded today by the window cap); a per-turn discount as the training-side answer to progress-without-winning (token doubling), not a guard. One clock hit in ~8,000 games — under the tripline.
+
+## Addendum (2026-09-07, 11:01): the day-zero read — IN-BAND
+
+`data/runs/build2-dayzero/read.json` (chain 23:16 → 11:01; 8,000 games on the snapshot jar of `103747691cc`):
+
+| arm | games | winrate vs the heuristic | vs `ref` (paired) | vs `dz` (paired) |
+|---|---|---|---|---|
+| `ref` — `iter-019` alone (Build 2 jar) | 1,984 | 0.538 ± 0.011 | — | — |
+| `dz` — day-zero ckpt alone | 1,972 | 0.522 ± 0.011 | −1.63pp ± 1.15 (t −1.4) | — |
+| `dzla` — day-zero + lookahead, bar 0.05 (**the gate arm**) | 1,974 | 0.530 ± 0.011 | −0.77 ± 1.20 | **+0.92 ± 1.10 (t 0.8)** |
+| `dzla10` — bar 0.10 (the bracket's second arm) | 1,978 | 0.538 ± 0.011 | −0.10 ± 1.21 | +1.58 ± 1.04 (t 1.5) |
+
+Acting telemetry (75K / 72K searched windows): bar 0.05 acts at 15.4% of windows (applied act 12.0%,
+pass 2.9%, `act_void` 0.11%), bar 0.10 at 9.0% (act 7.4%, pass 1.5%, void 0.06%); sampled ≠ argmax
+19% / 14%; margins p90 0.086 / 0.092, ≥ 0.05 at 15.6% / 16.5%, ≥ 0.10 at 8.5% / 9.1% (lower than
+the 40-game smoke's 19.5% / 11.5%: the heuristic opponent's boards are narrower than self-play's);
+`nat_unvalued` 1.4–1.5%; leaves 70% / void 29%; forward-call multiplier **1.76× / 1.74×**, wall
+**2.09× / 2.07×** at eight workers; ms per window p50 260 / p90 1,050. Drops: 16 / 21 / 10 / 9
+draws (caps), 7–16 crash-or-hang games per arm (gRPC deadline under search load, the copy NPE
+class, one StackOverflow) — pairs drop, n stays ≥ 1,956.
+
+**Verdict: IN-BAND on the pre-registered gate arm** (dzla − dz = +0.92pp, inside (0, 1.5)): Build 3
+proceeds; **the big run cannot launch without a post-Build-4 read ≥ +1.5pp**; the value-head pass
+for that re-read (ADR-0101 §3 item 4) = one more banked-label fit + this run's own composites.
+Read honestly: the bar-0.10 arm sits at +1.58pp on the point estimate, but it is the bracket's
+second arm, not the gate arm, and a post-hoc bar pick is exactly what the pre-registration forbids;
+what it says is that the acts between margins 0.05 and 0.10 are net negative (≈ −0.7pp ± 1.0 for
+~6% more acted windows) — the bar for the shakedown starts at 0.10, pinned before that read.
+Two facts beside the gate: (1) **the day-zero checkpoint alone reads 1.6pp below `iter-019`** (t −1.4)
+despite 99% argmax agreement on held-out windows — the value-head pretrain cost policy strength
+at the ~1% of windows that differ, and the with-lookahead arms only recover to `ref`'s level
+(dzla10 − ref = −0.1pp); network-alone for Build 5 therefore starts from `dz`, below the reference,
+and the post-Build-4 re-warm is read against `ref`, not `dz`. (2) The search multiplier at eight
+workers is 1.75× forward calls and 2.1× wall against the heuristic — lower than the self-play
+smoke's 2.4× (one seat searches; half the windows) — the Build 5 sizing number for a
+vs-heuristic population; self-play doubles it.
