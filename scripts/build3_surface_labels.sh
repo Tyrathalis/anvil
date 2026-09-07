@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# M12 Build 3 — the surface-label run (m12-plan Build 3; ADR-0103 enumerators,
+# ADR-0104 acting rule). The sub-row pool the answer-shape decoder distills
+# from: bridged SELF-PLAY on the day-zero ckpt (both seats searched), every
+# quiescent main-phase window searched at rate 1 / rolls 1, the surface
+# expansion round ON (-searchsurf B, one copy per enumerated answer of the
+# first traced surface on the top-B candidates' paths -> `sub` rows with
+# per-answer leaf values), the acting rule ON at the pinned shakedown bar
+# (0.10, ADR-0104 addendum) so the labels sit on the behavior distribution.
+# The obs store (sv=3, named surface opts + the heuristic's answers) doubles
+# as imitation labels; census + labels.jsonl per worker.
+#
+# Runs from a worktree pinned to a commit (the tree it imports from must not
+# be edited under it — memory: no-tree-edits-during-training-runs); the jar
+# is SNAPSHOTTED into the run dir. Detached-run checklist: setsid nohup by the
+# caller, watchd-registered here, unregister + notify inside this wrapper.
+# Usage: build3_surface_labels.sh
+#   env: WT (worktree), GAMES (1000), WORKERS (8), PORT (50075), BAR (0.10),
+#        TEMP (0.025), RATE (1), SURF (2), CAP (8), SEED (20260908), CKPT, JAR
+set -u
+REPO=/home/tyrathalis/Everything/Projects/Anvil
+WT=${WT:-/home/tyrathalis/Everything/Projects/anvil-wt-b3label}
+FORGE=/home/tyrathalis/Everything/Projects/forge
+NAME=${NAME:-b3-surflab}
+GAMES=${GAMES:-1000}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50075}
+BAR=${BAR:-0.10}; TEMP=${TEMP:-0.025}; RATE=${RATE:-1}; SURF=${SURF:-2}; CAP=${CAP:-8}
+SEED=${SEED:-20260908}
+CKPT=${CKPT:-data/training/m12-build1-stopstate/last.pt}
+OUT=$REPO/data/runs/build3-surface-labels
+mkdir -p "$OUT"
+SRC_JAR=${JAR:-$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)}
+JAR="$OUT/forge-b3.jar"
+if [[ ! -f "$JAR" ]]; then
+  cp "$SRC_JAR" "$JAR"
+  git -C "$FORGE" rev-parse HEAD > "$OUT/forge-b3.commit"
+  sha256sum "$JAR" > "$OUT/forge-b3.sha256"
+fi
+export PYTHONUNBUFFERED=1 DISPLAY=:0
+export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
+LOG="$OUT/chain.log"
+log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
+state() { echo "{\"stage\":\"$1\",\"at\":\"$(date -Iseconds)\"}" >> "$OUT/stages.jsonl"; }
+cd "$WT"
+FARGS="-search -searchrate $RATE -searchrolls 1 -searchsurf $SURF -searchsurfcap $CAP -searchact $BAR -searchtemp $TEMP"
+python3 "$REPO/scripts/anvil_watchd.py" register --name build3-surflab --pid $$ --dir "$REPO/data/runs" --stall-min 60
+log "start wt=$WT ($(git -C "$WT" rev-parse --short HEAD)) jar=$SRC_JAR -> $JAR ($(cat $OUT/forge-b3.commit)) ckpt=$CKPT games=$GAMES workers=$WORKERS fargs='$FARGS'"
+state start
+
+notify() { python3 -c "from anvil.training.notify import notify; notify('$1', '$2', tag='build3')"; }
+finish() { # rc
+  python3 "$REPO/scripts/anvil_watchd.py" unregister --name build3-surflab
+  if [[ $1 -eq 0 ]]; then notify "anvil build3 surface-label run DONE" "$OUT"; else notify "anvil build3 surface-label run FAILED" "rc=$1 see $LOG"; fi
+  exit $1
+}
+
+uv run python -m anvil.bridge.server --mode model --ckpt "$CKPT" --port $PORT --pass-delta 0 \
+  > "$OUT/server.log" 2>&1 &
+SERVER=$!
+for i in $(seq 1 300); do (echo > /dev/tcp/127.0.0.1/$PORT) 2>/dev/null && break; sleep 2; done
+(echo > /dev/tcp/127.0.0.1/$PORT) 2>/dev/null || { log "server never opened port"; kill $SERVER; state server-failed; finish 1; }
+log "server up pid=$SERVER"
+state generate-start
+t0=$(date +%s)
+nice -n 19 uv run python -m anvil.bridge.harness launch --pool --games "$GAMES" --games-per-pair 5 \
+    --workers "$WORKERS" --chunk 50 --bridge "grpc:localhost:$PORT" --obs --census --labels --reask \
+    --purpose "$NAME" --seed-base "$SEED" --jar "$JAR" --heap 3g --forge-args "$FARGS" \
+    >> "$OUT/harness.log" 2>&1
+rc=$?; t1=$(date +%s)
+log "harness rc=$rc wall=$((t1-t0))s"
+kill -TERM $SERVER 2>/dev/null; sleep 5; kill -KILL $SERVER 2>/dev/null
+RUN=$(ls -dt "$REPO"/data/runs/${NAME}-* 2>/dev/null | head -1)
+echo "{\"games\":$GAMES,\"bar\":$BAR,\"temp\":$TEMP,\"rate\":$RATE,\"surf\":$SURF,\"cap\":$CAP,\"rc\":$rc,\"wall_s\":$((t1-t0)),\"run\":\"$RUN\"}" > "$OUT/DONE"
+state "generate-done rc=$rc"
+finish $rc
