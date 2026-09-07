@@ -462,3 +462,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   in the fork, compiled, their forkcheck and chain (`build2_control_read.sh`) after the read.
   Standing rule: a gate's bars and its instrument share one scale. Devlog
   [2026-09-06-session6](../devlog/2026-09-06-session6.md).
+- **2026-09-07 (morning)** — the day-zero read's last arm caught an engine loop (game 989: Dark
+  Sphere's source choice re-asked 150K times, 65 min to the wall clock); fixed in the fork
+  (`b4825285529`: bounded engine re-ask + the `Census.loopCheck` tripwire capping the game as
+  `loop:<method>` + the search clock allowance 3,600 → 900 s), replay-verified in 36 s; the
+  state-hash repetition detector and a per-turn discount routed by name to the shakedown
+  (ADR-0104 addendum). Community watch banked (fork K). The read itself: the next entry.

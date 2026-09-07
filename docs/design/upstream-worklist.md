@@ -560,3 +560,24 @@ Consequences:
   complementarity note (#11285's surface vs theirs), offer forkcheck twin
   data as validation, possible #11285 review nudge. Deliberately not sent
   same-evening.
+
+## Queued 2026-09-07: `ChooseSourceEffect` unbounded re-ask on a null controller answer
+
+- **Symptom:** `ChooseSourceEffect.resolve` wraps `chooseSingleEntityForEffect` in
+  `do … while (o == null || o.getName().startsWith("--"))`. `ChooseSourceAi.chooseSingleCard`
+  (`AILogic$ NeedsPrevention`) only answers from the stack or from unblocked attackers, so an AI
+  seat that activates the ability with an empty stack outside combat returns null forever — the
+  engine loops in one window with no priority pass (no turn/window cap can count it; only a wall
+  clock ends it). Seen 09-07 on the M12 Build 2 dzla10 arm, game 989 (Dark Sphere, MAIN1, 150K+
+  asks, 65 min); the heuristic never enters the state because its `canPlayAI` gates the activation,
+  the learned policy picks from the legality mask and does.
+- **Fix (fork, 09-07):** bound the re-ask at two attempts, then take the first real source; skip
+  the pick when none exists. Behaviour-identical whenever the controller answers (forkcheck).
+  Same shape as the earlier `Cabal Coffers` refund bug: engine code that assumes the AI's own
+  gating happened. Upstream PR candidate; a unit test on a stubbed controller returning null.
+- **Anvil guard (fork, same commit):** `Census.loopCheck` — consecutive identical callbacks per
+  game past `anvil.loop.trip` (256) cap the game as a Draw with reason `loop:<method>` and the
+  Surfaces force hooks answer the first option so any such engine loop exits; counted like a cap
+  (the 0.5% tripline reopens repetition detection). A state-hash repetition detector at priority
+  grants (model-driven no-progress cycles, bounded today by the window cap) is routed by name to
+  the shakedown.

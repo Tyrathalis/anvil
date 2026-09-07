@@ -5,7 +5,8 @@
 # -searchact <bar> / -searchtemp <T>, the day-zero ckpt serving the mainline
 # policy, the copies and the leaf values. Reads: scripts/build2_read.py smoke.
 # Usage: build2_act_smoke.sh [games=8] [bar=0.05] [temp=0.025] [rate=1.0]
-#   env: OUT, CKPT, JAR, PORT, SEED, SEATS (default "0")
+#   env: OUT, CKPT, JAR, PORT, SEED, SEATS (default "0"), BRIDGESEATS (default SEATS; "2" = none),
+#        DECK1/DECK2 (a replay of one harness game: its pair + its game_seed)
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil
 FORGE=/home/tyrathalis/Everything/Projects/forge
@@ -16,7 +17,8 @@ mkdir -p "$OUT"
 PORT=${PORT:-50073}
 CKPT=${CKPT:-$REPO/data/training/m12-build1-stopstate/last.pt}
 GAMES=${1:-8}; BAR=${2:-0.05}; TEMP=${3:-0.025}; RATE=${4:-1.0}
-SEED=${SEED:-20260906}; SEATS=${SEATS:-0}
+SEED=${SEED:-20260906}; SEATS=${SEATS:-0}; BRIDGESEATS=${BRIDGESEATS:-$SEATS}
+DECK1=${DECK1:-dc-863946.dck}; DECK2=${DECK2:-dc-864920.dck}
 export PYTHONUNBUFFERED=1 DISPLAY=:0
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
 cd "$REPO"
@@ -31,8 +33,8 @@ log "server up pid=$SERVER"
 rm -f "$OUT/search.jsonl" "$OUT/games.jsonl" "$OUT/census.jsonl" "$OUT/obs.zst" "$OUT/obs.idx.jsonl"
 t0=$(date +%s)
 ( cd "$FORGE/forge-gui" && nice -n 19 java -Xmx3g -jar "$JAR" anvil \
-    -d "dc-863946.dck" "dc-864920.dck" -f Commander -n "$GAMES" -s "$SEED" \
-    -b grpc:localhost:$PORT -reask -bridgeseats "$SEATS" -pool cf2ca6ba \
+    -d "$DECK1" "$DECK2" -f Commander -n "$GAMES" -s "$SEED" \
+    -b grpc:localhost:$PORT -reask -bridgeseats "$BRIDGESEATS" -pool cf2ca6ba \
     -forkcommit "$(git -C $FORGE rev-parse HEAD)" \
     -search -searchrate "$RATE" -searchact "$BAR" -searchtemp "$TEMP" -searchseats "$SEATS" \
     -labels "$OUT/search.jsonl" -results "$OUT/games.jsonl" -census "$OUT/census.jsonl" -obs "$OUT/obs.zst" \
