@@ -361,3 +361,12 @@ moves verbatim to the status archive and this section stays here as the record.*
   Draw recorded a WIN since M0 (~1/2,000). Devlog
   [2026-09-06-session4](../devlog/2026-09-06-session4.md). Next: the smoke read + cache decision +
   cap pins, the search jar + its smoke (the multiplier), the enumerators, Build 1.
+- **2026-09-06 (session 4, note) — warm-starting the mask on search copies.** The mask cache
+  cannot be shared with a copy (its entries hold the parent's `SpellAbility` objects), but the
+  copy's first window IS the searched window, so the parent's mask can be carried over as
+  (host-card id, ability index) — ids survive GameCopier — and rebuilt without the legality +
+  payability scan; the directive needs that translation anyway (today it finds the forced option
+  by scanning and label-matching). Saves one scan per candidate copy (13 of 14 at a wide window);
+  the leaf's scan stays unless the value ask goes opts-free; intermediate windows scan as normal.
+  Build it only if the search smoke's per-option breakdown (copy_ms vs ms) shows the scan share
+  on copies is material — user question, 09-06.
