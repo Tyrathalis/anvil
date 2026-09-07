@@ -168,3 +168,8 @@ and the post-Build-4 re-warm is read against `ref`, not `dz`. (2) The search mul
 workers is 1.75× forward calls and 2.1× wall against the heuristic — lower than the self-play
 smoke's 2.4× (one seat searches; half the windows) — the Build 5 sizing number for a
 vs-heuristic population; self-play doubles it.
+
+## Addendum (2026-09-07, 11:20): the combined tip proven; the control chain launched
+
+- forkcheck `run-20260907-build2-control-loop` 498/500 vs the 08-21 seeds (fork fidelity 449/51), the standing two misses, 20260739 replays to the baseline hash `9e0365815606ddf6` twice on the same jar — **PASS; the research fork pin moves to `b4825285529`** (the control arm `1d4b2d817c3` + the loop guard).
+- **Control chain launched 11:20 09-07** (`scripts/build2_control_read.sh`, chain pid 519465, watchd `build2-control` + per-arm registrations, notify on completion; jar snapshot `data/runs/build2-control/forge-control.jar` sha `8a5aab9c…`): `heur` (no seat bridged, `-searchseats` names the read seat, no search) then `heurla` (bar 0.05 / T 0.025 / rate 1), read against the day-zero arms; ETA ~14:40.
