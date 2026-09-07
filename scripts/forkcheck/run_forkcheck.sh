@@ -31,6 +31,9 @@ if [[ "$(ls "$FORGE_DIR"/forge-gui-desktop/target/forge-gui-desktop-*-jar-with-d
   echo "WARNING: multiple candidate jars in target/ — using newest: $JAR" >&2
 fi
 OUT_DIR="${1:-$HOME/Everything/Projects/Anvil/data/forkcheck/run-$(date +%Y%m%d-%H%M%S)}"
+# Absolutize: the java launch cds into forge-gui/, so a relative out dir would
+# resolve there (the 09-06 repro-run trap).
+case "$OUT_DIR" in /*) ;; *) OUT_DIR="$PWD/$OUT_DIR" ;; esac
 N_GAMES="${N_GAMES:-500}"
 SEED="${SEED:-20260703}"
 HEAP="${HEAP:-2g}"
