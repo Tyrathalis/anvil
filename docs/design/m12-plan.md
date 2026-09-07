@@ -479,3 +479,12 @@ moves verbatim to the status archive and this section stays here as the record.*
   heuristic control arms on the loop-guard jar after its forkcheck (`build2_control_read.sh`),
   then Build 3.
 - **2026-09-07 (11:20)** — forkcheck `run-20260907-build2-control-loop` 498/500 vs the 08-21 seeds (fork fidelity 449/51), the standing two misses, 20260739 replays to the baseline hash `9e0365815606ddf6` twice on the same jar — **PASS; the research fork pin moves to `b4825285529`** (the control arm `1d4b2d817c3` + the loop guard). **Control chain launched 11:20 09-07** (`scripts/build2_control_read.sh`, chain pid 519465, watchd `build2-control` + per-arm registrations, notify on completion; jar snapshot `data/runs/build2-control/forge-control.jar` sha `8a5aab9c…`): `heur` (no seat bridged, `-searchseats` names the read seat, no search) then `heurla` (bar 0.05 / T 0.025 / rate 1), read against the day-zero arms; ETA ~14:40.
+- **2026-09-07 (14:02) — the control arms: the value head carries it** ([ADR-0104 addendum](../decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
+  heur 0.500 (the mirror's symmetry check, clean) / heurla 0.526; **heurla − heur = +2.51pp ± 1.00
+  (t 2.5)** = what a masked-head lookahead buys any policy; heurla − dzla = −0.46 ± 1.28 → within
+  1.0pp → *the value head carries it* (ADR-0101 §3 item 5; not a kill; Build 5's network-alone must
+  climb from below). The lookahead gained the heuristic more than it gained the network at day
+  zero; heurla ≈ dzla ≈ ref. Build 2 CLOSED with its two reads on file. Next: Build 3 (the decision
+  surfaces, Python side: the loader reads the named `opts`, the three answer-shape heads, the
+  distillation term from `sub` rows), one per evening, each with forkcheck + smoke + a 600-game
+  paired read.

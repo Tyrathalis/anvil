@@ -1,7 +1,7 @@
 # ADR-0104: M12 Build 2 — the search directive as the behavior policy (the acting rule), and the day-zero read moved to the 2,000-game instrument
 
 - **Date:** 2026-09-06 (session 6)
-- **Status:** accepted — day-zero read IN-BAND (addendum 09-07 11:01)
+- **Status:** accepted — day-zero read IN-BAND (addendum 09-07 11:01); control arms read: the value head carries it, +2.51pp to the heuristic (addendum 09-07 14:02)
 - **Design-doc anchor:** m12-plan.md Build 2 (the one gate) + canonical shape §2 (the acting
   rule) + fork C (sampled behavior); ADR-0101 §3 items 2/4/5 (four arms, band rules, the
   control-arm rule); ADR-0102 (the directive), ADR-0103 addendum (the margin distribution)
@@ -173,3 +173,30 @@ vs-heuristic population; self-play doubles it.
 
 - forkcheck `run-20260907-build2-control-loop` 498/500 vs the 08-21 seeds (fork fidelity 449/51), the standing two misses, 20260739 replays to the baseline hash `9e0365815606ddf6` twice on the same jar — **PASS; the research fork pin moves to `b4825285529`** (the control arm `1d4b2d817c3` + the loop guard).
 - **Control chain launched 11:20 09-07** (`scripts/build2_control_read.sh`, chain pid 519465, watchd `build2-control` + per-arm registrations, notify on completion; jar snapshot `data/runs/build2-control/forge-control.jar` sha `8a5aab9c…`): `heur` (no seat bridged, `-searchseats` names the read seat, no search) then `heurla` (bar 0.05 / T 0.025 / rate 1), read against the day-zero arms; ETA ~14:40.
+
+## Addendum (2026-09-07, 14:02): the heuristic control arms — the value head carries it
+
+`data/runs/build2-control/read.json` (chain 11:20 → 14:02 on the `b4825285529` snapshot jar; 4,000 games):
+
+| arm | games | winrate vs the heuristic | paired reads |
+|---|---|---|---|
+| `heur` — the heuristic mirror (no seat bridged; the read seat named by `-searchseats`, no search) | 1,969 | **0.500 ± 0.011** (the symmetry check, clean) | vs `ref` −3.74pp ± 1.27 (t −2.9) |
+| `heurla` — heuristic + lookahead, bar 0.05 / T 0.025 / rate 1 | 1,975 | 0.526 ± 0.011 | **vs `heur` +2.51pp ± 1.00 (t 2.5)**; vs `dzla` −0.46 ± 1.28; vs `ref` −1.22 ± 1.31 |
+
+`heurla` acting (72K searched windows): act rate 8.4% (applied act 5.0%, pass 3.1%, `act_void` 0.12%),
+`nat_unvalued` 2.5%, margins ≥ 0.05 at 8.6% / ≥ 0.10 at 4.6%; **void 59% of candidate copies** (the
+heuristic realizes a forced option through its own `canPlaySa` judgment, so its lookahead ranks only
+heuristic-realizable options); wall 1.27× (no policy calls on copies). Drops: 2 crash games per arm.
+
+**Control-arm rule (ADR-0101 §3 item 5): |heurla − dzla| = 0.48pp ≤ 1.0pp → "the value head carries
+it."** Not a kill; it sets the Build 5 expectation that network-alone must climb from below. Banked as
+"what a masked-head lookahead buys any policy": **+2.51pp ± 1.00 to the heuristic** (t 2.5, the one
+clearly non-zero lookahead effect in the read) against +0.92 (bar 0.05) / +1.58 (bar 0.10) to the
+network. Read together: at day zero the sharpened masked head is the asset and the network's own
+play adds nothing measurable on top of it (heurla ≈ dzla ≈ ref); the network alone still stands
++2.2pp over the heuristic mirror (dz 0.522 vs heur 0.500) and `iter-019` +3.7pp. The gap the charter
+watches in Build 5 — with-lookahead vs network-alone — therefore opens at ≈ +1pp on a network that
+is below its own reference; the teaching channel has to close a 1.6pp pretrain debt before it shows
+a gain over `ref`. The heuristic's void share (59%) says its control lookahead searched a narrower
+option set than the network's (29% void) and still gained more — the value head is doing the work
+where the heuristic's judgment already prunes.
