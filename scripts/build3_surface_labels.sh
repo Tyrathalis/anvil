@@ -25,6 +25,7 @@ NAME=${NAME:-b3-surflab}
 GAMES=${GAMES:-1000}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50075}
 BAR=${BAR:-0.10}; TEMP=${TEMP:-0.025}; RATE=${RATE:-1}; SURF=${SURF:-2}; CAP=${CAP:-8}
 SEED=${SEED:-20260908}
+DEADLINE_MS=${DEADLINE_MS:-20000}
 CKPT=${CKPT:-data/training/m12-build1-stopstate/last.pt}
 OUT=$REPO/data/runs/build3-surface-labels
 mkdir -p "$OUT"
@@ -36,6 +37,12 @@ if [[ ! -f "$JAR" ]]; then
   sha256sum "$JAR" > "$OUT/forge-b3.sha256"
 fi
 export PYTHONUNBUFFERED=1 DISPLAY=:0
+# Eight workers hitting their first windows together with the expansion round
+# (B=2, cap 8 -> up to 16 extra copies per window, each asking the bridge) pushed
+# an ask past the bridge's 5 s default at the first launch (09-07 14:42: every
+# game poisoned at turn 1; the same seed plays clean single-worker) -> the
+# worker deadline is raised for this run (orchestrator ANVIL_EXTRA_JVM_OPTS).
+export ANVIL_EXTRA_JVM_OPTS="-Danvil.bridge.deadline.ms=$DEADLINE_MS"
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
 LOG="$OUT/chain.log"
 log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
@@ -43,7 +50,7 @@ state() { echo "{\"stage\":\"$1\",\"at\":\"$(date -Iseconds)\"}" >> "$OUT/stages
 cd "$WT"
 FARGS="-search -searchrate $RATE -searchrolls 1 -searchsurf $SURF -searchsurfcap $CAP -searchact $BAR -searchtemp $TEMP"
 python3 "$REPO/scripts/anvil_watchd.py" register --name build3-surflab --pid $$ --dir "$REPO/data/runs" --stall-min 60
-log "start wt=$WT ($(git -C "$WT" rev-parse --short HEAD)) jar=$SRC_JAR -> $JAR ($(cat $OUT/forge-b3.commit)) ckpt=$CKPT games=$GAMES workers=$WORKERS fargs='$FARGS'"
+log "start wt=$WT ($(git -C "$WT" rev-parse --short HEAD)) jar=$SRC_JAR -> $JAR ($(cat $OUT/forge-b3.commit)) ckpt=$CKPT games=$GAMES workers=$WORKERS deadline_ms=$DEADLINE_MS fargs='$FARGS'"
 state start
 
 notify() { python3 -c "from anvil.training.notify import notify; notify('$1', '$2', tag='build3')"; }
