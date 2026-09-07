@@ -30,6 +30,9 @@ JAR="${JAR:-$(ls -t "$FORGE_DIR"/forge-gui-desktop/target/forge-gui-desktop-*-ja
 if [[ "$(ls "$FORGE_DIR"/forge-gui-desktop/target/forge-gui-desktop-*-jar-with-dependencies.jar | wc -l)" -gt 1 ]]; then
   echo "WARNING: multiple candidate jars in target/ — using newest: $JAR" >&2
 fi
+# The launch cds into forge-gui/, so a relative JAR= would not resolve either
+# (the 09-07 Build 3 forkcheck launched twice against a missing jarfile).
+case "$JAR" in /*) ;; *) JAR="$PWD/$JAR" ;; esac
 OUT_DIR="${1:-$HOME/Everything/Projects/Anvil/data/forkcheck/run-$(date +%Y%m%d-%H%M%S)}"
 # Absolutize: the java launch cds into forge-gui/, so a relative out dir would
 # resolve there (the 09-06 repro-run trap).

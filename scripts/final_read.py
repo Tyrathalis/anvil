@@ -61,6 +61,12 @@ def main() -> None:
     )
     ap.add_argument("--jar", default=None, help="run this jar (a snapshot copy) instead of target/'s newest")
     ap.add_argument(
+        "--server-tags",
+        default=None,
+        help="M12 Build 3 (ADR-0105): the server's announced tag list (csv) — an arm that withholds "
+        "the surface tags reads the same ckpt with the heuristic answering the surfaces",
+    )
+    ap.add_argument(
         "--heuristic-control",
         action="store_true",
         help="M12 Build 2 control arms (ADR-0104 item 5): NO seat bridged (the "
@@ -90,7 +96,10 @@ def main() -> None:
 
     # ---- generation: both seat assignments under one argmax server ----
     arm_dirs: list[Path] = []
-    server = _start_server(a.ckpt, a.port, RUNS_DIR / f"{a.name}-arm-server.log", sample=False)
+    server = _start_server(
+        a.ckpt, a.port, RUNS_DIR / f"{a.name}-arm-server.log", sample=False,
+        sched_flags=(["--tags", a.server_tags] if a.server_tags else None),
+    )
     try:
         for seat in (0, 1):
             purpose = f"{a.name}arm-s{seat}"
