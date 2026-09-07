@@ -206,3 +206,22 @@ state bar (0.50) was set against the standalone number; a leaf-evaluator target,
 Build 2 consumes, is the one-ply cell, and it cleared. Routed by name: if the day-zero read
 comes in-band, the value-head pass for the re-read (ADR-0101 §3) tries the state family at
 higher weight / more epochs with the KL anchor held.
+
+## Addendum (2026-09-06, session 5, 22:20): the search smoke on the day-zero checkpoint — Build 2's margin distribution
+
+`OUT=data/runs/build2-search-smoke-dayzero CKPT=data/training/m12-build1-stopstate/last.pt
+scripts/build0_search_smoke.sh 40 0.2 1` (the day-zero ckpt serving BOTH the mainline policy and
+the leaf values; 745 s): **565 searched windows over 40 games, 0 copy crashes, all 40 games
+ended in wins (self-play, both seats bridged)**. Leaf kinds: leaf 79.2%, void 20.6% (the
+shape-fit class on copies — the target-fitting veto at apply — up from 15% on the 12-game
+Build 0 smoke), end 0.2%. Forward calls per leaf p50 4 / p90 8; ms per window p50 226 / p90
+1,018; multiplier **1.28× forward calls at rate 0.2 → ≈ 2.4× at rate 1** (Build 0: 2.6×).
+
+**Margins (max V − V(natural)) on the sharpened head:** p50 0.000 / p90 0.116 / p99 0.316 / max
+0.627; argmax ≠ natural at 40.9% of windows; **margin ≥ 0.01 at 31.2%, ≥ 0.02 at 26.9%, ≥ 0.05 at
+19.5%, ≥ 0.10 at 11.5%**. Against the unsharpened head (Build 0: ≥ 0.02 at 24%, ≥ 0.05 at 13%,
+max 0.13) the head is more decisive and the tail is real (p99 0.32). Build 2 pins the bar from
+this distribution: a bar of 0.05 acts at ~20% of searched windows, 0.10 at ~12% — the bracket the
+day-zero read's with-lookahead arms should sweep (two bars, one temperature) rather than one
+guess. The void share is the Build 3 targets surface's cost on copies and is counted, not
+absorbed.

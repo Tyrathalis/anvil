@@ -402,4 +402,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   tutor targets in the tail. Next: **Build 2** — wire the directive to the sharpened head, pin the
   margin bar/temperature from the smoke's margins on the day-zero ckpt, regenerate the fixed
   population on the boundary jar, the four-arm day-zero paired read.
+- **2026-09-06 (session 5, late)** — the search smoke on the day-zero ckpt (40 games, rate 0.2):
+  565 windows, 0 crashes, margins on the sharpened head ≥ 0.05 at 19.5% / ≥ 0.10 at 11.5% (p99
+  0.32, max 0.63), argmax ≠ natural 41%, void 20.6%, multiplier ≈ 2.4× at rate 1. Build 2's bar
+  bracket is 0.05 / 0.10 (ADR-0103 addendum).
 
