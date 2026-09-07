@@ -75,6 +75,125 @@ FORCE_OVERRIDES = {
 }
 
 
+# M12 Build 3 (ADR-0103): the decision SURFACES of design §3d′ as search
+# tags. Each entry routes the wrapper's dec (named option list + unwalked
+# option cards in the snapshot), an optional force hook (a SurfaceDirective
+# armed on a search copy; null = natural) and an after-super trace hook (the
+# heuristic's answer as indices, recorded on search copies for the monitor's
+# expansion round). Logic lives in Surfaces; the generated file stays
+# logic-free. A surface method must not also appear in FORCE_OVERRIDES.
+SURFACES = {
+    "chooseSingleEntityForEffect": {
+        "kind": "Surfaces.ENTITY_ONE", "opts": "optionList",
+        "force": "Surfaces.forceEntityOne(getGame(), getPlayer(), optionList, sa)",
+        "after": "Surfaces.afterEntityOne(getGame(), getPlayer(), optionList, sa, __r)",
+    },
+    "chooseSingleCardForZoneChange": {
+        "kind": "Surfaces.ENTITY_ONE", "opts": "fetchList",
+        "force": "Surfaces.forceZoneChange(getGame(), getPlayer(), fetchList, sa)",
+        "after": "Surfaces.afterEntityOne(getGame(), getPlayer(), fetchList, sa, __r)",
+    },
+    "chooseSingleSpellForEffect": {
+        "kind": "Surfaces.ENTITY_ONE", "opts": "spells",
+        "force": "Surfaces.forceSpellOne(getGame(), getPlayer(), spells, sa)",
+        "after": "Surfaces.afterEntityOne(getGame(), getPlayer(), spells, sa, __r)",
+    },
+    "chooseEntitiesForEffect": {
+        "kind": "Surfaces.ENTITY_SET", "opts": "optionList",
+        "force": "Surfaces.forceEntitySet(getGame(), getPlayer(), optionList, min, max, sa)",
+        "after": "Surfaces.afterEntitySet(getGame(), getPlayer(), optionList, min, max, sa, __r)",
+    },
+    "chooseCardsForEffect": {
+        "kind": "Surfaces.ENTITY_SET", "opts": "sourceList",
+        "force": "Surfaces.forceCardSet(getGame(), getPlayer(), sourceList, min, max, sa)",
+        "after": "Surfaces.afterEntitySet(getGame(), getPlayer(), sourceList, min, max, sa, __r)",
+    },
+    "chooseCardsToDiscardFrom": {
+        "kind": "Surfaces.ENTITY_SET", "opts": "validCards",
+        "force": "Surfaces.forceCardSet(getGame(), getPlayer(), validCards, min, max, sa)",
+        "after": "Surfaces.afterEntitySet(getGame(), getPlayer(), validCards, min, max, sa, __r)",
+    },
+    "chooseCardsToDiscardToMaximumHandSize": {
+        "kind": "Surfaces.ENTITY_SET", "opts": "getPlayer().getCardsIn(ZoneType.Hand)",
+        "force": "Surfaces.forceCardSet(getGame(), getPlayer(), getPlayer().getCardsIn(ZoneType.Hand),"
+                 " numDiscard, numDiscard, null)",
+        "after": "Surfaces.afterEntitySet(getGame(), getPlayer(), getPlayer().getCardsIn(ZoneType.Hand),"
+                 " numDiscard, numDiscard, null, __r)",
+    },
+    "choosePermanentsToSacrifice": {
+        "kind": "Surfaces.ENTITY_SET", "opts": "validTargets",
+        "force": "Surfaces.forceCardSet(getGame(), getPlayer(), validTargets, min, max, sa)",
+        "after": "Surfaces.afterEntitySet(getGame(), getPlayer(), validTargets, min, max, sa, __r)",
+    },
+    "choosePermanentsToDestroy": {
+        "kind": "Surfaces.ENTITY_SET", "opts": "validTargets",
+        "force": "Surfaces.forceCardSet(getGame(), getPlayer(), validTargets, min, max, sa)",
+        "after": "Surfaces.afterEntitySet(getGame(), getPlayer(), validTargets, min, max, sa, __r)",
+    },
+    "chooseSpellAbilitiesForEffect": {
+        "kind": "Surfaces.ENTITY_SET", "opts": "spells",
+        "force": "Surfaces.forceSpellSet(getGame(), getPlayer(), spells, num, sa)",
+        "after": "Surfaces.afterEntitySet(getGame(), getPlayer(), spells, 0, num, sa, __r)",
+    },
+    "orderSimultaneousSa": {
+        "kind": "Surfaces.ORDER", "opts": "activePlayerSAs",
+        "force": "Surfaces.forceOrderSa(getGame(), getPlayer(), activePlayerSAs)",
+        "after": "Surfaces.afterOrder(getGame(), getPlayer(), activePlayerSAs, null, __r)",
+    },
+    "orderMoveToZoneList": {
+        "kind": "Surfaces.ORDER", "opts": "cards",
+        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), cards)",
+        "after": "Surfaces.afterOrder(getGame(), getPlayer(), cards, source, __r)",
+    },
+    "orderBlockers": {
+        "kind": "Surfaces.ORDER", "opts": "blockers",
+        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), blockers)",
+        "after": "Surfaces.afterOrder(getGame(), getPlayer(), blockers, null, __r)",
+    },
+    "orderAttackers": {
+        "kind": "Surfaces.ORDER", "opts": "attackers",
+        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), attackers)",
+        "after": "Surfaces.afterOrder(getGame(), getPlayer(), attackers, null, __r)",
+    },
+    "arrangeForScry": {
+        "kind": "Surfaces.SCRY", "opts": "topN",
+        "force": "Surfaces.forceScry(getGame(), getPlayer(), topN)",
+        "after": "Surfaces.afterScry(getGame(), getPlayer(), topN, __r)",
+    },
+    "arrangeForSurveil": {
+        "kind": "Surfaces.SCRY", "opts": "topN",
+        "force": "Surfaces.forceScry(getGame(), getPlayer(), topN)",
+        "after": "Surfaces.afterScry(getGame(), getPlayer(), topN, __r)",
+    },
+    "chooseModeForAbility": {
+        "kind": "Surfaces.MODE", "opts": "possible",
+        "force": "Surfaces.forceMode(getGame(), getPlayer(), sa, possible, min, num, allowRepeat)",
+        "after": "Surfaces.afterMode(getGame(), getPlayer(), sa, possible, min, num, __r)",
+    },
+    "chooseSomeType": {
+        "kind": "Surfaces.NAME", "opts": "validTypes",
+        "force": "Surfaces.forceName(getGame(), getPlayer(), validTypes, sa)",
+        "after": "Surfaces.afterName(getGame(), getPlayer(), validTypes, sa, __r)",
+    },
+    "assignCombatDamage": {
+        "kind": "Surfaces.DAMAGE", "opts": "blockers",
+        "force": "Surfaces.forceDamage(getGame(), getPlayer(), attacker, blockers, damageDealt, defender,"
+                 " overrideOrder)",
+        "after": "Surfaces.afterDamage(getGame(), getPlayer(), attacker, blockers, damageDealt, defender,"
+                 " overrideOrder, __r)",
+    },
+}
+# chooseCardName is overloaded (faces list vs predicate); only the list form
+# is a surface. Keyed by (name, first-param-type) below.
+SURFACES_BY_SIG = {
+    ("chooseCardName", "List<ICardFace>"): {
+        "kind": "Surfaces.NAME", "opts": "faces",
+        "force": "Surfaces.forceName(getGame(), getPlayer(), faces, sa)",
+        "after": "Surfaces.afterName(getGame(), getPlayer(), faces, sa, __r)",
+    },
+}
+
+
 def split_params(paramstr: str) -> list[tuple[str, str]]:
     """Split a parameter list at depth-0 commas; return (type, name) pairs."""
     params, depth, cur = [], 0, ""
@@ -158,23 +277,34 @@ def main() -> None:
         # stale threads (post hard-cap) can't write into the next game's frame.
         dec_call = DEC_OVERRIDES.get(name, f'Obs.dec(getGame(), getPlayer(), "{name}"{kv_str})')
         rec_call = REC_OVERRIDES.get(name, f'Census.rec(getGame(), getPlayer(), "{name}"{kv_str})')
+        surf = SURFACES.get(name) or SURFACES_BY_SIG.get((name, params[1][0] if len(params) > 1 else None))
+        if surf is not None:
+            dec_call = (
+                f'Surfaces.dec(getGame(), getPlayer(), "{name}", {surf["kind"]}, {surf["opts"]}{kv_str})'
+            )
         if ret == "void":
             tail = f"        {dec_call};\n        super.{name}({call_args});\n"
         else:
             force = ""
-            if name in FORCE_OVERRIDES:
+            # M11 probe hook first (ChoiceDirective), then the surface force
+            # hook (SurfaceDirective) — a copy arms at most one of them.
+            hooks = [h for h in (FORCE_OVERRIDES.get(name), surf and surf.get("force")) if h]
+            for hi, force_expr in enumerate(hooks):
                 ftype = "Boolean" if ret == "boolean" else ret
-                force = (
-                    f"        {ftype} __f = {FORCE_OVERRIDES[name]};\n"
-                    f"        if (__f != null) {{\n"
-                    f"            Obs.ret(getGame(), __s, __f);\n"
-                    f"            return __f;\n"
+                var = "__f" if hi == 0 else f"__f{hi}"
+                force += (
+                    f"        {ftype} {var} = {force_expr};\n"
+                    f"        if ({var} != null) {{\n"
+                    f"            Obs.ret(getGame(), __s, {var});\n"
+                    f"            return {var};\n"
                     f"        }}\n"
                 )
+            after = f"        {surf['after']};\n" if surf and surf.get("after") else ""
             tail = (
                 f"        long __s = {dec_call};\n"
                 f"{force}"
                 f"        {ret} __r = super.{name}({call_args});\n"
+                f"{after}"
                 f"        Obs.ret(getGame(), __s, __r);\n"
                 f"        return __r;\n"
             )

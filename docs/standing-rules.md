@@ -156,6 +156,11 @@ silently delete.
   executor's own features**; search-adjudicated labels need a representation trained on them
   ([ADR-0096](decisions/ADR-0096-m10-closeout.md), the ADR-0050 density argument sharpened).
 
+- **A read on a training population is cross-fit** — when the read's windows are the training
+  windows, fold the population by game hash and pool the held-out folds at the cell's full n; a
+  single holdout at a fraction of that n cannot resolve the pre-registered bar
+  ([ADR-0103](decisions/ADR-0103-m12-build1-value-head-and-build3-enumerators.md)).
+
 ## Curation, drills, and the critic
 
 - **Drill mainlines never enter training ingest**; curation regenerates

@@ -380,3 +380,16 @@ moves verbatim to the status archive and this section stays here as the record.*
   candidates), leaves 85% / void 15%. Final forkcheck on the Build 0 jar `aac9f808bcf`: 497/500 identical, the three misses all the identity-hash residual (one replayed to the baseline hash) — PASS.
   Playable worklist item 10 (Coffers refund bug). Next: Build 3 enumerators (exempt commits),
   **Build 1 in parallel**. ADR-0102 addendum is the record.
+- **2026-09-06 (session 5)** — **Build 1 launched; Build 3 enumerators landed in the fork**
+  ([ADR-0103](../decisions/ADR-0103-m12-build1-value-head-and-build3-enumerators.md)). Build 1
+  = `anvil/training/value_pretrain.py`: iter-019 + value head + top-4 trunk layers, a KL anchor
+  to the frozen teacher (a POLICY day-zero checkpoint, not a critic tower), three label families
+  already on disk in the iter-019 era (labelset 9,600 rows / cl2 106,144 leaves with the banked
+  full-vis values / 48,000 rebaseline outcome windows), the one-ply read CROSS-FIT over five
+  game-hash folds (standing rule), state ranking on the frozen holdout; bars unchanged. Build 3
+  enumerators: `Surfaces` + `SurfaceDirective` + the search's second round (`-searchsurf B`) —
+  every §3d′ callback names its option list in the observation, a directive forces an index
+  answer on a copy, seven answer shapes enumerated natural-first, the first traced surface on the
+  top-B candidates' paths expanded. Devlog
+  [2026-09-06-session5](../devlog/2026-09-06-session5.md). Numbers: the ADR addendum.
+
