@@ -180,3 +180,29 @@ jar (`repro-20260739-{1,2}`) gives `9e0365815606ddf6` both times = the 08-21 bas
 launch-instance artifact of the identity-hash residual, exactly the 20260744 pattern of the
 Build 0 final proof. **PASS. The research fork pin moves to `6eb64b6c538`** (Build 0 boundary
 `aac9f808bcf` + the exempt enumerator commit).
+
+## Addendum (2026-09-06, session 5, 21:55): the state-only early-stop variant; the checkpoint of record
+
+`--stop state --patience 8` (`data/runs/m12-build1-stopstate`, same banks, same folds):
+
+| read | first pass (`both`) | variant (`state`) |
+|---|---|---|
+| one-ply eot/K=1, cross-fit n 647 | 0.390 ± 0.019 | **0.397 ± 0.019** |
+| eot/K=8 | 0.424 | 0.423 |
+| h2/K=1 | 0.440 | 0.463 |
+| h2/K=8 | 0.686 | **0.708** |
+| state-ranking frozen holdout | **0.392** | 0.375 |
+| state inner-val at the selected epoch (the declared selector) | 0.3738 (epoch 3 of 8) | **0.3742** (epoch 5 of 13) |
+| policy drift: argmax agree / KL | 99.25% / 0.0024 | 99.06% / 0.0041 |
+
+Both GO on the one-ply bar; neither clears the state bar. The declared selector is a tie in
+practice (0.0004) and falls to the variant; the rule is applied as declared — **the day-zero
+checkpoint of record is `data/training/m12-build1-stopstate/last.pt`**; the first pass's
+checkpoint stays on disk as the second arm candidate if Build 2 wants a pair. Read of the
+pair: the joint fit's state ranking is ~0.38–0.39 whichever inner signal stops it, ~0.09 under
+the standalone critic — the policy anchor plus the leaf families cost that much on the state
+benchmark while buying +0.11 on the one-ply cell and +0.25 at the composite's horizon. The
+state bar (0.50) was set against the standalone number; a leaf-evaluator target, which is what
+Build 2 consumes, is the one-ply cell, and it cleared. Routed by name: if the day-zero read
+comes in-band, the value-head pass for the re-read (ADR-0101 §3) tries the state family at
+higher weight / more epochs with the KL anchor held.
