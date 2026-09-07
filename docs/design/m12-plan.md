@@ -510,4 +510,4 @@ moves verbatim to the status archive and this section stays here as the record.*
   burst → 20 s); wire smoke 21/21 bridged answers accepted. Fold 0 adapter-only baseline: surf_one
   0.257 / surf_set exact 0.355 vs first-option 0.20. Devlog
   [2026-09-07](../devlog/2026-09-07.md). Next: fold 0 with the role copies → folds → build →
-  the forkcheck (launched 16:05 on `a0ed9e314b5`) → the served-head smoke + 600-game paired read.
+  the forkcheck (**PASS 17:05: 497/500, 20260853 replays to the baseline hash on the same jar → fork pin `a0ed9e314b5`**) → the served-head smoke + 600-game paired read.

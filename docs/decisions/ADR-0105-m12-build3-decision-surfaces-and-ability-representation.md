@@ -127,3 +127,25 @@ it* on the control arm). The state review for Build 3 found:
 - Read instrument per evening: the surface smoke (`build3_surface_smoke.sh` + reader) on the
   sharpened head with the head serving, and `final_read.py` at 2 × 300 games paired vs the
   heuristic, arms = day-zero ckpt with / without the head serving the evening's tags.
+
+## Addendum (2026-09-07, 17:05): the fork commits PROVEN — forkcheck `run-20260907-build3-abilkeys`
+
+Jar `a0ed9e314b5` (ability keys `b0567608938` + the serve wire) vs the 08-21 seeds: **497/500
+main-trace hashes identical** (fork fidelity 447/52/1 vs the baseline's 450/50). The three misses:
+20260739 and 20260969 = the standing launch-unstable pair (20260739 gave a third hash on replay);
+**20260853 replayed to the baseline hash `6ec06cb75d96f2b2` on the same jar** (replay a), the
+candidate hash on replay b, and under the fixed-identity-hash diagnostic once each way on the new
+jar (the old jar: baseline twice) — launch-unstable, the identity-hash residual class. **PASS at the
+ADR-0025 standard → the research fork pin moves to `a0ed9e314b5`.** The evening's served-head
+smoke and paired read run on it; the next label run (the first keyed pool) too.
+
+## Addendum (2026-09-07, evening 1 fit): the imitation cross-fit, entity one + entity set
+
+Fold 0 adapter-only (shared decoder frozen): surf_one 0.257 / surf_set exact 0.355 — the frozen
+query has no room → `surf_query`/`surf_key` as role copies of the cast decoder's maps (item 2
+amended: the mechanism is one decoder; the query / key projections are per role, initialized
+equal, so priority windows stay byte-identical while the surfaces train freely). Folds with the
+copies (trunk frozen, 3,500 steps / 2 epochs each): surf_one ≈ 0.31 (tutor/fetch 0.28 at 12.4
+options; first-option rate 0.20), surf_set exact ≈ 0.47 (discard-from-hand 0.68, sacrifice 0.80).
+The ability-option callbacks sit at chance in these stores (no `ak` before `b0567608938`). The
+pooled read and the build checkpoint: the chain's `read.md` / `data/training/m12-build3-e1/`.
