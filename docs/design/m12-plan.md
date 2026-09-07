@@ -240,7 +240,14 @@ whether teaching is happening. The milestone's product is one big training run, 
   rate, the search margin on their windows (the search directive values them by engine effect, so
   it is the natural teacher for a card the network has never seen); intake speed = the slope of
   those numbers under continued training on a chunk that contains them. The next ADR-0018 chunk is
-  the held-out set by construction. Prior: ADR-0049 (representation was not the bottleneck at M6).
+  the held-out set by construction while legal coverage is incomplete; once every legal card is in,
+  the permanent held-out group is NON-CANON (user, 09-07): synthetic cards built by recombining
+  seen ability scripts under new names / numbers (graded — seen tokens in new combinations vs a
+  genuinely new keyword; Forge card scripts are text, so the engine adjudicates them like any
+  other), with silver-bordered / digital-only cards as a harsher second tier where Forge scripts
+  them (caveat: Un-card text is out of distribution for the LLM embedding in ways a real new set
+  is not, so it over-reads canonicity failures). The pool manifest carries the held-out flag so a
+  training deck can never include one. Prior: ADR-0049 (representation was not the bottleneck at M6).
   His results are the external read.
 - **I. (new) Multi-format readiness.** **ADJUDICATED (09-06 s3): full readiness lands in this
   round; training on a second format is decided later.** Already there: the ruleset is a flag
