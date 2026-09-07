@@ -9,9 +9,10 @@ set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil
 FORGE=/home/tyrathalis/Everything/Projects/forge
 JAR=$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)
-OUT=$REPO/data/runs/build0-search-smoke
+OUT=${OUT:-$REPO/data/runs/build0-search-smoke}
+mkdir -p "$OUT"
 PORT=50072
-CKPT=$REPO/data/training/d6-run11/iter-019/train/last.pt
+CKPT=${CKPT:-$REPO/data/training/d6-run11/iter-019/train/last.pt}
 GAMES=${1:-12}; RATE=${2:-1.0}; ROLLS=${3:-1}
 export PYTHONUNBUFFERED=1 DISPLAY=:0
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)

@@ -14,7 +14,7 @@
 
 ## Directories
 
-- **`decisions/`** — ADRs, numbered sequentially (0001–0101 so far; `TEMPLATE.md` at the root). Authoritative for every resolved design question. The project map carries a one-line-per-ADR index. Numbering hazard: parallel sessions collide — `ls` for max+1 at write time.
+- **`decisions/`** — ADRs, numbered sequentially (0001–0103 so far; `TEMPLATE.md` at the root). Authoritative for every resolved design question. The project map carries a one-line-per-ADR index. Numbering hazard: parallel sessions collide — `ls` for max+1 at write time.
 - **`design/`** — design docs, plans, specs, drafts and surveys (breakdown below, grouped by the status line each file carries).
 - **`devlog/`** — one dated file per working session (`YYYY-MM-DD[-sessionN].md`, from `TEMPLATE.md`). The session-by-session narrative; nothing else duplicates it.
 
