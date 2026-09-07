@@ -217,6 +217,13 @@ silently delete.
   bridged seats never take; heap-dump-proven at the M10 sweep OOM;
   within-game clears = a boundary-event candidate
   ([ADR-0078](decisions/ADR-0078-m10-ceiling-measurement.md))).
+- **Every Anvil-side scan or test that touches engine code runs on a throwaway RNG**
+  (`AnvilOptions.withScratchRng`): Forge's legality/payability helpers draw from the game
+  RNG (`isManaSourceReserved` → `MyRandom.percentTrue` on every shard × source), so an
+  unguarded scan perturbs the trajectory a seed plays and any skipped scan (a cache hit)
+  shifts the stream — the D2 "`-obs` perturbs" finding, explained and closed at Build 0
+  ([ADR-0102 addendum](decisions/ADR-0102-m12-build0-pins.md)). The obs-diff gate
+  (`scripts/obs_diff.py`, first-divergence classes) is the witness.
 - **Engine upgrades are dataset-boundary events**; the
   behavior-identical exemption is proven empirically (same seeds →
   identical forkcheck trace hashes), never argued

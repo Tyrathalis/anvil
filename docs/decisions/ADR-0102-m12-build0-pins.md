@@ -105,3 +105,76 @@ not the width of the channel.
   determinization sampler, labels free"; routed by name at the closeout or earlier if fork J's
   L1 reads as the binding suspect.
 - Not changed: the ckpt of record, the baseline, every other ADR-0101 pin.
+
+## Addendum (2026-09-06, session 4, evening): the boundary landed and read
+
+**Boundary jar:** fork `master` at the Build 0 tip (the search directive, the RNG-neutral scan
+and the search fixes ride on `5d5283eb233`); Anvil `de3d23a`+. **Forkcheck
+(`run-20260906-build0-boundary`, 500 heuristic games, seed 20260703 = the 08-21 seed set):
+499/500 main-trace hashes identical to `run-20260821-m9boundary`**, the one miss = seed 20260969,
+already named on 09-05 as launch-to-launch unstable on a single jar (the identity-hash residual);
+fork fidelity 450 clean / 50 divergence = the baseline's 450/50. The recording jar's owed
+ADR-0025 proof (`f4824f3d6`) is discharged by transitivity on the same seeds. No capped seeds
+among the 500.
+
+**The smoke (arms A/B/C, `iter-019` argmax vs heuristic, seat 0, 3 workers):**
+
+| per game | reference (pre-boundary arm s0, 1,000 g) | A filter ON (600 g) | C payshadow (200 g) |
+|---|---|---|---|
+| first-attempt veto rate | 0.1217 | **0.0458** | 0.0415 |
+| unpayable first vetoes | 2.99 | **0.10** | 0.02 |
+| no_shape_fit | 0.90 | 1.03 | 1.10 |
+| restrictions / after_stack / timing | 0.19 / 0.00 / 0.03 | 0.09 / 0.06 / 0.04 | 0.05 / 0 / 0.02 |
+| realized casts | 30.8 | 27.8 | 27.4 |
+| re-ask rescues | 0.84 | 0.23 | 0.19 |
+| games capped (turn / windows) | 0 | 2 of 600 (1 / 1) | 1 of 200 |
+| median game ms | 8,248 (16 workers) | 7,919 | 9,403 |
+
+- **The payability class is gone (−97%) at no wall-time cost.** The residual veto is the
+  **shape-fit class** (the CastPlan's target refs do not fit the named spell) at ~1 per game,
+  unchanged — it belongs to Build 3's targets surface, not to payability; it is now the
+  dominant veto and is named as such. `after_stack` (0.06/g) is ONE card: "Play land by Glarb,
+  Calamity's Augur" (33 of 38) — `canPlay` admits the top-of-library land play, the post-stack
+  check rejects it. **The heuristic seat's expert pick was outside the filtered mask 0 times in
+  15,558 casts** — the M1 D3 late-pricing exclusion class did not reproduce.
+- **Casts per game −10% vs the reference** (rescues −73%); the two runs play different pair
+  schedules, so a smoke cannot separate behavior from matchup mix — flagged for the Build 2
+  day-zero paired read; the loop's anti-passivity floor (0.8× baseline) is the guard.
+- **Caps pinned as built: turn 52 / windows 1,650** (0.33% of games truncate; windows p99.5 in
+  A = 1,477, max = the cap).
+- **The enumerator-rescue class (C):** of 895,532 options scanned over 115,656 windows, 209,048
+  (23%) were rejected by the executor's predicate and **19,717 of those (9.4% of rejected, ~0.17
+  per window) are payable by the M9 enumerator** — the chained-activation blind spot
+  (Signet-class). They are NOT admitted to the mask: admitting them without routing their
+  payment through `executeDirected` would only recreate vetoes at apply. **Routed by name to
+  Build 3's payment-classes surface** (where the pay head and the directed executor go live):
+  admit `payable || enumeratorPlan` and pay directed when auto cannot. Shadow costs +19% engine
+  time per game at 3 workers.
+- **The mask cache:** the obs-diff gate on A vs B FAILED on the first jar — 68 of 600 games
+  first-diverged on the MASK class with identical prior records, and in the worst cases the
+  boards differed wholesale. **Root cause: the payability test walks
+  `ComputerUtilMana.isManaSourceReserved`, whose `MyRandom.percentTrue` draws from the game RNG
+  on every shard × source it examines (every profile sets RESERVE_MANA_FOR_MAIN2_CHANCE=100),
+  so each scan perturbed the seed's stream and every cache hit shifted it.** This is also the
+  D2 "`-obs` perturbs which trajectory a seed plays" finding, now explained. **Fix (in the
+  boundary): the scan and the predicate run on a throwaway RNG** (`AnvilOptions.withScratchRng`)
+  — obs logging, the cache, the realizer's apply-time check and the search copies' scans are
+  RNG-neutral by construction. The cache gate re-read on the fixed jar: CACHE_GATE_RESULT.
+  B's timing (+31% vs A) was contaminated by the session's own compiles and is not a read; the
+  cache stays OFF (default) until the search multiplier says the engine binds.
+- **The search smoke (12 games, rate 0.05, 1 roll, 45 windows):** the directive runs end to end —
+  leaves 86%, void 14% (the forced option vetoed at apply on the copy: mana-ability activations
+  13%, spells 21% — the shape-fit class again), crashes 0 after two fixes (the sched-only
+  `sc.onCast` dereference; an immutable single-option ask list). **Forward calls per leaf p50 2
+  / p90 4 / max 16** (= 1 intermediate decision at p50 — the leaf is one resolution away),
+  **ms per window p50 496 / p90 1,454** at ~7 candidates, ms per option p50 61, copy share 11%;
+  **multiplier 1.13× forward calls at rate 0.05 → ≈3.6× at rate 1**, wall ≈ +0.5 s per searched
+  window over a ~10 s game (~80 eligible windows/game → ~5× wall at rate 1 before any gating).
+  **58% of candidates were pure mana abilities** ("{T}: Add {B}"), whose leaf is the pass leaf
+  with the seat tapped down → **excluded from the candidate set by default** (`-searchmana`
+  restores; they stay in the mask) — expected to cut per-window cost ~2.4×. Margins on the
+  unsharpened head: p50 0.017 / p90 0.071 / max 0.13; argmax ≠ natural at 67% of windows;
+  margin ≥ 0.02 at 42%, ≥ 0.05 at 20% — the bar/temperature are pinned at Build 2 on the
+  sharpened head, not from this. Value asks: 43/43 served, 0 fallbacks.
+- **Build 0 done-when 1:** landed. Remaining inside Build 0: the Build 3 enumerators (Java only,
+  exempt commits) — next session; **Build 1 opens in parallel.**
