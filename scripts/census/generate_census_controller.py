@@ -279,8 +279,11 @@ def main() -> None:
         rec_call = REC_OVERRIDES.get(name, f'Census.rec(getGame(), getPlayer(), "{name}"{kv_str})')
         surf = SURFACES.get(name) or SURFACES_BY_SIG.get((name, params[1][0] if len(params) > 1 else None))
         if surf is not None:
+            # ADR-0105: the resolving ability rides the surface dec as its
+            # ability KEY ("sak"; Surfaces.dec turns the object into the key)
+            sak = ', "sak", sa' if any(n == "sa" and t.endswith("SpellAbility") for t, n in params) else ""
             dec_call = (
-                f'Surfaces.dec(getGame(), getPlayer(), "{name}", {surf["kind"]}, {surf["opts"]}{kv_str})'
+                f'Surfaces.dec(getGame(), getPlayer(), "{name}", {surf["kind"]}, {surf["opts"]}{kv_str}{sak})'
             )
         if ret == "void":
             tail = f"        {dec_call};\n        super.{name}({call_args});\n"

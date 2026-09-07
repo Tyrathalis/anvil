@@ -64,6 +64,9 @@ COMBAT_TAGS = "mtg.attack,mtg.block"
 # advertised only when the checkpoint carries the pay_ params (M9 rung 3) —
 # pre-M9 checkpoints must decline so the worker's echo answers AUTO
 PAY_TAGS = "mtg.pay_mana_class"
+# M12 Build 3 (ADR-0105): served only by a checkpoint whose surface decoder
+# was fitted (surf_ params present; the has_pay never-serve-fresh-init rule)
+SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set"
 
 
 class _Batcher:
@@ -203,6 +206,11 @@ class ModelBackend:
         # except pay_bias's +2.0 init is BY DESIGN safe, so the gate is about
         # the untrained pointer keys, not the bias)
         self.has_pay = any(k.startswith("pay_") for k in ckpt["model"])
+        # M12 Build 3: a fitted surface decoder (surface_fit --build records
+        # the tasks + the ability table stem in the config)
+        self.has_surf = bool(cfg.get("surface_tasks")) and any(
+            k.startswith("surf_task_emb") for k in ckpt["model"]
+        )
         # plan-carry params present? (M9 D6; the graft ckpt saves them even at
         # zero-init, so the carry activates exactly when the ckpt was built
         # for it — the has_pay/never-serve-fresh-init convention)
@@ -219,9 +227,18 @@ class ModelBackend:
         ).to(device)
         self.net.load_compat(ckpt["model"])
         self.net.eval()
+        abil_stem = None
+        if self.has_surf:
+            from anvil.policy.surfaces import AbilityCache
+
+            abil_stem = str(Path(cfg["abilities"]))
+            if not Path(abil_stem).is_absolute():
+                abil_stem = str(Path(__file__).resolve().parents[2] / abil_stem)
+            self.net.set_ability_table(AbilityCache(abil_stem).vectors)
         self.feat = Featurizer(
             cfg["embed"], default_methods(),
             ability_table=ability_table if sched_basis == "hand" else None,
+            abilities=abil_stem,
         )
         if self.n_sa and self.n_sa != len(self.feat.sa_vocab):
             raise ValueError(
@@ -471,6 +488,22 @@ class ModelBackend:
             resp.index = 0 if c == 0 else aux["cand_first_opt"][c]
         elif task in ("mull_keep", "trigger", "binary"):
             resp.flag = bool(out["bool"][0])
+        elif task in ("surf_one", "surf_set"):
+            # ADR-0105: the option-set decoder's picks (STOP = the batch
+            # option width; this item's own options are the first O slots)
+            O = int(ex["opt_row"].shape[0])
+            picks = [int(v) for v in out["surf_picks"][0].tolist()]
+            idxs: list[int] = []
+            for v in picks:
+                if v >= O or v in idxs:
+                    break
+                idxs.append(v)
+            if task == "surf_one":
+                if not idxs:
+                    raise ValueError("surface decoder returned no pick")
+                resp.index = idxs[0]
+            else:
+                resp.indices.indices.extend(sorted(idxs))
         elif task == "number":
             n = int(out["num"][0])
             if req.shape == pb.SELECT_ONE:
@@ -993,6 +1026,7 @@ def main() -> None:
                 MODEL_TAGS
                 + ("," + COMBAT_TAGS if backend.has_combat else "")
                 + ("," + PAY_TAGS if backend.has_pay else "")
+                + ("," + SURFACE_TAGS if backend.has_surf else "")
             )
             if args.mode == "model"
             else DEFAULT_TAGS

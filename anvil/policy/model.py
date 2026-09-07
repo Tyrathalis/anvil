@@ -39,6 +39,7 @@ class AnvilNet(nn.Module):
         n_heads: int = 8,
         n_layers: int = 10,
         n_sa: int = 0,
+        d_abil: int = 2560,
     ):
         super().__init__()
         self.cards = card_encoder
@@ -97,6 +98,34 @@ class AnvilNet(nn.Module):
         # one-field heads (rung-1 family: mull_keep/trigger/binary as bools,
         # number as [lo,hi]-masked classes); input = [STATE] ⊕ ctx-entity ⊕ task
         self.task_emb = nn.Embedding(len(TASKS), 64)
+        # M12 Build 3 (ADR-0105): the option-set decoder for the decision
+        # surfaces = THIS target decoder (tgt_query / tgt_key / player_key /
+        # stop_key) restricted to a named option set, with the resolving
+        # ability's table vector as the "source" the cast decoder gets from
+        # its chosen candidate. New parameters only (fresh init; no priority
+        # window reads them): the ability-table projection, an option-kind
+        # embedding, the surface slot embeddings, a shape (task) embedding
+        # and a method embedding for the query. The ability table itself is
+        # a non-persistent buffer set from the cache (set_ability_table).
+        from anvil.policy.surfaces import OPT_KINDS, SURF_MAX
+
+        self.surf_max = SURF_MAX
+        # role-specific copies of the target decoder's query / key maps —
+        # initialized FROM the trained tgt_query / tgt_key on load (load_compat)
+        # so a surface decodes in the cast decoder's entity space at day zero
+        # and trains freely without moving cast targeting (byte-identical
+        # priority windows; the option-set mechanism stays one decoder)
+        self.surf_query = nn.Linear(3 * d_model, d_model)
+        self.surf_key = nn.Linear(d_model, d_model)
+        self.abil_proj = nn.Linear(d_abil, d_model)
+        self.opt_kind_emb = nn.Embedding(len(OPT_KINDS), d_model)
+        nn.init.zeros_(self.opt_kind_emb.weight)
+        self.surf_slot_emb = nn.Parameter(torch.zeros(SURF_MAX + 1, d_model))
+        self.surf_task_emb = nn.Embedding(len(TASKS), d_model)
+        nn.init.zeros_(self.surf_task_emb.weight)
+        self.surf_method_emb = nn.Embedding(n_methods + 1, d_model)
+        nn.init.zeros_(self.surf_method_emb.weight)
+        self.register_buffer("abil_vec", torch.zeros(1, d_abil), persistent=False)
         self.bool_head = nn.Sequential(
             nn.Linear(2 * d_model + 64, d_model), nn.GELU(), nn.Linear(d_model, 1)
         )
@@ -222,6 +251,8 @@ class AnvilNet(nn.Module):
     # pre-M10 checkpoint; fresh init on load (sched_proj's fresh init is
     # zero — the identity contract)
     _D5_PREFIXES = (
+        "surf_",
+        "abil_",
         "atk_",
         "blk_",
         "cmb_",
@@ -249,6 +280,22 @@ class AnvilNet(nn.Module):
             merged = cur.detach().clone()
             merged[: saved.shape[0]] = saved
             state = {**state, "task_emb.weight": merged}
+        # M12 Build 3: TASKS grew 9 -> 16 (the surface shapes); the per-task
+        # pay bias and the surface shape embedding grow the same way (saved
+        # rows exact, new rows keep their init — zero for both).
+        for name in ("pay_bias", "surf_task_emb.weight"):
+            cur_t = dict(self.named_parameters()).get(name)
+            saved_t = state.get(name)
+            if cur_t is not None and saved_t is not None and saved_t.shape[0] < cur_t.shape[0]:
+                merged = cur_t.detach().clone()
+                merged[: saved_t.shape[0]] = saved_t
+                state = {**state, name: merged}
+        # the surface decoder's query / key start as COPIES of the trained
+        # target decoder's (a checkpoint that never fitted a surface)
+        for role, src in (("surf_query", "tgt_query"), ("surf_key", "tgt_key")):
+            for part in ("weight", "bias"):
+                if f"{role}.{part}" not in state and f"{src}.{part}" in state:
+                    state = {**state, f"{role}.{part}": state[f"{src}.{part}"].clone()}
         cur_ep = self.assemble.ent_proj.weight
         saved_ep = state.get("assemble.ent_proj.weight")
         if saved_ep is not None and saved_ep.shape[1] < cur_ep.shape[1]:
@@ -272,6 +319,103 @@ class AnvilNet(nn.Module):
         bad = [k for k in missing if not k.startswith(self._D5_PREFIXES)]
         if bad or unexpected:
             raise RuntimeError(f"checkpoint mismatch: missing {bad}, unexpected {list(unexpected)}")
+
+    def set_ability_table(self, vectors: torch.Tensor) -> None:
+        """The ability table (anvil.encoder abilities): rows indexed by the
+        loader's opt_ak / surf_ctx_ak. Row -1 (a missing key) reads as zeros
+        through the clamp + mask below."""
+        self.abil_vec = vectors.to(self.abil_proj.weight.device, torch.float32).contiguous()
+
+    def _abil(self, idx: torch.Tensor) -> torch.Tensor:
+        """(…) index tensor -> (…, d_model) projected ability vectors; -1 -> 0."""
+        v = self.abil_vec[idx.clamp(min=0, max=self.abil_vec.shape[0] - 1)]
+        return self.abil_proj(v) * (idx >= 0).unsqueeze(-1)
+
+    def _surface_decode(
+        self,
+        state: torch.Tensor,
+        ent_out: torch.Tensor,
+        batch: dict,
+        labels: "torch.Tensor | None" = None,
+        temperature: float = 1.0,
+        noise: "torch.Tensor | None" = None,
+    ) -> dict:
+        """The option-set decoder (ADR-0105). Keys: one per option in the
+        batch's option set — an entity option keys on tgt_key(its row), a
+        player option on player_key, an ability option on tgt_key(host row) +
+        the ability table vector — each plus the option-kind embedding; slot
+        O = STOP (stop_key). Query = tgt_query([state, src, prev]) + slot,
+        src = the resolving ability's vector + shape + method embeddings,
+        prev = the running sum of picked option vectors (the cast decoder's
+        convention). Masks: padding; already-picked options; STOP closed
+        below opt_min picks and forced at opt_max. labels given = teacher
+        forcing (returns logits (B, S+1, O+1)); else greedy / sampled
+        decoding (returns picks (B, S+1) with STOP = O, and per-example logp
+        when sampling)."""
+        b, n, d = ent_out.shape
+        rows = batch["opt_row"]
+        omask = batch["opt_mask"]
+        O = rows.shape[1]
+        ent_vec = ent_out.gather(1, rows.clamp(min=0).unsqueeze(-1).expand(-1, -1, d))
+        ent_vec = ent_vec * (rows >= 0).unsqueeze(-1)
+        p_all = self.player_key(batch["players"])  # (B,P,d)
+        pis = batch["opt_pi"]
+        p_vec = p_all.gather(1, pis.clamp(min=0).unsqueeze(-1).expand(-1, -1, d)) * (pis >= 0).unsqueeze(-1)
+        a_vec = self._abil(batch["opt_ak"])
+        kind_vec = self.opt_kind_emb(batch["opt_kind"].clamp(min=0))
+        vecs = ent_vec + p_vec + a_vec  # (B,O,d): what a pick feeds back
+        keys = self.surf_key(ent_vec) + p_vec + a_vec + kind_vec
+        keys = torch.cat([keys, self.stop_key.expand(b, 1, -1)], dim=1)  # (B,O+1,d)
+        vecs = torch.cat([vecs, torch.zeros_like(vecs[:, :1])], dim=1)
+        src = (
+            self._abil(batch["surf_ctx_ak"])
+            + self.surf_task_emb(batch["task"])
+            + self.surf_method_emb(batch["surf_method"].clamp(min=0) + 1 * (batch["surf_method"] >= 0))
+        )
+        lo = batch["opt_min"]
+        hi = batch["opt_max"]
+        pad = torch.cat([~omask, torch.zeros(b, 1, dtype=torch.bool, device=ent_out.device)], dim=1)
+        prev = torch.zeros_like(src)
+        picked = torch.zeros(b, O + 1, dtype=torch.bool, device=ent_out.device)
+        n_picked = torch.zeros(b, dtype=torch.int64, device=ent_out.device)
+        stopped = torch.zeros(b, dtype=torch.bool, device=ent_out.device)
+        logits_out = []
+        picks = []
+        logp = torch.zeros(b, device=ent_out.device)
+        for t in range(self.surf_max + 1):
+            q = self.surf_query(torch.cat([state, src, prev], dim=-1)) + self.surf_slot_emb[t]
+            lg = (keys @ q.unsqueeze(-1)).squeeze(-1) / d**0.5  # (B,O+1)
+            mask = pad | picked
+            stop_closed = n_picked < lo
+            stop_forced = n_picked >= hi
+            mask[:, O] = mask[:, O] | stop_closed
+            mask = mask | (stop_forced.unsqueeze(-1) & (torch.arange(O + 1, device=lg.device) < O).unsqueeze(0))
+            lg = lg.masked_fill(mask, -1e9)
+            logits_out.append(lg)
+            if labels is not None:
+                pick = labels[:, t]
+                valid = pick >= 0
+                pick = torch.where(valid, pick, torch.full_like(pick, O))
+            else:
+                if noise is None:
+                    pick = lg.argmax(-1)
+                else:
+                    lgf = lg.float() / temperature
+                    pick = (lgf + noise[:, t]).argmax(-1)
+                    lp = torch.log_softmax(lgf, dim=-1)
+                    logp = logp + lp.gather(1, pick.unsqueeze(1)).squeeze(1) * (~stopped).float()
+                pick = torch.where(stopped, torch.full_like(pick, O), pick)
+                picks.append(pick)
+            is_stop = pick == O
+            stopped = stopped | is_stop
+            picked = picked | torch.nn.functional.one_hot(pick, O + 1).bool() & ~is_stop.unsqueeze(-1)
+            n_picked = n_picked + (~is_stop).long()
+            prev = prev + vecs.gather(1, pick.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, d)).squeeze(1)
+        out = {"surf_logits": torch.stack(logits_out, dim=1)}
+        if labels is None:
+            out["surf_picks"] = torch.stack(picks, dim=1)
+            out["surf_logp"] = logp
+        return out
 
     def _pointer_logits(
         self,
@@ -575,6 +719,13 @@ class AnvilNet(nn.Module):
             "value_logit": self.value_head(state).squeeze(-1),
             **self._combat_outputs(state, ent_out, batch),
         }
+        # M12 Build 3 (ADR-0105): surface windows carry an option set; the
+        # option-set decoder runs teacher-forced on their labels. Absent
+        # keys = no surface in the batch = the decoder never runs.
+        if "opt_row" in batch:
+            out_dict["surf_logits"] = self._surface_decode(
+                state, ent_out, batch, labels=batch["surf_labels"]
+            )["surf_logits"]
         # M10 v2 aux surfaces (supervised-only; emission rows carry
         # sched_tgt). Loss wiring gates on these keys' presence.
         if getattr(self, "sched_cap", None) and "sched_tgt" in batch:
@@ -713,6 +864,15 @@ class AnvilNet(nn.Module):
 
         cmb = self._combat_outputs(state, ent_out, batch)
         sched: dict = {}
+        if "opt_row" in batch:
+            # M12 Build 3: the surface answer (greedy, or sampled under the
+            # serve noise's "surf" factor at the temperature)
+            sd = self._surface_decode(
+                state, ent_out, batch, temperature=temperature,
+                noise=noise["surf"] if noise is not None and "surf" in noise else None,
+            )
+            sched["surf_picks"] = sd["surf_picks"]
+            sched["surf_logp"] = sd["surf_logp"]
         if sched_decode and getattr(self, "sched_cap", None):
             # M10 v2 emission decode (serve reads it at emission/revision
             # windows only; greedy — supervised head, never PG)

@@ -6,13 +6,15 @@
 # the top-B candidates' paths expanded (one copy per enumerated answer). Reads:
 # scripts/surface_smoke_read.py.
 # Usage: build3_surface_smoke.sh [games=12] [rate=0.2] [surf=2] [cap=8]
+#   env: OUT, PORT, CKPT (a fitted surface ckpt serves the surface tags — ADR-0105), JAR
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil
 FORGE=/home/tyrathalis/Everything/Projects/forge
 JAR=$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)
-OUT=$REPO/data/runs/build3-surface-smoke
-PORT=50073
-CKPT=$REPO/data/training/d6-run11/iter-019/train/last.pt
+OUT=${OUT:-$REPO/data/runs/build3-surface-smoke}
+PORT=${PORT:-50073}
+CKPT=${CKPT:-$REPO/data/training/d6-run11/iter-019/train/last.pt}
+JAR=${JAR:-$JAR}
 GAMES=${1:-12}; RATE=${2:-0.2}; SURF=${3:-2}; CAP=${4:-8}
 export PYTHONUNBUFFERED=1 DISPLAY=:0
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)

@@ -340,6 +340,11 @@ silently delete.
 - **The mask's legality predicate is the executor's apply-time predicate** — filter and
   adjudicator agree by construction; residual veto classes are counted by name, never absorbed
   by a penalty or a guard ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).
+- **An ability's identity in the observation is its canonical engine text, keyed by hash** —
+  the script parameters + description the fork emits (`ak` on every ability-bearing option and
+  answer; `AnvilRun -abilities` for the pool), never a display render; every consumer of ability
+  text (priority candidates, surface options, stack entries) reads ONE shared table
+  ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
 - **A search copy is determinized to the acting seat's information set**: hidden zones are
   resampled, never carried true, and the sampler is a named teacher setting in the store's
   provenance; a value computed on a true-hand copy leaks regardless of channel width

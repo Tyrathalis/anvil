@@ -58,6 +58,9 @@ TAG_TASK = {
     # the has_combat precedent) — a pre-M9 ckpt declines and the worker's
     # local echo stays AUTO (GrpcBridge pins the tag's echo to 0).
     "mtg.pay_mana_class": "pay_class",
+    # M12 Build 3 (ADR-0105): the decision surfaces, one tag per answer shape
+    "mtg.surface.entity_one": "surf_one",
+    "mtg.surface.entity_set": "surf_set",
 }
 
 
@@ -182,10 +185,15 @@ class Featurizer:
         methods: list[str],
         sa_vocab: list[str] | None = None,
         ability_table: "str | Path | dict | None" = None,
+        abilities: "str | Path | None" = None,
     ):
         self.embed = EmbeddingCache(Path(embedding_stem))
         self.methods = MethodVocab(methods)
         self.sa_vocab = SaVocab(sa_vocab or default_sa_vocab())
+        # M12 Build 3: the ability table for surface option keys (ADR-0105)
+        from anvil.policy.surfaces import AbilityCache
+
+        self.abil = AbilityCache(abilities) if abilities else None
         # M10 hand-basis planner (m10-reset-draft §I): with a table, priority
         # windows carry the schedule decode's SUPERSET key space (legal
         # candidates as a prefix + virtual candidates: each own hand card's
@@ -325,6 +333,13 @@ class Featurizer:
             m = _HOST_ID.search(args.get("host") or "")
             if m and int(m.group(1)) in row_of:
                 ctx_row = row_of[int(m.group(1))]
+        elif task in ("surf_one", "surf_set"):
+            from anvil.policy.surfaces import surface_fields
+
+            surf = surface_fields(dec, row_of, self.abil, self.methods.id(dec["m"]), False)
+            if surf is None:
+                # a trivial window (the fork never asks these) — loud decline
+                raise ValueError(f"surface {dec.get('m')}: nothing to decide")
         elif task == "number":
             num_lo = max(0, min(int(args.get("min", 0)), X_CLASSES - 1))
             num_hi = max(num_lo, min(int(args.get("max", X_CLASSES - 1)), X_CLASSES - 1))
@@ -344,6 +359,12 @@ class Featurizer:
         for i, h in enumerate(out["history"][-HISTORY_K:]):
             hist[i] = (self.methods.id(h["m"]), h["self"], row_of.get(h["e"], -1))
 
+        surf_ex: dict = {}
+        if task in ("surf_one", "surf_set"):
+            surf_ex = {
+                **{k: torch.tensor(surf[k], dtype=torch.int64) for k in ("opt_row", "opt_pi", "opt_ak", "opt_kind")},
+                **{k: torch.tensor(surf[k], dtype=torch.int64) for k in ("opt_min", "opt_max", "surf_ctx_ak", "surf_method")},
+            }
         sched_ex: dict = {}
         sched_opts = None
         if task == "priority" and self.ability_table is not None:
@@ -368,6 +389,7 @@ class Featurizer:
             "cand_kind": torch.tensor(cand_kind, dtype=torch.int64),
             "cand_paykind": torch.tensor(cand_paykind, dtype=torch.int64),
             **sched_ex,
+            **surf_ex,
             "label": torch.tensor(0, dtype=torch.int64),
             "label_row": torch.tensor(-1, dtype=torch.int64),
             "tgt_kind": torch.from_numpy(np.full(T_MAX + 1, -1, dtype=np.int64)),

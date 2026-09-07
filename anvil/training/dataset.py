@@ -87,6 +87,7 @@ import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
 from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
+from anvil.policy.surfaces import SURF_BUILT, SURF_MAX, AbilityCache, surface_fields, surface_task
 from anvil.store.trajectories import open_store
 
 PRIORITY = "chooseSpellAbilityToPlay"
@@ -127,6 +128,16 @@ TASKS = {
     # mask). Certified-outcome provenance ≠ heuristic provenance; the
     # BC corpus loader path here remains payment-blind.
     "pay_class": 8,
+    # M12 Build 3 (ADR-0105): the decision surfaces, one task per ANSWER SHAPE
+    # (anvil.policy.surfaces); the option-set decoder decodes them all. The
+    # record's args.surf names the shape; the method rides as a feature.
+    "surf_one": 9,
+    "surf_set": 10,
+    "surf_order": 11,
+    "surf_scry": 12,
+    "surf_mode": 13,
+    "surf_name": 14,
+    "surf_damage": 15,
 }
 
 # M9 rung 3: goal-kind codes for payment options (the "gk" field the fork
@@ -428,11 +439,20 @@ class PriorityWindows(IterableDataset):
         tasks: set[str] | None = None,
         sa_vocab: list[str] | None = None,
         full_vis: bool = False,
+        abilities_stem: str | Path | None = None,
+        game_filter=None,
     ):
         super().__init__()
+        # game_filter(store_name, g) -> bool: an explicit per-game predicate
+        # (cross-fit folds by game hash, ADR-0103's standing rule); None = all
+        self.game_filter = game_filter
         # full_vis: asymmetric-critic windows (design §4) — identities of all
         # entities visible. Critic training/eval only; never the policy input.
         self.full_vis = full_vis
+        # M12 Build 3: the ability table for surface option keys (ADR-0105);
+        # None = surface windows key on host rows + kinds alone (counted).
+        self.abil = AbilityCache(abilities_stem) if abilities_stem else None
+        self.surf_counts: dict[str, int] = {}
         self.store_dir = store_dir  # raw spec: dir, comma-list, or list (open_store parses)
         self.embed = EmbeddingCache(Path(embedding_stem))
         self.methods = MethodVocab(methods or default_methods())
@@ -460,6 +480,8 @@ class PriorityWindows(IterableDataset):
         decs = traj.decisions
         for i, dec in enumerate(decs):
             task = TASK_OF_METHOD.get(dec.get("m"))
+            if task is None:
+                task = surface_task(dec)  # M12 Build 3: by args.surf
             # combat rets are null by construction (labels come from the
             # obs-side join), so the ret-None skip exempts attack/block
             if (
@@ -515,6 +537,7 @@ class PriorityWindows(IterableDataset):
             }
             ret = dec.get("ret")
             args = dec.get("args") or {}
+            surf_scalars: dict = {}
 
             if task == "priority":
                 # candidates: PASS first, then (host row, SA) pairs in option
@@ -596,6 +619,33 @@ class PriorityWindows(IterableDataset):
                 num_hi = max(num_lo, min(int(args.get("max", X_CLASSES - 1)), X_CLASSES - 1))
                 num_label = max(num_lo, min(int(ret), num_hi))
                 forced = 1 if num_lo == num_hi else 0
+            elif task in SURF_BUILT:
+                surf = surface_fields(dec, row_of, self.abil, self.methods.id(dec["m"]), True)
+                if surf is None:
+                    prior.append(dec)
+                    continue
+                self.surf_counts["ak_miss"] = self.surf_counts.get("ak_miss", 0) + surf["_ak_miss"]
+                self.surf_counts["ent_miss"] = self.surf_counts.get("ent_miss", 0) + surf["_ent_miss"]
+                if surf.get("_miss") and surf["_miss"] != "label_truncated":
+                    self.surf_counts[surf["_miss"]] = self.surf_counts.get(surf["_miss"], 0) + 1
+                    prior.append(dec)
+                    continue
+                self.surf_counts[task] = self.surf_counts.get(task, 0) + 1
+                cmb.update(
+                    {
+                        "opt_row": surf["opt_row"],
+                        "opt_pi": surf["opt_pi"],
+                        "opt_ak": surf["opt_ak"],
+                        "opt_kind": surf["opt_kind"],
+                        "surf_labels": surf["surf_labels"],
+                    }
+                )
+                surf_scalars = {
+                    "opt_min": surf["opt_min"],
+                    "opt_max": surf["opt_max"],
+                    "surf_ctx_ak": surf["surf_ctx_ak"],
+                    "surf_method": surf["surf_method"],
+                }
             elif task in ("attack", "block"):
                 f = (
                     attack_fields(decs, i, dec, row_of, len(traj.header["players"]), g)
@@ -637,6 +687,7 @@ class PriorityWindows(IterableDataset):
                 "has_outcome": torch.tensor(has_outcome, dtype=torch.int64),
                 "won": torch.tensor(1 if winner == p else 0, dtype=torch.int64),
                 **{k: torch.tensor(v, dtype=torch.int64) for k, v in cmb.items()},
+                **{k: torch.tensor(v, dtype=torch.int64) for k, v in surf_scalars.items()},
             }
             prior.append(dec)
 
@@ -649,6 +700,9 @@ class PriorityWindows(IterableDataset):
         games = store.game_indices()
         if self.split is not None:
             games = [g for g in games if _split_of(g, self.games_per_pair) == self.split]
+        if self.game_filter is not None:
+            name = getattr(store, "name", None) or str(self.store_dir)
+            games = [g for g in games if self.game_filter(name, g)]
         if self.max_games is not None:
             games = games[: self.max_games]
         info = get_worker_info()
@@ -752,6 +806,38 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
     out["blk_label"] = torch.full((b, A), -1, dtype=torch.int64)
     out["blk_atk_rows"] = torch.full((b, M), -1, dtype=torch.int64)
     out["blk_atk_mask"] = torch.zeros(b, M, dtype=torch.bool)
+    # M12 Build 3 (ADR-0105): surface option sets (optional keys — absent
+    # from every non-surface batch, so the decoder never runs). Options pad
+    # to the batch width O; STOP (= each example's own option count) remaps
+    # to the batch slot O (the blk none-class precedent).
+    if any("opt_row" in x for x in batch):
+        O = max(1, max(x["opt_row"].shape[0] for x in batch if "opt_row" in x))
+        for k in ("opt_row", "opt_pi", "opt_ak"):
+            out[k] = torch.full((b, O), -1, dtype=torch.int64)
+        out["opt_kind"] = torch.zeros(b, O, dtype=torch.int64)
+        out["opt_mask"] = torch.zeros(b, O, dtype=torch.bool)
+        out["surf_labels"] = torch.full((b, SURF_MAX + 1), -1, dtype=torch.int64)
+        out["opt_min"] = torch.zeros(b, dtype=torch.int64)
+        out["opt_max"] = torch.zeros(b, dtype=torch.int64)
+        out["surf_ctx_ak"] = torch.full((b,), -1, dtype=torch.int64)
+        out["surf_method"] = torch.full((b,), -1, dtype=torch.int64)
+        out["surf_mask"] = torch.zeros(b, dtype=torch.bool)
+        for i, x in enumerate(batch):
+            if "opt_row" not in x:
+                continue
+            oi = x["opt_row"].shape[0]
+            for k in ("opt_row", "opt_pi", "opt_ak", "opt_kind"):
+                out[k][i, :oi] = x[k]
+            out["opt_mask"][i, :oi] = True
+            if "surf_labels" in x:
+                lab = x["surf_labels"].clone()
+                lab[lab == oi] = O
+                out["surf_labels"][i] = lab
+            out["opt_min"][i] = x["opt_min"]
+            out["opt_max"][i] = x["opt_max"]
+            out["surf_ctx_ak"][i] = x["surf_ctx_ak"]
+            out["surf_method"][i] = x["surf_method"]
+            out["surf_mask"][i] = True
     # D6 plan carry (optional keys, serve + rl loader; absent from BC-era
     # example dicts — when no example in the batch carries them the keys are
     # omitted entirely and the assembler takes the static-token path)
