@@ -237,6 +237,13 @@ class Run:
             # M10 reset Fork 3: inline certification (arms decided at the
             # window by the bridge; rate = the server's --certify-rate)
             cmd += ["-certify", str(m["certify_horizon"])]
+        if m.get("labels") and not m.get("rollout_k"):
+            # M12 Build 2: the search directive's rows outside rollout mode
+            cmd += ["-labels", str(wdir / "labels.jsonl")]
+        if m.get("forge_args"):
+            # M12 Build 2: verbatim AnvilRun flags (the search directive's
+            # budget / acting pins) — part of the arm's identity
+            cmd += list(m["forge_args"])
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
         out = open(wdir / "out.log", "a")
         # Forge's Main inits Sentry + AWT before CLI dispatch; with no
@@ -347,7 +354,9 @@ class Run:
 
 
 def launch(a) -> Path:
-    jar = _find_jar()
+    jar = Path(a.jar).resolve() if getattr(a, "jar", None) else _find_jar()
+    if not jar.exists():
+        sys.exit(f"--jar {jar}: no such file")
     run_id = f"{a.purpose}-{_dt.datetime.now():%Y%m%d-%H%M%S}"
     run_dir = RUNS_DIR / run_id
     (run_dir / "workers").mkdir(parents=True)
@@ -464,6 +473,9 @@ def launch(a) -> Path:
         "seq_arms": getattr(a, "seq_arms", None),
         # M10 reset Fork 3: inline certification horizon (None = off)
         "certify_horizon": getattr(a, "certify", None),
+        # M12 Build 2: verbatim AnvilRun flags + per-worker labels
+        "forge_args": (getattr(a, "forge_args", None) or "").split() or None,
+        "labels": getattr(a, "labels", False),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(

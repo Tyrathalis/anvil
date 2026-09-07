@@ -49,6 +49,32 @@ def main() -> None:
         "old mtime-selection hazard is retired) — ingest "
         "warns 'provenance is incomplete' without it.",
     )
+    ap.add_argument(
+        "--forge-args",
+        default=None,
+        help="M12 Build 2: extra AnvilRun flags for every worker (the search "
+        "directive as the behavior policy, e.g. '-search -searchrate 1 "
+        "-searchact 0.05 -searchtemp 0.025'); recorded in each arm's run.json",
+    )
+    ap.add_argument(
+        "--labels", action="store_true", help="per-worker labels.jsonl (the ev:search rows)"
+    )
+    ap.add_argument("--jar", default=None, help="run this jar (a snapshot copy) instead of target/'s newest")
+    ap.add_argument(
+        "--heuristic-control",
+        action="store_true",
+        help="M12 Build 2 control arms (ADR-0104 item 5): NO seat bridged (the "
+        "heuristic mirror; --bridge-seats 2) and '-searchseats <seat>' appended "
+        "to the forge args per seat run, so the searched heuristic seat sits "
+        "where the bridged seat sits in the network arms; the server still "
+        "serves the leaf values",
+    )
+    ap.add_argument(
+        "--skip-ante",
+        action="store_true",
+        help="generation + arms report only (no ingest / Ante certify) — the "
+        "day-zero paired diffs need the raw arms, not the corrected number",
+    )
     a = ap.parse_args()
     # Self-registration with the standing watcher: the read reports its OWN
     # pid (the 07-31 chain waiter grabbed a pgrep'd pid that was its own
@@ -96,8 +122,15 @@ def main() -> None:
                     "--pool-version",
                     a.pool_version,
                     "--bridge-seats",
-                    str(seat),
+                    "2" if a.heuristic_control else str(seat),
                     "--reask",
+                    *(
+                        ["--forge-args", f"{a.forge_args or ''} -searchseats {seat}".strip()]
+                        if a.heuristic_control
+                        else (["--forge-args", a.forge_args] if a.forge_args else [])
+                    ),
+                    *(["--labels"] if a.labels else []),
+                    *(["--jar", a.jar] if a.jar else []),
                 ]
             )
             new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
@@ -109,7 +142,7 @@ def main() -> None:
 
     # ---- ingest + certify per run (certify needs a trajectory store) ----
     ante_reports: list[str] = []
-    for rd in arm_dirs:
+    for rd in ([] if a.skip_ante else arm_dirs):
         _run([sys.executable, "-m", "anvil.store", "ingest", str(rd)])
         store = TRAJ_DIR / rd.name
         if not store.exists():
@@ -140,8 +173,7 @@ def main() -> None:
             "scripts/arms_report.py",
             "--arm",
             f"{a.name}={','.join(map(str, arm_dirs))}",
-            "--ante",
-            f"{a.name}={','.join(ante_reports)}",
+            *(["--ante", f"{a.name}={','.join(ante_reports)}"] if ante_reports else []),
             "--out",
             str(out),
         ]

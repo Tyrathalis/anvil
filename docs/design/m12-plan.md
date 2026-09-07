@@ -406,4 +406,22 @@ moves verbatim to the status archive and this section stays here as the record.*
   565 windows, 0 crashes, margins on the sharpened head ≥ 0.05 at 19.5% / ≥ 0.10 at 11.5% (p99
   0.32, max 0.63), argmax ≠ natural 41%, void 20.6%, multiplier ≈ 2.4× at rate 1. Build 2's bar
   bracket is 0.05 / 0.10 (ADR-0103 addendum).
-
+- **2026-09-06 (session 6) — Build 2: the acting rule landed; the day-zero read moved to the
+  2,000-game instrument and launched** ([ADR-0104](../decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
+  State review found the pinned fork-window paired read could not search inside its own
+  completions (the monitor lives on the mainline; nested copies + dual-policy routing + census
+  regeneration + a replay-parity proof were owed), both self-play seats would have searched
+  (a symmetric read), and the reference number (0.5279) lives on the 2,000-game scale — **user
+  decision: the standard 2,000-game read vs the heuristic**, arms paired game-by-game on the
+  final_read pairs + seeds. The acting rule (fork `103747691cc`): margin ≥ bar → sample from
+  the leaf-value softmax at T (the natural stays in the distribution), a sampled option realized
+  by a single-option forbid-decline re-ask, a veto falls back to the natural line, counted;
+  `-searchact/-searchtemp/-searchseats`, the `search` pins on every game header. Pins: bar
+  0.05 (+ 0.10 as a fourth arm), T 0.025, rate 1, rolls 1, surfaces off. `SearchActTest`
+  caught two sampler bugs before any game ran. Smokes (8 games seat 0 vs the heuristic): act
+  rate 24%, act_void 0.5%, 0 crashes, ~3× wall. Forkcheck (flag off): FORKCHECK_RR.
+  **Launched:** LAUNCH_RR. The heuristic control arms (`heur` / `heurla`: a heuristic seat
+  named by `-searchseats` is searched and acted for through its own realization) are written
+  in the fork, compiled, their forkcheck and chain (`build2_control_read.sh`) after the read.
+  Standing rule: a gate's bars and its instrument share one scale. Devlog
+  [2026-09-06-session6](../devlog/2026-09-06-session6.md).

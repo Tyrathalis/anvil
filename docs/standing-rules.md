@@ -160,6 +160,11 @@ silently delete.
   windows, fold the population by game hash and pool the held-out folds at the cell's full n; a
   single holdout at a fraction of that n cannot resolve the pre-registered bar
   ([ADR-0103](decisions/ADR-0103-m12-build1-value-head-and-build3-enumerators.md)).
+- **A gate's bars and its instrument share one scale** — name the read instrument beside the
+  bar when the bar is set, and check the instrument can run every arm before pinning it (the
+  M12 day-zero read was pinned at K=8/N=600 on the fork-window paired read while its reference
+  number lived on the 2,000-game read, and that instrument could not search inside its own
+  completions) ([ADR-0104](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
 
 ## Curation, drills, and the critic
 

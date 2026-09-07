@@ -167,6 +167,28 @@ def main() -> None:
         "--force-branch)",
     )
     la.add_argument(
+        "--forge-args",
+        default=None,
+        help="M12 Build 2: extra AnvilRun flags appended verbatim to every worker "
+        "command (space-separated, e.g. '-search -searchrate 1 -searchact 0.05 "
+        "-searchtemp 0.025'); recorded in run.json as forge_args — arms under "
+        "different forge_args are different behavior policies",
+    )
+    la.add_argument(
+        "--labels",
+        action="store_true",
+        help="per-worker labels.jsonl (the search directive's ev:search rows) "
+        "outside rollout mode, which writes it already",
+    )
+    la.add_argument(
+        "--jar",
+        type=Path,
+        default=None,
+        help="run this jar instead of the newest under the fork's target/ — a "
+        "snapshot copy lets the fork rebuild while a read is in flight (the "
+        "manifest pins path + sha either way)",
+    )
+    la.add_argument(
         "--seq-arms",
         choices=("nat", "all"),
         default=None,
