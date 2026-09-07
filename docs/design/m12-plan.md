@@ -370,3 +370,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   the leaf's scan stays unless the value ask goes opts-free; intermediate windows scan as normal.
   Build it only if the search smoke's per-option breakdown (copy_ms vs ms) shows the scan share
   on copies is material — user question, 09-06.
+- **2026-09-06 (session 4, close)** — Build 0 done-when 1 LANDED. Boundary forkcheck 499/500 vs
+  08-21; the mask filter −97% unpayable vetoes at zero wall cost, shape-fit now the dominant veto
+  (Build 3 targets); enumerator-rescue class 9.4% of rejected options → Build 3 payment; caps
+  52 / 1,650; the mask-cache gate root-caused (payability test draws game RNG) → scans on a
+  throwaway RNG (standing rule), cache stays OFF (still +10/120 divergences vs an OFF/OFF
+  control); the search directive smoked end to end: ms/window p50 296, forward calls per leaf
+  p50 4, **multiplier ≈ 2.6× forward calls at rate 1** (pure mana abilities excluded from
+  candidates), leaves 85% / void 15%. Final forkcheck on the Build 0 jar running overnight.
+  Playable worklist item 10 (Coffers refund bug). Next: Build 3 enumerators (exempt commits),
+  **Build 1 in parallel**. ADR-0102 addendum is the record.

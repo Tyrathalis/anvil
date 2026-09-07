@@ -159,7 +159,15 @@ among the 500.
   D2 "`-obs` perturbs which trajectory a seed plays" finding, now explained. **Fix (in the
   boundary): the scan and the predicate run on a throwaway RNG** (`AnvilOptions.withScratchRng`)
   — obs logging, the cache, the realizer's apply-time check and the search copies' scans are
-  RNG-neutral by construction. The cache gate re-read on the fixed jar: CACHE_GATE_RESULT.
+  RNG-neutral by construction. The cache gate re-read on the fixed jar (120 same-seed games, 8 workers): OFF vs ON
+  diverges in 24 games (first-divergence classes: answer 14, mask 7, other 3) against an OFF vs
+  OFF control of 14 (answer 13, mask 1) — the serve-jitter residual (ADR-0096) accounts for
+  the answer class; **the cache still adds ~10 divergences per 120 games, 7 of them mask-class
+  (option lists differing with identical prior picks, surfacing on convoke-candidate records),
+  so the gate FAILS and the cache stays OFF.** The RNG fix removed the dominant mechanism
+  (68/600 → 7/120 mask-class) but not all of it; the remaining key gap is a named item for
+  the day the search multiplier says the engine binds (re-read = this gate + the OFF/OFF
+  control, `scripts/build0_cache_gate.sh`).
   B's timing (+31% vs A) was contaminated by the session's own compiles and is not a read; the
   cache stays OFF (default) until the search multiplier says the engine binds.
 - **The search smoke (12 games, rate 0.05, 1 roll, 45 windows):** the directive runs end to end —
@@ -172,7 +180,10 @@ among the 500.
   window over a ~10 s game (~80 eligible windows/game → ~5× wall at rate 1 before any gating).
   **58% of candidates were pure mana abilities** ("{T}: Add {B}"), whose leaf is the pass leaf
   with the seat tapped down → **excluded from the candidate set by default** (`-searchmana`
-  restores; they stay in the mask) — expected to cut per-window cost ~2.4×. Margins on the
+  restores; they stay in the mask) — re-read with them excluded: candidates 166 (was 390), **ms per
+  window p50 296 / p90 635**, forward calls per leaf p50 4 / p90 6 (spells need more intermediate
+  decisions than a mana tap), multiplier **1.08× at rate 0.05 → ≈2.6× forward calls at rate 1**,
+  argmax ≠ natural 47%, margin ≥ 0.02 at 24%, ≥ 0.05 at 13%, 0 crashes. Margins on the
   unsharpened head: p50 0.017 / p90 0.071 / max 0.13; argmax ≠ natural at 67% of windows;
   margin ≥ 0.02 at 42%, ≥ 0.05 at 20% — the bar/temperature are pinned at Build 2 on the
   sharpened head, not from this. Value asks: 43/43 served, 0 fallbacks.
