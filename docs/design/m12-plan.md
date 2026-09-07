@@ -419,8 +419,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   `-searchact/-searchtemp/-searchseats`, the `search` pins on every game header. Pins: bar
   0.05 (+ 0.10 as a fourth arm), T 0.025, rate 1, rolls 1, surfaces off. `SearchActTest`
   caught two sampler bugs before any game ran. Smokes (8 games seat 0 vs the heuristic): act
-  rate 24%, act_void 0.5%, 0 crashes, ~3× wall. Forkcheck (flag off): FORKCHECK_RR.
-  **Launched:** LAUNCH_RR. The heuristic control arms (`heur` / `heurla`: a heuristic seat
+  rate 24%, act_void 0.5%, 0 crashes, ~3× wall. Forkcheck (flag off): 498/500 main-trace hashes identical to the 08-21 baseline (`run-20260906-build2-act`; fork fidelity 448/52 vs 450/50); the two misses are the standing pair — 20260969 (launch-unstable) and 20260739, which replayed twice on the same jar to the baseline hash `9e0365815606ddf6` (the identity-hash residual) — **PASS at the ADR-0025 standard; the research fork pin moves to `103747691cc`**.
+  **Launched** 23:16 09-06, `scripts/build2_dayzero_read.sh` detached (chain pid 1872752, watchd `build2-dayzero` stall 60 min + each arm's own `b2-<arm>-read` registration, notify on completion / failure), jar snapshot `data/runs/build2-dayzero/forge-build2.jar` (sha `812ea09e…`, pinned in every arm's manifest); arms ref → dz → dzla (bar 0.05) → dzla10, 2 × 1,000 games each at eight workers; ETA ~80 min per plain arm, ~2.5 h per search arm → the read lands ~07:00 09-07 in `data/runs/build2-dayzero/read.json`. The heuristic control arms (`heur` / `heurla`: a heuristic seat
   named by `-searchseats` is searched and acted for through its own realization) are written
   in the fork, compiled, their forkcheck and chain (`build2_control_read.sh`) after the read.
   Standing rule: a gate's bars and its instrument share one scale. Devlog
