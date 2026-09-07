@@ -21,8 +21,8 @@ from pathlib import Path
 from anvil.store.trajectories import TrajectoryStore
 
 
-def _key(d: dict) -> tuple:
-    opts = d.get("opts")
+def _key(d: dict, picks_only: bool = False) -> tuple:
+    opts = None if picks_only else d.get("opts")
     labels = tuple((o.get("e"), o.get("sa"), o.get("kind")) for o in opts) if opts else None
     ret = d.get("ret")
     return (d.get("s"), d.get("m"), d.get("t"), d.get("p"), labels, d.get("oi"),
@@ -35,6 +35,9 @@ def main() -> int:
     ap.add_argument("store_b")
     ap.add_argument("--max-games", type=int, default=0)
     ap.add_argument("--dump-first", action="store_true", help="print the first divergent window pair")
+    ap.add_argument("--picks-only", action="store_true",
+                    help="compare the PICK stream only (s, m, t, p, oi, ret) — ignores option lists; "
+                         "a mask-class divergence that never changes a pick is a logging artifact")
     a = ap.parse_args()
     sa, sb = TrajectoryStore(Path(a.store_a)), TrajectoryStore(Path(a.store_b))
     common = sorted(set(sa.game_indices()) & set(sb.game_indices()))
@@ -53,8 +56,8 @@ def main() -> int:
             print(f"[obs_diff] game {g}: undecodable ({e})", file=sys.stderr)
             continue
         games += 1
-        ka = [_key(d) for d in ta.decisions]
-        kb = [_key(d) for d in tb.decisions]
+        ka = [_key(d, a.picks_only) for d in ta.decisions]
+        kb = [_key(d, a.picks_only) for d in tb.decisions]
         n = min(len(ka), len(kb))
         div = next((i for i in range(n) if ka[i] != kb[i]), None)
         if div is None and len(ka) == len(kb):
