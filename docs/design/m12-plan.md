@@ -392,4 +392,14 @@ moves verbatim to the status archive and this section stays here as the record.*
   answer on a copy, seven answer shapes enumerated natural-first, the first traced surface on the
   top-B candidates' paths expanded. Devlog
   [2026-09-06-session5](../devlog/2026-09-06-session5.md). Numbers: the ADR addendum.
+- **2026-09-06 (session 5, close)** — **Build 1 GO**: one-ply 0.277 → **0.390 ± 0.019** (cross-fit,
+  n 647), h2/K=8 0.44 → **0.69**, state ranking 0.39 (its 0.50 bar not cleared), policy drift nil
+  (KL 0.002, argmax agree 99.3%); day-zero ckpt `data/training/m12-build1/last.pt` (a state-only
+  early-stop variant reads alongside; selection by inner-val, declared before the read). **Build 3
+  enumerators PROVEN exempt**: forkcheck 498/500 vs 08-21, both misses the identity-hash residual
+  (20260739 replays to the baseline hash twice) → fork pin `6eb64b6c538`. Smoke: 148 windows,
+  116 sub-rows, 0 copy crashes, 1 miss; modal choice shows the visible headroom (Δ ≥ 0.02 at 4/6),
+  tutor targets in the tail. Next: **Build 2** — wire the directive to the sharpened head, pin the
+  margin bar/temperature from the smoke's margins on the day-zero ckpt, regenerate the fixed
+  population on the boundary jar, the four-arm day-zero paired read.
 

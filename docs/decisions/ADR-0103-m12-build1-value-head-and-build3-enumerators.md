@@ -169,3 +169,14 @@ selected epoch; both variants' holdouts are reported.
 construction, the masked value head sharpened) — the "Build 1 ckpt" arm of the Build 2 four-arm
 read. The h2/K=8 cell at 0.69 says the masked head now ranks composites at the composite's own
 horizon about as well as one K=1 rollout (0.47) or the label's split-half (0.53) did before.
+
+## Addendum (2026-09-06, session 5, 21:30): the enumerators' ADR-0025 proof — PASS
+
+`data/forkcheck/run-20260906-build3-surfaces` (500 heuristic games, seed 20260703 = the 08-21
+seed set, the surfaces jar built from fork `6eb64b6c538`): **498/500 main-trace hashes identical
+to `run-20260821-m9boundary`**; fork fidelity 449 clean / 51 = the baseline's 449–450/50–51. The
+two misses: 20260969 = the launch-unstable seed named 09-05; 20260739 replayed twice on the same
+jar (`repro-20260739-{1,2}`) gives `9e0365815606ddf6` both times = the 08-21 baseline hash — a
+launch-instance artifact of the identity-hash residual, exactly the 20260744 pattern of the
+Build 0 final proof. **PASS. The research fork pin moves to `6eb64b6c538`** (Build 0 boundary
+`aac9f808bcf` + the exempt enumerator commit).
