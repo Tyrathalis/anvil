@@ -215,10 +215,23 @@ whether teaching is happening. The milestone's product is one big training run, 
 - **K. (new, 09-07, from the community watch) Effect-grounded ability embeddings.** LordOfThePigs
   is retraining his card/ability embeddings on observed game effects (cost tokens ↔ what was tapped /
   what mana left the pool; effect tokens ↔ replacements, stack effects), arguing general-purpose text
-  embeddings cannot carry MTG-specific meaning. OPEN for Build 4: the text-hash-keyed LLM embeddings
-  as pinned (fork I) vs an effect-grounded target our store can already supply. Prior: ADR-0049
-  (representation was not the bottleneck at M6). User decision at the Build 4 evening; his results
-  are the external read.
+  embeddings cannot carry MTG-specific meaning. OPEN for Build 4 (user, 09-07: his problem is the
+  inverse of ours — card value is his whole game, we back card value out of game knowledge — but
+  it is the right reminder to think these aspects through for ourselves). The option set on record:
+  (a) **an effect-prediction auxiliary loss on top of the pinned text embeddings** — grounding as a
+  loss, not a replacement: keeps the LLM prior on unseen mechanics, keeps cold start (his grounding
+  is per token, so cold start is lost only per card), keeps the text-hash cache of fork I, targets
+  the one concrete gap (near-identical text, different engine effect — "add {G}" vs "add one mana of
+  any color" — scored through the same embedding by the pointer decoder); (b) **re-segmenting the
+  ability text** (cost / effect / condition spans embedded separately, or per-token pooling) — may
+  buy the same discrimination without a new target; (c) **both embeddings side by side** (his
+  effect-grounded vector concatenated with the text one, each with its own cache key — the
+  grounded one is engine-era-dependent and breaks the append property, the text one is not);
+  (d) replace outright (not favoured: learns engine versions, invariant seven; loses the prior).
+  First step regardless: the ADR-0049 frozen-probe benchmark asked the new question — is an
+  ability's effect class linearly decodable from the pinned embedding? Decodable → nothing to
+  gain; not → (a) or (b) at the Build 4 evening. Prior: ADR-0049 (representation was not the
+  bottleneck at M6). His results are the external read.
 - **I. (new) Multi-format readiness.** **ADJUDICATED (09-06 s3): full readiness lands in this
   round; training on a second format is decided later.** Already there: the ruleset is a flag
   (`AnvilRun -f`, default Commander; Forge has a Pauper deck format under Constructed; the only
