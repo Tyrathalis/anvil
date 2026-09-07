@@ -189,3 +189,10 @@ among the 500.
   sharpened head, not from this. Value asks: 43/43 served, 0 fallbacks.
 - **Build 0 done-when 1:** landed. Remaining inside Build 0: the Build 3 enumerators (Java only,
   exempt commits) — next session; **Build 1 opens in parallel.**
+
+**Final-jar proof (`run-20260906-build0-final`, fork tip `aac9f808bcf`, 500 heuristic games, seed
+20260703): 497/500 main-trace hashes identical to `run-20260821-m9boundary`; fork fidelity 449/51.**
+The three misses: 20260853 and 20260969 = the launch-unstable pair named 09-05; 20260744 replayed
+twice on the same jar (`repro-20260744-{1,2}`) gives `dbf25ab99ce90dee` both times = the 08-21
+baseline hash — the batch run's value was a launch-instance artifact of the identity-hash residual.
+**PASS at the ADR-0025 standard. The Build 0 boundary jar is `aac9f808bcf`.**

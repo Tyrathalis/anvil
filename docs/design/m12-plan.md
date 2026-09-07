@@ -377,6 +377,6 @@ moves verbatim to the status archive and this section stays here as the record.*
   throwaway RNG (standing rule), cache stays OFF (still +10/120 divergences vs an OFF/OFF
   control); the search directive smoked end to end: ms/window p50 296, forward calls per leaf
   p50 4, **multiplier ≈ 2.6× forward calls at rate 1** (pure mana abilities excluded from
-  candidates), leaves 85% / void 15%. Final forkcheck on the Build 0 jar running overnight.
+  candidates), leaves 85% / void 15%. Final forkcheck on the Build 0 jar `aac9f808bcf`: 497/500 identical, the three misses all the identity-hash residual (one replayed to the baseline hash) — PASS.
   Playable worklist item 10 (Coffers refund bug). Next: Build 3 enumerators (exempt commits),
   **Build 1 in parallel**. ADR-0102 addendum is the record.
