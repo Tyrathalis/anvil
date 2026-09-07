@@ -488,3 +488,26 @@ moves verbatim to the status archive and this section stays here as the record.*
   surfaces, Python side: the loader reads the named `opts`, the three answer-shape heads, the
   distillation term from `sub` rows), one per evening, each with forkcheck + smoke + a 600-game
   paired read.
+- **2026-09-07 (afternoon–evening) — BUILD 3 OPENED: evening 1 (entity one + entity set) and the
+  ability representation pin** ([ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  State review: the Java side complete and proven, the Python side untouched, three unnamed gaps
+  (no surface wire tag, no mainline surface acting, no payment tag); 220K free imitation labels in
+  the Build 2 arms; option strings for modes/triggers ~99% outside the SA vocabulary. User pins:
+  train + serve together one surface per evening; one option-set decoder (three decoding modes);
+  **the ability representation = the pinned LLM over the ability's canonical engine text (script
+  parameters + description), hash-keyed, one shared table** — fork K resolves (re-segmentation by
+  construction; the auxiliary loss = the frozen probe first); imitation warm start then sub-row
+  distillation; the sub-row pool generated first; evening order one/set → mode → order + damage
+  → payment tag → mainline acting; naming to the closeout. Landed: fork `b0567608938` (`AbilityKey`,
+  `ak` on every ability option/answer, the per-game `abil` side table, `-abilities` dump: 1,701
+  cards → 5,148 abilities) + `a0ed9e314b5` (the serve wire `mtg.surface.entity_one/entity_set`,
+  `selectSet`, `args.sak`); the ability cache + **the frozen probe: every effect class decodable
+  (AUC 0.98–1.00; description-only 0.80–0.99; zone destination 0.84 vs 0.68)**; the Python side
+  (`anvil/policy/surfaces.py`, the loader's `surf_*` tasks, `AnvilNet._surface_decode` with
+  `surf_query`/`surf_key` as copies of the cast decoder's maps, featurize + server tags,
+  `surface_fit.py`); the surface-label run launched 14:56 (1,000 self-play games, acting ON at
+  0.10, `-searchsurf 2`; the 5 s worker deadline poisoned the first launch under the 8-worker
+  burst → 20 s); wire smoke 21/21 bridged answers accepted. Fold 0 adapter-only baseline: surf_one
+  0.257 / surf_set exact 0.355 vs first-option 0.20. Devlog
+  [2026-09-07](../devlog/2026-09-07.md). Next: fold 0 with the role copies → folds → build →
+  the forkcheck (launched 16:05 on `a0ed9e314b5`) → the served-head smoke + 600-game paired read.
