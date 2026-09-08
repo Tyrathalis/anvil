@@ -15,13 +15,24 @@ embedding. The answer is a sequence of option indices closed by STOP:
 
   surf_one   (entity_one)  exactly one pick, then STOP
   surf_set   (entity_set)  min..max distinct picks, then STOP
-  surf_order (order)       every option once (min = max = n), no early STOP
+  surf_order (order)       every option once (min = max = n), no early STOP;
+                           windows past SURF_MAX are not decisions here (the
+                           fork's ORDER_MAX: never asked, the natural line)
   surf_scry  (scry)        the top cards in order, then STOP (the rest bottom)
   surf_mode  (mode)        min..num modes, then STOP (a mode may repeat when
                            the callback allows it: args.allowRepeat -> opt_repeat,
                            the decoder's picked mask is off)
   surf_name  (name)        one pick (a face / a type), then STOP
-  surf_damage(damage)      routed to the ordering evening
+  surf_damage(damage)      a KILL ORDER over the blockers, closed by the
+                           defender under trample (evening 3): options =
+                           blockers (+ the defender last when args.trample),
+                           1..n picks then STOP; the fork realizes the
+                           sequence as amounts by its own lethal arithmetic
+                           (Surfaces.damageFromSequence). The label from the
+                           heuristic's amount map: blockers dealt lethal (or,
+                           without args.lethal, any damage) in descending
+                           amount then list order, a partially damaged blocker
+                           last, the defender when its share is positive.
 
 SURF_MAX = the longest answer decoded (the decoder's surface slot count;
 longer heuristic answers are truncated and counted).
@@ -44,7 +55,7 @@ SURF_TASK = {
     "damage": "surf_damage",
 }
 # the shapes whose loader / serve path exist (grows one evening at a time)
-SURF_BUILT = {"surf_one", "surf_set", "surf_mode"}
+SURF_BUILT = {"surf_one", "surf_set", "surf_mode", "surf_order", "surf_damage"}
 OPT_KINDS = {"entity": 0, "player": 1, "ability": 2, "other": 3}
 SURF_MAX = 12  # answer slots (+1 STOP); discard-to-hand-size and sacrifice-N sit under it
 
@@ -95,6 +106,47 @@ def _opt_key(o: Any) -> tuple:
     return ("x", str(o))
 
 
+def _damage_sequence(ret: Any, opts: list, args: dict, key_index: dict[tuple, int]) -> list[int] | None:
+    """The heuristic's assignCombatDamage map -> a kill-order sequence over the
+    option indices (blockers, then the defender when the dec carries it).
+    None = unresolvable (an unknown blocker, no damage dealt)."""
+    entries = (ret or {}).get("map") if isinstance(ret, dict) else None
+    if not isinstance(entries, list):
+        return None
+    n_blk = len(opts)
+    has_def = bool(args.get("trample")) and n_blk >= 1
+    if has_def:
+        n_blk -= 1  # the defender is the last option
+    lethal = args.get("lethal") if isinstance(args.get("lethal"), list) and len(args.get("lethal")) == n_blk else None
+    amount: dict[int, int] = {}
+    def_share = 0
+    for e in entries:
+        if not isinstance(e, list) or len(e) != 2:
+            continue
+        k, v = e
+        v = int(v or 0)
+        if v <= 0:
+            continue
+        if k is None:
+            def_share += v
+            continue
+        j = key_index.get(_opt_key(k))
+        if j is None or j >= n_blk:
+            return None
+        amount[j] = amount.get(j, 0) + v
+    killed = [j for j in sorted(amount) if lethal is None or amount[j] >= max(1, lethal[j])]
+    partial = [j for j in sorted(amount) if j not in killed]
+    killed.sort(key=lambda j: (-amount[j], j))
+    partial.sort(key=lambda j: (-amount[j], j))
+    seq = killed + partial
+    # the remainder tramples over by rule (Surfaces.damageFromSequence); the
+    # defender pick closes the sequence early — only when the heuristic
+    # trampled while leaving a blocker untouched
+    if def_share > 0 and has_def and len(seq) < n_blk:
+        seq.append(n_blk)
+    return seq or None
+
+
 def surface_fields(
     dec: dict,
     row_of: dict[int, int],
@@ -117,6 +169,17 @@ def surface_fields(
     repeat = 1 if (task == "surf_mode" and args.get("allowRepeat")) else 0
     if task == "surf_one":
         lo, hi = 1, 1
+    elif task == "surf_order":
+        # every option exactly once: the ORDER of the picks is the decision
+        if n > SURF_MAX:
+            return None
+        lo = hi = n
+    elif task == "surf_damage":
+        # a kill order: at least one pick; every option at most (the defender,
+        # when present, is the last option and closes the sequence)
+        if n > SURF_MAX:
+            return None
+        lo, hi = 1, n
     elif task == "surf_mode":
         # chooseModeForAbility(min, num, allowRepeat): min..num modes; under
         # allowRepeat the answer may exceed n ("choose three" of two modes)
@@ -148,11 +211,13 @@ def surface_fields(
     opt_ak = np.full(n, -1, dtype=np.int64)
     opt_kind = np.full(n, OPT_KINDS["other"], dtype=np.int64)
     key_index: dict[tuple, int] = {}
+    key_slots: dict[tuple, list[int]] = {}  # every index per key (order: identical options take distinct slots)
     ak_miss = 0
     ent_miss = 0
     for i, o in enumerate(opts):
         k = _opt_key(o)
         key_index.setdefault(k, i)
+        key_slots.setdefault(k, []).append(i)
         if isinstance(o, dict):
             if "ak" in o or "sa" in o:
                 opt_kind[i] = OPT_KINDS["ability"]
@@ -187,14 +252,25 @@ def surface_fields(
     if not with_labels:
         return out
     ret = dec.get("ret")
-    if task == "surf_one":
+    labels = np.full(SURF_MAX + 1, -1, dtype=np.int64)
+    idxs: list[int] = []
+    if task == "surf_damage":
+        seq = _damage_sequence(ret, opts, args, key_index)
+        if seq is None:
+            out["_miss"] = "label_unmatched"
+            return out
+        idxs = seq
+        picks = []
+    elif task == "surf_one":
         picks = [ret] if ret is not None else []
     else:
         picks = list(ret) if isinstance(ret, list) else ([ret] if ret is not None else [])
-    labels = np.full(SURF_MAX + 1, -1, dtype=np.int64)
-    idxs: list[int] = []
     for r in picks:
-        j = key_index.get(_opt_key(r))
+        k = _opt_key(r)
+        j = key_index.get(k)
+        if task == "surf_order" and j is not None:
+            # identical options (two copies of one trigger) fill their slots in order
+            j = next((x for x in key_slots.get(k, []) if x not in idxs), None)
         if j is None and isinstance(r, dict) and "e" in r:
             # an ability answer serialized as a CastPlan (kind/tgt extras) —
             # match on host + sa when the exact key misses; the option's sa
@@ -216,7 +292,7 @@ def surface_fields(
     if task == "surf_one" and len(idxs) != 1:
         out["_miss"] = "label_count"
         return out
-    if task in ("surf_set", "surf_mode") and not (lo <= len(idxs) <= hi):
+    if task in ("surf_set", "surf_mode", "surf_order", "surf_damage") and not (lo <= len(idxs) <= hi):
         out["_miss"] = "label_count"
         return out
     if task in ("surf_set", "surf_mode"):

@@ -137,22 +137,22 @@ SURFACES = {
     },
     "orderSimultaneousSa": {
         "kind": "Surfaces.ORDER", "opts": "activePlayerSAs",
-        "force": "Surfaces.forceOrderSa(getGame(), getPlayer(), activePlayerSAs)",
+        "force": "Surfaces.forceOrderSa(getGame(), getPlayer(), activePlayerSAs, \"orderSimultaneousSa\")",
         "after": "Surfaces.afterOrder(getGame(), getPlayer(), activePlayerSAs, null, __r)",
     },
     "orderMoveToZoneList": {
         "kind": "Surfaces.ORDER", "opts": "cards",
-        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), cards)",
+        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), cards, \"orderMoveToZoneList\")",
         "after": "Surfaces.afterOrder(getGame(), getPlayer(), cards, source, __r)",
     },
     "orderBlockers": {
         "kind": "Surfaces.ORDER", "opts": "blockers",
-        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), blockers)",
+        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), blockers, \"orderBlockers\")",
         "after": "Surfaces.afterOrder(getGame(), getPlayer(), blockers, null, __r)",
     },
     "orderAttackers": {
         "kind": "Surfaces.ORDER", "opts": "attackers",
-        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), attackers)",
+        "force": "Surfaces.forceOrderCards(getGame(), getPlayer(), attackers, \"orderAttackers\")",
         "after": "Surfaces.afterOrder(getGame(), getPlayer(), attackers, null, __r)",
     },
     "arrangeForScry": {
@@ -176,7 +176,12 @@ SURFACES = {
         "after": "Surfaces.afterName(getGame(), getPlayer(), validTypes, sa, __r)",
     },
     "assignCombatDamage": {
-        "kind": "Surfaces.DAMAGE", "opts": "blockers",
+        # evening 3: the option list carries the defender under trample (the
+        # answer may end on it) and the dec records lethal per blocker + the
+        # trample flag (the loader's kill-order canonicalization)
+        "kind": "Surfaces.DAMAGE", "opts": "Surfaces.damageOpts(attacker, blockers, defender)",
+        "kv": ', "lethal", Surfaces.lethalList(getPlayer(), attacker, blockers, damageDealt, defender, overrideOrder),'
+              ' "trample", Surfaces.tramples(attacker, defender)',
         "force": "Surfaces.forceDamage(getGame(), getPlayer(), attacker, blockers, damageDealt, defender,"
                  " overrideOrder)",
         "after": "Surfaces.afterDamage(getGame(), getPlayer(), attacker, blockers, damageDealt, defender,"
@@ -283,7 +288,8 @@ def main() -> None:
             # ability KEY ("sak"; Surfaces.dec turns the object into the key)
             sak = ', "sak", sa' if any(n == "sa" and t.endswith("SpellAbility") for t, n in params) else ""
             dec_call = (
-                f'Surfaces.dec(getGame(), getPlayer(), "{name}", {surf["kind"]}, {surf["opts"]}{kv_str}{sak})'
+                f'Surfaces.dec(getGame(), getPlayer(), "{name}", {surf["kind"]}, {surf["opts"]}{kv_str}'
+                f'{surf.get("kv", "")}{sak})'
             )
         if ret == "void":
             tail = f"        {dec_call};\n        super.{name}({call_args});\n"

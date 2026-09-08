@@ -68,10 +68,11 @@ COMBAT_TAGS = "mtg.attack,mtg.block"
 PAY_TAGS = "mtg.pay_mana_class"
 # M12 Build 3 (ADR-0105): served only by a checkpoint whose surface decoder
 # was fitted (surf_ params present; the has_pay never-serve-fresh-init rule)
-SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode"
+SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode,mtg.surface.order,mtg.surface.damage"
 _HOST_ID = re.compile(r"\((\d+)\)$")  # "Name (id)" labels (mirrors featurize._HOST_ID)
 SURFACE_TAG_OF_TASK = {"surf_one": "mtg.surface.entity_one", "surf_set": "mtg.surface.entity_set",
-                       "surf_mode": "mtg.surface.mode"}
+                       "surf_mode": "mtg.surface.mode", "surf_order": "mtg.surface.order",
+                       "surf_damage": "mtg.surface.damage"}
 
 
 class _Batcher:
@@ -543,6 +544,22 @@ class ModelBackend:
                 if not idxs:
                     raise ValueError("surface decoder returned no pick")
                 resp.index = idxs[0]
+            elif task == "surf_order":
+                # ORDER_N: a full permutation; a decoder that stopped early is
+                # completed in option order (counted)
+                if len(idxs) < O:
+                    self.counts["order_filled"] += 1
+                    idxs += [i for i in range(O) if i not in idxs]
+                resp.ordering.indices.extend(idxs)
+            elif task == "surf_damage":
+                # ORDER_N as a kill order over blockers; under trample the
+                # defender is the last option and closes the sequence (the
+                # fork rejects a defender pick anywhere else)
+                if not idxs:
+                    raise ValueError("surface decoder returned no pick")
+                if (dec.get("args") or {}).get("trample") and (O - 1) in idxs:
+                    idxs = idxs[: idxs.index(O - 1) + 1]
+                resp.ordering.indices.extend(idxs)
             else:
                 resp.indices.indices.extend(sorted(idxs))
         elif task == "number":

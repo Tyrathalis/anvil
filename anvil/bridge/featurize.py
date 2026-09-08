@@ -64,6 +64,9 @@ TAG_TASK = {
     "mtg.surface.entity_one": "surf_one",
     "mtg.surface.entity_set": "surf_set",
     "mtg.surface.mode": "surf_mode",
+    # evening 3: ordering (a permutation) and combat damage (a kill order)
+    "mtg.surface.order": "surf_order",
+    "mtg.surface.damage": "surf_damage",
 }
 
 
