@@ -582,4 +582,12 @@ moves verbatim to the status archive and this section stays here as the record.*
   replays to the baseline hash twice on the same jar — **PASS; the research fork pin moves to
   `41ac60d6b21`** (ADR-0105 addendum). Folds 0–1: order 0.74 / 0.73 (trigger ordering 0.85 vs
   keep-the-order 0.77; move-to-zone 0.65 below it), damage 0.38 / 0.37.
+- **2026-09-08 (16:30) — EVENING 3 CLOSED: ordering + damage served.** Pooled cross-fit order 0.732
+  (trigger 0.846 vs keep-the-order 0.774; move-to-zone 0.626 below it), damage 0.376; build
+  `m12-build3-e3`; smoke clean (0 errors, 0 null-obs frames); **the paired read +0.52 ± 1.82 vs
+  withheld (n 580)**, every served answer accepted (1,585 orderings, 61 kill orders), the standing
+  crash class only. Finding: the exposure split keyed on one arm's game is post-treatment (its sign
+  follows the conditioning arm: trigger +9.6 keyed on ON, −2.2 keyed on OFF) → a standing rule;
+  attribution = ablation arms on one reference. Served from here: six surfaces + tuck. Next:
+  evening 4 = the payment tag; evening 5 = mainline surface acting (modes first).
 

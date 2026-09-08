@@ -501,3 +501,45 @@ and the snapshot null guard on the gate `bc01efe1609`). The fit chain's first fo
 move-to-zone 0.645, *below* that baseline — graveyard orderings the heuristic leaves alone, the
 head flips some), damage 0.381 / 0.369 (slot-0 0.597 vs first-option 0.509; n ~600 per fold),
 entity + mode at their evening-2 levels (the shared trunk unmoved).
+
+## Addendum (2026-09-08, 16:30): EVENING 3 CLOSED — ordering + damage served; the exposure split is not an instrument
+
+**The chain** (`data/runs/build3-e3/`, five tasks, e2's recipe): pooled cross-fit order 0.732 (trigger
+ordering 0.846 vs the keep-the-input-order baseline 0.774; move-to-zone 0.626 below its 0.757),
+damage 0.376 (slot-0 0.607 vs first-option 0.487; n 2,841); the entity + mode heads gave up a
+little to two more tasks on the shared decoder (set 0.450 → 0.429, one 0.338 → 0.330, mode 0.393 →
+0.387). Build ckpt **`data/training/m12-build3-e3/last.pt`** (serves all six surface tags + tuck).
+**The served-head smoke** on the proven jar: 8/8, ordering 117/117 and damage 2/2 accepted, 0
+server errors, 0 null-obs frames (the snapshot guard).
+
+**The paired read** (`data/runs/build3-surface-read-b3e3/read.json`; the e3 ckpt on the snapshot
+jar `41ac60d6b21`; off = the server withholding the surfaces + tuck, on = all six + tuck; 2 × 300
+per arm vs the heuristic): off 0.504 / on 0.503, **on − off +0.52pp ± 1.82 (t 0.3, 57 up / 54
+down, n 580)**; crash class = the standing BridgePoisoned only (4 per arm); served census on the
+on arms: trigger ordering 741/741 accepted, move-to-zone 844/844, damage 61/61 (k = 1 for 23, full
+kill orders otherwise), mode gate pass 96 / defer 150 / free 45. **"Nothing broke" holds — evening
+3 closes with ordering + damage served; the served set from here is entity one + set + gated mode
++ tuck + ordering + damage.**
+
+**The exposure split is selection, not effect (a lesson for the instrument).** Keyed on the ON
+arm's game (the standing use, evening 2): trigger-ordering-exposed +9.6 ± 2.5 (t 3.8) / unexposed
+−6.9 ± 2.5; keyed on the OFF arm's game instead: exposed −2.2 ± 2.7 / unexposed +3.0 ± 2.4 —
+**the sign follows the conditioning arm** (damage: +10.0 ± 6.0 vs −13.9 ± 7.1). A window that fires
+when the seat's board survived (two of its triggers at once; a multi-block on its attacker)
+selects that arm's better games: the split conditions on the outcome path. The symmetric key (the
+window fired in both arms' games) reads exposed +4.7 ± 2.3 / unexposed −6.3 ± 2.9 — still a
+length selection, exploratory. Evening 2's mode attribution stands on the ablation arms on one
+reference (entity-only +1.7 vs + mode −0.85, the ladder), not on its exposure split, which had the
+same structure. **Standing rule born here → standing-rules.md (gating/reads): an exposure split
+keyed on one arm's own game is post-treatment when exposure correlates with survival; attribution
+is ablation arms on one reference; a split is exploratory and, if read at all, keyed symmetrically.**
+`scripts/surface_exposure_read.py` carries the caveat and the `--key fired --arm both` key.
+
+Assets: fork `41ac60d6b21` (pinned), `m12-build3-e3`, `surface_served_census.py`,
+`surface_exposure_read.py`. Routed by name: a fresh keyed pool on this jar (the new damage dec
+shape; stable keys) at the next label regeneration; search from combat windows (the leaf value
+reaching damage) with mainline surface acting or Build 4½; the move-to-zone head's below-baseline
+agreement (inert on graveyards, watched on library put-backs) — the closing evening's per-callback
+serve switch if a read ever needs it. **Next: evening 4 = the payment tag (the ADR-0102 rescue
+class: the enumerator + distillation into the pay head), then evening 5 = mainline surface acting
+(modes first).**

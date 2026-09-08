@@ -64,6 +64,14 @@ silently delete.
   diagnostics answered what two build sessions could not
   ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
 
+- **An exposure split keyed on one arm's own game is post-treatment when exposure correlates
+  with survival** (a multi-trigger window, a multi-block: they fire in the games where that seat's
+  board lived, i.e. that arm's better games — the split's sign follows the conditioning arm:
+  trigger ordering +9.6 ± 2.5 keyed on the served arm, −2.2 ± 2.7 keyed on the withheld arm, the
+  same 580 pairs). Attribution is ablation arms on one reference (the ladder); a split is
+  exploratory and, if read at all, keyed symmetrically (the window fired in both arms' games).
+  ADR-0105 (evening 3).
+
 ## Training-loop design
 
 - **Clips at birth** for engineered aggregates AND loss terms
