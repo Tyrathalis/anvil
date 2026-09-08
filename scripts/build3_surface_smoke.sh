@@ -10,11 +10,12 @@
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil
 FORGE=/home/tyrathalis/Everything/Projects/forge
-JAR=$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)
+# JAR env = a snapshot jar (the 09-08 e3 smoke: the unconditional assignment below
+# overrode the env; the run was saved only by target/ still equalling the snapshot)
+JAR=${JAR:-$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)}
 OUT=${OUT:-$REPO/data/runs/build3-surface-smoke}
 PORT=${PORT:-50073}
 CKPT=${CKPT:-$REPO/data/training/d6-run11/iter-019/train/last.pt}
-JAR=${JAR:-$JAR}
 GAMES=${1:-12}; RATE=${2:-0.2}; SURF=${3:-2}; CAP=${4:-8}
 export PYTHONUNBUFFERED=1 DISPLAY=:0
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
