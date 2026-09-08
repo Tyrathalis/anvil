@@ -15,7 +15,7 @@
 # is SNAPSHOTTED into the run dir. Detached-run checklist: setsid nohup by the
 # caller, watchd-registered here, unregister + notify inside this wrapper.
 # Usage: build3_surface_labels.sh
-#   env: WT (worktree), GAMES (1000), WORKERS (8), PORT (50075), BAR (0.10),
+#   env: WT (worktree), NAME (b3-surflab), OUT (run-chain dir), GAMES (1000), WORKERS (8), PORT (50075), BAR (0.10),
 #        TEMP (0.025), RATE (1), SURF (2), CAP (8), SEED (20260908), CKPT, JAR
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil
@@ -27,7 +27,7 @@ BAR=${BAR:-0.10}; TEMP=${TEMP:-0.025}; RATE=${RATE:-1}; SURF=${SURF:-2}; CAP=${C
 SEED=${SEED:-20260908}
 DEADLINE_MS=${DEADLINE_MS:-20000}
 CKPT=${CKPT:-data/training/m12-build1-stopstate/last.pt}
-OUT=$REPO/data/runs/build3-surface-labels
+OUT=${OUT:-$REPO/data/runs/build3-surface-labels}
 mkdir -p "$OUT"
 SRC_JAR=${JAR:-$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)}
 JAR="$OUT/forge-b3.jar"
@@ -49,13 +49,13 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
 state() { echo "{\"stage\":\"$1\",\"at\":\"$(date -Iseconds)\"}" >> "$OUT/stages.jsonl"; }
 cd "$WT"
 FARGS="-search -searchrate $RATE -searchrolls 1 -searchsurf $SURF -searchsurfcap $CAP -searchact $BAR -searchtemp $TEMP"
-python3 "$REPO/scripts/anvil_watchd.py" register --name build3-surflab --pid $$ --dir "$REPO/data/runs" --stall-min 60
+python3 "$REPO/scripts/anvil_watchd.py" register --name "build3-$NAME" --pid $$ --dir "$REPO/data/runs" --stall-min 60
 log "start wt=$WT ($(git -C "$WT" rev-parse --short HEAD)) jar=$SRC_JAR -> $JAR ($(cat $OUT/forge-b3.commit)) ckpt=$CKPT games=$GAMES workers=$WORKERS deadline_ms=$DEADLINE_MS fargs='$FARGS'"
 state start
 
 notify() { python3 -c "from anvil.training.notify import notify; notify('$1', '$2', tag='build3')"; }
 finish() { # rc
-  python3 "$REPO/scripts/anvil_watchd.py" unregister --name build3-surflab
+  python3 "$REPO/scripts/anvil_watchd.py" unregister --name "build3-$NAME"
   if [[ $1 -eq 0 ]]; then notify "anvil build3 surface-label run DONE" "$OUT"; else notify "anvil build3 surface-label run FAILED" "rc=$1 see $LOG"; fi
   exit $1
 }

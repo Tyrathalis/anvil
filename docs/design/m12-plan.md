@@ -511,3 +511,22 @@ moves verbatim to the status archive and this section stays here as the record.*
   0.257 / surf_set exact 0.355 vs first-option 0.20. Devlog
   [2026-09-07](../devlog/2026-09-07.md). Next: fold 0 with the role copies → folds → build →
   the forkcheck (**PASS 17:05: 497/500, 20260853 replays to the baseline hash on the same jar → fork pin `a0ed9e314b5`**) → the build ckpt `m12-build3-e1` (pooled cross-fit surf_one 0.308 / surf_set 0.465) → the served-head smoke (203/203 bridged answers; it exposed that served surfaces were no longer traced on copies → the trace fix `1ac2ec8dc0b`, **PROVEN 498/500 → fork pin `1ac2ec8dc0b`**) → **the 600-game paired read (18:18): surfaces withheld 0.513 / served 0.530, on − off +2.06pp ± 1.83 (t 1.1), 3,227 bridged answers accepted, no new crash class — EVENING 1 CLOSED (entity one + entity set served).** Next: the label run's read + ingest (tonight), evening 2 = mode (the enumerator fixes first: repeat-allowed multisets, sizes in [min, max]), the sub-row distillation term, `mtg.mulligan_tuck` serve.
+- **2026-09-07 (evening, session 2) — BUILD 3 EVENING 2 OPENED: mode** ([devlog](../devlog/2026-09-07-session2.md),
+  [ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  The label run's 2,519 `mode:idx` misses were exactly two enumerator gaps (a size-1 neighbour of
+  an empty natural under "choose two"; distinct subsets under "choose three, repeats allowed");
+  **the heuristic answers no modes in ~half of traced mode windows** (all but 12 of 1,136
+  Confluence windows, all 120 Jitte windows) — a modal spell the network casts frequently fizzles
+  by the heuristic's hand, the leak shared by every network arm in the Build 2 reads; the mode head
+  addresses it directly. No store carried ability keys (the modes of one host indistinguishable);
+  the sub-row distillation had no state (8% of mode sub rows joinable to a mainline frame). User
+  pins: **the distillation state = the copy's surface-window frame captured into the sub row**;
+  the keyed pool regenerated on the e1 ckpt with the entity surfaces served; `Constraints.repeat`
+  on the wire; sizes inside [min, max] + multisets under repeat; the tuck serve + the orchestrator
+  deadline ride. Fork `950f318a9e6` (enumerator fix, `Surface.repeat`, the sub-row `frame`,
+  `mtg.surface.mode`; tests 15; smoke 66 sub rows / 0 misses / a frame on every row) + Anvil
+  `0637050` (`surf_mode`, the distillation term `surface_distill.py`, tags per fitted task, the
+  tuck serve, the deadline auto-raise). **Launched 19:36–19:38: the keyed label run
+  (`build3-surface-labels2`, 1,000 games) ∥ the forkcheck `run-20260907-build3-mode`.** Next: the
+  forkcheck read → pin; the keyed pool's read + ingest; the mode fit (imitation + distillation,
+  cross-fit) → build → the served-head smoke → the 600-game paired read.

@@ -193,3 +193,44 @@ repeat-allowed multisets, sizes below min — fixed before the mode fit), the re
 carries no `ak`/`sak` (its jar predates the keys); ability options key on host + kind. Headroom
 by shape as the search sees it: the entity shapes and mode, not ordering or naming — the evening
 order stands.
+
+## Addendum (2026-09-07, 19:40): evening 2 OPENED — mode; the sub-row frame; fork `950f318a9e6` (forkcheck pending)
+
+Findings from the first label pool: (a) every `mode:idx` miss was one of two enumerator gaps —
+a size-1 neighbour of an empty natural under "choose exactly two", and distinct subsets under
+"choose three, repeats allowed" (the Confluence family; four pool cards allow repeats); (b) **the
+heuristic answers no modes in roughly half of all traced mode windows** (`CharmAi` finds no
+`AILogic$Good` mode and the spell resolves with an empty choice) — the leak is shared by every
+network arm in the Build 2 reads and the mode head addresses it directly, so evening 2's paired
+read is the first with a plausible real strength effect; (c) no store carried ability keys, so the
+modes of one host were indistinguishable to the model; (d) the distillation term had no state — a
+sub row's surface happens on the copy after the forced option resolves, and only 8% (mode) to
+19% (entity_one) of sub rows share their option with the mainline.
+
+Decisions (user, 19:00): **the distillation state is the copy's surface-window frame captured
+into the sub row** — `Surfaces.dec` stashes the copy's own dec record (options + obs + hist, the
+wire shape the bridge already builds) on the pending `SurfaceDirective`, `match()` pins it at the
+fired callback, the expansion round writes it as the sub row's `frame` (~5 KB, one per sub row);
+not the parent mainline frame, not the 8% join. **The keyed pool regenerates on the evening-1
+ckpt with the entity surfaces served** (the behavior policy of record; trunk frozen at day zero).
+**The mode serve wire carries a repeat flag** (`Constraints.repeat`, proto3 bool, both copies;
+`AnvilBridge.selectSet(…, repeat)`; validated distinct unless the callback allows repeats —
+`CharmEffect.chainAbilities` clones each chosen sub). **Enumerator scope**: every non-natural
+answer inside [min, max]; k-multisets under repeat; the natural's size ± 1 stays the only size
+neighbourhood. The tuck serve mapping (the target decoder's entity picks → hand indices by the
+`(id)` label) and the orchestrator's deadline auto-raise ride the same evening.
+
+**The distillation term** (item 4 realized; `anvil/training/surface_distill.py`): per sub row, the
+target is the leaf-value softmax over the enumerated answers at T = 0.025 (the acting rule's
+temperature) restricted to answers the decoder can emit (inside [min, max], no repeats unless
+allowed — the heuristic's empty Confluence answer is valued but sits below min, where STOP is
+closed; it is dropped and the target renormalizes); the loss is the cross-entropy to the decoder's
+within-group softmax of teacher-forced sequence log-probs (one group = one sub row; batches hold
+whole groups). Set-like labels (entity_set, mode) are canonicalized to sorted index order for
+both imitation and distillation from this evening.
+
+Landed: fork `950f318a9e6` (tests 15; smoke `build3-surface-smoke-e2`: 66 sub rows, 0 misses, a
+frame on every sub row, the Confluence windows enumerate the four 3-multisets) and Anvil
+`0637050`. Launched 19:36–19:38: the keyed label run (`build3-surface-labels2`, 1,000 games) ∥
+the forkcheck `run-20260907-build3-mode`. Rule for the term from here: **a sub row's state is
+its own frame; a sub row without a frame is not a label.**

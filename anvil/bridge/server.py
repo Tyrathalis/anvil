@@ -58,7 +58,8 @@ def is_search_session(game_id: str) -> bool:
 
 PROTOCOL_VERSION = 0
 DEFAULT_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
-MODEL_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number"
+# evening 2 (ADR-0105): mtg.mulligan_tuck served by the target decoder (the D8 leftover)
+MODEL_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
 # advertised only when the checkpoint carries TRAINED combat heads —
 # load_compat fresh-inits them for pre-D5 checkpoints, which must never serve
 COMBAT_TAGS = "mtg.attack,mtg.block"
