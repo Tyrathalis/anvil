@@ -234,3 +234,12 @@ frame on every sub row, the Confluence windows enumerate the four 3-multisets) a
 `0637050`. Launched 19:36–19:38: the keyed label run (`build3-surface-labels2`, 1,000 games) ∥
 the forkcheck `run-20260907-build3-mode`. Rule for the term from here: **a sub row's state is
 its own frame; a sub row without a frame is not a label.**
+
+## Addendum (2026-09-07, 20:50): fork `950f318a9e6` PROVEN — fork pin
+
+Forkcheck `run-20260907-build3-mode` (500 games, seed 20260703, the new jar) vs the 08-21 baseline:
+**498/500 main-trace hashes identical** (fork fidelity 449/51 vs 450/50). The misses: 20260969 =
+the standing launch-unstable crash; **20260853 replays to the baseline hash `6ec06cb75d96f2b2` on
+the same jar, twice** (`replay-20260907-build3-mode-853a/b`) — the identity-hash residual class,
+as on `a0ed9e314b5`. **PASS at the ADR-0025 standard → the research fork pin moves to
+`950f318a9e6`.** The keyed label run (jar snapshot of the same commit) is on a proven jar.

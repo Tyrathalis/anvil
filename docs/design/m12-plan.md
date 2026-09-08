@@ -530,3 +530,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   (`build3-surface-labels2`, 1,000 games) ∥ the forkcheck `run-20260907-build3-mode`.** Next: the
   forkcheck read → pin; the keyed pool's read + ingest; the mode fit (imitation + distillation,
   cross-fit) → build → the served-head smoke → the 600-game paired read.
+- **2026-09-07 (20:50)** — forkcheck `run-20260907-build3-mode` 498/500 vs the 08-21 seeds, 20260969
+  the standing crash, 20260853 replays to the baseline hash twice on the same jar — **PASS; the
+  research fork pin moves to `950f318a9e6`** (ADR-0105 addendum). The keyed label run continues on
+  the proven jar (217/1,000 clean at 20:30, ~340 g/h).
