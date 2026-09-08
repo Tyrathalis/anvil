@@ -488,3 +488,16 @@ windows / game, damage 0.37, 0 misses. **Launched 13:45:** forkcheck `run-202609
 the snapshot jar ∥ the fit chain `build3-e3` (five tasks, e2's recipe: the only change vs e2 is the
 two new heads). Read instrument unchanged: the served-head smoke, then the 600-game paired read
 (served = all six tags vs withheld), pre-registered "nothing broke" + the exposure split.
+
+## Addendum (2026-09-08, 14:30): fork `41ac60d6b21` PROVEN — fork pin; the first folds
+
+Forkcheck `run-20260908-build3-e3` (the evening-3 snapshot jar) vs the 08-21 baseline: **498/500**
+(fork fidelity 448/52 vs the baseline's 450/50); the misses are the standing pair — 20260969 the
+launch-unstable crash, 20260853 the identity-hash residual, **replayed twice on the same jar to the
+baseline hash `6ec06cb75d96f2b2`** (`run-20260908-build3-e3-replay1/2`). **PASS → the research fork
+pin moves to `41ac60d6b21`** (the ordering + damage serve wire, the modern-rule enumerator family
+and the snapshot null guard on the gate `bc01efe1609`). The fit chain's first folds: order exact
+0.742 / 0.729 (trigger ordering 0.852 against the keep-the-input-order baseline 0.770;
+move-to-zone 0.645, *below* that baseline — graveyard orderings the heuristic leaves alone, the
+head flips some), damage 0.381 / 0.369 (slot-0 0.597 vs first-option 0.509; n ~600 per fold),
+entity + mode at their evening-2 levels (the shared trunk unmoved).

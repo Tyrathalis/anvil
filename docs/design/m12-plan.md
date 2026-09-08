@@ -578,4 +578,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   family and the snapshot null guard ride. Fork `41ac60d6b21` + Anvil `ee6c512`; launched the
   forkcheck `run-20260908-build3-e3` ∥ the fit chain `build3-e3` (five tasks, e2's recipe). Next:
   the forkcheck read → pin; the chain read → the served-head smoke → the 600-game paired read.
+- **2026-09-08 (14:30)** — forkcheck `run-20260908-build3-e3` 498/500, the standing pair, 20260853
+  replays to the baseline hash twice on the same jar — **PASS; the research fork pin moves to
+  `41ac60d6b21`** (ADR-0105 addendum). Folds 0–1: order 0.74 / 0.73 (trigger ordering 0.85 vs
+  keep-the-order 0.77; move-to-zone 0.65 below it), damage 0.38 / 0.37.
 
