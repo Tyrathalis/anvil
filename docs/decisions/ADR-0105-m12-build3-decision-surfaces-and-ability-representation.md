@@ -299,3 +299,21 @@ served before tonight — a bad tuck costs the game early), the mode head (thin 
 distillation), the entity heads' refit (surf_set exact 0.465 → 0.450). **Attribution arms
 launched 02:00** (`ablation.sh` in the read dir, the same seeds and reference): `notuck` = the
 served set minus the tuck; `tuckonly` = the tuck alone. Read in `read-ablation.json`.
+
+## Addendum (2026-09-08, 02:50): the attribution read — no component carries the flag
+
+`read-ablation.json` (the same pairs and withheld reference): **`notuck` (entity one + set + mode)
+0.503 — vs off −0.85pp ± 1.92 (t −0.4, 61 up / 66 down); `tuckonly` 0.513 — vs off −0.34pp ± 1.02
+(t −0.3, 17 up / 19 down)**; the full set −3.24 ± 1.87 (t −1.7). The parts sum to about −1.2 where
+the whole read −3.2; the gap (−2.0 ± ~2.5) is inside noise. Reading: no served component is
+individually below its withheld twin beyond noise; the full-set number is one 600-game
+observation of one configuration, and the standing rule says it carries no claim. Crash classes:
+none new (the `tuckonly` arm's 3 BridgePoisoned = the standing serving class). Every answer
+accepted in every served arm. **Evening 2's "nothing broke" read therefore holds on components;
+the full-set flag is banked as an open observation**, to be resolved by the next larger read (the
+post-Build-4 2,000-game read, or a repeat 600-game pair if the user wants it before evening 3).
+**The served set from here is the user's call** (default, per the capabilities-over-fallback
+standing preference: entity one + set + mode + tuck, the server's current advertised set; the
+conservative alternative: drop the tuck, whose own read is the cleanest of the three, until it
+earns a read of its own). Evening 2's assets stand: the enumerator fix, the sub-row frames, the
+mode wire, the distillation term, the key-stability fix, the keyed pool, `m12-build3-e2`.

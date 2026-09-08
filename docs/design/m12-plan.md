@@ -547,3 +547,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   / surf_mode 0.393 (unkeyed-dominated; the keyed-only held-out mode fold 0.461 vs first-option
   0.409); build `m12-build3-e2`; the served-head smoke on `1e17923c82c` clean (45 mode answers incl.
   the Confluence triples, 5 tuck, 0 errors, 0 misses). The 600-game paired read launched.
+- **2026-09-08 (02:50) — EVENING 2's reads.** The paired read: withheld 0.512 / served 0.478,
+  on − off −3.24 ± 1.87 (t −1.7) — a flag; the attribution arms on the same seeds: `notuck`
+  −0.85 ± 1.92 (t −0.4), `tuckonly` −0.34 ± 1.02 (t −0.3) — no component carries it; the full-set
+  number banked as an open small-N observation (ADR-0105 addendum). No new crash class; every
+  answer accepted. Evening 2 closed on components; the served set from here = the user's call
+  (default: all four). Next: evening 3 (ordering + damage).
