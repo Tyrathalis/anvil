@@ -317,3 +317,21 @@ standing preference: entity one + set + mode + tuck, the server's current advert
 conservative alternative: drop the tuck, whose own read is the cleanest of the three, until it
 earns a read of its own). Evening 2's assets stand: the enumerator fix, the sub-row frames, the
 mode wire, the distillation term, the key-stability fix, the keyed pool, `m12-build3-e2`.
+
+## Addendum (2026-09-08, morning): attribution — the mode head carries the flag
+
+Two reads on the existing pairs and one new arm, all on the same seeds vs the same withheld
+reference. (1) **The exposure split** of the paired diffs (games in which the served seat answered
+≥ 1 mode window vs the rest): full set −6.8 ± 3.8 (n 183) vs −1.8 ± 2.1; the set without the tuck
+−5.1 ± 4.0 (n 187) vs +1.0 ± 2.1; games with neither a mode nor a tuck answer −0.2 ± 2.2 (n 325);
+tuck-exposed games in the tuck-only arm −0.9 ± 4.5. Two arms agree: the loss sits in
+mode-exposed games (post-treatment split — attribution, not a verdict). (2) **The entity-only arm
+on the e2 ckpt: 0.527, +1.72pp ± 1.91 (t 0.9, 67 up / 57 down)** — evening 1's +2.06 holds, the
+entity refit with the distillation term did not cost strength. So: entity-only +1.7 → + mode −0.85
+→ the mode head ≈ −2.6 ± 2.7 overall and −5 to −7 where it answers. Hypothesis for the mechanism:
+the distillation target at T 0.025 over single-roll leaf values amplifies leaf noise on the common
+choose-one windows (mode spread p50 0.001), where the heuristic's pick is usually right; the
+Confluence gain is real but rare. Being measured: the 100-game search run with the e2 head serving
+at two rolls per copy (`build3-e2-search`) — the search's headroom over the head's own picks vs
+over the heuristic's, and the leaf-noise σ from roll pairs, which sets the temperature for the
+refit.
