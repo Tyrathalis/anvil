@@ -565,3 +565,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   on one reference in the ADR); forkcheck `run-20260908-build3-gate` 499/500 (the standing crash) —
   **PASS; the research fork pin moves to `bc01efe1609`**. The served-set arm (entity + gated mode
   + tuck) runs as the closing read.
+- **2026-09-08 (12:00) — EVENING 2 CLOSED.** The served set (entity one + set + gated mode + tuck)
+  −0.17 ± 1.80 vs withheld — nothing broke, within noise; the ladder on one reference in the ADR.
+  Served from here: all four. Next: evening 3 (ordering + damage). Routed for the mode head:
+  mainline surface acting on modes, targets as a surface, the legal-target count feature.

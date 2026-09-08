@@ -435,3 +435,22 @@ fork pin moves to `bc01efe1609`** (the gate on the key fix on the evening-2 tip)
 reference arm of the ladder ran on `1e17923c82c`; the served arms with the gate on this jar — the
 proof says the two are behavior-identical off the bridged mode path, so the ladder reads on one
 reference.
+
+## Addendum (2026-09-08, 12:00): EVENING 2 CLOSED — the served set's read
+
+`read-allG.json` — the served set as the server advertises it (entity one + set + gated mode +
+tuck; the e2 ckpt; the gate jar) vs the withheld reference: **0.509, −0.17pp ± 1.80 (t −0.1,
+54 up / 55 down)**; crash class = the standing BridgePoisoned only (5). The "nothing broke" read
+holds; every component within noise of every other on one 600-game reference (entity-only +1.7,
+gated mode +1.2, tuck −0.3, all −0.2 — the full set sits ~1.4 ± 2.6 below entity-only: banked as
+an observation, not a claim). **Evening 2 closes with entity one + set + gated mode + tuck served.**
+Assets: the enumerator fix (mode misses 2,518 → 0), the sub-row frames, the mode wire with
+repeats, the distillation term (kept for the entity heads; the mode head's harm was structural,
+not the term), the key-stability fix, the keyed pool + the side-table cache, `m12-build3-e2`, the
+playability gate (a stopgap). Lessons for the standing rules (candidates, on the closeout): **a
+served surface answer must be realized with everything the heuristic's answer bundles** — read the
+engine's cast path for what the heuristic decides jointly (here: targets) before serving the
+callback alone; **attribute before re-running** — split the existing paired arms by exposure
+and run ablation arms on the same withheld reference (the ladder), a 600-game rerun would only
+have re-flagged. Next: evening 3 = ordering + damage; routed ahead of it for the mode head:
+mainline surface acting on modes, targets as a surface, the legal-target count feature.
