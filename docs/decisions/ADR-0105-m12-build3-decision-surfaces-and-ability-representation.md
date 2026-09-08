@@ -405,3 +405,24 @@ restrictions; labels = the heuristic's targets; the same trace + distill machine
 end state, after evening 3. (3) An engine fact as an option feature: the legal-target count per
 mode (legality, not judgment) so the head sees aim availability before choosing. The planner (the
 D6 carry, the M10 route) is not the tool: it carries intent, not feasibility.
+
+## Addendum (2026-09-08, 11:10): the gated read — the mode loss is gone; the ladder on one reference
+
+`read-gate.json` (the gate jar `bc01efe1609`, the e2 ckpt, entity one + set + mode served, vs the
+same withheld reference): **0.524, +1.19pp ± 1.86 (t 0.6, 63 up / 56 down)** — the entity-only
+level (+1.72 ± 1.91) within noise. Gate census: **pass 94 / defer 160 / free 42** (the head's
+answer stood on 46% of its windows). Exposure split: games where the head's answer was served
+−2.3 ± 5.3 (n 110; −7.3 ± 3.2 ungated), games with mode windows all deferred +4.6 ± 5.2, no mode
+window +1.5 ± 2.1. The ladder, all vs one withheld reference of 600 games:
+
+| served set (e2 ckpt) | on − off |
+|---|---|
+| entity one + set | +1.72 ± 1.91 |
+| + mode, ungated (distilled) | −0.85 ± 1.92 |
+| + mode, ungated, imitation-only (e2a) | −0.69 ± 1.90 |
+| **+ mode, gated** | **+1.19 ± 1.86** |
+| tuck alone | −0.34 ± 1.02 |
+| entity + mode ungated + tuck (the first read) | −3.24 ± 1.87 |
+
+The remaining arm — the served set as it will be used (entity + gated mode + tuck) — runs now
+(`read-allG.json`); the gate's forkcheck (`run-20260908-build3-gate`) decides the pin.
