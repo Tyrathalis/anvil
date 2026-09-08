@@ -272,3 +272,14 @@ engine/data hygiene): **an ability's key is a function of its static canonical t
 state (a trigger's run parameters, a granted ability's source attribution) never enters it; the
 proof of a key-function change is the byte-identical pool re-dump.** Tomorrow's smoke and paired
 read run on this jar.
+
+## Addendum (2026-09-08, 01:00): the evening-2 checkpoint `m12-build3-e2` — the fit read and the served-head smoke
+
+The chain (`data/runs/build3-e2/`, three surfaces, imitation on the 12 Build 2 arms + the keyed pool,
+the distillation term on the keyed run's frames at T 0.025): pooled cross-fit surf_one 0.338 /
+surf_set 0.450 / surf_mode 0.393 (the mode number is dominated by unkeyed labels — not a read);
+**the keyed-store-only held-out mode fold: exact 0.461 (n 154) vs first-option 0.409**. Build
+`data/training/m12-build3-e2/last.pt`. Served-head smoke on the key-fixed jar: 8/8 won, 0 model
+errors, 45 bridged mode answers accepted (12 of them the three-pick Confluence answers with
+repeats), 5 tuck answers, 238 entity answers, 0 expansion misses. The 600-game paired read (withheld
+vs served: entity one + set + mode + tuck) is the evening's pre-registered read.

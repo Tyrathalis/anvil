@@ -543,3 +543,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   20260744 replays to the baseline hash twice on the same jar — **PASS; the research fork pin moves
   to `1e17923c82c`** (ADR-0105 addendum; the key-stability rule → standing-rules). The fit chain:
   folds 0–1 surf_mode 0.351 / 0.312, the entity tasks at evening-1 levels.
+- **2026-09-08 (01:00)** — the evening-2 chain landed: pooled cross-fit surf_one 0.338 / surf_set 0.450
+  / surf_mode 0.393 (unkeyed-dominated; the keyed-only held-out mode fold 0.461 vs first-option
+  0.409); build `m12-build3-e2`; the served-head smoke on `1e17923c82c` clean (45 mode answers incl.
+  the Confluence triples, 5 tuck, 0 errors, 0 misses). The 600-game paired read launched.
