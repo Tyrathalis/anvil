@@ -426,3 +426,12 @@ window +1.5 ± 2.1. The ladder, all vs one withheld reference of 600 games:
 
 The remaining arm — the served set as it will be used (entity + gated mode + tuck) — runs now
 (`read-allG.json`); the gate's forkcheck (`run-20260908-build3-gate`) decides the pin.
+
+## Addendum (2026-09-08, 11:30): the gate `bc01efe1609` PROVEN — fork pin
+
+Forkcheck `run-20260908-build3-gate` vs the 08-21 baseline: **499/500** (fork fidelity 450/50 =
+the baseline's); the one miss 20260969 = the standing launch-unstable crash. **PASS → the research
+fork pin moves to `bc01efe1609`** (the gate on the key fix on the evening-2 tip). The withheld
+reference arm of the ladder ran on `1e17923c82c`; the served arms with the gate on this jar — the
+proof says the two are behavior-identical off the bridged mode path, so the ladder reads on one
+reference.

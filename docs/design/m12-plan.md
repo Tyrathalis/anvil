@@ -561,3 +561,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   Routed: mainline surface acting on modes (the principled replacement; a test of the value head on
   modes first), targets as a surface (after evening 3), the legal-target count as an option feature
   (ADR-0105 addendum).
+- **2026-09-08 (11:30)** — the gated read +1.19 ± 1.86 vs withheld (the mode loss gone; the ladder
+  on one reference in the ADR); forkcheck `run-20260908-build3-gate` 499/500 (the standing crash) —
+  **PASS; the research fork pin moves to `bc01efe1609`**. The served-set arm (entity + gated mode
+  + tuck) runs as the closing read.
