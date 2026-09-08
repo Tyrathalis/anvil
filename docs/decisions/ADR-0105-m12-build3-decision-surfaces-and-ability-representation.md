@@ -283,3 +283,19 @@ surf_set 0.450 / surf_mode 0.393 (the mode number is dominated by unkeyed labels
 errors, 45 bridged mode answers accepted (12 of them the three-pick Confluence answers with
 repeats), 5 tuck answers, 238 entity answers, 0 expansion misses. The 600-game paired read (withheld
 vs served: entity one + set + mode + tuck) is the evening's pre-registered read.
+
+## Addendum (2026-09-08, 02:00): evening 2's paired read — A FLAG, attribution arms launched
+
+`data/runs/build3-surface-read-b3e2/` (the e2 ckpt on jar `1e17923c82c`, 2 × 300 games per arm vs
+the heuristic on the final_read pairs, network alone): **withheld 0.512 ± 0.021 (592 games) /
+served 0.478 ± 0.021 (594); on − off = −3.24pp ± 1.87 (t −1.7, n 587 pairs, 51 up / 70 down)**
+against evening 1's +2.06 ± 1.83 on the same protocol (the two evenings differ by ~5.3 ± 2.6).
+No crash in either arm (the standing BridgePoisoned class absent this time); every bridged answer
+accepted (entity 3,271, mode 276 — k=1 181 / k=2 84 / k=3 6 —, tuck 135). Standing rule: one
+600-game read carries no strength claim; but a served set that reads below its withheld twin at
+t −1.7 is the "something broke" branch of the evening's pre-registered read, and the cost sits in
+the answers, not in rejections. Candidates: the tuck serve (the BC-era target-decoder head, never
+served before tonight — a bad tuck costs the game early), the mode head (thin imitation +
+distillation), the entity heads' refit (surf_set exact 0.465 → 0.450). **Attribution arms
+launched 02:00** (`ablation.sh` in the read dir, the same seeds and reference): `notuck` = the
+served set minus the tuck; `tuckonly` = the tuck alone. Read in `read-ablation.json`.
