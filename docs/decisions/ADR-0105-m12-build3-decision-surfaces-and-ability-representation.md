@@ -454,3 +454,37 @@ callback alone; **attribute before re-running** — split the existing paired ar
 and run ablation arms on the same withheld reference (the ladder), a 600-game rerun would only
 have re-flagged. Next: evening 3 = ordering + damage; routed ahead of it for the mode head:
 mainline surface acting on modes, targets as a surface, the legal-target count feature.
+
+## Addendum (2026-09-08, 13:45): EVENING 3 OPENED — ordering + damage; fork `41ac60d6b21` (forkcheck pending)
+
+**What the keyed pool says** ([devlog](../devlog/2026-09-08.md)): ordering's sub rows are trigger
+ordering (2,726; n = 2 for 2,595 — Solitude's ETB vs its evoke sacrifice is the shape) and
+move-to-zone ordering (3,069; mostly graveyard orderings where the order is irrelevant); **blocker /
+attacker ordering never fires** — the engine runs the modern no-assignment-order rule
+(`GameRules.orderCombatants` off); **damage has zero sub rows by construction** — a copy from a
+quiescent main-phase window stops at the seat's next quiescent window (the start of combat on the
+pass path), so the leaf value has never seen a damage assignment, while the mainline carries ~350
+multi-blocker windows per 1,000 games. Ordering's headroom is noise (Δ ≥ 0.02 on 2.6%, p90 0.004;
+single-roll leaf σ 0.065, the largest kind). Neither callback bundles a joint decision the way modes
+bundled targets (trigger targets follow the ordering; the damage map is the whole decision).
+
+**Decisions (user):** (1) imitation only for both heads — the middle rung of item 4 is skipped
+where it has no signal; they reach RL in the loop through the served head's behavior logp (Build 4½
+/ 5); (2) both ordering callbacks served, windows past the decoder's 12 slots on the natural line;
+(3) damage ships imitation-only as a "nothing broke" component (0.35 windows per game); (4) ORDER_N
+on the wire for both, damage as a **kill order** over blockers (+ the defender last under trample)
+realized as amounts by the engine's own lethal arithmetic; (5) ride-alongs: the DAMAGE enumerator
+family under the rule in force (every prefix of every blocker permutation, closed by the defender
+under trample) and the copy-state snapshot null guard (`Player.getView()` on a controller-less
+option card); (6) the evening order after this one stands (payment tag, then mainline surface
+acting with modes first).
+
+**Landed:** fork `41ac60d6b21` (`AnvilBridge.order`, `Surfaces.askOrder` / `askDamage` /
+`damageFromSequence` — the remainder tramples over by `distributeAIDamage`'s rule, a defender pick
+means "stop killing here" — the damage dec's defender option + `lethal` + `trample`,
+`ObsSnapshot.look`; tests 16); Anvil `ee6c512` (`surf_order` / `surf_damage`, the wire answers, the
+label canonicalization of the heuristic's amount map). Loader check on the keyed pool: order 5.2
+windows / game, damage 0.37, 0 misses. **Launched 13:45:** forkcheck `run-20260908-build3-e3` on
+the snapshot jar ∥ the fit chain `build3-e3` (five tasks, e2's recipe: the only change vs e2 is the
+two new heads). Read instrument unchanged: the served-head smoke, then the 600-game paired read
+(served = all six tags vs withheld), pre-registered "nothing broke" + the exposure split.

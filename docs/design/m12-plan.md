@@ -569,3 +569,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   −0.17 ± 1.80 vs withheld — nothing broke, within noise; the ladder on one reference in the ADR.
   Served from here: all four. Next: evening 3 (ordering + damage). Routed for the mode head:
   mainline surface acting on modes, targets as a surface, the legal-target count feature.
+- **2026-09-08 (13:45) — BUILD 3 EVENING 3 OPENED: ordering + damage** ([devlog](../devlog/2026-09-08.md),
+  [ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  The pool's facts: combat ordering never fires (the modern rule), ordering = trigger order +
+  move-to-zone order (headroom at noise), damage has zero sub rows by construction (copies stop
+  before combat) with ~350 mainline windows per 1,000 games. User: imitation only for both (RL in
+  the loop later), damage as a kill order realized by the engine's lethal arithmetic, the enumerator
+  family and the snapshot null guard ride. Fork `41ac60d6b21` + Anvil `ee6c512`; launched the
+  forkcheck `run-20260908-build3-e3` ∥ the fit chain `build3-e3` (five tasks, e2's recipe). Next:
+  the forkcheck read → pin; the chain read → the served-head smoke → the 600-game paired read.
+
