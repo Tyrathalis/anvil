@@ -366,3 +366,42 @@ heads distilled exactly as in e2 — served (entity one + set + mode) vs the sam
 (`read-e2a.json`). If it reads at the entity-only level (+1.7), the mode distillation was the harm;
 variant (b), a noise-calibrated T (≥ 0.1) at lower weight, then separates "myopic target" from
 "cold temperature" if the user wants the distinction before evening 3.
+
+## Addendum (2026-09-08, midday): the mechanism — a mode-only choice against a joint mode + target choice; the playability gate (user-approved stopgap)
+
+Variant (a) (`m12-build3-e2a`, the mode head by imitation only, the entity heads as e2): served
+(entity one + set + mode) vs the withheld reference −0.69 ± 1.90; mode-exposed games −3.9 ± 3.8.
+The third mode-serving arm to lose where the head answers — the distillation target was not the
+mechanism. The split by answer size, pooled over the three arms: **games with only single-mode
+answers −7.3pp ± 3.2 (n 308)**, games with a multi-mode answer −2.8 ± 3.1 (n 253), games with no
+mode answer +0.1 ± 1.2 (n 1,234). The loss sits in the ordinary choose-one windows the heuristic
+answers, not in the ones it declines.
+
+**The mechanism is structural.** Modes are chosen at cast time (`PlaySpellAbility` →
+`CharmEffect.makeChoices`), before payment; the cast path then clears and re-chooses every target
+in the chain through `chooseTargetsFor` = the AI's **mandatory** chooser. When the heuristic
+answers, `CharmAi` picks a mode only when that mode's own play test passes — its mode choice is a
+joint mode + target choice (served answers carry targets at the callback 8 / 82 times, the
+heuristic's 70 / 156). The head's pick is mode-only; a mode the AI would not play then gets
+whatever legal target the mandatory chooser finds. So on choose-one windows the head trades "a good
+mode with a good target" for "a mode the head likes, aimed by a forced chooser".
+
+**Decision (user, midday): the playability gate as the stopgap** (`Surfaces.playableModes`, fork
+commit pending its smoke): the engine's own play test over the modes (`canPlaySa` per mode, the
+heuristic's first pass); when any mode passes, the head's answer stands only if every pick is
+playable, else the natural line (`gate=defer`); when none passes (the heuristic would decline —
+the Confluences), the head answers freely (`gate=free`). Serve-only; the heuristic's own path
+unchanged. Labeled a stopgap: a heuristic judgment gating a learned head.
+
+**Routed by name (the principled replacements, in order):** (1) **mainline surface acting on
+modes** (the closing evening's item, brought forward for modes): enumerate the answers, play each
+on a copy through to the leaf — the copy plays the mode with its targets, so a badly aimed mode
+reads as a lower leaf; the engine + the value head replace the heuristic's judgment. Caveat: the
+first read is a test of the value head on modes (leaf σ 0.026/roll vs mode spreads mostly < 0.01
+→ rolls ≥ 2 and a bar), since today's "best by V" number was contaminated by the head having been
+trained on V. (2) **Targets as a surface**: bridge `chooseTargetsFor` for sub-abilities through
+the entity surfaces so the model aims its own modes (candidates from the engine's target
+restrictions; labels = the heuristic's targets; the same trace + distill machinery) — the coherent
+end state, after evening 3. (3) An engine fact as an option feature: the legal-target count per
+mode (legality, not judgment) so the head sees aim availability before choosing. The planner (the
+D6 carry, the M10 route) is not the tool: it carries intent, not feasibility.

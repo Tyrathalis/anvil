@@ -553,3 +553,11 @@ moves verbatim to the status archive and this section stays here as the record.*
   number banked as an open small-N observation (ADR-0105 addendum). No new crash class; every
   answer accepted. Evening 2 closed on components; the served set from here = the user's call
   (default: all four). Next: evening 3 (ordering + damage).
+- **2026-09-08 (midday) — the mode mechanism + the gate.** Variant (a) (mode by imitation only)
+  −0.69 ± 1.90, mode-exposed −3.9 ± 3.8: the third losing mode arm; the answer-size split puts the
+  loss in choose-one windows (−7.3 ± 3.2 pooled). Mechanism: the head's mode-only choice vs the
+  heuristic's joint mode + target choice; a mode the AI would not play gets the mandatory chooser's
+  targets at cast. **User: the playability gate** (serve-only stopgap; `Surfaces.playableModes`).
+  Routed: mainline surface acting on modes (the principled replacement; a test of the value head on
+  modes first), targets as a surface (after evening 3), the legal-target count as an option feature
+  (ADR-0105 addendum).
