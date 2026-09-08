@@ -534,3 +534,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   the standing crash, 20260853 replays to the baseline hash twice on the same jar — **PASS; the
   research fork pin moves to `950f318a9e6`** (ADR-0105 addendum). The keyed label run continues on
   the proven jar (217/1,000 clean at 20:30, ~340 g/h).
+- **2026-09-07 (23:50)** — the keyed pool landed (24,992 sub rows, `mode:idx` 0, every option keyed,
+  frames on every sub row; ingested); **the key-stability bug** (in-play descriptions carry runtime
+  state → 10,325 store-only keys per 1,000 games) fixed in fork `1e17923c82c` (`stripRuntime`; the pool
+  re-dump byte-identical; forkcheck `run-20260908-build3-keyfix` pending); the evening-2 fit chain
+  launched 23:10 (`build3-e2`: three surfaces, imitation + distillation → `m12-build3-e2`).

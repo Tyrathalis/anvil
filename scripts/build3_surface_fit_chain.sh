@@ -19,7 +19,9 @@ TASKS=${TASKS:-surf_one,surf_set}
 FOLDS=${FOLDS:-5}; STEPS=${STEPS:-4000}; EPOCHS=${EPOCHS:-2}; WORKERS=${WORKERS:-4}
 STORES=${STORES:-}; DISTILL=${DISTILL:-}; DISTILL_W=${DISTILL_W:-1.0}; DISTILL_T=${DISTILL_T:-0.025}
 DISTILL_KINDS=${DISTILL_KINDS:-entity_one,entity_set,mode}
+ABIL=${ABIL:-}  # ability-cache stem override (a cache with the pool's side tables folded in)
 EXTRA=()
+[[ -n "$ABIL" ]] && EXTRA+=(--abilities "$ABIL")
 [[ -n "$STORES" ]] && EXTRA+=(--stores "$STORES")
 [[ -n "$DISTILL" ]] && EXTRA+=(--distill "$DISTILL" --distill-weight "$DISTILL_W" --distill-temp "$DISTILL_T" --distill-kinds "$DISTILL_KINDS")
 export PYTHONUNBUFFERED=1
@@ -37,7 +39,7 @@ for f in $(seq 0 $((FOLDS-1))); do
       --steps "$STEPS" --epochs "$EPOCHS" --workers "$WORKERS" --batch 64 "${EXTRA[@]}" >> "$OUT/fold$f.log" 2>&1 || { log "fold $f FAILED"; finish 1; }
   log "fold $f done: $(python3 -c "import json; r=json.load(open('$OUT/result-fold$f.json')); print({k: v['exact_agree'] for k, v in r['held_out'].items() if '/' not in k})")"
 done
-nice -n 10 uv run python -m anvil.training.surface_fit --out "$OUT" --read --folds "$FOLDS" --tasks "$TASKS" ${STORES:+--stores "$STORES"} >> "$OUT/read.log" 2>&1 || { log "read FAILED"; finish 1; }
+nice -n 10 uv run python -m anvil.training.surface_fit --out "$OUT" --read --folds "$FOLDS" --tasks "$TASKS" ${STORES:+--stores "$STORES"} ${ABIL:+--abilities "$ABIL"} >> "$OUT/read.log" 2>&1 || { log "read FAILED"; finish 1; }
 log "read: $(head -12 $OUT/read.md | tail -8 | tr '\n' ' ')"
 if [[ ! -f "$CKPT_OUT/last.pt" ]]; then
   log "build start"

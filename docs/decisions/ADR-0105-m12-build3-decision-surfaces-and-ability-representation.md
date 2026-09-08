@@ -243,3 +243,21 @@ the standing launch-unstable crash; **20260853 replays to the baseline hash `6ec
 the same jar, twice** (`replay-20260907-build3-mode-853a/b`) — the identity-hash residual class,
 as on `a0ed9e314b5`. **PASS at the ADR-0025 standard → the research fork pin moves to
 `950f318a9e6`.** The keyed label run (jar snapshot of the same commit) is on a proven jar.
+
+## Addendum (2026-09-07, 23:50): the keyed pool; the key-stability bug (fork `1e17923c82c`, forkcheck pending)
+
+The keyed label run (`b3-surflab2-20260907-193632`): 24,992 sub rows in 1,000 games, `mode:idx`
+misses 0 (from 2,518), every ability option keyed, a frame on every sub row. Building the cache
+with the store's side table exposed **a key-stability bug in item 8**: the `D:` line took
+`sa.getDescription()`, which for an ability IN PLAY carries runtime state — a triggered ability's
+bracketed run-parameter dump and the " by <source> (<id>)" attribution of granted / copied
+abilities — so each instance hashed to a new key (10,325 store-only keys in 1,000 games; 427 for
+one Monarch trigger). `AbilityKey.stripRuntime` (fork `1e17923c82c`) removes exactly those shapes;
+static brackets stay; **the pool re-dump is byte-identical (5,148 keys)**, so every `ak` in every
+store stays valid and the pinned cache is unchanged. The mode options were 90% pool keys
+throughout, so evening 2's fit is unaffected; the leak mattered for triggers (Build 4's stack
+entries) and for the append path's growth. Rule (standing-rules candidate on the proof): **an
+ability's key is a function of its static canonical text; runtime state never enters it.** The
+chain for the evening-2 checkpoint launched 23:10 on the cache with the side table folded in
+(`abil-cf2ca6ba-b3s2-qwen3`, 15,473 rows; the model projects vectors, never rows, so any
+superset cache serves).

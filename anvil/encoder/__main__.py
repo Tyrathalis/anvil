@@ -137,7 +137,7 @@ def _load_abilities(dumps: list[Path], stores: list[Path]) -> dict[str, dict]:
 
         for sd in stores:
             st = open_store(str(sd))
-            for traj in st:
+            for traj in st.games(skip_undecodable=True):
                 for dec in traj.decisions:
                     for r in dec.get("abil") or []:
                         if r["h"] not in out:
