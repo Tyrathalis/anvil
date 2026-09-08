@@ -261,3 +261,14 @@ ability's key is a function of its static canonical text; runtime state never en
 chain for the evening-2 checkpoint launched 23:10 on the cache with the side table folded in
 (`abil-cf2ca6ba-b3s2-qwen3`, 15,473 rows; the model projects vectors, never rows, so any
 superset cache serves).
+
+## Addendum (2026-09-08, 00:20): the key fix `1e17923c82c` PROVEN — fork pin; the key-stability rule
+
+Forkcheck `run-20260908-build3-keyfix` vs the 08-21 baseline: **498/500**; 20260969 = the standing
+launch-unstable crash; **20260744 replays to the baseline hash `dbf25ab99ce90dee` twice on the same
+jar** (`replay-20260908-build3-keyfix-744a/b`) — a new seed in the miss set, the launch-unstable
+class. **PASS → the research fork pin moves to `1e17923c82c`.** The rule is born (standing-rules,
+engine/data hygiene): **an ability's key is a function of its static canonical text — runtime
+state (a trigger's run parameters, a granted ability's source attribution) never enters it; the
+proof of a key-function change is the byte-identical pool re-dump.** Tomorrow's smoke and paired
+read run on this jar.

@@ -539,3 +539,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   state → 10,325 store-only keys per 1,000 games) fixed in fork `1e17923c82c` (`stripRuntime`; the pool
   re-dump byte-identical; forkcheck `run-20260908-build3-keyfix` pending); the evening-2 fit chain
   launched 23:10 (`build3-e2`: three surfaces, imitation + distillation → `m12-build3-e2`).
+- **2026-09-08 (00:20)** — forkcheck `run-20260908-build3-keyfix` 498/500, 20260969 the standing crash,
+  20260744 replays to the baseline hash twice on the same jar — **PASS; the research fork pin moves
+  to `1e17923c82c`** (ADR-0105 addendum; the key-stability rule → standing-rules). The fit chain:
+  folds 0–1 surf_mode 0.351 / 0.312, the entity tasks at evening-1 levels.

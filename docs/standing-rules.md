@@ -345,6 +345,11 @@ silently delete.
   answer; `AnvilRun -abilities` for the pool), never a display render; every consumer of ability
   text (priority candidates, surface options, stack entries) reads ONE shared table
   ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+- **An ability's key is a function of its STATIC canonical text — runtime state never enters it**
+  (a trigger's run-parameter dump, a granted or copied ability's source attribution: 10,325
+  one-off keys in 1,000 games before `AbilityKey.stripRuntime`); the proof of any change to the
+  key function is the byte-identical pool re-dump (5,148 keys, the same set), so every `ak` in
+  every store stays valid ([ADR-0105 addendum 09-08](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
 - **A search copy is determinized to the acting seat's information set**: hidden zones are
   resampled, never carried true, and the sampler is a named teacher setting in the store's
   provenance; a value computed on a true-hand copy leaks regardless of channel width
