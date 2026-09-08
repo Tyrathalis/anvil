@@ -168,3 +168,16 @@ distillation signal. Forkcheck `run-20260907-build3-trace`: **498/500**, the sta
 20260739 replays to the baseline hash `9e0365815606ddf6` on the same jar (second replay) — **PASS →
 the research fork pin moves to `1ac2ec8dc0b`**. Rule for every served surface from here: the
 served answer is the natural line of the expansion round.
+
+## Addendum (2026-09-07, 18:20): evening 1 CLOSED — the paired read (`data/runs/build3-surface-read-b3e1/`)
+
+The fitted ckpt `m12-build3-e1` on the `a0ed9e314b5` snapshot, 2 × 300 games per arm vs the heuristic
+on the final_read pairs, network alone: **surfaces withheld 0.513 ± 0.021 (587 games) / surfaces
+served 0.530 ± 0.021 (592 games); on − off = +2.06pp ± 1.83 (t 1.1, n 584 pairs, 63 up / 51 down)**.
+Served arm: 3,227 bridged surface answers, 3,227 accepted (tutor/fetch 2,101, card sets 661, entity
+sets 204, single entities 189, spell-one 72). Crash class identical in both arms (5 BridgePoisoned
+each, the standing serving class). **Nothing broke** — the evening's pre-registered read; the diff is
+one small-N observation (standing rule), banked, not a strength claim. Entity one + entity set are
+served from here. Not yet: `mtg.mulligan_tuck` (the tag is sent, the serve path is the entity-set
+evening's leftover — routed to evening 2's opener), the sub-row distillation term (the label run's
+pool lands tonight; the term is evening 2's first item with the mode fit).
