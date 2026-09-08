@@ -335,3 +335,34 @@ Confluence gain is real but rare. Being measured: the 100-game search run with t
 at two rolls per copy (`build3-e2-search`) — the search's headroom over the head's own picks vs
 over the heuristic's, and the leaf-noise σ from roll pairs, which sets the temperature for the
 refit.
+
+## Addendum (2026-09-08, 08:50): the e2 search run — the head beats the heuristic by the leaf value and loses by the outcome; the leaf noise
+
+`build3-e2-search` (100 self-play games, the e2 head serving entity one + set + mode, rate 1,
+`-searchsurf 2`, **two rolls per copy**; 99 won / 1 draw): the search's headroom over the served
+head's own picks vs over the heuristic's picks in the keyed pool —
+
+| kind | over the e2 head: Δ ≥ 0.02 / natural is best / p90 | over the heuristic | single-roll leaf σ |
+|---|---|---|---|
+| mode | **0.183 / 0.585 / 0.056** | 0.297 / 0.458 / 0.113 | 0.026 |
+| entity_one | 0.193 / 0.453 / 0.042 | 0.261 / 0.412 / 0.074 | 0.051 |
+| entity_set | 0.135 / 0.464 / 0.031 | 0.245 / 0.408 / 0.064 | 0.054 |
+
+By the leaf value's own yardstick the mode head is the better answerer — fewer improvable windows,
+its pick already the best enumerated answer more often — and it loses the games it answers
+(−5 to −7pp on exposed games in two arms). **Reading: the distillation target is the problem, not
+its noise** — the head learned to maximize the one-ply leaf value, and on modes that value is not
+aligned with winning (myopic: the leaf sits at the next quiescent window; a mode whose value
+materializes later — a card drawn, a body vs damage — is mispriced against an immediate effect).
+The entity heads survived the same term because 220K imitation labels anchored them; the mode
+head's imitation base was ~750 labels, so the term dominated. The noise is also real: single-roll
+σ 0.026 (mode) to 0.054 (entity) against T 0.025 — the target amplified noise on the flat windows
+(mode spread p50 0.001) — but noise alone cannot produce "better by V, worse by outcome".
+**Consequence for item 4 (pre-registered as a hypothesis, tested next): distilling a surface head
+toward the one-ply leaf value is not safe without a strong imitation anchor; the term's temperature
+must sit at or above the measured leaf σ; and the acting rule's bar 0.10 ≈ 2σ (entity) stands.**
+Test launched 08:50: variant (a) `m12-build3-e2a` — the mode head by imitation only, the entity
+heads distilled exactly as in e2 — served (entity one + set + mode) vs the same withheld reference
+(`read-e2a.json`). If it reads at the entity-only level (+1.7), the mode distillation was the harm;
+variant (b), a noise-calibrated T (≥ 0.1) at lower weight, then separates "myopic target" from
+"cold temperature" if the user wants the distinction before evening 3.
