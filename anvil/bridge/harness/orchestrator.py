@@ -160,6 +160,16 @@ class Run:
         # -Danvil.crash.trace=true for crash-class diagnosis) without a
         # manifest change; space-separated.
         extra = os.environ.get("ANVIL_EXTRA_JVM_OPTS", "").split()
+        # M12 Build 3 (09-07): the surface expansion round (-searchsurf) makes
+        # up to B x cap extra copies per window, each asking the bridge; at
+        # eight workers the first-window burst pushed an ask past the 5 s
+        # default and poisoned every game. Raise the deadline here unless the
+        # caller pinned one.
+        fargs = m.get("forge_args") or []
+        if "-searchsurf" in fargs and not any(
+            o.startswith("-Danvil.bridge.deadline.ms=") for o in [*m["jvm_opts"], *extra]
+        ):
+            extra = [*extra, "-Danvil.bridge.deadline.ms=20000"]
         cmd += [
             "java",
             f"-Xms{m['heap']}",

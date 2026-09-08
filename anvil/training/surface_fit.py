@@ -221,6 +221,32 @@ def fit(a) -> None:
     loader = DataLoader(ds_tr, batch_size=a.batch, collate_fn=collate, num_workers=a.workers, persistent_workers=a.workers > 0)
     ds_te = None if a.build else make_dataset(a, "test", a.folds, a.fold)[0]
     print(f"[surface_fit {tag}] stores {len(stores)} tasks {a.tasks}", flush=True)
+    # evening 2 (ADR-0105 item 4): the sub-row distillation term — one batch
+    # of whole sub-row groups per imitation step, from the label run's
+    # frames; the run's games are policy-conditional labels, never folded
+    distill_iter = None
+    ds_di = None
+    if a.distill:
+        from anvil.training.surface_distill import SubRowFrames, collate_groups
+
+        ds_di = SubRowFrames(
+            REPO / a.distill, REPO / a.embed, REPO / a.abilities,
+            kinds=set(a.distill_kinds.split(",")), temp=a.distill_temp, seed=a.seed,
+        )
+        di_loader = DataLoader(ds_di, batch_size=a.distill_batch, collate_fn=collate_groups,
+                               num_workers=min(a.workers, 2), persistent_workers=a.workers > 0)
+
+        def _cycle(ld):
+            while True:
+                n = 0
+                for x in ld:
+                    n += 1
+                    yield x
+                if n == 0:
+                    raise SystemExit(f"[surface_fit] no distillation groups under {a.distill}")
+
+        distill_iter = _cycle(di_loader)
+        print(f"[surface_fit {tag}] distill {a.distill} kinds {a.distill_kinds} T {a.distill_temp} w {a.distill_weight}", flush=True)
 
     step = 0
     t0 = time.time()
@@ -234,6 +260,14 @@ def fit(a) -> None:
             b = _to(batch, device)
             out = net(b)
             loss = surface_loss(out, b)
+            dstat: dict = {}
+            if distill_iter is not None:
+                from anvil.training.surface_distill import distill_loss
+
+                db = _to(next(distill_iter), device)
+                dloss, dstat = distill_loss(net(db), db)
+                dstat["distill"] = round(float(dloss), 4)
+                loss = loss + a.distill_weight * dloss
             opt.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_([p for p in net.parameters() if p.requires_grad], 1.0)
@@ -243,7 +277,7 @@ def fit(a) -> None:
                 lg = out["surf_logits"]
                 lab = b["surf_labels"]
                 acc0 = float((lg[:, 0].argmax(-1) == lab[:, 0]).float().mean())
-                rec = {"step": step, "epoch": epoch, "loss": round(float(loss), 4), "slot0": round(acc0, 4), "t": round(time.time() - t0)}
+                rec = {"step": step, "epoch": epoch, "loss": round(float(loss), 4), "slot0": round(acc0, 4), "t": round(time.time() - t0), **dstat}
                 log.write(json.dumps(rec) + "\n")
                 log.flush()
                 if step % 500 == 0:
@@ -258,6 +292,9 @@ def fit(a) -> None:
     for part in getattr(ds_tr, "parts", []):
         counts.update(getattr(part, "surf_counts", {}))
     res = {"tag": tag, "steps": step, "epochs": epoch, "wall_s": round(time.time() - t0), "unfreeze": a.unfreeze, "lr": a.lr, "train_counts": dict(counts)}
+    if ds_di is not None:
+        res["distill"] = {"run": a.distill, "temp": a.distill_temp, "weight": a.distill_weight,
+                          "kinds": a.distill_kinds, "counts": dict(ds_di.counts)}
     if ds_te is not None:
         net.eval()
         te_loader = DataLoader(ds_te, batch_size=a.batch, collate_fn=collate, num_workers=a.workers)
@@ -271,7 +308,8 @@ def fit(a) -> None:
         cfg = dict(ck["config"])
         cfg["abilities"] = str(Path(a.abilities))
         cfg["surface_tasks"] = a.tasks
-        cfg["surface_fit"] = {"steps": step, "unfreeze": a.unfreeze, "lr": a.lr, "stores": stores, "parent": a.ckpt}
+        cfg["surface_fit"] = {"steps": step, "unfreeze": a.unfreeze, "lr": a.lr, "stores": stores, "parent": a.ckpt,
+                              "distill": res.get("distill")}
         ck_out = REPO / a.ckpt_out
         ck_out.mkdir(parents=True, exist_ok=True)
         torch.save({"step": ck.get("step", 0), "model": net.state_dict(), "config": cfg}, ck_out / "last.pt")
@@ -329,6 +367,11 @@ def main() -> None:
     ap.add_argument("--max-games", type=int, default=None)
     ap.add_argument("--eval-batches", type=int, default=None)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--distill", default=None, help="a -searchsurf run dir with sub-row frames (evening 2)")
+    ap.add_argument("--distill-weight", type=float, default=1.0)
+    ap.add_argument("--distill-temp", type=float, default=0.025, help="leaf-value softmax temperature (the acting rule's T)")
+    ap.add_argument("--distill-batch", type=int, default=16, help="sub rows (groups) per distillation batch")
+    ap.add_argument("--distill-kinds", default="entity_one,entity_set,mode")
     a = ap.parse_args()
     if a.read:
         read(a)

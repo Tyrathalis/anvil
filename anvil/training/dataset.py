@@ -643,6 +643,7 @@ class PriorityWindows(IterableDataset):
                 surf_scalars = {
                     "opt_min": surf["opt_min"],
                     "opt_max": surf["opt_max"],
+                    "opt_repeat": surf["opt_repeat"],
                     "surf_ctx_ak": surf["surf_ctx_ak"],
                     "surf_method": surf["surf_method"],
                 }
@@ -819,6 +820,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         out["surf_labels"] = torch.full((b, SURF_MAX + 1), -1, dtype=torch.int64)
         out["opt_min"] = torch.zeros(b, dtype=torch.int64)
         out["opt_max"] = torch.zeros(b, dtype=torch.int64)
+        out["opt_repeat"] = torch.zeros(b, dtype=torch.int64)
         out["surf_ctx_ak"] = torch.full((b,), -1, dtype=torch.int64)
         out["surf_method"] = torch.full((b,), -1, dtype=torch.int64)
         out["surf_mask"] = torch.zeros(b, dtype=torch.bool)
@@ -835,6 +837,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
                 out["surf_labels"][i] = lab
             out["opt_min"][i] = x["opt_min"]
             out["opt_max"][i] = x["opt_max"]
+            out["opt_repeat"][i] = x.get("opt_repeat", 0)
             out["surf_ctx_ak"][i] = x["surf_ctx_ak"]
             out["surf_method"][i] = x["surf_method"]
             out["surf_mask"][i] = True

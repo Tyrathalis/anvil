@@ -168,7 +168,7 @@ SURFACES = {
     "chooseModeForAbility": {
         "kind": "Surfaces.MODE", "opts": "possible",
         "force": "Surfaces.forceMode(getGame(), getPlayer(), sa, possible, min, num, allowRepeat)",
-        "after": "Surfaces.afterMode(getGame(), getPlayer(), sa, possible, min, num, __r)",
+        "after": "Surfaces.afterMode(getGame(), getPlayer(), sa, possible, min, num, allowRepeat, __r)",
     },
     "chooseSomeType": {
         "kind": "Surfaces.NAME", "opts": "validTypes",

@@ -48,6 +48,8 @@ _HOST_ID = re.compile(r"\((\d+)\)$")  # mirrors dataset._HOST_ID
 TAG_TASK = {
     "mtg.priority": "priority",
     "mtg.mulligan_keep": "mull_keep",
+    # evening 2 (ADR-0105 leftover): the tuck served by the target decoder
+    "mtg.mulligan_tuck": "mull_tuck",
     "mtg.trigger": "trigger",
     "mtg.binary": "binary",
     "mtg.number": "number",
@@ -61,6 +63,7 @@ TAG_TASK = {
     # M12 Build 3 (ADR-0105): the decision surfaces, one tag per answer shape
     "mtg.surface.entity_one": "surf_one",
     "mtg.surface.entity_set": "surf_set",
+    "mtg.surface.mode": "surf_mode",
 }
 
 
@@ -333,7 +336,7 @@ class Featurizer:
             m = _HOST_ID.search(args.get("host") or "")
             if m and int(m.group(1)) in row_of:
                 ctx_row = row_of[int(m.group(1))]
-        elif task in ("surf_one", "surf_set"):
+        elif task.startswith("surf_"):
             from anvil.policy.surfaces import surface_fields
 
             surf = surface_fields(dec, row_of, self.abil, self.methods.id(dec["m"]), False)
@@ -360,10 +363,11 @@ class Featurizer:
             hist[i] = (self.methods.id(h["m"]), h["self"], row_of.get(h["e"], -1))
 
         surf_ex: dict = {}
-        if task in ("surf_one", "surf_set"):
+        if task.startswith("surf_"):
             surf_ex = {
                 **{k: torch.tensor(surf[k], dtype=torch.int64) for k in ("opt_row", "opt_pi", "opt_ak", "opt_kind")},
-                **{k: torch.tensor(surf[k], dtype=torch.int64) for k in ("opt_min", "opt_max", "surf_ctx_ak", "surf_method")},
+                **{k: torch.tensor(surf[k], dtype=torch.int64)
+                   for k in ("opt_min", "opt_max", "opt_repeat", "surf_ctx_ak", "surf_method")},
             }
         sched_ex: dict = {}
         sched_opts = None

@@ -85,6 +85,9 @@ message Constraints {
   int64 min = 1;
   int64 max = 2;
   uint32 k = 3;
+  // SELECT_K: an index may repeat (mode choices that allow the same mode
+  // more than once); the answer's length still sits in [min, max].
+  bool repeat = 4;
 }
 
 message DecisionRequest {

@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import signal
 import threading
 import time
@@ -66,7 +67,10 @@ COMBAT_TAGS = "mtg.attack,mtg.block"
 PAY_TAGS = "mtg.pay_mana_class"
 # M12 Build 3 (ADR-0105): served only by a checkpoint whose surface decoder
 # was fitted (surf_ params present; the has_pay never-serve-fresh-init rule)
-SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set"
+SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode"
+_HOST_ID = re.compile(r"\((\d+)\)$")  # "Name (id)" labels (mirrors featurize._HOST_ID)
+SURFACE_TAG_OF_TASK = {"surf_one": "mtg.surface.entity_one", "surf_set": "mtg.surface.entity_set",
+                       "surf_mode": "mtg.surface.mode"}
 
 
 class _Batcher:
@@ -208,6 +212,11 @@ class ModelBackend:
         self.has_pay = any(k.startswith("pay_") for k in ckpt["model"])
         # M12 Build 3: a fitted surface decoder (surface_fit --build records
         # the tasks + the ability table stem in the config)
+        # the tags advertised = the shapes the checkpoint was fitted on
+        # (surface_fit --build records them): a shape never fitted is never served
+        self.surface_tags = ",".join(
+            SURFACE_TAG_OF_TASK[t] for t in str(cfg.get("surface_tasks") or "").split(",") if t in SURFACE_TAG_OF_TASK
+        )
         self.has_surf = bool(cfg.get("surface_tasks")) and any(
             k.startswith("surf_task_emb") for k in ckpt["model"]
         )
@@ -488,14 +497,45 @@ class ModelBackend:
             resp.index = 0 if c == 0 else aux["cand_first_opt"][c]
         elif task in ("mull_keep", "trigger", "binary"):
             resp.flag = bool(out["bool"][0])
-        elif task in ("surf_one", "surf_set"):
+        elif task == "mull_tuck":
+            # SELECT_K over the hand (evening 2, the D8 leftover): the target
+            # decoder's entity picks -> ids -> hand indices (the dec's opts are
+            # the hand labels "Name (id)"; the wire sends no labels); exactly
+            # k, the decoder's order first, then hand order
+            k = int(req.constraints.k)
+            id_of: dict[int, int] = {}
+            for i, lab in enumerate(dec.get("opts") or []):
+                m = _HOST_ID.search(str(lab))
+                if m:
+                    id_of.setdefault(int(m.group(1)), i)
+            n_ent, stop = int(out["n_ent"]), int(out["stop_idx"])
+            idxs = []
+            for t in range(out["tgt_picks"].shape[1]):
+                pick = int(out["tgt_picks"][0, t])
+                if pick == stop:
+                    break
+                i = id_of.get(aux["row_min_id"].get(pick, -1)) if pick < n_ent else None
+                if i is not None and i not in idxs:
+                    idxs.append(i)
+            n_hand = len(dec.get("opts") or [])
+            for i in range(n_hand):
+                if len(idxs) >= k:
+                    break
+                if i not in idxs:
+                    idxs.append(i)
+            if len(idxs) < k:
+                raise ValueError(f"mull_tuck: {len(idxs)} of {k} picks resolvable over {n_hand} hand labels")
+            self.counts["tuck_filled"] += 1 if len(idxs) > 0 and idxs[-1] not in id_of.values() else 0
+            resp.indices.indices.extend(sorted(idxs[:k]))
+        elif task.startswith("surf_"):
             # ADR-0105: the option-set decoder's picks (STOP = the batch
             # option width; this item's own options are the first O slots)
             O = int(ex["opt_row"].shape[0])
             picks = [int(v) for v in out["surf_picks"][0].tolist()]
             idxs: list[int] = []
+            repeat = task == "surf_mode" and bool(req.constraints.repeat)
             for v in picks:
-                if v >= O or v in idxs:
+                if v >= O or (v in idxs and not repeat):
                     break
                 idxs.append(v)
             if task == "surf_one":
@@ -1026,7 +1066,7 @@ def main() -> None:
                 MODEL_TAGS
                 + ("," + COMBAT_TAGS if backend.has_combat else "")
                 + ("," + PAY_TAGS if backend.has_pay else "")
-                + ("," + SURFACE_TAGS if backend.has_surf else "")
+                + ("," + backend.surface_tags if backend.has_surf else "")
             )
             if args.mode == "model"
             else DEFAULT_TAGS

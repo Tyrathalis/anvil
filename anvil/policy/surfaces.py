@@ -17,7 +17,9 @@ embedding. The answer is a sequence of option indices closed by STOP:
   surf_set   (entity_set)  min..max distinct picks, then STOP
   surf_order (order)       every option once (min = max = n), no early STOP
   surf_scry  (scry)        the top cards in order, then STOP (the rest bottom)
-  surf_mode  (mode)        min..num modes, then STOP
+  surf_mode  (mode)        min..num modes, then STOP (a mode may repeat when
+                           the callback allows it: args.allowRepeat -> opt_repeat,
+                           the decoder's picked mask is off)
   surf_name  (name)        one pick (a face / a type), then STOP
   surf_damage(damage)      routed to the ordering evening
 
@@ -42,7 +44,7 @@ SURF_TASK = {
     "damage": "surf_damage",
 }
 # the shapes whose loader / serve path exist (grows one evening at a time)
-SURF_BUILT = {"surf_one", "surf_set"}
+SURF_BUILT = {"surf_one", "surf_set", "surf_mode"}
 OPT_KINDS = {"entity": 0, "player": 1, "ability": 2, "other": 3}
 SURF_MAX = 12  # answer slots (+1 STOP); discard-to-hand-size and sacrifice-N sit under it
 
@@ -112,8 +114,21 @@ def surface_fields(
     n = len(opts)
     if n < 2:
         return None
+    repeat = 1 if (task == "surf_mode" and args.get("allowRepeat")) else 0
     if task == "surf_one":
         lo, hi = 1, 1
+    elif task == "surf_mode":
+        # chooseModeForAbility(min, num, allowRepeat): min..num modes; under
+        # allowRepeat the answer may exceed n ("choose three" of two modes)
+        lo = max(0, int(args.get("min") or 0))
+        hi = int(args.get("num") if args.get("num") is not None else n)
+        if not repeat:
+            hi = max(0, min(hi, n))
+        lo = max(0, min(lo, hi))
+        if hi < 1:
+            return None
+        if lo == hi == n and not repeat:
+            return None  # every mode is taken — no decision
     else:
         if args.get("numDiscard") is not None:  # chooseCardsToDiscardToMaximumHandSize
             lo = hi = int(args["numDiscard"])
@@ -160,8 +175,9 @@ def surface_fields(
         "opt_pi": opt_pi,
         "opt_ak": opt_ak,
         "opt_kind": opt_kind,
-        "opt_min": lo,
+        "opt_min": min(lo, SURF_MAX),
         "opt_max": min(hi, SURF_MAX),
+        "opt_repeat": repeat,
         "surf_ctx_ak": abil.index(args.get("sak")) if abil is not None else -1,
         "surf_method": method_id,
         "_ak_miss": ak_miss,
@@ -181,21 +197,30 @@ def surface_fields(
         j = key_index.get(_opt_key(r))
         if j is None and isinstance(r, dict) and "e" in r:
             # an ability answer serialized as a CastPlan (kind/tgt extras) —
-            # match on host + sa when the exact key misses
+            # match on host + sa when the exact key misses; the option's sa
+            # is the truncated render of the answer's (modes of one host
+            # differ only there — a host-only match picked the first mode)
             j = key_index.get(("s", r.get("e"), r.get("sa")))
+            if j is None and "sa" in r:
+                rs = str(r.get("sa") or "")
+                hits = [key_index[k] for k in key_index
+                        if k[0] == "s" and k[1] == r.get("e") and k[2] and rs.startswith(str(k[2]))]
+                j = hits[0] if len(hits) == 1 else None
             if j is None:
                 j = next((key_index[k] for k in key_index if k[0] == "a" and k[1] == r.get("e")), None) \
                     if "sa" in r else key_index.get(("e", r["e"]))
-        if j is None or j in idxs:
+        if j is None or (j in idxs and not repeat):
             out["_miss"] = "label_unmatched" if j is None else "label_repeat"
             return out
         idxs.append(j)
     if task == "surf_one" and len(idxs) != 1:
         out["_miss"] = "label_count"
         return out
-    if task == "surf_set" and not (lo <= len(idxs) <= hi):
+    if task in ("surf_set", "surf_mode") and not (lo <= len(idxs) <= hi):
         out["_miss"] = "label_count"
         return out
+    if task in ("surf_set", "surf_mode"):
+        idxs.sort()  # set-like answers are order-free to the engine: one canonical order
     if len(idxs) > SURF_MAX:
         out["_miss"] = "label_truncated"
         idxs = idxs[:SURF_MAX]

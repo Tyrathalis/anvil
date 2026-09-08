@@ -374,6 +374,9 @@ class AnvilNet(nn.Module):
         )
         lo = batch["opt_min"]
         hi = batch["opt_max"]
+        # evening 2: a repeat-allowed window (mode allowRepeat) never masks a
+        # picked option; STOP's own slot is never "picked"
+        rep = batch["opt_repeat"].bool() if "opt_repeat" in batch else torch.zeros(b, dtype=torch.bool, device=ent_out.device)
         pad = torch.cat([~omask, torch.zeros(b, 1, dtype=torch.bool, device=ent_out.device)], dim=1)
         prev = torch.zeros_like(src)
         picked = torch.zeros(b, O + 1, dtype=torch.bool, device=ent_out.device)
@@ -385,7 +388,7 @@ class AnvilNet(nn.Module):
         for t in range(self.surf_max + 1):
             q = self.surf_query(torch.cat([state, src, prev], dim=-1)) + self.surf_slot_emb[t]
             lg = (keys @ q.unsqueeze(-1)).squeeze(-1) / d**0.5  # (B,O+1)
-            mask = pad | picked
+            mask = pad | (picked & ~rep.unsqueeze(-1))
             stop_closed = n_picked < lo
             stop_forced = n_picked >= hi
             mask[:, O] = mask[:, O] | stop_closed
