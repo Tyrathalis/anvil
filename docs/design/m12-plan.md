@@ -510,4 +510,4 @@ moves verbatim to the status archive and this section stays here as the record.*
   burst → 20 s); wire smoke 21/21 bridged answers accepted. Fold 0 adapter-only baseline: surf_one
   0.257 / surf_set exact 0.355 vs first-option 0.20. Devlog
   [2026-09-07](../devlog/2026-09-07.md). Next: fold 0 with the role copies → folds → build →
-  the forkcheck (**PASS 17:05: 497/500, 20260853 replays to the baseline hash on the same jar → fork pin `a0ed9e314b5`**) → the served-head smoke + 600-game paired read.
+  the forkcheck (**PASS 17:05: 497/500, 20260853 replays to the baseline hash on the same jar → fork pin `a0ed9e314b5`**) → the build ckpt `m12-build3-e1` (pooled cross-fit surf_one 0.308 / surf_set 0.465) → the served-head smoke (203/203 bridged answers; it exposed that served surfaces were no longer traced on copies → the trace fix `1ac2ec8dc0b`, **PROVEN 498/500 → fork pin `1ac2ec8dc0b`**) → the 600-game paired read (running 17:16–).

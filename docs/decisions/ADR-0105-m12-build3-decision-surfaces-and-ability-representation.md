@@ -156,3 +156,15 @@ sacrifice 0.736, discard-to-hand-size 0.553, `chooseEntitiesForEffect` 0.204, `c
 0.331); the ability-option callbacks at chance (0.110 / 0.059 — no keys in these stores). **Build
 checkpoint `data/training/m12-build3-e1/last.pt`** (4,000 steps on every game, trunk + shared decoder
 frozen; serves `mtg.surface.entity_one/entity_set`).
+
+## Addendum (2026-09-07, 18:10): the served-surface trace fix PROVEN — fork pin `1ac2ec8dc0b`
+
+The first served-head smoke found that a surface the model serves is never traced on search copies
+(the bridged hook returns before the wrapper's after-hook), so the expansion round stopped
+enumerating exactly the shapes being taught; `1ac2ec8dc0b` traces the served answer as the natural
+line (recording-only on copies). Second smoke: entity_one 24 / entity_set 24 sub rows (0 before),
+Δ ≥ 0.02 on 10/24 entity_one rows — the search sees headroom over the clone, which is the
+distillation signal. Forkcheck `run-20260907-build3-trace`: **498/500**, the standing pair,
+20260739 replays to the baseline hash `9e0365815606ddf6` on the same jar (second replay) — **PASS →
+the research fork pin moves to `1ac2ec8dc0b`**. Rule for every served surface from here: the
+served answer is the natural line of the expansion round.
