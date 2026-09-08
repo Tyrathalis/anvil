@@ -27,8 +27,6 @@ from collections import defaultdict
 from pathlib import Path
 
 
-
-
 def served_by_seed(run_dir: Path, callbacks: set[str]) -> dict[int, dict[str, int]]:
     """seed -> {callback: served-and-accepted answers} over the run's workers."""
     out: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
