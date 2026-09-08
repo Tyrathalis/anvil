@@ -181,3 +181,15 @@ one small-N observation (standing rule), banked, not a strength claim. Entity on
 served from here. Not yet: `mtg.mulligan_tuck` (the tag is sent, the serve path is the entity-set
 evening's leftover — routed to evening 2's opener), the sub-row distillation term (the label run's
 pool lands tonight; the term is evening 2's first item with the mode fit).
+
+## Addendum (2026-09-07, 18:30): the surface-label run — the first sub-row pool
+
+`data/runs/b3-surflab-20260907-145656` (ingested to `data/trajectories/b3-surflab-20260907-145656`):
+1,000 self-play games in 3.5 h (998 finished, 2 engine NPE crashes — the standing class), acting at
+bar 0.10: act rate 9.3%; **26,083 sub rows (26/game)** — entity_one 12,381 (mean 13.3 options,
+Δ ≥ 0.02 on 22.8%), order 6,335 (2.8%), mode 3,651 (22.8%), entity_set 2,280 (25.8%), scry 1,072
+(11.1%), name 364 (2.2%). Misses: `mode:idx` 2,518 of 12,881 mode answers (the enumerator gaps —
+repeat-allowed multisets, sizes below min — fixed before the mode fit), the rest < 2%. The pool
+carries no `ak`/`sak` (its jar predates the keys); ability options key on host + kind. Headroom
+by shape as the search sees it: the entity shapes and mode, not ordering or naming — the evening
+order stands.
