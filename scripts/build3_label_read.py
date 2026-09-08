@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 

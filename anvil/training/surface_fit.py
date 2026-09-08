@@ -39,8 +39,6 @@ import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
-import numpy as np
-
 REPO = Path(__file__).resolve().parents[2]
 CKPT = "data/training/m12-build1-stopstate/last.pt"
 ABIL = "data/embeddings/abil-cf2ca6ba-qwen3"
