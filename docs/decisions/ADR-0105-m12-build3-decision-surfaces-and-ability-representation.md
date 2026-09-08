@@ -149,3 +149,10 @@ copies (trunk frozen, 3,500 steps / 2 epochs each): surf_one ≈ 0.31 (tutor/fet
 options; first-option rate 0.20), surf_set exact ≈ 0.47 (discard-from-hand 0.68, sacrifice 0.80).
 The ability-option callbacks sit at chance in these stores (no `ak` before `b0567608938`). The
 pooled read and the build checkpoint: the chain's `read.md` / `data/training/m12-build3-e1/`.
+**The pooled cross-fit read (5 folds, `data/runs/build3-e1/read.md`)**: surf_one **0.308** (n 104,737;
+first-option rate 0.202; tutor/fetch `chooseSingleCardForZoneChange` 0.272 at 12.6 options,
+`chooseSingleEntityForEffect` 0.397), surf_set exact **0.465** (n 33,888; discard-from-hand 0.650,
+sacrifice 0.736, discard-to-hand-size 0.553, `chooseEntitiesForEffect` 0.204, `chooseCardsForEffect`
+0.331); the ability-option callbacks at chance (0.110 / 0.059 — no keys in these stores). **Build
+checkpoint `data/training/m12-build3-e1/last.pt`** (4,000 steps on every game, trunk + shared decoder
+frozen; serves `mtg.surface.entity_one/entity_set`).
