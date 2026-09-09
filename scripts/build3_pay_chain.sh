@@ -96,7 +96,7 @@ fi
 log "build: $CKPT_OUT/last.pt"
 
 # ---- 5. the served-head smoke (8 bridged games, every tag incl. pay, the margin bar; no search)
-SMOKE="$OUT/pay-smoke"
+SMOKE="$REPO/$OUT/pay-smoke"  # absolute: the java launch cds into forge-gui (the 09-09 rc=1)
 if [[ ! -f "$SMOKE/DONE" ]]; then
   state smoke
   mkdir -p "$SMOKE"
