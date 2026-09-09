@@ -181,6 +181,7 @@ class ModelBackend:
         device: str = "cuda",
         sample: bool = False,
         temperature: float = 1.0,
+        pay_bar: "float | None" = None,
         mu_path: "str | None" = None,
         instrument: bool = False,
         sched_binding: str = "off",
@@ -264,6 +265,8 @@ class ModelBackend:
         # record per answered decision -> mu.jsonl, joined at ingest on (g, s)
         self.sample = sample
         self.temperature = temperature
+        # evening 4 (ADR-0105): the payment margin bar (log-prob units; None = off)
+        self.pay_bar = pay_bar
         # M7 forced-branch instrument mode: wire-only fork sessions (g=-1)
         # may be SAMPLED without mu records — forced-branch completions are
         # measurement, never training data (m7-plan D2 pin 3). Off, the
@@ -496,6 +499,17 @@ class ModelBackend:
             # SELECT_ONE over {auto} ∪ goal options: choice 0 = auto = wire
             # index 0; goal candidates are positional (cand_first_opt)
             c = int(out["choice"][0])
+            if self.pay_bar is not None and c != 0:
+                # evening 4 (ADR-0105): the serve-side margin bar — a goal
+                # stands only where its log-prob clears auto's by the bar
+                # (the head was distilled on an asymmetric target: auto on
+                # ties); below it the natural line (auto) plays
+                lp = self.torch.log_softmax(out["policy_logits"][0].float(), dim=-1)
+                if float(lp[c] - lp[0]) < self.pay_bar:
+                    self.counts["pay_bar_auto"] += 1
+                    c = 0
+                else:
+                    self.counts["pay_bar_goal"] += 1
             resp.index = 0 if c == 0 else aux["cand_first_opt"][c]
         elif task in ("mull_keep", "trigger", "binary"):
             resp.flag = bool(out["bool"][0])
@@ -925,6 +939,10 @@ def main() -> None:
         "--temperature", type=float, default=1.0, help="sampling temperature (with --sample)"
     )
     ap.add_argument(
+        "--pay-bar", type=float, default=None,
+        help="evening 4: a served payment goal stands only where its log-prob clears auto's by this margin",
+    )
+    ap.add_argument(
         "--mu-out", default=None, help="behavior-policy mu.jsonl path (required with --sample)"
     )
     ap.add_argument(
@@ -1043,6 +1061,7 @@ def main() -> None:
             args.device,
             sample=args.sample,
             temperature=args.temperature,
+            pay_bar=args.pay_bar,
             mu_path=args.mu_out,
             instrument=args.fork_instrument,
             sched_binding=args.sched_binding,

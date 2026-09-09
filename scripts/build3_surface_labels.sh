@@ -26,6 +26,13 @@ GAMES=${GAMES:-1000}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50075}
 BAR=${BAR:-0.10}; TEMP=${TEMP:-0.025}; RATE=${RATE:-1}; SURF=${SURF:-2}; CAP=${CAP:-8}
 SEED=${SEED:-20260908}
 ROLLS=${ROLLS:-1}  # leaf rolls per copy (2 = a roll pair per answer, the leaf-noise estimate)
+# evening 4 (ADR-0105): the payment expansion slot (-searchpay B, its own slot
+# beside the surface slot), its leaf (eot = the seat's first quiescent window
+# of a later turn; next = fork A's), -paytelemetry (the resolution-effect
+# census row), and the server's tag list (TAGS; empty = the ckpt's full set —
+# the pay tag WITHHELD on the mainline for the pay pool: the natural line is
+# auto, the head is untrained, and copies never bridge it under the gate)
+PAY=${PAY:-0}; PAYLEAF=${PAYLEAF:-eot}; PAYTEL=${PAYTEL:-0}; TAGS=${TAGS:-}
 DEADLINE_MS=${DEADLINE_MS:-20000}
 CKPT=${CKPT:-data/training/m12-build1-stopstate/last.pt}
 OUT=${OUT:-$REPO/data/runs/build3-surface-labels}
@@ -50,6 +57,10 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
 state() { echo "{\"stage\":\"$1\",\"at\":\"$(date -Iseconds)\"}" >> "$OUT/stages.jsonl"; }
 cd "$WT"
 FARGS="-search -searchrate $RATE -searchrolls $ROLLS -searchsurf $SURF -searchsurfcap $CAP -searchact $BAR -searchtemp $TEMP"
+[[ "$PAY" != "0" ]] && FARGS="$FARGS -searchpay $PAY -searchpayleaf $PAYLEAF"
+[[ "$PAYTEL" != "0" ]] && FARGS="$FARGS -paytelemetry"
+SERVER_EXTRA=()
+[[ -n "$TAGS" ]] && SERVER_EXTRA+=(--tags "$TAGS")
 python3 "$REPO/scripts/anvil_watchd.py" register --name "build3-$NAME" --pid $$ --dir "$REPO/data/runs" --stall-min 60
 log "start wt=$WT ($(git -C "$WT" rev-parse --short HEAD)) jar=$SRC_JAR -> $JAR ($(cat $OUT/forge-b3.commit)) ckpt=$CKPT games=$GAMES workers=$WORKERS deadline_ms=$DEADLINE_MS fargs='$FARGS'"
 state start
@@ -61,7 +72,7 @@ finish() { # rc
   exit $1
 }
 
-uv run python -m anvil.bridge.server --mode model --ckpt "$CKPT" --port $PORT --pass-delta 0 \
+uv run python -m anvil.bridge.server --mode model --ckpt "$CKPT" --port $PORT --pass-delta 0 "${SERVER_EXTRA[@]}" \
   > "$OUT/server.log" 2>&1 &
 SERVER=$!
 for i in $(seq 1 300); do (echo > /dev/tcp/127.0.0.1/$PORT) 2>/dev/null && break; sleep 2; done
@@ -77,6 +88,6 @@ rc=$?; t1=$(date +%s)
 log "harness rc=$rc wall=$((t1-t0))s"
 kill -TERM $SERVER 2>/dev/null; sleep 5; kill -KILL $SERVER 2>/dev/null
 RUN=$(ls -dt "$REPO"/data/runs/${NAME}-* 2>/dev/null | head -1)
-echo "{\"games\":$GAMES,\"rolls\":$ROLLS,\"bar\":$BAR,\"temp\":$TEMP,\"rate\":$RATE,\"surf\":$SURF,\"cap\":$CAP,\"rc\":$rc,\"wall_s\":$((t1-t0)),\"run\":\"$RUN\"}" > "$OUT/DONE"
+echo "{\"games\":$GAMES,\"rolls\":$ROLLS,\"bar\":$BAR,\"temp\":$TEMP,\"rate\":$RATE,\"surf\":$SURF,\"cap\":$CAP,\"pay\":$PAY,\"payleaf\":\"$PAYLEAF\",\"tags\":\"$TAGS\",\"rc\":$rc,\"wall_s\":$((t1-t0)),\"run\":\"$RUN\"}" > "$OUT/DONE"
 state "generate-done rc=$rc"
 finish $rc

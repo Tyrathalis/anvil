@@ -543,3 +543,104 @@ agreement (inert on graveyards, watched on library put-backs) — the closing ev
 serve switch if a read ever needs it. **Next: evening 4 = the payment tag (the ADR-0102 rescue
 class: the enumerator + distillation into the pay head), then evening 5 = mainline surface acting
 (modes first).**
+
+## Addendum (2026-09-08, 19:35): EVENING 4 OPENED — the payment tag; fork `e44d83a8327` (forkcheck pending)
+
+**The facts the evening starts from.** (1) **The pay head has never been trained**: every M12
+checkpoint (the day-zero `m12-build1-stopstate`, e1–e3) carries the payment parameters at their
+design init (`pay_bias` +2.0, `pay_kind_emb` / `pay_mark_emb` zero); in the evening-3 on arm it
+bridged 2,805 consequential windows / 300 games (9.4 per game) and picked auto in 97.3% — the 76
+goal picks are the untrained pointer's, not judgment (every one executed `directed_ok`). (2) **A
+search copy bridged the pay tag too** (GameCopier keeps the seat's bridge and tag set): the head's
+random deviations were leaf noise inside every copy of every read since Build 2. (3) **Imitation is
+empty here, not just banned**: the heuristic's answer is auto = option 0 = the head's init; the M9
+pin (no BC from the heuristic) stands and costs nothing; the only label that can move the head is a
+counterfactual one. (4) The traffic and the headroom (ADR-0075): 9.4 bridged consequential windows
+/ game, forced 0.1 / game, **certifiable 0.32 / game at +9.2pp per window → ≈ +3.0pp / game at
+perfect play** — the largest measured headroom on file, concentrated in ~3% of the windows; most
+consequential windows are ties. (5) The ADR-0077 payment-completion queue is mostly closed
+(ADR-0083 landed cousins / costmod / pool-tie; cost-modified windows still auto-paying are 4.7% of
+in-scope windows today, not the recorded quarter); the open item is **resolution-effect payments**
+(51 / game in today's census, all unbridged, consequential fraction never measured).
+
+**Decisions (user-adjudicated 2026-09-08 evening).**
+
+1. **The asymmetric distillation target.** A leaf-value softmax over a tie window is near-uniform
+   and a KL toward it teaches random deviation (evening 2's mode failure). The target is **auto
+   unless a goal clears a margin bar over auto by leaf value** (then the softmax at T over the
+   valued answers, auto included); **rolls ≥ 2** (single-roll leaf σ 0.026 against a 3%
+   positive population). Ties and positives are read apart, never blended (ADR-0069).
+2. **The end-of-turn leaf for payment answers.** A payment's consequence is not at a later decision
+   of ours but downstream of the natural line — the next spell this turn, or what is open on the
+   opponent's turn — so the pinned next-quiescent-window leaf (right after the spell resolves) sees
+   nothing. The payment expansion values every answer, the natural one re-run, at **the seat's
+   first quiescent window of a later turn** (ADR-0098's eot horizon, K=1 ≈ K=8 there); a
+   per-surface leaf setting. **Not depth**: a deeper tree ending at the same one-ply evaluator
+   (Spearman 0.39) inherits its ceiling and multiplies copies at windows where the class changes
+   nothing; horizon and variance are the levers, spent in the offline pool. The instrument that
+   says whether this leaf ranks payments is the **horizon-2 certify rollout on a sample**
+   (Spearman of the one-ply spread vs the rollout win-diff, eot vs next) — the calibration read,
+   never the label source.
+3. **The copy-side pay gate.** A search copy never bridges its payment windows (the natural line
+   is the engine's auto payer) unless the payment surface itself is being expanded;
+   `-searchpaybridge` restores the old behaviour for later, when a trained head is the natural
+   line. A correctness fix for every read.
+4. **The payment surface has its own expansion slot.** A payment fires at cast, before any other
+   surface, and would crowd the entity / mode / ordering surfaces out of the single first-traced
+   slot; `-searchpay B` expands the first traced payment window on the top-B paths beside
+   `-searchsurf`'s slot, under the same budget accounting.
+5. **The rescue class as its own flag-gated bundle, second commit, own arm.** Admitting
+   enumerator-payable casts to the mask AND making the directed plan the natural line at that
+   window (an admitted-by-enumerator cast paid by auto fails at apply — ADR-0102's veto) are one
+   game-path change, forkcheck-proven with the flag off, read as the third rung of the evening's
+   ladder (withheld / head / head + rescue) on one reference. Shadow cost +19% engine time.
+6. **Serve with a margin bar**: after the fit the served head deviates from auto only where its
+   log-prob margin over auto clears a bar (`--pay-bar`), the acting-rule shape.
+7. **The queue: nothing widened this evening.** Resolution-effect payments route to **the second
+   payment touch = the Build 4½ opener** (after the Build 4 re-warm and the post-Build-4 day-zero
+   re-read, before the shakedown), **conditional on this evening's target validating** by the
+   horizon-2 calibration; if it does not, to the closeout with the reason "the genre's target is
+   unproven on the simpler genre". The measured argument the second deferral owes is paid this
+   evening for free: `-paytelemetry` now records one census row per resolution-effect window
+   (goals / plans / consequential / auto-payable / costmod over the raw cost; zero-cost counted).
+   First sample (smoke 2, 8 games): **170 / 170 resolution-effect windows are zero-cost** — the
+   label run's 1,000 games decide.
+8. **What "train enough" means.** Not "nothing broke" alone: a learnability read on the population
+   that matters — does the fitted head deviate where a goal clears the bar (positive top-1 and
+   deviation rate up from 2.7% random), stay auto on ties, and does the paired sign land positive
+   even under noise. Strength is the big run's; the head enters the loop with a target shown to
+   point the right way, or the target goes back to the table before the loop is asked to learn it.
+
+**Landed: fork `e44d83a8327`** (on `41ac60d6b21`): `Surfaces.PAY` (kind 7: {auto} ∪ the M9 goal
+options, one pick; the enumerator = every index, natural first), `PlayerControllerAnvil.copyPay`
+(the acting seat's consequential windows on a copy: the M9 enumeration exactly as the mainline
+path, the wire-shaped dec record on the copy's session = the sub row's frame, a PAY
+`SurfaceDirective` answered with a goal index through the directed executor, every window traced
+with natural = the pick), the copy-side gate (`copyPayBridge`, default off), `SearchDirective
+.leafAfterTurn` + `window(options, quiescent, turn)` (the eot leaf), `AnvilRun -searchpay B
+-searchpayleaf eot|next -searchpaybridge` with the pins on the search header, `expandRound` (the two
+slots through one helper; the natural answer re-run under the eot leaf; `"leaf"` on the sub row),
+the resolution-effect census row; `SurfacesEnumerateTest` 17 — **the two evening-3 damage
+assertions had never passed** (a kill order realizes amounts per blocker, so (1,0) and (0,1) both
+read [2,3,1]; the stale-per-class-report trap) and are corrected here. Serve / recording /
+search-copy only (ADR-0025-exempt, forkcheck pending). Smokes (8 games each, rate 0.3, rolls 2,
+`-searchpay 2` eot): pay sub rows with frames on every row, directed copies `directed_ok` 554 /
+554, 0 misses; the leaf values differ across goals on most windows (a first-window tie was the
+exception); cost ≈ 4.9 pay copies per searched window at ~25 asks each (≈ 4× the first ply).
+**Anvil**: `anvil/training/pay_distill.py` (the asymmetric target, ties / positives apart,
+`collate_pay`, `pay_distill_loss` over the pay head's candidate softmax), `anvil/training/pay_fit.py`
+(cross-fit by game seed, `--unfreeze pay` = the 4,624 payment parameters, before / after reads,
+`--build`), the server's `--pay-bar` (the pointer logits now on `act`'s return), the census reader's
+payment rows, the label script's PAY / PAYLEAF / PAYTEL / TAGS knobs.
+
+**Launched 19:33–19:34**: the forkcheck `run-20260908-build3-e4` (the snapshot
+`data/runs/build3-e4/forge-b3e4.jar`, sha `5b01fe00…`, 500 games, seed 20260703; watchd
+`forkcheck-b3e4`, notifies) ∥ **the payment pool** `build3-surface-labels3` (1,000 games, the e3 ckpt
+serving every surface + tuck with **the pay tag withheld** on the mainline — the natural line is
+auto and the head is untrained; `-searchpay 2 -searchpayleaf eot -searchrolls 2 -searchsurf 2
+-searchsurfcap 8 -searchact 0.10 -paytelemetry`, seed base 20260909, jar = the snapshot; watchd
+`build3-b3-surflab3`, notifies; ≈ 6 h at the smoke's per-window cost). Next: the forkcheck read →
+pin; the pool read (positives per game at the bar, the resolution-effect census); the pay fit
+(cross-fit) → build `m12-build3-e4` → the served-head smoke with `--pay-bar` → the paired read
+(withheld = the e4 ckpt with the pay tag withheld, served = + the pay tag); the rescue bundle as
+the second fork commit; the horizon-2 calibration on a sample.

@@ -883,6 +883,9 @@ class AnvilNet(nn.Module):
             sched["sched_lp"] = self._last_sched_lp
         return {
             "choice": choice,
+            # evening 4 (ADR-0105): the pointer logits (slot 0 = pass / auto) —
+            # the server's payment margin bar reads them; no other consumer
+            "policy_logits": logits,
             "plan": out[:, 1],  # D6 serve carry: the emitted plan vector
             **sched,
             "tgt_picks": torch.stack(picks, dim=1),

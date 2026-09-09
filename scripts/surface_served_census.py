@@ -26,9 +26,37 @@ def main() -> None:
     run = Path(sys.argv[1])
     files = [run / "census.jsonl"] if (run / "census.jsonl").exists() else [Path(p) for p in glob.glob(str(run / "workers/inv-*/census.jsonl"))]
     by: dict[str, Counter] = defaultdict(Counter)
+    pay: dict[str, Counter] = defaultdict(Counter)  # evening 4: payManaCost by=bridge (mainline) / copy rows
     games = 0
     for f in files:
         for ln in open(f):
+            if '"payManaCost"' in ln and ('"by":' in ln) and ('"conseq":true' in ln or '"reff":true' in ln):
+                try:
+                    r = json.loads(ln)
+                except json.JSONDecodeError:
+                    continue
+                if r.get("reff"):
+                    c = pay["resolution-effect (-paytelemetry)"]
+                    c["windows"] += 1
+                    if r.get("zero"):
+                        c["zero_cost"] += 1
+                    elif r.get("enumerr"):
+                        c["enumerr"] += 1
+                    else:
+                        c["mana"] += 1
+                        c["conseq"] += 1 if r.get("conseq") else 0
+                        c["costmod"] += 1 if r.get("costmod") else 0
+                        c["not_autoable"] += 0 if r.get("autoable") else 1
+                    continue
+                c = pay["copy (search)" if r.get("copy") else "mainline"]
+                c["windows"] += 1
+                c[f"by:{r.get('by')}"] += 1
+                c["goal" if r.get("pick") != "auto" else "auto"] += 1
+                if r.get("exec"):
+                    c[f"exec:{r['exec']}"] += 1
+                if r.get("forced"):
+                    c["forced"] += 1
+                continue
             if '"by":"bridge"' not in ln:
                 if ln.startswith('{"ev":"start"'):
                     games += 1
@@ -55,8 +83,15 @@ def main() -> None:
     for m, c in sorted(by.items(), key=lambda x: -x[1]["asked"]):
         mix = ", ".join(f"{k} {v}" for k, v in sorted(c.items()) if k.startswith(("k:", "gate:")))
         print(f"| {m} | {c['asked']} | {c['ok']} | {c['ok'] / max(1, c['asked']):.3f} | {c['n_sum'] / max(1, c['asked']):.1f} | {mix} |")
+    if pay:
+        print("payment windows (evening 4):")
+        for k, c in sorted(pay.items()):
+            print(f"  {k}: " + ", ".join(f"{kk} {vv}" for kk, vv in sorted(c.items())))
     if len(sys.argv) > 2:
         log = Path(sys.argv[2]).read_text(errors="replace")
+        pb = Counter(re.findall(r"pay_bar_(auto|goal)", log))
+        if pb:
+            print("server pay bar:", dict(pb))
         fb = Counter(re.findall(r"MODEL ERROR on (mtg\.surface\.\w+)", log))
         errs = Counter(re.findall(r"MODEL ERROR on (mtg\.surface\.\w+) seq=\d+: (\w+)", log))
         print("server MODEL ERROR per surface tag:", dict(fb) or "none")

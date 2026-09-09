@@ -591,3 +591,20 @@ moves verbatim to the status archive and this section stays here as the record.*
   attribution = ablation arms on one reference. Served from here: six surfaces + tuck. Next:
   evening 4 = the payment tag; evening 5 = mainline surface acting (modes first).
 
+- **2026-09-08 (evening) — BUILD 3 EVENING 4 OPENED: the payment tag** ([devlog](../devlog/2026-09-08-session2.md),
+  [ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  Facts: the pay head has never been trained (design init in every M12 ckpt; 97.3% auto, the rest
+  the untrained pointer's), search copies bridged the pay tag (leaf noise in every read since
+  Build 2), imitation is empty (auto = option 0 = the init), the headroom ≈ +3.0pp/game in ~3% of
+  windows (ADR-0075), the ADR-0077 queue is closed but for resolution-effect payments. User pins:
+  the asymmetric target (auto unless a goal clears a margin bar; rolls ≥ 2), the end-of-turn leaf
+  for payment answers (horizon and variance, not depth — spent in the offline pool; the horizon-2
+  certify rollout as the calibration instrument), the copy-side pay gate, the payment surface's
+  own expansion slot, the rescue class as a flag-gated second commit with its own arm, a serve-side
+  margin bar, the queue untouched (resolution-effect payments → the Build 4½ opener conditional on
+  the calibration; the measured argument paid by a new census row — first sample: 170/170
+  zero-cost), "train enough" = a learnability read on positives vs ties. Fork `e44d83a8327` + the
+  Python side (`pay_distill.py`, `pay_fit.py`, `--pay-bar`). **Launched 19:33: the forkcheck
+  `run-20260908-build3-e4` ∥ the payment pool `build3-surface-labels3` (1,000 games, pay withheld
+  on the mainline, `-searchpay 2` eot, rolls 2).** Next: the forkcheck read → pin; the pool read →
+  the pay fit → build → smoke → the paired read; the rescue bundle; the calibration sample.
