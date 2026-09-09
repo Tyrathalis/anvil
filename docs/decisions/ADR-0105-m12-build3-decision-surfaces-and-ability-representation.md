@@ -772,3 +772,18 @@ applied to payment). Bridged-path only; smoke 8/8 (123 windows, 0 errors); forkc
 behind the wiring test. Whether it is THE mechanism is the probe-path arm's verdict (running);
 either way the probe is now neutral, and the set-key read runs on this jar: off (withheld) is
 unaffected by the fix, so off arms stay comparable across jars.
+
+## Addendum (2026-09-09, 15:45): the probe path IS the cost — the auto-only arm
+
+`build3-e4-autoonly` (the e4 build, the pay tag bridged, the server answering auto on every window
+via `--pay-bar 100`, the same seeds / pairs / jar as the b3e4 arms): **autoonly − off = −2.91 ±
+1.86 (t −1.6, 51 up / 68 down)** — identical to on − off (−2.91, 50 / 68) with ZERO head deviations.
+Three reads now point one way: withholding the init head +2.56 ± 1.88; serving the pay-only head
+−2.91 ± 1.85; bridging with auto-only answers −2.91 ± 1.86. **The bridged path's probe — the M9
+enumeration + `canPayManaCost` in test mode on every in-scope window, drawing the game RNG per
+candidate source and clearing / writing the AI's reservation memory — costs ≈ 2.7pp by itself.**
+Every M12 network arm carried it (Build 1 onward); the D4 payment runs of M9 carried it too (a
+suspect for the §3c head "never acquiring discrimination" — its baseline was the perturbed path).
+Fork `15863de0b4a` (`quietProbe`) removes it; the proof is the next read on that jar: off / on (the
+set-keyed head) / autoonly — autoonly − off ≈ 0 says the fix holds, and on − autoonly is then the
+head's own effect on one reference.

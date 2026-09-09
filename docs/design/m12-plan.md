@@ -668,3 +668,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   probe-path arm (the tag bridged, auto on every window) decides whether the auto-payability probe's
   RNG draws + memory writes are the mechanism; the rescue class fires 0.09 / game — unreadable at
   this n, stays flag-gated. The set-keyed head's 5-fold fit runs ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+- **2026-09-09 (15:45) — the probe path is the cost:** the tag bridged with auto on every window
+  reads −2.91 ± 1.86 vs withheld, identical to serving the head; three reads one way → the
+  auto-payability probe (RNG draws + reservation-memory writes per bridged window) cost every M12
+  network arm ≈ 2.7pp; fork `15863de0b4a` (`quietProbe`) fixes it, forkcheck running; the set-key
+  head's read on that jar (off / on / autoonly) is the proof + the head's own read on one reference
+  ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
