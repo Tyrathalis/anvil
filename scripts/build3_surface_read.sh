@@ -36,13 +36,13 @@ python3 scripts/anvil_watchd.py register --name build3-read-$NAME --pid $$ --dir
 notify() { python3 -c "from anvil.training.notify import notify; notify('$1', '$2', tag='build3')"; }
 finish() { python3 scripts/anvil_watchd.py unregister --name build3-read-$NAME; if [[ $1 -eq 0 ]]; then notify "anvil build3 surface read DONE" "$OUT/read.json"; else notify "anvil build3 surface read FAILED" "rc=$1 see $LOG"; fi; exit $1; }
 arms_of() { ls -dt data/runs/${1}arm-s0-* | head -1 | tr -d '\n'; echo -n ","; ls -dt data/runs/${1}arm-s1-* | head -1; }
-run_arm() { # tag [server-tags] [forge-args]
-  local tag=$1 stags=${2:-} fargs="${FORGE_ARGS:+$FORGE_ARGS }${3:-}"
+run_arm() { # tag [server-tags] [forge-args] [server-args override]
+  local tag=$1 stags=${2:-} fargs="${FORGE_ARGS:+$FORGE_ARGS }${3:-}" sargs="${4:-$SERVER_ARGS}"
   if [[ -f "$OUT/$tag.done" ]]; then log "arm $tag done already"; return 0; fi
   local extra=()
   if [[ -n "$stags" ]]; then extra=(--server-tags "$stags"); fi
   if [[ -n "${fargs// /}" ]]; then extra+=("--forge-args=$fargs"); fi  # the = form: a value starting with '-' (e.g. -payrescue) is otherwise read as a flag
-  if [[ -n "$SERVER_ARGS" ]]; then extra+=(--server-args "$SERVER_ARGS"); fi
+  if [[ -n "$sargs" ]]; then extra+=(--server-args "$sargs"); fi
   nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "$NAME-$tag" --games "$GAMES" \
       --workers "$WORKERS" --port "$PORT" --jar "$JAR" --skip-ante "${extra[@]}" >> "$OUT/$tag.log" 2>&1 || return 1
   arms_of "$NAME-$tag" > "$OUT/$tag.done"
@@ -55,6 +55,7 @@ for arm in $ARMS; do
     off) run_arm off "$TAGS_OFF" || { log "arm off FAILED"; finish 1; } ;;
     on) run_arm on || { log "arm on FAILED"; finish 1; } ;;
     rescue) run_arm rescue "" "$FORGE_ARGS_RESCUE" || { log "arm rescue FAILED"; finish 1; } ;;
+    autoonly) run_arm autoonly "" "" "--pay-bar 100" || { log "arm autoonly FAILED"; finish 1; } ;;  # the tag bridged, auto on every window (the probe-path arm)
     *) log "unknown arm $arm"; finish 1 ;;
   esac
   ARMSPEC+=(--arm "$arm=$(cat $OUT/$arm.done)")
