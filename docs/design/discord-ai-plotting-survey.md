@@ -224,3 +224,62 @@ To talor (the M4 question):
 > you saw is the train step, which is the smaller phase — expect ~1.8× longer iterations locally, not
 > 5×. Modal-for-training-only is feasible (rl is a standalone step over the store) but the loop won't
 > split it for you yet.
+- **2026-09-09 update (Discord, Shedletsky / itemfive).** **Shedletsky** (mtgbattles.com; learning
+  draft pick rank from what Forge can play well, by simulated games) asked for a test harness with
+  a stack of benchmark positions — "chess problems for M:TG" — sensitive enough to read decision
+  quality without the 20,000+ games a subtle improvement needs for significance; **Astra pointed him
+  at Anvil as "maybe the most sophisticated version of this"** and told him not to write his own.
+  **itemfive** offered two sources: [Possibility Storm](https://www.possibilitystorm.com/) ("can you
+  win this turn?", 150+ puzzles over 10 years) and the [17lands public datasets](https://www.17lands.com/public_datasets)
+  (draft picks AND play data, "match the human choices"; Shedletsky asked whether it filters by
+  player skill). **Facts for us:** (a) **Forge ships the puzzles already** — `forge-gui/res/puzzle/`
+  holds 371 `.pzl` files (metadata: goal / turns / difficulty; `[state]`: life totals, active
+  player and phase, every zone's cards by name and set), **278 of them Possibility Storm** — so a
+  puzzle battery is a harness over an engine format we already drive, not a scrape; (b) the
+  puzzles' cards are mostly OFF our pool (the network's card table is the pool manifest, 1,701
+  cards), so the battery is playable by the network only after **Build 4's open-vocabulary card
+  text** (fork I) — or by the search directive alone (the engine values off-pool cards fine; the
+  heuristic + lookahead control arm shape) as a puzzle-solving read of the value head; (c) 17lands
+  play data is human Limited play on Arena formats — off-pool and off-format, but **the first
+  human-games corpus the closeout's skill token / human-shaped levels item needs** (m12-plan done-when
+  8; it "needs human games"), reachable once multi-format readiness lands. **Routed by name:** the
+  Possibility Storm puzzle battery as a Build 4 read (the search directive solving "win this turn"
+  puzzles = a deterministic value-head + search benchmark with exact answers, no games to simulate)
+  and 17lands as the skill-token corpus candidate at the closeout. Neither scraped now.
+
+  **Grindstone, honestly, for the reply** (the milestone table + standing rules): what works — drills
+  as CERTIFIED evaluation instruments: a window is a drill only if the engine rolled out the
+  alternatives (paired counterfactual rollouts, ~8 rolls, horizon part of the label's type), the
+  certified "best" is an equivalence CLASS never an index, every drill is provenance-traced to a real
+  game, re-certified in era against the winner's curse; certified windows convert to game outcomes
+  (+9.2pp per window at game end, ADR-0075). What did not — drills as a TRAINING lever: the first
+  drill win (+1.98pp, M4) was one-shot per curation method (M5: −0.58pp on the repeat), critic-ordered
+  curation TIED uniform (M8), the natural-timing probe failed (ADR-0060), no promotion since M4 —
+  the signal the loop lacked was density, not selection (M6/M7), and the search directive replaced
+  drills as the teacher in M12. On his sensitivity question: a certified battery is far more
+  sensitive PER GAME for the decisions it covers, but it reads only the positions you selected and
+  selection is the hard part (mined windows were non-predictive; uniform sampling found 3.2% of
+  payment windows certifiable) — and the aggregate strength claim still needs games: paired by
+  seed (common random numbers) 600 games resolve ±1.8pp and 2,000 resolve ±1.1pp, which is where
+  his 20,000 unpaired games go.
+
+### Draft reply (09-09; the user posts)
+
+To Shedletsky:
+
+> Anvil's drill system is the thing Astra meant, and here's the honest version. What works: drills
+> as certified *evaluation* instruments — a position becomes a drill only when the engine has rolled
+> out the alternatives (paired counterfactual rollouts, the horizon is part of the label), the
+> "correct answer" is an equivalence class of equally good lines rather than one index, every drill
+> traces to a real game, and we re-certify to catch the winner's curse. Certified positions do
+> convert to game outcomes (+9pp per position at game end in our last measurement). What didn't:
+> drills as a *training* lever — the first drill-curated run gained ~2pp, the repeat gained nothing,
+> critic-ordered selection tied uniform, and we moved on to search-based teaching. On sensitivity:
+> a battery is much more sensitive per game for the decisions it covers, but it only reads the
+> positions you picked, and picking is the hard part (our mined "interesting" windows were
+> non-predictive; uniform sampling found ~3% of windows where the choice mattered). The aggregate
+> strength claim still needs games — but pair them by seed (common random numbers): 600 paired
+> games resolve about ±1.8pp for us, 2,000 about ±1.1pp. Two useful facts: Forge already ships
+> 278 Possibility Storm puzzles as loadable `.pzl` states under `forge-gui/res/puzzle/`, so a
+> "win this turn" battery is a harness over a format the engine has, not a scrape; and 17lands'
+> play data is the only human-play corpus around, though it's Limited on Arena.

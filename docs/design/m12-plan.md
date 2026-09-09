@@ -678,3 +678,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   identity-hash residual 20260744 replaying to the baseline hash) — **PASS; the research fork pin
   moves to `15863de0b4a`** (the game-neutral payment probe; ADR-0105 addendum). The set-keyed head's
   read on that jar (off / on / autoonly) running.
+- **2026-09-09 (community watch, routed)** — Shedletsky's "chess problems" harness question (Astra
+  recommended Anvil's drills); itemfive's sources. Routed by name: **the Possibility Storm puzzle
+  battery** as a Build 4 read (Forge ships 278 of them as `.pzl` states; off-pool cards need fork
+  I's open vocabulary, or the search directive solves them as a value-head benchmark with exact
+  answers) and **17lands play data** as the skill-token human corpus candidate at the closeout. The
+  Grindstone summary for the reply in the survey doc.
