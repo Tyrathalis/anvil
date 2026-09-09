@@ -630,3 +630,21 @@ moves verbatim to the status archive and this section stays here as the record.*
   held-out-card probe. `@manabrew/forge-wasm` assessed: not for the loop (engine-bound; the prompt
   surface; no search machinery); the RL-needs list drafted for khaliostr; Mentor-in-browser routed
   with fork H. talor's M4 Pro question answered from ADR-0003 / ADR-0032 / the rl bench.
+- **2026-09-09 (throughput + depth, user session)** — **Throughput finding:** the box is idle, not the
+  JVM: a worker is one busy core (flag-off 19 ms per window, search 32 ms per copy decision; bridge
+  wait ≈ 5 ms of it; GameCopier 2.1% of search wall); 8 workers on 32 cores; the server at 92 rps
+  under the pool (mean micro-batch 1.75 on the flag-off arm — the flag-off w=16 ceiling of 08-03 is
+  the per-batch forward latency, which does not bind search runs). **Routed for this week (after the
+  chain unregisters):** a 16- vs 24-worker bench on a 100-game search run (the Build 5 sizing line
+  was written at 8–16); a JFR profile of one worker per regime (suspects: the payability predicate,
+  state-effect / trigger churn per ask, the obs snapshot write); the micro-batch window under load.
+  The Rust subset engine stays gated (throughput is not binding while cores idle). **Dreaming /
+  learned dynamics:** not taken (the design's MuZero rejection stands: a real simulator exists,
+  learned models smooth the rare adversarial branches; a dreamed rollout is an unadjudicated claim);
+  the value head + distillation IS the cheap form. **Routed by name to the closeout (user, 09-09):
+  depth-aware budget allocation** — the model reasoning over search depth to spend a clock budget:
+  first the value head's calibration by horizon (the rollout audit per depth; ADR-0098's eot ≈ h2 is
+  the first point), then a deepening RULE (deepen where the top candidates sit within the leaf noise
+  at a pivotal window, stop where one line dominates — engine-adjudicated by construction, the
+  baseline), then the learned version (the pivotality head extended to the value of one more ply,
+  trained on whether deeper search changed the pick), alongside ponder-time search.
