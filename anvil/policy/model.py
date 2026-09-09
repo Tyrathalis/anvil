@@ -171,6 +171,16 @@ class AnvilNet(nn.Module):
         # pay_kind_emb convention). Never dictates: follow/deviate is
         # telemetry (paymark_follow).
         self.pay_mark_emb = nn.Parameter(torch.zeros(d_model))
+        # M12 Build 3 evening 4 (ADR-0105): the payment ROLE-COPY head — a
+        # payment window scores its goal options with pay_query / pay_key
+        # (initialized as copies of the priority pointer's maps by load_compat)
+        # over the goal's PLAN as an entity SET (the mean trunk output of the
+        # tapped entities; the M9 one-representative row is the fallback when
+        # the set is absent) + the goal-kind embedding. Every other window
+        # keeps the priority pointer untouched. The pay_ prefix keeps the
+        # server's has_pay gate and the pay-only fits' trainable set.
+        self.pay_query = nn.Linear(d_model, d_model)
+        self.pay_key = nn.Linear(d_model, d_model)
         # D6 plan-latent aux heads (m9-d6-plan-latent-spec §2, ADR-0074 joint
         # selection): emission supervision on out[:, 1] at turn-first windows.
         # plan_act_head = multi-hot over the SA vocab (+OOV) + 3 summary bits
@@ -292,7 +302,8 @@ class AnvilNet(nn.Module):
                 state = {**state, name: merged}
         # the surface decoder's query / key start as COPIES of the trained
         # target decoder's (a checkpoint that never fitted a surface)
-        for role, src in (("surf_query", "tgt_query"), ("surf_key", "tgt_key")):
+        for role, src in (("surf_query", "tgt_query"), ("surf_key", "tgt_key"),
+                          ("pay_query", "ptr_query"), ("pay_key", "ptr_key")):
             for part in ("weight", "bias"):
                 if f"{role}.{part}" not in state and f"{src}.{part}" in state:
                     state = {**state, f"{role}.{part}": state[f"{src}.{part}"].clone()}
@@ -464,6 +475,23 @@ class AnvilNet(nn.Module):
             # emb — day-zero identical; absent key — identical by construction)
             k_cand = k_cand + self.pay_mark_emb * pm.unsqueeze(-1)
         logits = (q * k_cand).sum(-1) / k.shape[-1] ** 0.5  # (B,C)
+        task_t = batch.get("task")
+        if pk is not None and task_t is not None and bool((task_t == self._pay_task).any()):
+            # evening 4 (ADR-0105): the payment role-copy head on pay windows —
+            # the goal's plan as an entity set, pooled, through pay_key; the
+            # state through pay_query; the kind (and mark) embeddings as before
+            ce = batch.get("cand_ents")
+            sets = ce if ce is not None else batch["cand_rows"].unsqueeze(-1)  # (B,C,K)
+            valid = (sets >= 0).unsqueeze(-1).to(ent_out.dtype)  # (B,C,K,1)
+            idx = sets.clamp(min=0).unsqueeze(-1).expand(-1, -1, -1, ent_out.shape[-1])
+            gathered = ent_out.unsqueeze(1).expand(-1, sets.shape[1], -1, -1).gather(2, idx)  # (B,C,K,d)
+            pooled = (gathered * valid).sum(2) / valid.sum(2).clamp(min=1.0)  # (B,C,d)
+            has_set = (valid.sum(2) > 0).to(ent_out.dtype)  # (B,C,1)
+            k_pay = self.pay_key(pooled) * has_set + self.pay_kind_emb(pk.clamp(min=0)) * (pk >= 0).unsqueeze(-1)
+            if pm is not None:
+                k_pay = k_pay + self.pay_mark_emb * pm.unsqueeze(-1)
+            logits_pay = (self.pay_query(state).unsqueeze(1) * k_pay).sum(-1) / k.shape[-1] ** 0.5
+            logits = torch.where((task_t == self._pay_task).unsqueeze(-1), logits_pay, logits)
         pass_logit = self.pass_head(state) + pass_delta  # (B,1)
         task = batch.get("task")
         if task is not None:

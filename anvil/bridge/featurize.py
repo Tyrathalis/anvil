@@ -45,6 +45,8 @@ from anvil.training.dataset import (
 
 _HOST_ID = re.compile(r"\((\d+)\)$")  # mirrors dataset._HOST_ID
 
+PAY_SET_K = 8  # evening 4: entities per payment goal's plan carried to the model
+
 TAG_TASK = {
     "mtg.priority": "priority",
     "mtg.mulligan_keep": "mull_keep",
@@ -288,6 +290,7 @@ class Featurizer:
         cand_sa = [-1]
         cand_kind = [-1]
         cand_paykind = [-1]
+        cand_ents: list[list[int]] = [[-1] * PAY_SET_K]  # evening 4: the goal's plan as an entity set
         cand_first_opt = [-1]  # per candidate: FIRST matching wire-option index
         ctx_row = -1
         num_lo, num_hi = 0, X_CLASSES - 1
@@ -334,6 +337,12 @@ class Featurizer:
                 cand_kind.append(-1)
                 gk = o.get("gk") or []
                 cand_paykind.append(int(gk[0]) if gk else PAY_KINDS["spare_other"])
+                # evening 4 (ADR-0105): the plan's tapped entities as a SET — the
+                # role-copy head pools their trunk outputs (the M9 one-
+                # representative key left 56% of the pool's positives sharing a
+                # key with another goal); lowest ids first, capped at PAY_SET_K
+                rows_set = [row_of.get(e, -1) for e in sorted(ents)][:PAY_SET_K]
+                cand_ents.append(rows_set + [-1] * (PAY_SET_K - len(rows_set)))
                 cand_first_opt.append(i)
         elif task == "trigger":
             m = _HOST_ID.search(args.get("host") or "")
@@ -395,6 +404,9 @@ class Featurizer:
             "cand_sa": torch.tensor(cand_sa, dtype=torch.int64),
             "cand_kind": torch.tensor(cand_kind, dtype=torch.int64),
             "cand_paykind": torch.tensor(cand_paykind, dtype=torch.int64),
+            "cand_ents": torch.tensor(
+                cand_ents + [[-1] * PAY_SET_K] * (len(cand_rows) - len(cand_ents)), dtype=torch.int64
+            ),
             **sched_ex,
             **surf_ex,
             "label": torch.tensor(0, dtype=torch.int64),

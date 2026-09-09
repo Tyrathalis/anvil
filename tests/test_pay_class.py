@@ -171,7 +171,8 @@ def test_pay_param_group_splits_by_name(net_and_feat):
     pay = [n for n, _ in net.named_parameters() if n.startswith("pay_")]
     # pay_mark_emb joined at M10 R5 (the slot-conditions marked candidate,
     # zero-init) — a pay-surface param, rightly in the pay_lr group
-    assert set(pay) == {"pay_bias", "pay_kind_emb.weight", "pay_mark_emb"}
+    assert set(pay) == {"pay_bias", "pay_kind_emb.weight", "pay_mark_emb",
+                        "pay_query.weight", "pay_query.bias", "pay_key.weight", "pay_key.bias"}  # + the evening-4 role copies
 
     groups = [
         {"params": [p for n, p in net.named_parameters() if not n.startswith("pay_")], "lr": 1e-5},
@@ -195,3 +196,56 @@ def test_pay_param_group_splits_by_name(net_and_feat):
     assert moved["pay_bias"] == pytest.approx(1e-3, rel=0.05)
     trunk = max(v for n, v in moved.items() if not n.startswith("pay_"))
     assert trunk == pytest.approx(1e-5, rel=0.05)
+
+
+def test_pay_role_copies_init_and_set_key(net_and_feat):
+    """Evening 4 (ADR-0105): the payment role-copy head — pay_query / pay_key
+    start as copies of the priority pointer's maps (load_compat), a goal's
+    plan reaches the model as an entity SET (cand_ents), the pay branch
+    scores pay windows only (a priority window's logits are byte-identical
+    with the head present), and the day-zero argmax stays auto."""
+    import torch
+
+    from anvil.bridge.featurize import PAY_SET_K
+    from anvil.training.dataset import collate
+
+    net, feat = net_and_feat
+    # the module fixture is shared and an earlier test steps the pay_ group:
+    # reload the checkpoint so the role-init claim is read on a fresh load
+    net.load_compat(torch.load(CKPT, map_location="cpu", weights_only=False)["model"])
+    assert torch.equal(net.pay_query.weight, net.ptr_query.weight)
+    assert torch.equal(net.pay_key.bias, net.ptr_key.bias)
+    saved = {n: p.detach().clone() for n, p in net.named_parameters() if n.startswith("pay_")}
+    w, header = _pay_windows(1)[0]
+    ex, _ = feat.example(w, header, "pay_class")
+    assert ex["cand_ents"].shape == (3, PAY_SET_K)
+    assert (ex["cand_ents"][0] == -1).all()  # auto: no set
+    ents = json.loads(w["opts"][1])["ents"]
+    assert int((ex["cand_ents"][1] >= 0).sum()) == min(len(ents), PAY_SET_K)  # the plan's entities
+    assert (ex["cand_ents"][2] == -1).all()  # the entless life plan
+    batch = collate([ex])
+    assert batch["cand_ents"].shape == (1, 3, PAY_SET_K)
+    with torch.no_grad():
+        fwd = net(batch)
+        # the branch is live: perturbing pay_key moves a goal's logit, never auto's
+        base = fwd["policy_logits"][0].clone()
+        net.pay_key.weight.add_(0.01)
+        moved = net(batch)["policy_logits"][0]
+        net.pay_key.weight.sub_(0.01)
+    assert int(torch.argmax(base).item()) == 0
+    assert not torch.allclose(base[1:], moved[1:])
+    # a PRIORITY window never touches the pay maps
+    from tests.test_sampling import _windows, _wire
+
+    dec, hdr, prior = next(iter(_windows({"chooseSpellAbilityToPlay"}, n=1)))
+    pex, _ = feat.example(_wire(dec, prior), hdr, "priority")
+    pb = collate([pex])
+    with torch.no_grad():
+        l0 = net(pb)["policy_logits"].clone()
+        net.pay_key.weight.add_(0.1)
+        net.pay_query.weight.add_(0.1)
+        l1 = net(pb)["policy_logits"]
+        for n, p in net.named_parameters():
+            if n in saved:
+                p.copy_(saved[n])  # exact restore for the tests that follow
+    assert torch.equal(l0, l1)
