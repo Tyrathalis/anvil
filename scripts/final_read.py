@@ -143,9 +143,11 @@ def main() -> None:
                     "2" if a.heuristic_control else str(seat),
                     "--reask",
                     *(
-                        ["--forge-args", f"{a.forge_args or ''} -searchseats {seat}".strip()]
+                        # the = form: a value starting with '-' (e.g. -payrescue) is
+                        # otherwise read by the harness's parser as a flag
+                        [f"--forge-args={(a.forge_args or '')} -searchseats {seat}".strip()]
                         if a.heuristic_control
-                        else (["--forge-args", a.forge_args] if a.forge_args else [])
+                        else ([f"--forge-args={a.forge_args}"] if a.forge_args else [])
                     ),
                     *(["--labels"] if a.labels else []),
                     *(["--jar", a.jar] if a.jar else []),
