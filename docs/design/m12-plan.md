@@ -648,3 +648,10 @@ moves verbatim to the status archive and this section stays here as the record.*
   at a pivotal window, stop where one line dominates — engine-adjudicated by construction, the
   baseline), then the learned version (the pivotality head extended to the value of one more ply,
   trained on whether deeper search changed the pick), alongside ponder-time search.
+- **2026-09-09 (13:10) — the pool read + the pay head's capacity** ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)):
+  42.9 groups / game, 5.7% positives at 0.03 (split-half best-goal agreement 0.65 vs chance 0.26 —
+  reliable), the resolution-effect slice 0.23 consequential / game of 48.8 (the queue's measured
+  argument); the pay-only head moves toward auto on every fold (pos_top1 ≤ 0.02) — capacity, not
+  data or target. **User: the pay role-copy head** (`pay_query`/`pay_key` from `ptr_query`/`ptr_key`,
+  pay windows only; day-zero identical; no drift) built on a worktree while the chain runs; the
+  trunk-unfreeze variants = the capacity probe. The chain's read = nothing-broke + the rescue arm.

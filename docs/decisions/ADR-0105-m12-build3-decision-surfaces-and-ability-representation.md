@@ -700,3 +700,35 @@ Forkcheck `run-20260908-build3-e4r` (the snapshot `forge-b3e4r.jar`, sha `c92ccc
 fork pin moves to `c26e99824b8`** (`-payrescue` flag-gated: every rescue path under the flag, off =
 byte-identical, as designed). The evening-4 paired read's rescue arm runs on this jar with the flag
 on — a game-path change by design, read as its own arm.
+
+## Addendum (2026-09-09, 13:10): the pool read; the pay-only head cannot learn the positives; the pay ROLE-COPY head (user-adjudicated)
+
+**The pool** (`b3-surflab3-20260908-193402`, 1,000 games): 42,638 usable payment groups (42.9 / game) at
+the eot leaf; margin p90 0.016 / p97 0.057 / p99 0.137; **positives at bar 0.03: 5.7%** (ADR-0075's
+3.2% certifiable between the 0.05 and 0.08 bars). Directed copy payments 249,044 ok / 733 fail
+(0.3%) / 182 salvage. **Resolution-effect census: 48,758 windows, 99.2% zero-cost, 230 consequential
+(0.23 / game, all auto-payable) vs 9.4 mainline windows — the ADR-0077 queue item's measured
+argument (≈ 2% of payment decision traffic).**
+
+**Label reliability (split-half over the two rolls, positives):** best-goal agreement between rolls
+**0.648 vs chance 0.260**; both rolls clear the bar independently 0.582; auto best in either roll
+0.175. The positives are mostly real; more rolls would sharpen them, not change the verdict.
+
+**The cross-fit (pay-only params: `pay_bias` + `pay_kind_emb` + `pay_mark_emb`, 4.6K; bar 0.03, T
+0.025, lr 1e-3, 3,000 steps), folds 0–3:** CE 0.45–0.50 → 0.38–0.44 **by moving toward auto** —
+pos_top1 0.01–0.02 before AND after, pos_dev 0.03–0.07 → 0.01–0.05, tie_dev 0.03–0.04 → 0.015–0.018.
+**The pay-only head cannot represent a positive**: its answer is mostly one goal among goals of the
+same kind, and the trainable path (a kind embedding added to a frozen entity key, dotted with a
+frozen state query) ranks kinds against auto, never entities. Not the data (2.4K positives, free
+from the search slot at 2.4 / game), not the target (reliable), the capacity.
+
+**Decision (user, 13:05): the payment ROLE-COPY head** — `pay_query` / `pay_key` initialized as
+copies of the priority pointer's `ptr_query` / `ptr_key` and used for `pay_class` windows only,
+trained on the pool with the pay pieces (the evening-1 pattern: `surf_query`/`surf_key` from the
+target decoder): entity ranking capacity (525K params), day-zero identical on every window (the
+copies compute the same function; a test), no drift on priority / value / surfaces. The trunk-unfreeze
+variants (`--unfreeze 2` / `4` on fold 0, running) stay as the capacity probe only — a warm-start
+question: in the loop (Build 4½) everything trains jointly under the KL guard. Built on a worktree
+(the chain imports from the main tree). The chain's pay-only build serves ≈ auto under the bar: its
+paired read is the "nothing broke" read + the rescue arm's first read; the role-copy head gets its
+own cross-fit → build → smoke → paired read as evening 4's second half.
