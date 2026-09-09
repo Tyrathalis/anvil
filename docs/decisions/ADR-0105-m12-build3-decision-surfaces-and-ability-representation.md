@@ -752,3 +752,23 @@ reads of a small deviation cost. **The rescue class barely fires:** 20,892 optio
 169,033 scanned windows (0.12 / window) but only 26 rescue payments in 300 games (0.09 / game;
 forced 90) — the network rarely picks an admitted cast; vetoes 460 vs 426 (+8%). Its read is
 inseparable from the tag's cost at this n; the bundle stays flag-gated and off by default.
+
+## Addendum (2026-09-09, 15:30): the set-keyed head's cross-fit; the probe fix `15863de0b4a`
+
+**The set-keyed role-copy head, 5-fold cross-fit (pos-weight 8, bar 0.03, T 0.025, rolls ≥ 2, lr
+3e-4, 3,000 steps; 529,936 trainable = `pay_query`/`pay_key` + the pay pieces), pooled over
+42,638 rows / 2,423 positives:** pos CE 6.18 → **2.22**, pos top-1 0.011 → **0.094**, pos dev 0.026 →
+**0.155**, tie CE 0.088 → 0.283, tie dev 0.022 → 0.045. The first head whose argmax leaves auto
+where the search says to, consistently across folds (fold 0 read the same); the build
+`m12-build3-e4s` follows. Its paired read waits for the probe fix below (both arms on one jar).
+
+**The probe fix — fork `15863de0b4a`** (on `c26e99824b8`): `PlayerControllerAnvil.quietProbe` wraps
+the M9 enumeration and the auto-payability test on every bridged in-scope window (the mainline
+path, `copyPay`, `rescuePay`, the resolution-effect census) in a scratch RNG and a snapshot /
+restore of the AI's mana-reservation memory sets — `ComputerUtilMana`'s test-mode payment draws
+`percentTrue` per candidate source and clears / writes those sets before the real auto payment,
+so a bridged seat answering auto everywhere still played a different game (the ADR-0102 scan rule
+applied to payment). Bridged-path only; smoke 8/8 (123 windows, 0 errors); forkcheck queued
+behind the wiring test. Whether it is THE mechanism is the probe-path arm's verdict (running);
+either way the probe is now neutral, and the set-key read runs on this jar: off (withheld) is
+unaffected by the fix, so off arms stay comparable across jars.
