@@ -616,3 +616,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   no read redone; **the ablation arm** (e3 pay-withheld vs the evening-3 on arm) queued behind the pay
   chain; standing rule: served-tag parity or a declared arm. The overnight chain runs the pool → pay
   fit → build → smoke → the paired read unattended.
+- **2026-09-08 (20:55)** — forkcheck `run-20260908-build3-e4r` 499/500 vs the 08-21 seeds, 20260969 the
+  standing crash — **PASS; the research fork pin moves to `c26e99824b8`** (the rescue bundle, flag
+  off = byte-identical; ADR-0105 addendum). The pool at 105/1,000 (80 g/h); the chain and the ablation
+  arm waiting.

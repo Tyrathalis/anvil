@@ -691,3 +691,12 @@ The rescue bundle's forkcheck `run-20260908-build3-e4r` (flag off) runs behind i
 the served-tag ablation arm** — the e3 ckpt with the pay tag withheld vs the evening-3 on arm, 2 × 300
 on the standard pairs, queued behind the pay chain (`data/runs/build3-e3-nopay/`); the standing rule
 (served-tag parity) written; the ADR-0104 addendum carries the day-zero correction's slot.
+
+## Addendum (2026-09-08, 20:55): the rescue bundle `c26e99824b8` PROVEN — fork pin
+
+Forkcheck `run-20260908-build3-e4r` (the snapshot `forge-b3e4r.jar`, sha `c92ccc08…`, the flag off;
+500 games, seed 20260703 vs the 08-21 baseline): **499/500 main-trace hashes identical; the one miss
+= 20260969, the standing crash** (turns 27 vs 29); fork fidelity 450/50 both — **PASS; the research
+fork pin moves to `c26e99824b8`** (`-payrescue` flag-gated: every rescue path under the flag, off =
+byte-identical, as designed). The evening-4 paired read's rescue arm runs on this jar with the flag
+on — a game-path change by design, read as its own arm.
