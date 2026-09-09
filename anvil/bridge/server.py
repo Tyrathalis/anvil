@@ -182,6 +182,7 @@ class ModelBackend:
         sample: bool = False,
         temperature: float = 1.0,
         pay_bar: "float | None" = None,
+        serve_init_pay: bool = False,
         mu_path: "str | None" = None,
         instrument: bool = False,
         sched_binding: str = "off",
@@ -212,7 +213,15 @@ class ModelBackend:
         # pay_ params present? (M9 rung 3; same never-serve-fresh-init rule —
         # except pay_bias's +2.0 init is BY DESIGN safe, so the gate is about
         # the untrained pointer keys, not the bias)
-        self.has_pay = any(k.startswith("pay_") for k in ckpt["model"])
+        # evening 4 (ADR-0104 addendum 09-09): the never-serve-fresh-init rule
+        # covers the pay head — serving the +2.0-init head cost 2.56 ± 1.88pp
+        # (its pointer residuals deviated on 2.7% of windows, inside every
+        # search copy too); the tag is advertised only for a FITTED head (the
+        # checkpoint's pay_fit record, written by anvil.training.pay_fit
+        # --build), or under --serve-init-pay for an explicit ablation arm
+        self.has_pay = any(k.startswith("pay_") for k in ckpt["model"]) and (
+            "pay_fit" in ckpt.get("config", {}) or serve_init_pay
+        )
         # M12 Build 3: a fitted surface decoder (surface_fit --build records
         # the tasks + the ability table stem in the config)
         # the tags advertised = the shapes the checkpoint was fitted on
@@ -267,6 +276,7 @@ class ModelBackend:
         self.temperature = temperature
         # evening 4 (ADR-0105): the payment margin bar (log-prob units; None = off)
         self.pay_bar = pay_bar
+        self.serve_init_pay = serve_init_pay
         # M7 forced-branch instrument mode: wire-only fork sessions (g=-1)
         # may be SAMPLED without mu records — forced-branch completions are
         # measurement, never training data (m7-plan D2 pin 3). Off, the
@@ -939,6 +949,10 @@ def main() -> None:
         "--temperature", type=float, default=1.0, help="sampling temperature (with --sample)"
     )
     ap.add_argument(
+        "--serve-init-pay", action="store_true",
+        help="advertise the pay tag on a checkpoint WITHOUT a pay_fit record (the ablation arm; never a read's default)",
+    )
+    ap.add_argument(
         "--pay-bar", type=float, default=None,
         help="evening 4: a served payment goal stands only where its log-prob clears auto's by this margin",
     )
@@ -1062,6 +1076,7 @@ def main() -> None:
             sample=args.sample,
             temperature=args.temperature,
             pay_bar=args.pay_bar,
+            serve_init_pay=args.serve_init_pay,
             mu_path=args.mu_out,
             instrument=args.fork_instrument,
             sched_binding=args.sched_binding,

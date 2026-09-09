@@ -206,15 +206,18 @@ def collate_pay(items: list[dict]) -> dict[str, torch.Tensor]:
     return out
 
 
-def pay_distill_loss(out: dict, batch: dict) -> tuple[torch.Tensor, dict]:
+def pay_distill_loss(out: dict, batch: dict, pos_weight: float = 1.0) -> tuple[torch.Tensor, dict]:
     """Cross-entropy from the asymmetric target to the pay head's softmax
-    over its candidate slots. Stats keep ties and positives apart."""
+    over its candidate slots. Stats keep ties and positives apart.
+    pos_weight > 1 up-weights the positive rows in the loss (the pool is 94%
+    ties; the stats stay unweighted)."""
     lg = out["policy_logits"].float()
     lp = torch.log_softmax(lg, dim=-1)
     tgt = batch["pay_target"]
     ce = -(tgt * lp).sum(1)  # (B,)
-    loss = ce.mean()
     pos = batch["pay_positive"]
+    w = torch.where(pos, torch.full_like(ce, float(pos_weight)), torch.ones_like(ce))
+    loss = (w * ce).sum() / w.sum()
     pred = lp.argmax(-1)
     want = tgt.argmax(-1)
     ce = ce.detach()

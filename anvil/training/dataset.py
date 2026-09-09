@@ -889,6 +889,10 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             if "cand_paymark" not in out:
                 out["cand_paymark"] = torch.zeros(b, c)
             out["cand_paymark"][i, :ci] = x["cand_paymark"]
+        if "cand_ents" in x:  # evening 4: the payment goal's plan as an entity set (serve / pay_distill)
+            if "cand_ents" not in out:
+                out["cand_ents"] = torch.full((b, c, x["cand_ents"].shape[1]), -1, dtype=torch.int64)
+            out["cand_ents"][i, :ci] = x["cand_ents"]
         out["cand_mask"][i, :ci] = True
         ai, mi = x["cmb_rows"].shape[0], x["blk_atk_rows"].shape[0]
         if ai:

@@ -140,7 +140,7 @@ def fit(a) -> None:
     loader = DataLoader(ds_tr, batch_size=a.batch, collate_fn=collate_pay, num_workers=a.workers,
                         persistent_workers=a.workers > 0)
     res: dict = {"tag": tag, "unfreeze": a.unfreeze, "lr": a.lr, "bar": a.bar, "temp": a.temp,
-                 "min_rolls": a.min_rolls, "run": a.run, "ckpt": a.ckpt}
+                 "min_rolls": a.min_rolls, "pos_weight": a.pos_weight, "run": a.run, "ckpt": a.ckpt}
     te_loader = None
     if not a.build:
         ds_te = make_dataset(a, "test", a.folds, a.fold, shuffle=False)
@@ -157,7 +157,7 @@ def fit(a) -> None:
         n_in_epoch = 0
         for batch in loader:
             b = _to(batch, device)
-            loss, st = pay_distill_loss(net(b), b)
+            loss, st = pay_distill_loss(net(b), b, pos_weight=a.pos_weight)
             opt.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_([p for p in net.parameters() if p.requires_grad], 1.0)
@@ -196,7 +196,7 @@ def fit(a) -> None:
     if a.build:
         cfg = dict(ck["config"])
         cfg["pay_fit"] = {"steps": step, "unfreeze": a.unfreeze, "lr": a.lr, "bar": a.bar, "temp": a.temp,
-                          "min_rolls": a.min_rolls, "run": a.run, "parent": a.ckpt}
+                          "min_rolls": a.min_rolls, "pos_weight": a.pos_weight, "run": a.run, "parent": a.ckpt}
         ck_out = REPO / a.ckpt_out
         ck_out.mkdir(parents=True, exist_ok=True)
         torch.save({"step": ck.get("step", 0), "model": net.state_dict(), "config": cfg}, ck_out / "last.pt")
@@ -257,6 +257,7 @@ def main() -> None:
     ap.add_argument("--bar", type=float, default=0.03, help="margin bar (win-prob units) above which a window is a positive")
     ap.add_argument("--temp", type=float, default=0.025, help="leaf-value softmax temperature on positives")
     ap.add_argument("--min-rolls", type=int, default=2, help="valued rolls an answer needs to count")
+    ap.add_argument("--pos-weight", type=float, default=1.0, help="loss weight on positive rows (the pool is mostly ties)")
     ap.add_argument("--folds", type=int, default=5)
     ap.add_argument("--fold", type=int, default=0)
     ap.add_argument("--build", action="store_true")
