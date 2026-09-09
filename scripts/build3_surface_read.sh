@@ -41,7 +41,7 @@ run_arm() { # tag [server-tags] [forge-args]
   if [[ -f "$OUT/$tag.done" ]]; then log "arm $tag done already"; return 0; fi
   local extra=()
   if [[ -n "$stags" ]]; then extra=(--server-tags "$stags"); fi
-  if [[ -n "${fargs// /}" ]]; then extra+=(--forge-args "$fargs"); fi
+  if [[ -n "${fargs// /}" ]]; then extra+=("--forge-args=$fargs"); fi  # the = form: a value starting with '-' (e.g. -payrescue) is otherwise read as a flag
   if [[ -n "$SERVER_ARGS" ]]; then extra+=(--server-args "$SERVER_ARGS"); fi
   nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "$NAME-$tag" --games "$GAMES" \
       --workers "$WORKERS" --port "$PORT" --jar "$JAR" --skip-ante "${extra[@]}" >> "$OUT/$tag.log" 2>&1 || return 1
