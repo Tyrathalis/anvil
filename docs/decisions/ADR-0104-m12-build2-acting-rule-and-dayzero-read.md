@@ -216,3 +216,25 @@ the pay tag withheld on the standard pairs and seeds, paired against the evening
 checkpoint serving the init head) — bounds the term; it runs when the box opens after the evening-4
 chain, and the correction is arithmetic on this record. Standing rule born here (gating/reads):
 served-tag parity between an arm and its reference, or the difference is its own arm.
+
+## Addendum (2026-09-09, 13:40): the served-tag term MEASURED — +2.56 ± 1.88pp
+
+The ablation arm (`data/runs/build3-e3-nopay/read.json`): the e3 checkpoint with the pay tag
+withheld vs the same checkpoint serving the init pay head (the evening-3 "on" arm), the same seeds
+and pairs, the same snapshot jar, 2 × 300 games: **nopay − init = +2.56pp ± 1.88 (t 1.4, 68 up /
+53 down, n 586)**. Serving the untrained head — ≈ 0.25 random goal payments per game, inside every
+search copy too — cost every M12 network arm about two and a half points against a reference that
+never carried it. Arithmetic on this record (the term with its own error, added in quadrature):
+
+| number | as read | corrected for the term |
+|---|---|---|
+| dz − ref (the day-zero cost) | −1.63 ± 1.15 | **≈ +0.9 ± 2.2** — the "pretrain cost" is not distinguishable from zero |
+| heurla − dzla (the control rule) | −0.46 ± 1.28 | ≈ −3.0 ± 2.3 — the network's own policy may add beyond the heuristic + lookahead; the 1.0pp rule cannot be applied at this resolution either way |
+| dzla − dz (the gate), the evening 1–3 reads | unchanged | both arms carried the term |
+
+Neither corrected number is a verdict (the errors say so); both point estimates move in the
+network's favour. **Consequence:** the standard served set withholds the pay tag until a FITTED pay
+head exists — the never-serve-fresh-init rule extends to payment (the +2.0 init was "safe by
+design" only as an argmax; the pointer's residual deviations were not) — implemented as the server's
+`has_pay` gate reading the checkpoint's `pay_fit` record. The evening-4 paired read's "off" arm is
+this configuration.

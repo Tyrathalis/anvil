@@ -655,3 +655,10 @@ moves verbatim to the status archive and this section stays here as the record.*
   data or target. **User: the pay role-copy head** (`pay_query`/`pay_key` from `ptr_query`/`ptr_key`,
   pay windows only; day-zero identical; no drift) built on a worktree while the chain runs; the
   trunk-unfreeze variants = the capacity probe. The chain's read = nothing-broke + the rescue arm.
+- **2026-09-09 (13:40) — the served-tag term measured: +2.56 ± 1.88pp** (the e3 ckpt pay-withheld vs
+  serving the init head; [ADR-0104 addendum](../decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
+  Corrected: dz − ref ≈ +0.9 ± 2.2 (the day-zero cost not distinguishable from zero), heurla − dzla
+  ≈ −3.0 ± 2.3 (the control rule unresolvable at this n). The served set withholds the pay tag until
+  a fitted head exists (the server's `has_pay` gate reads the ckpt's `pay_fit`). The chain resumed
+  from its smoke (the pay-only build; the rescue arm's read); the set-key head's fold 0: pos_ce 5.90
+  → 3.59, argmax still auto, the pos-weight-8 fold pending.
