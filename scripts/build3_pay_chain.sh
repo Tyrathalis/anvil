@@ -25,6 +25,7 @@ BAR=${BAR:-0.03}; TEMP=${TEMP:-0.025}; MIN_ROLLS=${MIN_ROLLS:-2}
 FOLDS=${FOLDS:-5}; STEPS=${STEPS:-3000}; EPOCHS=${EPOCHS:-6}
 PAY_BAR=${PAY_BAR:-0.2}
 READ_GAMES=${READ_GAMES:-300}; ARMS=${ARMS:-off on rescue}; PORT=${PORT:-50066}; SMOKE_PORT=${SMOKE_PORT:-50079}
+READ_NAME=${READ_NAME:-b3e4}  # the paired read's name (b3e4s for the set-keyed head)
 TAGS_NOPAY=mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number,mtg.attack,mtg.block,mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode,mtg.surface.order,mtg.surface.damage
 export PYTHONUNBUFFERED=1 DISPLAY=:0
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
@@ -114,8 +115,8 @@ fi
 
 # ---- 6. the paired read (off = the pay tag withheld; on = served with the bar; rescue = + -payrescue)
 state read
-NAME=b3e4 CKPT="$CKPT_OUT/last.pt" GAMES="$READ_GAMES" PORT="$PORT" JAR="$JAR" TAGS_OFF="$TAGS_NOPAY" ARMS="$ARMS" SERVER_ARGS="--pay-bar $PAY_BAR" \
+NAME="$READ_NAME" CKPT="$CKPT_OUT/last.pt" GAMES="$READ_GAMES" PORT="$PORT" JAR="$JAR" TAGS_OFF="$TAGS_NOPAY" ARMS="$ARMS" SERVER_ARGS="--pay-bar $PAY_BAR" \
   bash scripts/build3_surface_read.sh >> "$OUT/read-chain.log" 2>&1 || { log "paired read FAILED"; finish 1; }
-log "paired read: $(python3 -c "import json; r=json.load(open('data/runs/build3-surface-read-b3e4/read.json')); print(json.dumps(r.get('paired', r))[:700])")"
+log "paired read: $(python3 -c "import json; r=json.load(open('data/runs/build3-surface-read-$READ_NAME/read.json')); print(json.dumps(r.get('paired', r))[:700])")"
 state done
 finish 0
