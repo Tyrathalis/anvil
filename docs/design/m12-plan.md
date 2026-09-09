@@ -608,3 +608,11 @@ moves verbatim to the status archive and this section stays here as the record.*
   `run-20260908-build3-e4` ∥ the payment pool `build3-surface-labels3` (1,000 games, pay withheld
   on the mainline, `-searchpay 2` eot, rolls 2).** Next: the forkcheck read → pin; the pool read →
   the pay fit → build → smoke → the paired read; the rescue bundle; the calibration sample.
+- **2026-09-08 (20:15)** — forkcheck `run-20260908-build3-e4` 499/500 vs the 08-21 seeds, 20260969 the
+  standing crash — **PASS; the research fork pin moves to `e44d83a8327`** (ADR-0105 addendum); the
+  rescue bundle `c26e99824b8` (flag-gated `-payrescue`) landed, its forkcheck `run-20260908-build3-e4r`
+  running behind. **The served-tag confound** (user review): every M12 network arm served the
+  untrained pay head, `iter-019` never did → dz − ref carries an unmeasured term (ADR-0104 addendum);
+  no read redone; **the ablation arm** (e3 pay-withheld vs the evening-3 on arm) queued behind the pay
+  chain; standing rule: served-tag parity or a declared arm. The overnight chain runs the pool → pay
+  fit → build → smoke → the paired read unattended.

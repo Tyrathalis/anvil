@@ -679,3 +679,15 @@ misses, the rescue arm's veto rate) + the learnability read (positive top-1 / de
 deviation, before vs after, cross-fit) + the signs banked (on − off, rescue − on). The
 horizon-2 calibration (the certify path on heuristic games with `-searchseats` + the pay slot)
 is a separate small run, routed to the next session.
+
+## Addendum (2026-09-08, 20:15): fork `e44d83a8327` PROVEN — fork pin; the e4r forkcheck running; the ablation arm routed
+
+Forkcheck `run-20260908-build3-e4` (the snapshot `forge-b3e4.jar`, 500 games, seed 20260703 vs the
+08-21 baseline): **499/500 main-trace hashes identical; the one miss = 20260969, the standing crash**
+(turns 27 vs 29, the same seed as every Build 3 forkcheck); fork fidelity 450/50 both — **PASS; the
+research fork pin moves to `e44d83a8327`** (the payment surface kind, the copy-side pay gate, the
+eot leaf, the pay slot, the resolution-effect census row; serve / recording / search-copy only).
+The rescue bundle's forkcheck `run-20260908-build3-e4r` (flag off) runs behind it. **Routed (user):
+the served-tag ablation arm** — the e3 ckpt with the pay tag withheld vs the evening-3 on arm, 2 × 300
+on the standard pairs, queued behind the pay chain (`data/runs/build3-e3-nopay/`); the standing rule
+(served-tag parity) written; the ADR-0104 addendum carries the day-zero correction's slot.

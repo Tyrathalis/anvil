@@ -200,3 +200,19 @@ is below its own reference; the teaching channel has to close a 1.6pp pretrain d
 a gain over `ref`. The heuristic's void share (59%) says its control lookahead searched a narrower
 option set than the network's (29% void) and still gained more — the value head is doing the work
 where the heuristic's judgment already prunes.
+
+## Addendum (2026-09-08, evening 4 review): the day-zero cost carries a served-tag confound
+
+Every M12 checkpoint from Build 1 carries the M9 payment parameters at their design init (`pay_bias`
++2.0, embeddings zero — never trained; ADR-0105 addendum 09-08 evening), and the server advertises
+the pay tag whenever the params exist. So the day-zero arms (dz / dzla / dzla10) paid ≈ 9.4 bridged
+consequential windows per game with ≈ 2.7% random goal deviations (the untrained pointer's), on the
+mainline and inside every search copy, while `ref` (`iter-019`, no pay params) paid by auto. **dz −
+ref = −1.63 ± 1.15 therefore includes an unmeasured payment-noise term with a sign**; dzla − dz (the
+gate) and the control comparison shared the term across arms (heurla's heuristic mainline paid auto,
+so heurla − dzla = −0.46 ± 1.28 carries it too, on a comparison the ±1.28 could not resolve to the
+1.0pp rule anyway). No read is redone (user, 09-08): **one ablation arm** — the e3 checkpoint with
+the pay tag withheld on the standard pairs and seeds, paired against the evening-3 "on" arm (the same
+checkpoint serving the init head) — bounds the term; it runs when the box opens after the evening-4
+chain, and the correction is arithmetic on this record. Standing rule born here (gating/reads):
+served-tag parity between an arm and its reference, or the difference is its own arm.

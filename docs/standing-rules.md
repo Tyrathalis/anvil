@@ -72,6 +72,13 @@ silently delete.
   exploratory and, if read at all, keyed symmetrically (the window fired in both arms' games).
   ADR-0105 (evening 3).
 
+- **A network arm serves the same tag set as its reference, or the difference is declared as its
+  own arm** — every M12 arm from Build 1 served the pay tag at its design init (≈ 0.25 random goal
+  payments per game, inside every search copy too) while the `iter-019` reference never carried the
+  head: the day-zero cost dz − ref (−1.63 ± 1.15) carries an unmeasured payment-noise term; the
+  evening-4 off arm withholds the tag, the ablation arm (e3 pay-withheld vs the evening-3 on arm)
+  bounds the term ([ADR-0105 addendum 09-08](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md),
+  [ADR-0104 addendum](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
 ## Training-loop design
 
 - **Clips at birth** for engineered aggregates AND loss terms
