@@ -644,3 +644,38 @@ pin; the pool read (positives per game at the bar, the resolution-effect census)
 (cross-fit) → build `m12-build3-e4` → the served-head smoke with `--pay-bar` → the paired read
 (withheld = the e4 ckpt with the pay tag withheld, served = + the pay tag); the rescue bundle as
 the second fork commit; the horizon-2 calibration on a sample.
+
+## Addendum (2026-09-08, 19:50): the rescue bundle `c26e99824b8` (forkcheck queued); the overnight chain
+
+**Fork `c26e99824b8`** (on `e44d83a8327`): the ADR-0102 rescue class, flag-gated — `-payrescue`
+(`AnvilOptions.PAYRESCUE`, `"payrescue":true` on every header). With the flag on: an option the
+auto-payer's predicate rejects but the M9 enumerator can pay is ADMITTED to the mask, the realizer's
+payability accepts it (`payableOrRescue`), and a forced window (auto cannot pay, a plan exists) pays
+DIRECTED by the enumerator's first plan wherever the answer would be auto — an unbridged seat's
+window (`rescuePay`), a bridged seat's auto pick, a copy's natural pick. Off = byte-identical
+(every path under the flag; the forkcheck `run-20260908-build3-e4r` queued behind the evening-4
+one, flag off). **Smoke** (8 bridged games, pay withheld, no search, flag on): 8/8 won; per
+window 28,878 options scanned / 6,326 rejected by the predicate (22%; ADR-0102's 23%) / **457
+admitted** (7.2% of rejected; ADR-0102's 9.4%); **3 rescue payment windows reached, 1 paid, 2
+`directed_fail`** — the admitted casts are rarely chosen, and when they are the enumerator's plan
+over the raw cost does not always pay the cost as realized (the ADR-0102 veto class re-appears
+as a directed failure → the re-ask); the rescue arm's veto census is the read.
+
+**A test finding, not a regression.** `PaymentWiringTest` (the M9 Signet-chain wiring) failed 2/3
+when run in one surefire JVM after `SurfacesEnumerateTest,PaymentEnumeratorTest`, and passes 3/3
+alone on the same tree and 3/3 on a worktree of `41ac60d6b21`: the auto-payer's reservation check
+draws from the game RNG (the ADR-0102 finding), so the class's verdict follows the JVM's stream.
+Memory: run a suspect fork test class alone before calling a regression.
+
+**The overnight chain** (`scripts/build3_pay_chain.sh`, watchd `build3-paychain`, notifies): waits
+for the pool's DONE → the pool read (`pool-read.md`: usable groups / game, the margin quantiles,
+positives at bars 0.01–0.08, the resolution-effect census) → `pay_fit` 5 folds (bar 0.03, T 0.025,
+rolls ≥ 2, 3,000 steps, the 4,624 payment parameters) → `payfit-read.md` → the build
+`data/training/m12-build3-e4/last.pt` → the served-head smoke (8 games, `--pay-bar 0.2`) → the
+paired read `build3-surface-read-b3e4` on the rescue snapshot `forge-b3e4r.jar` (flag off unless
+armed): **off** = the pay tag withheld (surfaces + tuck served), **on** = + the pay tag at the bar,
+**rescue** = on + `-payrescue`; 2 × 300 per arm. Pre-registered: nothing broke (crash classes,
+misses, the rescue arm's veto rate) + the learnability read (positive top-1 / deviation vs tie
+deviation, before vs after, cross-fit) + the signs banked (on − off, rescue − on). The
+horizon-2 calibration (the certify path on heuristic games with `-searchseats` + the pay slot)
+is a separate small run, routed to the next session.

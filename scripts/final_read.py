@@ -67,6 +67,12 @@ def main() -> None:
         "the surface tags reads the same ckpt with the heuristic answering the surfaces",
     )
     ap.add_argument(
+        "--server-args",
+        default=None,
+        help="M12 Build 3 evening 4 (ADR-0105): extra model-server flags for the arm server "
+        "(e.g. '--pay-bar 0.2'); recorded in the arm server's log line",
+    )
+    ap.add_argument(
         "--heuristic-control",
         action="store_true",
         help="M12 Build 2 control arms (ADR-0104 item 5): NO seat bridged (the "
@@ -98,7 +104,10 @@ def main() -> None:
     arm_dirs: list[Path] = []
     server = _start_server(
         a.ckpt, a.port, RUNS_DIR / f"{a.name}-arm-server.log", sample=False,
-        sched_flags=(["--tags", a.server_tags] if a.server_tags else None),
+        sched_flags=(
+            (["--tags", a.server_tags] if a.server_tags else [])
+            + (a.server_args.split() if a.server_args else [])
+        ) or None,
     )
     try:
         for seat in (0, 1):
