@@ -787,3 +787,14 @@ suspect for the §3c head "never acquiring discrimination" — its baseline was 
 Fork `15863de0b4a` (`quietProbe`) removes it; the proof is the next read on that jar: off / on (the
 set-keyed head) / autoonly — autoonly − off ≈ 0 says the fix holds, and on − autoonly is then the
 head's own effect on one reference.
+
+## Addendum (2026-09-09, 16:05): the probe fix `15863de0b4a` PROVEN — fork pin
+
+Forkcheck `run-20260909-build3-e4p` (the snapshot `forge-b3e4p.jar`, sha `86289995…`; 500 games, seed
+20260703 vs the 08-21 baseline): 498/500 main-trace hashes identical — 20260969 the standing crash,
+and **20260744 the identity-hash residual**: replayed twice on the same jar, replay a reproduces the
+baseline hash `dbf25ab99ce90dee`, replay b the candidate's `0b119cbf37bdab27` (the same seed, the
+same two hashes, on the 09-08 key-fix forkcheck) — nondeterministic across JVM launches, not a
+game-path change; fork fidelity 448/52 vs 450/50. **PASS; the research fork pin moves to
+`15863de0b4a`** (`quietProbe`: the payment probe RNG- and memory-neutral on every bridged window;
+bridged-path only). The set-keyed head's read on this jar (off / on / autoonly) is running.

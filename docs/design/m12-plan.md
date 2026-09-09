@@ -674,3 +674,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   network arm ≈ 2.7pp; fork `15863de0b4a` (`quietProbe`) fixes it, forkcheck running; the set-key
   head's read on that jar (off / on / autoonly) is the proof + the head's own read on one reference
   ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+- **2026-09-09 (16:05)** — forkcheck `run-20260909-build3-e4p` 498/500 (the standing crash + the
+  identity-hash residual 20260744 replaying to the baseline hash) — **PASS; the research fork pin
+  moves to `15863de0b4a`** (the game-neutral payment probe; ADR-0105 addendum). The set-keyed head's
+  read on that jar (off / on / autoonly) running.
