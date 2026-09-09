@@ -732,3 +732,23 @@ question: in the loop (Build 4½) everything trains jointly under the KL guard. 
 (the chain imports from the main tree). The chain's pay-only build serves ≈ auto under the bar: its
 paired read is the "nothing broke" read + the rescue arm's first read; the role-copy head gets its
 own cross-fit → build → smoke → paired read as evening 4's second half.
+
+## Addendum (2026-09-09, 15:15): the evening-4 paired read (the pay-only build) — the tag itself costs; the rescue class barely fires
+
+`build3-surface-read-b3e4` (the e4 pay-only build on the rescue snapshot `forge-b3e4r.jar`, 2 × 300
+per arm; off = the pay tag withheld, surfaces + tuck served; on = + the pay tag at `--pay-bar 0.2`;
+rescue = on + `-payrescue`): off 0.531 / on 0.502 / rescue 0.498 — **on − off −2.91 ± 1.85 (t −1.6)**,
+**rescue − off −3.42 ± 1.90 (t −1.8)**, rescue − on ≈ −0.5 (noise). The on arm's head deviated on
+**0.137 windows per game** (81 `directed_ok`, 0 failures) and the deviation-free games (n 536) read
+the same −2.8: **the cost is the bridged path, not the answers** — with the served-tag ablation
+(+2.56 ± 1.88 withholding the init head) that is two independent reads of one ~2.7pp effect
+(combined t ≈ 2.1). The bridged path's only difference on a window the head answers auto is the
+M9 enumeration + the auto-payability probe (`canPayManaCost` in test mode: `MyRandom.percentTrue`
+per candidate source and AiCardMemory reservation-set clears / writes) before the same auto
+payment. **The probe-path arm** (the tag bridged, the server answering auto on every window —
+`--pay-bar 100`) runs now on the same seeds against the off arm: ≈ −2.8 → the probe is the cost
+(fork fix: a scratch RNG + a memory-set snapshot around the probe, serve-only); ≈ 0 → two noise
+reads of a small deviation cost. **The rescue class barely fires:** 20,892 options admitted over
+169,033 scanned windows (0.12 / window) but only 26 rescue payments in 300 games (0.09 / game;
+forced 90) — the network rarely picks an admitted cast; vetoes 460 vs 426 (+8%). Its read is
+inseparable from the tag's cost at this n; the bundle stays flag-gated and off by default.

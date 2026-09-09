@@ -662,3 +662,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   a fitted head exists (the server's `has_pay` gate reads the ckpt's `pay_fit`). The chain resumed
   from its smoke (the pay-only build; the rescue arm's read); the set-key head's fold 0: pos_ce 5.90
   → 3.59, argmax still auto, the pos-weight-8 fold pending.
+- **2026-09-09 (15:15) — the evening-4 paired read (the pay-only build):** on − off −2.91 ± 1.85,
+  rescue − off −3.42 ± 1.90, with 0.14 deviations per game and the deviation-free games reading the
+  same → **the bridged pay path itself costs ~2.7pp** (two independent reads, combined t ≈ 2.1); the
+  probe-path arm (the tag bridged, auto on every window) decides whether the auto-payability probe's
+  RNG draws + memory writes are the mechanism; the rescue class fires 0.09 / game — unreadable at
+  this n, stays flag-gated. The set-keyed head's 5-fold fit runs ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
