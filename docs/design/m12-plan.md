@@ -620,3 +620,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   standing crash — **PASS; the research fork pin moves to `c26e99824b8`** (the rescue bundle, flag
   off = byte-identical; ADR-0105 addendum). The pool at 105/1,000 (80 g/h); the chain and the ablation
   arm waiting.
+- **2026-09-09 (community watch, fork K)** — LordOfThePigs' effect-model design doc read (the survey
+  doc carries the summary): per-unique-ability-text encoder over the SCRIPT surface (prose paired) +
+  a state-conditional effect head over seven observed-effect record kinds from three Forge hooks;
+  keyword-expansion dropout; identity-only baseline + card-disjoint-by-newest-set held-out. Fork K
+  stands (our hash-keyed canonical script text already carries the effect language; the frozen probe
+  decodes every effect class); two of his devices are cheap to borrow when Build 4 touches the table:
+  keyword-expansion dropout as an augmentation, and the identity-only baseline as the floor for the
+  held-out-card probe. `@manabrew/forge-wasm` assessed: not for the loop (engine-bound; the prompt
+  surface; no search machinery); the RL-needs list drafted for khaliostr; Mentor-in-browser routed
+  with fork H. talor's M4 Pro question answered from ADR-0003 / ADR-0032 / the rl bench.

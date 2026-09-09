@@ -111,3 +111,116 @@ Both checks ran over the whole BC corpus (113,592 games / 65.8M priority windows
   from banked data. Routed by name as a **Build 4 fork** for the user: effect-grounded ability
   embeddings vs the pinned LLM text embeddings, with ADR-0049 (representation was not the bottleneck
   at M6) as the prior and his results, when they land, as the external read. Not acted on.
+- **2026-09-08/09 update (Discord, banked 09-09).** (1) **LordOfThePigs' design doc read**
+  ([2026-09-04-ability-effect-model-design.md](https://github.com/npiguet/price-predictor/blob/master/experiments/2026-09-04-ability-effect-model-design.md);
+  status *not yet run*, collection + first pretraining pending, feasibility verified in Forge source
+  09-04..09-06): the data = his gen-4 corpus (974K Forge self-play games) instrumented by three Forge
+  patches (a `TriggerHandler` attribution hook with a closed 147-member mutation enum, a replacement
+  execution hook, a resolution-bracket pointer for sub-abilities) into seven record kinds (resolution,
+  rewrite, continuous-effect, trigger-fire, playability verdicts, combat, counterfactual probes) over
+  33,680 card names (89% of unique ability texts appear once; 21.9% of cards never cast). The model =
+  an offline **ability encoder keyed per unique ability text** (script surface primary, prose paired;
+  cost vs effect role tags; **keyword-expansion dropout**: keyword tokens replaced by their definition
+  text with probability p in training, always expanded for unknown keywords at inference) + an
+  in-game state-conditional effect head over entity tokens predicting per-entity outcomes (zone,
+  tapped, damage, counters, P/T, control, attachments), per-player deltas, token creation, and an
+  [ACT] slot (playability, cost paid, trigger fired); multi-task, Poisson count heads, an
+  identity-only baseline as the memorization ceiling, card-disjoint-by-newest-set and game-disjoint
+  held-outs, behavioural canaries (ward vs its spelled-out twin, role polarity of {R} in cost vs
+  effect, zero-shot one-keyword-withheld). **Anvil relevance (fork K stands as adjudicated 09-07):**
+  our pin is the engine's canonical script text hash-keyed per ability, which already resolves his
+  "words mean something specific" objection by construction (the script parameters ARE the effect's
+  language; the ADR-0105 frozen probe decodes every effect class at AUC 0.98–1.00 from that
+  embedding); what his design adds that ours does not have is (a) keyword-expansion dropout — a cheap
+  augmentation for our own table (Forge's reminder-text templates are the same source), and (b) the
+  held-out-by-newest-set + identity-only-baseline evaluation, which is our held-out-card probe
+  (m12-plan fork K) stated as a benchmark; his per-record-kind effect targets are the effect-prediction
+  auxiliary loss we deferred pending the probe. Nothing changes now; his results are the external read.
+  (2) **Kryptic's follow-ups**: the 55.2% mirror result stands; his question "what should the new
+  benchmark be" — our answer on record: the heuristic is strong with blind spots, ~65% vs the
+  heuristic looks reachable on our pool by the headroom accounting (ADR-0075's payment headroom, the
+  planning gap), not yet taught. **chrismaghuhn** asked about rejected/traj 0.24 → 0.49 — the
+  user's answer: incidents per 64-step segment, not the share of invalid outputs; a degenerate
+  "let the engine pick" behaviour we hold down (the M9 finding: not the strength mechanism), fine
+  under `--reask` unless it keeps growing. (3) **talor**: "not much result playing with the veto
+  penalty"; asked whether anyone looked at manabrew ("their JSON API … less hacky than working around
+  forge's rpc limitations"); reported **good results on Modal** (its lowest GPU tier ≈ 5× his
+  MacBook for the train step — "with such a small model the limiting factor is cycles"); hardware =
+  **M4 Pro, 48 GB**. (4) **khaliostr (manabrew maintainer)**: the manabrew protocol is ready for
+  interop with Forge or any engine; **`@manabrew/forge-wasm`** released standalone
+  ([npm](https://www.npmjs.com/package/@manabrew/forge-wasm), v0.2.0, 2026-08-31, AGPL-3.0, 72 MB
+  unpacked: Forge compiled with **GraalVM Web Image**, runs on a worker thread in Node ≥ 20 or a
+  cross-origin-isolated browser, one synchronous game per worker, a `cardset.rkyv` archive with
+  per-game card-script selection, `createForgeEngine({onState, onPrompt}) → startGame({deck,
+  opponentDecks}) → respond(prompt.id, action)`, typed by `@manabrew/protocol` ^5.4, multiplayer
+  seats, `directive()` for out-of-band concession); "happy to support more RL-specific scenarios if
+  you give us leads".
+
+  **Assessment for Anvil (forge-wasm):** not relevant to the research loop, for three reasons we have
+  measured rather than assumed. (a) *The transport is not our bottleneck*: the gRPC bridge tax is
+  +2.6% at 16 workers (ADR-0003) and the serve path is wait-dominated (0.05 ms Python-active vs 5.3 ms
+  wall per request, ADR-0032) but hidden behind worker parallelism; the clock is the JVM engine
+  (generation ≈ 80% of an iteration on a CUDA box — Kryptic's monitor: gen_s ~1,400 vs train_s
+  ~290) and, in the train phase, the loader (the GPU sits ~90% idle, rl.py bench 07-25). A WASM Forge
+  under GraalVM Web Image runs without HotSpot's JIT profile and one synchronous game per worker —
+  slower per game than the JVM by an unmeasured factor (2–5× is the usual Web Image gap), the wrong
+  direction for a throughput-bound loop. (b) *The decision surface*: their protocol speaks the human
+  prompt surface (`Prompt`/`PromptOutput`); Anvil's census counts 64 firing `PlayerController`
+  callbacks, many of them fired inside legality/payability probing (the 07-18 review's gap list,
+  §2 of the survey dive), and manabrew's `DeterministicController` routes around Forge's AI. (c) *The
+  search machinery has no counterpart there*: GameCopier copies with seeded determinization, RNG
+  capture/restore, the forkcheck proof, the surface directives — all fork-side Java. Where it could
+  matter later: a browser-hosted Mentor surface (WASM Forge + an ONNX policy) — the same shape as
+  fork H's Android ship, routed with it. **The one actionable item is his ask**: the RL-harness needs
+  list we can hand him — (1) state forking with seed control and restore-in-place (GameSnapshot /
+  GameCopier semantics), (2) RNG capture/restore and a per-thread `MyRandom`, (3) callback coverage
+  beyond the prompt surface with a probing-vs-real flag (the field guide's "option scan is not a pure
+  observer"), (4) batched headless multi-game per process with per-game seeds and provenance pins
+  (engine commit, cardset version — his `BUILD_COMMIT` / `CARDSET_ARCHIVE_VERSION` already do this),
+  (5) an AI-opponent seat that stays deterministic. The M3-candidates item "determinism-hooks
+  collaboration with manabrew" is the same conversation, still open.
+
+  **Configuring Anvil on an M4 Pro (talor; the honest picture, from our own measurements):** the loop
+  is engine-bound, not GPU-bound. Generation scales with worker count: `--workers` ≈ physical cores −
+  2 (an M4 Pro's 12–14 cores → 10–12 workers; JVM heap 2–3 g each fits 48 GB), and an M4 P-core's
+  single-thread speed is at or above a desktop x86 core, so per-worker games/hour should match ours —
+  fewer workers is the whole difference. The model server is fine on `--device mps` or even `cpu`
+  (the forward is small; the serve path is wait-dominated anyway) — the one thing to verify is the
+  hard-coded bf16 autocast (`torch.autocast(device, bfloat16)` in the server and rl.py: supported on
+  MPS only in recent torch; a `--no-autocast` switch is a two-line change if not). The train phase
+  is where his 5× Modal number lives, but train is ~20% of an iteration on a CUDA box, so a 5× slower
+  train step makes an iteration ~1.8× longer, not 5×; `selfplay.py` does not expose `--device` for
+  the rl/server subprocesses today (a small patch: forward it to both). Splitting generation (local)
+  from training (Modal) is feasible because `anvil.training.rl` is a standalone step over the ingested
+  store — rsync the store up, pull `last.pt` down — but the loop does not do it for you.
+
+### Draft replies (09-09; the user posts; nothing posted from here)
+
+To khaliostr:
+
+> Thanks — congratulations on shipping forge-wasm. For our loop the engine, not the transport, is the
+> clock (our gRPC hop costs ~2.6% at 16 workers), so we'll stay JVM-side, but here is what an RL
+> harness needs from an engine interface, in case it helps the protocol: (1) state forking with seed
+> control and restore-in-place; (2) RNG capture/restore (and a per-thread RNG — you already did that
+> one); (3) decision callbacks beyond the human prompt surface, with a flag that says whether a
+> callback fires inside a legality/payability probe or for real; (4) batched headless multi-game per
+> process with per-game seeds and engine/cardset version pins on every record (your BUILD_COMMIT /
+> CARDSET_ARCHIVE_VERSION are exactly right); (5) an AI-opponent seat that stays deterministic. Happy
+> to compare notes on (1)–(3); we have a fork-fidelity harness that measures them.
+
+To Kryptic (the RPC question):
+
+> The "limitations" aren't really the RPC: our bridge tax measures +2.6% at 16 workers and the serve
+> path hides its latency behind worker parallelism. The hard part is Forge's decision surface itself —
+> ~64 controller callbacks that fire during play, some of them inside legality/payability probing —
+> and any interface, JSON or gRPC, has to answer those consistently. That's engine work either way.
+
+To talor (the M4 question):
+
+> Our loop is engine-bound: generation is ~80% of an iteration on a CUDA box and it's JVM work, so an
+> M4 Pro's cores matter more than its GPU — `--workers` ≈ cores − 2 (10–12 for you, heap ~3 g each
+> fits 48 GB) and per-worker throughput should match ours; fewer workers is the whole difference. The
+> server runs fine on `--device mps`/`cpu` (check the bf16 autocast on your torch). The 5× Modal gap
+> you saw is the train step, which is the smaller phase — expect ~1.8× longer iterations locally, not
+> 5×. Modal-for-training-only is feasible (rl is a standalone step over the store) but the loop won't
+> split it for you yet.
