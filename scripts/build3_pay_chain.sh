@@ -97,7 +97,7 @@ log "build: $CKPT_OUT/last.pt"
 
 # ---- 5. the served-head smoke (8 bridged games, every tag incl. pay, the margin bar; no search)
 SMOKE="$REPO/$OUT/pay-smoke"  # absolute: the java launch cds into forge-gui (the 09-09 rc=1)
-if [[ ! -f "$SMOKE/DONE" ]]; then
+if [[ ! -f "$SMOKE/DONE" || "$(cat "$SMOKE/DONE")" != "rc=0" ]]; then  # a failed smoke is not done (the 09-09 stale DONE skipped it)
   state smoke
   mkdir -p "$SMOKE"
   uv run python -m anvil.bridge.server --mode model --ckpt "$CKPT_OUT/last.pt" --port $SMOKE_PORT --pass-delta 0 --pay-bar "$PAY_BAR" > "$SMOKE/server.log" 2>&1 &
