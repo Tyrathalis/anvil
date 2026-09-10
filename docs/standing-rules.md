@@ -79,6 +79,10 @@ silently delete.
   evening-4 off arm withholds the tag, the ablation arm (e3 pay-withheld vs the evening-3 on arm)
   bounds the term ([ADR-0105 addendum 09-08](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md),
   [ADR-0104 addendum](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
+- **A head is served only with a FIT record in the checkpoint** — an "argmax is safe by design"
+  init is not a fit: the +2.0-init pay head's pointer residuals deviated on 2.7% of windows for a
+  measured −2.56 ± 1.88pp; the server's `has_pay` reads `pay_fit` as `has_surf` reads the surface
+  params (the never-serve-fresh-init rule, no exceptions; [ADR-0104 addendum 09-09](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
 ## Training-loop design
 
 - **Clips at birth** for engineered aggregates AND loss terms
@@ -365,6 +369,13 @@ silently delete.
   one-off keys in 1,000 games before `AbilityKey.stripRuntime`); the proof of any change to the
   key function is the byte-identical pool re-dump (5,148 keys, the same set), so every `ak` in
   every store stays valid ([ADR-0105 addendum 09-08](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+- **A probe on the game path is game-neutral — RNG AND engine memory**: the payment window's
+  auto-payability test (`ComputerUtilMana.canPayManaCost` in test mode) drew the game RNG per
+  candidate source and cleared / wrote the AI's mana-reservation sets on every bridged window
+  before the real payment; a bridged seat answering auto everywhere lost ≈ 2.7pp (three reads);
+  every enumeration / legality / payability probe runs under `AnvilOptions.withScratchRng` and
+  restores what it can touch (`PlayerControllerAnvil.quietProbe`), and a served-vs-withheld read
+  proves it before a head is read through it ([ADR-0105 addendum 09-09](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
 - **A search copy is determinized to the acting seat's information set**: hidden zones are
   resampled, never carried true, and the sampler is a named teacher setting in the store's
   provenance; a value computed on a true-hand copy leaks regardless of channel width

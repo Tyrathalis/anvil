@@ -690,3 +690,12 @@ moves verbatim to the status archive and this section stays here as the record.*
   outcome-changing games) — learnable, outcome unresolved and leaning negative (the mode head's
   shape); the head withheld, the payment target's horizon-2 calibration routed next. Evening 4
   proposed closed ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+- **2026-09-09 (17:40) — EVENING 4 CLOSED: the payment tag** ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  User: keep the set-keyed head, withhold it, calibrate its target (the horizon-2 certify rollout
+  on its deviation windows) before training it further; its training home is the loop. Assets: the
+  pool, the payment surface kind + gate + eot leaf, **the probe fix (pin `15863de0b4a`)** — the
+  evening's finding: a probe that was not a pure observer cost every network arm ≈ 2.7pp since
+  Build 1, now gone (autoonly − off +0.34 ± 0.48); the head (learnable, unserved); the queue item
+  closed by measurement; three standing rules (served-tag parity, game-neutral probes, a fit record
+  to serve). Served set unchanged. Next: the calibration read, the worker bench + JFR profile, then
+  evening 5 = mainline surface acting.

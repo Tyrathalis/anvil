@@ -833,3 +833,40 @@ value, loses by outcome" (the 09-08 finding). **Consequence:** the served set do
 pay head (the tag may be bridged — it now costs nothing — but the head stays withheld); the
 payment target's calibration is the next instrument: the horizon-2 certify rollout on the head's
 deviation windows (do the eot-leaf preferences convert at game end?) before any further head work.
+
+## Addendum (2026-09-09, 17:40): EVENING 4 CLOSED — the payment tag
+
+**Decision (user, 17:30): keep the set-keyed head, withhold it from serving, calibrate the target
+before training it further.** The head learned what it was given (held-out pos top-1 0.011 →
+0.094, pos dev 0.026 → 0.155, ties auto at 0.045); what is unproven is the target — the eot-leaf
+value — whose preferences on the head's ~0.1 deviations per game lean against the outcome (6 up /
+12 down at argmax, 4 / 8 at the bar; the mode head's shape). Next instrument, before any further
+head work: **the horizon-2 certify rollout on the head's deviation windows** (a few hundred windows,
+hours) — convert → the lean was noise and the head serves; do not → the target changes (a longer
+horizon or the certify outcome) and the head refits on the same pool. Its training home is the
+loop (Build 4½ PG on outcomes), as for every surface head.
+
+**Assets on file:** the payment pool `b3-surflab3-20260908-193402` (1,000 games, 42.9 usable groups
+per game, 5.7% positives at bar 0.03, split-half 0.65 vs 0.26); the payment surface kind
+(`Surfaces.PAY`, `copyPay`, the copy-side gate, the eot leaf, the pay expansion slot — fork
+`e44d83a8327`); the rescue bundle flag-gated (`c26e99824b8`; fires 0.09 / game, unreadable at n
+585); **the probe fix (`15863de0b4a`, the fork pin)** — the ~2.7pp cost every M12 network arm
+carried since Build 1 (three reads one way; autoonly − off on the fixed jar +0.34 ± 0.48 with 8
+divergent games of 591); the set-keyed role-copy head (`cand_ents` + `pay_query`/`pay_key`,
+`m12-build3-e4s`, not served); `pay_distill.py` / `pay_fit.py`; the server's `has_pay` gate on a
+fit record; the resolution-effect census (0.23 consequential / game of 48.8 — the ADR-0077 queue
+item's measured argument, item closed as ≈ 2% of payment decision traffic); the standing rules
+(served-tag parity; game-neutral probes; a head served only with a fit record).
+
+**Corrections to the record:** dz − ref ≈ +0.9 ± 2.2 corrected for the served-tag term (ADR-0104
+addendum); M9's D4 payment runs carried the same probe (their baseline was perturbed).
+
+**The served set from here:** entity one + set + gated mode + tuck + ordering + damage; the pay tag
+free to bridge (auto ≡ withheld on the fixed jar), the pay head withheld.
+
+**Routed by name:** the payment target calibration (the horizon-2 sample on the deviation windows;
+next session, before evening 5); the head's outcome read at volume (the loop, or a 2,000-game
+arm); the argmax-vs-bar serve rule once the target is calibrated; the rescue bundle's own read
+(needs a pool where admitted casts are chosen — the loop); the 8 residual divergent games under
+the fixed probe (≤ 1.4%; a watch item); the worker-count bench + the JFR profile (this week);
+evening 5 = mainline surface acting (modes first).
