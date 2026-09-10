@@ -733,3 +733,6 @@ moves verbatim to the status archive and this section stays here as the record.*
   b3label worktree moved to main, the merged vram worktree + branch removed; the community-thread
   QoL (`selfplay --device` / `--no-autocast`) on branch `qol-device` (worktree `anvil-wt-e4head`),
   tests 37 pass, merges after the chain.
+- **2026-09-09 (19:54)** — forkcheck `run-20260909-build3-paycal` 499/500 vs the 08-21 seeds, 20260969 the
+  standing crash — **PASS; the research fork pin moves to `287e8cca45`** (the calibration instrument;
+  ADR-0105 addendum). The chain's eot arm at 133/200; h2 and end follow.

@@ -911,3 +911,12 @@ run recipe with `-searchpayleaf h2|end`).
 `build3-paycal`, notifies): 2 × 200 games per arm, rate 0.25, rolls 4, B 2, clock 7,200 s; ≈ 6 h
 from the smoke's costs (end ≈ 7.7 s per answer at rolls 2, h2 ≈ 1.7 s, eot ≈ 0.5 s; a heuristic
 half-game ≈ 2–4 s). The forkcheck runs alongside.
+
+## Addendum (2026-09-09, 19:54): fork `287e8cca45` PROVEN — fork pin
+
+Forkcheck `run-20260909-build3-paycal` (the snapshot `forge-b3cal.jar`, 500 games, seed 20260703 vs
+the 08-21 baseline): **499/500 main-trace hashes identical; the one miss = 20260969, the standing
+crash** (turns 32 vs 29, the same seed as every Build 3 forkcheck); fork fidelity 450/50 both —
+**PASS; the research fork pin moves to `287e8cca45`** (the leaf family, the snap, `-searchclock`;
+search-copy / recording only). Ran alongside the calibration chain's eot arm (a load, not a
+measurement).
