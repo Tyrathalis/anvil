@@ -18,10 +18,21 @@ composite_logp(fwd, batch) therefore serves three jobs with one body:
 
 from __future__ import annotations
 
+import contextlib
+
 import torch
 import torch.nn.functional as F
 
 from anvil.training.dataset import TASKS, collate, default_methods
+
+# bf16 autocast around every forward; --no-autocast clears it (a device
+# without a bf16 path — the Mac users' mps / cpu train step, community
+# thread 09-09). Module state: set once in main(), read by the two forwards.
+AUTOCAST = True
+
+
+def _amp(dev: str):
+    return torch.autocast(dev, dtype=torch.bfloat16) if AUTOCAST else contextlib.nullcontext()
 
 
 def _gather_lp(
@@ -787,7 +798,7 @@ def plan_pass0(net, segs: list, dev: str) -> None:
             for k, v in s.items()
             if torch.is_tensor(v) and k not in ("plan_vec", "has_plan")
         }
-        with torch.autocast(dev, dtype=torch.bfloat16):
+        with _amp(dev):
             out = net(sub)
         for j, row in enumerate(idx.tolist()):
             vecs[int(s["plan_turn"][row])] = out["plan"][j].float().cpu()
@@ -844,7 +855,7 @@ def make_forward_segments(dev: str, seg: int):
                 try:
                     seg = {k: (v if n == b else v[i : i + n]).to(dev) for k, v in s.items()}
                     ctx = torch.enable_grad() if grad else torch.no_grad()
-                    with ctx, torch.autocast(dev, dtype=torch.bfloat16):
+                    with ctx, _amp(dev):
                         fwd = model(seg)
                 except torch.cuda.OutOfMemoryError:
                     seg_size["ok"] = 0
@@ -1206,7 +1217,14 @@ def main() -> None:
     ap.add_argument("--clip", type=float, default=1.0)
     ap.add_argument("--log-every", type=int, default=20)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument(
+        "--no-autocast",
+        action="store_true",
+        help="train without the bf16 autocast (a device without a bf16 path: mps / cpu)",
+    )
     args = ap.parse_args()
+    global AUTOCAST
+    AUTOCAST = not args.no_autocast
 
     stores = args.store.split(",")
     weights = [float(w) for w in args.weights.split(",")] if args.weights else [1.0] * len(stores)

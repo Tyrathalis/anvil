@@ -94,12 +94,17 @@ class _Batcher:
         max_batch: int = 16,
         window_ms: float = 3.0,
         temperature: float = 1.0,
+        autocast: bool = True,
     ):
         import queue
 
         self.net = net
         self.torch = torch_mod
         self.device = device
+        # bf16 autocast around the forward (off: --no-autocast — a device
+        # without a bf16 path, e.g. the Mac users' mps/cpu serve; community
+        # thread 09-09)
+        self.autocast = autocast
         self.counts = counts
         self.max_batch = max_batch
         self.window_ms = window_ms
@@ -148,7 +153,14 @@ class _Batcher:
                     if slots[0]["nz"] is not None
                     else None
                 )
-                with self.torch.autocast(self.device, dtype=self.torch.bfloat16):
+                import contextlib
+
+                amp = (
+                    self.torch.autocast(self.device, dtype=self.torch.bfloat16)
+                    if self.autocast
+                    else contextlib.nullcontext()
+                )
+                with amp:
                     out = self.net.act(
                         batch,
                         pass_delta=pd,
@@ -193,6 +205,7 @@ class ModelBackend:
         empty_emit: str = "hold",
         sched_basis: str = "legal",
         ability_table: "str | None" = None,
+        autocast: bool = True,
     ):
         import torch
 
@@ -269,7 +282,9 @@ class ModelBackend:
         self.pass_delta = pass_delta
         self.device = device
         self.counts: Counter[str] = Counter()
-        self.batcher = _Batcher(self.net, torch, device, self.counts, temperature=temperature)
+        self.batcher = _Batcher(
+            self.net, torch, device, self.counts, temperature=temperature, autocast=autocast
+        )
         # sampling mode (M2 D6): Gumbel-max instead of argmax, behavior-policy
         # record per answered decision -> mu.jsonl, joined at ingest on (g, s)
         self.sample = sample
@@ -940,6 +955,11 @@ def main() -> None:
     )
     ap.add_argument("--device", default="cuda")
     ap.add_argument(
+        "--no-autocast",
+        action="store_true",
+        help="serve without the bf16 autocast (a device without a bf16 path: mps / cpu)",
+    )
+    ap.add_argument(
         "--sample",
         action="store_true",
         help="Gumbel-max sampling instead of argmax (D6 actors); "
@@ -1087,12 +1107,14 @@ def main() -> None:
             empty_emit=args.sched_empty_emit,
             sched_basis=args.sched_basis,
             ability_table=args.ability_table,
+            autocast=not args.no_autocast,
         )
         if args.drill_ckpt:
             drill_backend = ModelBackend(
                 args.drill_ckpt,
                 args.pass_delta,
                 args.device,
+                autocast=not args.no_autocast,
                 sample=args.drill_sample,
                 temperature=args.temperature,
                 mu_path=args.drill_mu_out,

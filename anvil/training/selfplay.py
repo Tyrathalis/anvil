@@ -131,6 +131,8 @@ def _start_server(
     drill_mu_out: Path | None = None,
     instrument: bool = False,
     sched_flags: "list[str] | None" = None,
+    device: str | None = None,
+    autocast: bool = True,
 ):
     cmd = [
         sys.executable,
@@ -145,6 +147,12 @@ def _start_server(
         "--pass-delta",
         "0",
     ]
+    # the run's device + autocast regime (selfplay --device / --no-autocast;
+    # None = the server's default, cuda): the Mac users' mps / cpu serve
+    if device:
+        cmd += ["--device", device]
+    if not autocast:
+        cmd += ["--no-autocast"]
     if sample:
         cmd += ["--sample", "--temperature", str(temperature), "--mu-out", str(mu_out)]
     if instrument:
@@ -1001,6 +1009,15 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--chunk", type=int, default=30)
     ap.add_argument("--port", type=int, default=50063)
+    # the run's torch device + autocast regime, forwarded to every server the
+    # driver starts and to the rl step (the Mac users' mps / cpu loop —
+    # community thread 09-09; the box's default is unchanged)
+    ap.add_argument("--device", default="cuda", help="torch device for the servers + the rl step")
+    ap.add_argument(
+        "--no-autocast",
+        action="store_true",
+        help="serve + train without the bf16 autocast (a device without a bf16 path)",
+    )
     ap.add_argument("--seed-base", type=int, required=True)
     ap.add_argument("--temperature", type=float, default=1.0)
     ap.add_argument(
@@ -1622,6 +1639,8 @@ def main() -> None:
                     mu_out=mu_path,
                     temperature=args.temperature,
                     sched_flags=sched_flags(args),
+                    device=args.device,
+                    autocast=not args.no_autocast,
                 )
                 try:
                     for j, (bp, n, off, seats) in enumerate(batches):
@@ -1787,6 +1806,9 @@ def main() -> None:
                     state["ckpt"],
                     "--out",
                     str(train_dir),
+                    "--device",
+                    args.device,
+                    *(["--no-autocast"] if args.no_autocast else []),
                     "--lr",
                     str(args.lr),
                     *(["--pay-lr", str(args.pay_lr)] if args.pay_lr is not None else []),
@@ -2197,7 +2219,7 @@ def main() -> None:
             arm_dirs = []
             server = _start_server(
                 state["ckpt"], args.port, it_dir / "arms-server.log", sample=False,
-                sched_flags=sched_flags(args),
+                sched_flags=sched_flags(args), device=args.device, autocast=not args.no_autocast,
             )
             try:
                 for seat in (0, 1):
