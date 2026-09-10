@@ -870,3 +870,44 @@ arm); the argmax-vs-bar serve rule once the target is calibrated; the rescue bun
 (needs a pool where admitted casts are chosen — the loop); the 8 residual divergent games under
 the fixed probe (≤ 1.4%; a watch item); the worker-count bench + the JFR profile (this week);
 evening 5 = mainline surface acting (modes first).
+
+## Addendum (2026-09-09, 19:15): the calibration instrument — rollout leaves inside the search directive
+
+**Finding.** The routed "horizon-2 certify rollout" cannot use `CensusRun -certify` for any
+search-recorded window: the certify replay is census-identical construction — the same MyRandom
+seeding and `CensusLobbyPlayer` names — and *not* the AnvilRun path, which draws seed-derived AI
+profiles per seat and applies the Build 0 caps (the runner's own comment). A window recorded by
+the search directive (any labels row) therefore has no certify replay, on heuristic games or
+bridged ones. The M9 certify stays what it was: the drill certifier over census-mined windows.
+
+**Decision: the rollout is a LEAF of the pay slot.** Fork `287e8cca45` extends `-searchpayleaf`
+to a family — `next` (fork A's leaf), `eot` (= h0, the served head's target), `h<N>` (the seat's
+first quiescent window of a turn > t+N: the certify horizon), `end` (the copy played to its
+natural outcome, 1 / 0.5 / 0 from the acting seat, no head call) — every pay answer copy under a
+horizon leaf snapshots the certify axes at its stop (the sub row's per-roll `snap`: t_end, ended,
+life / creatures / power / hand / lands per seat) and carries its wall (`ms`); a rollout-leaf copy
+gets a 600 s clock (eot keeps 120 s); `-searchclock <s>` names the searched game's allowance.
+Search-copy / recording only; the mainline is untouched (forkcheck `run-20260909-build3-paycal`).
+One instrument, two reads: (a) **the target's calibration on heuristic games** — three
+heuristic-control arms on one seed set (the search observational, `-searchseats` per seat run, the
+e3 value head serving leaves), leaf eot / h2 / end, the sub rows joined by (seed, t, sw, seat, o,
+ord, a) — the join rate is the mainline-identity proof (smoke: 12/12 windows, outcomes + turns
+identical); (b) **the head's own deviation windows** — the same flags on a bridged arm's seeds with
+the same ckpt + jar (the pay slot covers the mainline's cast when it is a top-B candidate; B is
+the coverage knob) — the bridged-seat read, next.
+
+**The read (`scripts/pay_calibration.py`, pre-registered):** per (window, goal ≠ auto) the paired
+delta vs auto under each leaf; Spearman of d_eot vs d_end (and d_h2 vs d_end, d_eot vs the h2
+axes score); **the conversion**: on windows where the eot leaf prefers a goal over auto by ≥ bar
+(0.01 / 0.03 / 0.05 — the pool's positives), the mean d_end of the eot-best goal ± SE with its
+sign split, the same keyed on h2, ties as the control (≈ 0 expected), the best-by-end as the
+ceiling. **Verdict rule:** eot-positives' mean d_end > 0 (t ≥ 2) → the target converts, the lean
+in the argmax arm was noise, the head serves (argmax vs the bar decided from the same read's
+margin curve); ≤ 0 → the target is myopic on payments: refit `pay_fit` on the same pool with the
+h2 leaf or the outcome as the target (the pool must be re-labelled under that leaf — the same
+run recipe with `-searchpayleaf h2|end`).
+
+**Launched 19:12:** `scripts/build3_pay_calibration.sh` (`data/runs/build3-paycal/`, watchd
+`build3-paycal`, notifies): 2 × 200 games per arm, rate 0.25, rolls 4, B 2, clock 7,200 s; ≈ 6 h
+from the smoke's costs (end ≈ 7.7 s per answer at rolls 2, h2 ≈ 1.7 s, eot ≈ 0.5 s; a heuristic
+half-game ≈ 2–4 s). The forkcheck runs alongside.

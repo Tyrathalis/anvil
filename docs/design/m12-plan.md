@@ -699,3 +699,19 @@ moves verbatim to the status archive and this section stays here as the record.*
   closed by measurement; three standing rules (served-tag parity, game-neutral probes, a fit record
   to serve). Served set unchanged. Next: the calibration read, the worker bench + JFR profile, then
   evening 5 = mainline surface acting.
+- **2026-09-09 (19:12, session 2) — the payment target's calibration LAUNCHED** ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md),
+  [devlog](../devlog/2026-09-09-session2.md)). The zero-fork route was dead on arrival: the
+  CensusRun certify replay is by construction not the AnvilRun path (seed-derived AI profiles, the
+  caps — its own comment says so), so no certify job can line up with a search window. The
+  instrument moved INSIDE the search directive: fork `287e8cca45` gives the pay slot a leaf family
+  (`-searchpayleaf next|eot|h<N>|end`; `end` = the copy to its outcome, no head call), a per-roll
+  certify-axes `snap` on every pay answer, `-searchclock`; search-copy / recording only. The chain
+  `build3_pay_calibration.sh`: three heuristic-control arms on one seed set (eot / h2 / end; 2 × 200
+  games each, rate 0.25, rolls 4, B 2, the e3 value head), the sub rows joined across arms by
+  `pay_calibration.py` (the join rate = the mainline-identity proof; smoke 12/12, outcomes and turns
+  identical across the three arms) → the CONVERSION of the eot leaf's positives by the rollout.
+  Cost from the smoke: end ≈ 7.7 s per answer at rolls 2 (a heuristic half-game ≈ 2–4 s), eot ≈ 0.5
+  s, h2 ≈ 1.7 s → ≈ 6 h. Forkcheck `run-20260909-build3-paycal` alongside. Housekeeping: the
+  b3label worktree moved to main, the merged vram worktree + branch removed; the community-thread
+  QoL (`selfplay --device` / `--no-autocast`) on branch `qol-device` (worktree `anvil-wt-e4head`),
+  tests 37 pass, merges after the chain.
