@@ -736,3 +736,10 @@ moves verbatim to the status archive and this section stays here as the record.*
 - **2026-09-09 (19:54)** — forkcheck `run-20260909-build3-paycal` 499/500 vs the 08-21 seeds, 20260969 the
   standing crash — **PASS; the research fork pin moves to `287e8cca45`** (the calibration instrument;
   ADR-0105 addendum). The chain's eot arm at 133/200; h2 and end follow.
+- **2026-09-10 (community watch, noted)** — Shedletsky's Forge-MCP / "UCI for MTG" thread (itemfive:
+  the blocker is choice representation, the K'un-Lun example; Shedletsky: English as the
+  representation, at the cost of search). User: a Forge MCP is not very useful to us, a neat idea.
+  Banked in the survey doc with the assessment: not on the loop's path (engine-bound; an LLM seat is
+  a Mentor surface, fork H); his labeled-positions goal is the drill question (engine-adjudicated
+  labels, never an LLM's); the UCI answer is the engine's own callback surface + `AbilityKey` — the
+  bridge protocol is UCI-shaped but engine-specific by construction. Nothing routed.

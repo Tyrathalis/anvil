@@ -283,3 +283,57 @@ To Shedletsky:
 > 278 Possibility Storm puzzles as loadable `.pzl` states under `forge-gui/res/puzzle/`, so a
 > "win this turn" battery is a harness over a format the engine has, not a scrape; and 17lands'
 > play data is the only human-play corpus around, though it's Limited on Arena.
+
+### 09-10 follow-up: the Forge MCP / "UCI for MTG" thread (the user posted the drill reply 09-09 17:17; read 09-10, nothing posted)
+
+- **Shedletsky (09-10 09:47):** has anyone built an MCP server for Forge so an LLM (Astra) can play a
+  seat directly; wants to "scalably generate thousands of game positions with labeled answers that
+  are at least directionally correct"; wishes for a UCI-like common protocol so any two MTG AIs can
+  be plugged together. Astra priced a Forge MCP at 3–6 weeks (his gloss: "so it could implement it
+  in 30 minutes", the multiplayer plumbing reusable). talor: "mcp is a great idea actually".
+- **itemfive (10:07–10:35):** human ↔ human / human ↔ AI-on-server protocols exist (the Manabrew
+  protocol, `docs.manabrew.app/protocol/`, a Forge fork supports it); AI ↔ AI is the hard one —
+  card state, token representation, **choice selection and ordering**. His K'un-Lun Warrior example
+  ("you may sacrifice an artifact or discard a card; if you do, draw"): the same ability prompts as
+  a yes/no chain, as a three-button choice with a paid-cost mark, or other shapes — two engines /
+  AIs that pick different shapes cannot talk. The Manabrew protocol "is fine for LLM-style AIs",
+  not for tree search.
+- **Shedletsky:** "possibly the best representation is just English, but that makes any tree
+  search suck"; his prior project (an AI mafia server) converged on English because the LLMs that
+  can reason over a formalization reason as well over the prose and lose nothing.
+- **Fuzz (00:53):** confirms the channel is for AI (and advanced AI workings).
+
+**Assessment (user, 09-10: a Forge MCP is probably not very useful to us, but a neat idea).** Agreed,
+with the reasons on record:
+
+- **Not on the loop's path.** The loop is engine-bound (bridge tax 2.6%, the server wait-dominated,
+  cores idle at 8 workers); an MCP seat is a prompt-per-callback LLM — orders of magnitude slower
+  per decision than the 64-callback gRPC bridge, no search machinery, no batching. The same verdict
+  as `@manabrew/forge-wasm` (09-09): relevant only as a Mentor surface (fork H) — an LLM coach
+  sitting on the bridge's callback stream, which is exactly what `PlayerControllerAnvil` already
+  exposes; an MCP over the bridge would be a thin adapter, not a new engine binding.
+- **His actual goal ("thousands of labeled positions, directionally correct") is the drill
+  question again**, answered in the 09-09 reply: labels must be engine-adjudicated (paired rollouts),
+  never an LLM's opinion of a position — the design invariant (every LLM judgment downstream-
+  verified). An LLM playing a seat generates trajectories, not labels; the labels still come from
+  the certifier / the search directive's leaf family.
+- **The UCI question is the interesting one, and itemfive has it right: the blocker is choice
+  representation, not state.** Our answer, for the record: the canonical representation of a
+  choice is **the engine's own callback surface** — the seat is asked exactly what Forge asks its
+  heuristic (the 20 named callbacks, the priority option list, the seven answer shapes), and the
+  option identity is the ability's canonical engine text (`AbilityKey`, the 09-07 pin). That is
+  UCI-shaped (any AI plugs in at that boundary and speaks the same protocol — Anvil, the
+  heuristic, a random bridge, an LLM) but engine-specific: it canonicalizes by choosing ONE
+  engine's prompt shapes, which is the only way the K'un-Lun ambiguity resolves (Forge's
+  `PermanentCreatureAi` confirmAction shape IS the shape). A cross-engine UCI would have to
+  standardize prompt shapes per rules text, i.e. re-derive one engine's choice model for every
+  engine — the same 3–6-week estimate multiplied by engines. Not our problem to solve; the bridge
+  protocol spec ([bridge-protocol-v0.md](bridge-protocol-v0.md)) is the public artifact if anyone
+  asks "what would a Forge UCI look like".
+- **"English as the representation"** is the LLM-native answer and is right for Mentor's
+  narration layer; for search it is what fork K rejected (the ability text is embedded once,
+  hash-keyed, and the decision surface stays structured — the effect probe AUC 0.98–1.00 says the
+  structure loses nothing an LLM would recover).
+
+Routed: nothing new. Mentor-in-browser / an LLM seat over the bridge stays with fork H; a
+"what a Forge UCI looks like" note could be a short reply if the thread asks.
