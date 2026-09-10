@@ -224,11 +224,23 @@ def main() -> None:
         )
         ident_ok += same
         ident_bad += not same
+    # coverage: a horizon-leaf arm clips long games at the clock (their late
+    # windows are lost), so windows present in the ref arm but absent from a
+    # rollout arm concentrate late — report the loss by turn bucket
+    def by_turn(ks):
+        c = Counter()
+        for k in ks:
+            c[f"t{(k[1] - 1) // 5 * 5 + 1:02d}"] += 1
+        return dict(sorted(c.items()))
+    ref_only = {n: set(arms[ref]) - set(arms[n]) for n in names[1:]}
     report["join"] = {
         "windows_per_arm": {n: len(arms[n]) for n in names},
         "joined": len(keys),
         "identical_window": ident_ok,
         "mismatched_window": ident_bad,
+        "joined_by_turn": by_turn(keys),
+        "ref_only_by_turn": {n: by_turn(ks) for n, ks in ref_only.items()},
+        "ref_only": {n: len(ks) for n, ks in ref_only.items()},
     }
 
     # ---- per (window, goal) deltas
@@ -322,6 +334,8 @@ def main() -> None:
     # ---- the summary
     print(f"pay_calibration: arms {names}; joined windows {len(keys)} "
           f"(identical {ident_ok} / mismatched {ident_bad}); (window, goal) pairs {len(rows)}")
+    print(f"  windows per arm {report['join']['windows_per_arm']}; in {ref} only: {report['join']['ref_only']}"
+          f" — by turn {report['join']['ref_only_by_turn']}")
     for n in names:
         t = report["arms"][n]
         print(f"  {n:<5} windows {t['windows']:>5} answers {t['answers']:>6} kinds {t['copy_kinds']} "
