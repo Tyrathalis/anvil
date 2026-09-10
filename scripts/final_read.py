@@ -35,7 +35,13 @@ def main() -> None:
     ap.add_argument("--games", type=int, default=1000, help="games per seat arm")
     ap.add_argument("--games-per-pair", type=int, default=5)
     ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--chunk", type=int, default=50)
+    ap.add_argument(
+        "--chunk",
+        type=int,
+        default=None,
+        help="games per worker chunk; default = ceil(games / workers) so every worker is busy "
+        "(the fixed 50 left 12 of 16 workers idle on a 200-game arm, 09-09)",
+    )
     ap.add_argument("--port", type=int, default=50065)
     ap.add_argument("--pairs-file", default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
     ap.add_argument("--seed-base", type=int, default=20260710)
@@ -88,6 +94,8 @@ def main() -> None:
         "day-zero paired diffs need the raw arms, not the corrected number",
     )
     a = ap.parse_args()
+    if a.chunk is None:
+        a.chunk = max(1, -(-a.games // a.workers))
     # Self-registration with the standing watcher: the read reports its OWN
     # pid (the 07-31 chain waiter grabbed a pgrep'd pid that was its own
     # wrapper shell and waited on itself forever). Crash without unregister
