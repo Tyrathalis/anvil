@@ -798,3 +798,19 @@ same two hashes, on the 09-08 key-fix forkcheck) — nondeterministic across JVM
 game-path change; fork fidelity 448/52 vs 450/50. **PASS; the research fork pin moves to
 `15863de0b4a`** (`quietProbe`: the payment probe RNG- and memory-neutral on every bridged window;
 bridged-path only). The set-keyed head's read on this jar (off / on / autoonly) is running.
+
+## Addendum (2026-09-09, 16:30): the set-keyed head's read on the probe jar — the probe fix PROVEN by outcome; the head unreadable at bar 0.2
+
+`build3-surface-read-b3e4s` (the e4s ckpt on `forge-b3e4p.jar`, 2 × 300 per arm): off 0.532 /
+on 0.526 / autoonly 0.536 — **autoonly − off = +0.34 ± 0.48 (5 up / 3 down, n 591)**: with the
+probe neutral, the bridged arm plays the withheld arm's games all but 8 times in 591 — **the
+~2.7pp served-tag cost is gone** (yesterday's autoonly − off on the old jar: −2.91 ± 1.86, 51 /
+68). The residual 8 divergent games are a watch item (the enumeration's `canPlay` checks or the
+snapshot; ≤ 1.4% of games, no sign). **on − off = −0.34 ± 0.68 (7 / 9), on − autoonly = −0.68 ± 0.59
+(4 / 8)**: at `--pay-bar 0.2` the set-keyed head deviated on **56 windows in 600 games (0.09 /
+game; the bar held 19)** — 12 outcome-changing games, 4 up / 8 down: unreadable, sign negative,
+t −1.2. The bar was pinned before the head existed; the cross-fit says the argmax leaves auto on
+~15% of positives (≈ 0.4 / game) and 4.5% of ties (≈ 1.8 / game), so **the argmax arm (`--pay-bar
+0`, `data/runs/build3-e4s-bar0/`) is the head's read at volume** — launched 16:30 against the same
+off arm. The served set stays: surfaces + tuck; the pay tag on the fixed jar is now free to serve
+(autoonly ≈ off) and the head's serve decision waits on the argmax arm.
