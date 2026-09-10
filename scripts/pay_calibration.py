@@ -275,7 +275,6 @@ def main() -> None:
     by_win: dict[tuple, list] = defaultdict(list)
     for r in rows:
         by_win[r["key"]].append(r)
-    targets = [n for n in names if n != ref] or []
     conv: dict = {}
     for picker in names:  # the leaf that picks
         for target in names:  # the leaf that judges
