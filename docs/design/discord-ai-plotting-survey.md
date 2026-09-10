@@ -337,3 +337,10 @@ with the reasons on record:
 
 Routed: nothing new. Mentor-in-browser / an LLM seat over the bridge stays with fork H; a
 "what a Forge UCI looks like" note could be a short reply if the thread asks.
+
+**User (09-10):** the Manabrew protocol (`@manabrew/protocol` v5, JSON) is the cross-engine contract
+— manabrew's Rust engine and Forge (via `@manabrew/forge-wasm`, or the patched JVM Forge behind
+their lockstep harness) both speak it — so any MCP / "UCI" effort in the community ought to start
+there rather than invent a protocol; Anvil stays plugged into Forge's controller directly (the
+protocol is the human prompt surface, not the 64-callback controller surface, and none of the
+search machinery lives there) — no conversion, at least for now.
