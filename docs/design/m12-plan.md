@@ -332,7 +332,25 @@ head; match play; Tutor / Mentor as products; the Rust subset engine (re-priced 
 bundle leaves throughput binding at the big run's sizing); **the Pauper testbed** (fork G — the
 closeout, or early on the Build 5 mid-run kill); **training on a second format** (fork I — after
 the readiness lands, its own powered run); **the standing-rules prune** (the next documentation
-pass).
+pass); **the certifier merge** (user, 09-09 session 2 — routed to Build 4½ or the closeout,
+whichever comes first after evening 5; the trigger = the first re-certification of existing
+drills on a new pin, or the first drill mined from network-played games — both likely at the big
+run): one fork-and-adjudicate primitive, two entry points. Today the M9 certifier (`CensusRun
+-certify`: replay from a stored coordinate, payment-only, heuristic-only) and the search copy (the
+leaf family, any surface, the behavior distribution) duplicate everything downstream of reaching
+the window — the goal directive, the executor, the horizon stop (a turn-began event vs the
+quiescent-window rule), the snapshot (the same fields, two encodings), the row schema, the
+reader — and the two runners are not trajectory-identical (AnvilRun draws AI profiles + applies
+the caps; the 09-09 finding). The merge: consult `PayDirective` inside the Anvil controller's copy
+path so AnvilRun replays a stored window itself (its drill-file fork points already reach a turn),
+the certifier becomes a thin front (replay to the window → the search copy), CensusRun's certify
+mode retires, drill mining moves to AnvilRun census rows so the mining runner and the replay
+runner are one program. Keep the two ways of REACHING a window: replay-from-coordinate is what
+gives a drill provenance that outlives the process that found it (the Grindstone invariant; a
+re-certification on a new pin needs only deck pair + seed + turn + spell); fork-from-live-state
+is what runs on the behavior distribution for every surface. Not "inside vs outside the model":
+the engine adjudicates in both, the head never certifies (`end` = the engine's outcome; `eot` /
+`h2` = head-valued readings of the same fork). ≈ a day of fork work + a forkcheck.
 
 ## Running record
 
