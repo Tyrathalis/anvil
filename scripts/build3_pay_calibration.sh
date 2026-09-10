@@ -26,7 +26,7 @@ cd "$REPO"
 OUT=${OUT:-$REPO/data/runs/build3-paycal}
 case "$OUT" in /*) ;; *) OUT="$REPO/$OUT" ;; esac
 mkdir -p "$OUT"
-GAMES=${GAMES:-200}; WORKERS=${WORKERS:-16}; PORT=${PORT:-50077}
+GAMES=${GAMES:-200}; WORKERS=${WORKERS:-16}; PORT=${PORT:-50077}; CHUNK=${CHUNK:-13}  # 200 games / 13 = 16 chunks: every worker busy (final_read's default 50 left 12 of 16 idle, 21:08 09-09)
 RATE=${RATE:-0.25}; ROLLS=${ROLLS:-4}; B=${B:-2}; CLOCK=${CLOCK:-7200}
 LEAVES=${LEAVES:-"eot h2 end"}
 CKPT=${CKPT:-data/training/m12-build3-e3/last.pt}
@@ -55,7 +55,7 @@ for LEAF in $LEAVES; do
   FARGS="-search -searchrate $RATE -searchrolls $ROLLS -searchpay $B -searchpayleaf $LEAF -searchclock $CLOCK"
   log "arm $LEAF start fargs='$FARGS'"
   nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "b3cal-$LEAF" --games "$GAMES" \
-      --workers "$WORKERS" --port "$PORT" --jar "$JAR" --skip-ante --heuristic-control --labels \
+      --workers "$WORKERS" --chunk "$CHUNK" --port "$PORT" --jar "$JAR" --skip-ante --heuristic-control --labels \
       --forge-args="$FARGS" >> "$OUT/$LEAF.log" 2>&1 || fail "$LEAF"
   arms_of "b3cal-$LEAF" > "$OUT/$LEAF.done"
   log "arm $LEAF done: $(cat $OUT/$LEAF.done)"
