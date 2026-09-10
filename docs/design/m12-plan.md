@@ -684,3 +684,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   I's open vocabulary, or the search directive solves them as a value-head benchmark with exact
   answers) and **17lands play data** as the skill-token human corpus candidate at the closeout. The
   Grindstone summary for the reply in the survey doc.
+- **2026-09-09 (17:15) — evening 4's reads on the probe jar:** autoonly − off +0.34 ± 0.48 (8 divergent
+  games of 591: the probe fix holds, the served-tag cost is gone); the set-keyed head at bar 0.2
+  −0.34 ± 0.68 and at argmax −1.02 ± 0.72 vs autoonly, on 0.09–0.12 deviations per game (6 / 12
+  outcome-changing games) — learnable, outcome unresolved and leaning negative (the mode head's
+  shape); the head withheld, the payment target's horizon-2 calibration routed next. Evening 4
+  proposed closed ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).

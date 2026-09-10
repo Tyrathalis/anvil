@@ -814,3 +814,22 @@ t −1.2. The bar was pinned before the head existed; the cross-fit says the arg
 0`, `data/runs/build3-e4s-bar0/`) is the head's read at volume** — launched 16:30 against the same
 off arm. The served set stays: surfaces + tuck; the pay tag on the fixed jar is now free to serve
 (autoonly ≈ off) and the head's serve decision waits on the argmax arm.
+
+## Addendum (2026-09-09, 17:15): the argmax arm — the set-keyed head's deviations lean negative, unresolved; the diagnostic
+
+`build3-e4s-bar0` (the e4s ckpt at `--pay-bar 0`, i.e. argmax, on the probe jar, 2 × 300 vs the b3e4s
+arms): bar0 0.524 — **bar0 − autoonly = −1.02 ± 0.72 (t −1.4, 6 up / 12 down, n 590)**, bar0 − off
+−0.85. The head deviated on **69 windows in 600 games (0.115 / game; the 0.2 bar had held 19 of
+these)**: 18 outcome-changing games, 6 up / 12 down; with the bar-0.2 arm's 4 / 8 (overlapping
+games) the deviations lean negative at ~2σ on tiny counts. **Diagnostic:** the build checkpoint's
+argmax deviates on 2.4% of the pool's own frames (positives 11.9%, ties 1.8%) and on 1.7% of the
+served mainline windows — no serve-time featurization gap; the build is simply more conservative
+than the fold models (15.5% / 4.5% held-out), and the mainline is ~94% ties, so ~0.1–0.2
+deviations per game is what this head does. **Reading:** the learnability question is answered
+(the set key learns the positives: held-out pos top-1 0.094, pos dev 0.155 against 0.011 / 0.026)
+and the outcome question is not — the head's rare deviations, chosen where the eot-leaf value
+preferred a goal, lean against the outcome, the same shape as the mode head's "beats by the leaf
+value, loses by outcome" (the 09-08 finding). **Consequence:** the served set does not take the
+pay head (the tag may be bridged — it now costs nothing — but the head stays withheld); the
+payment target's calibration is the next instrument: the horizon-2 certify rollout on the head's
+deviation windows (do the eot-leaf preferences convert at game end?) before any further head work.
