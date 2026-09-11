@@ -743,3 +743,14 @@ moves verbatim to the status archive and this section stays here as the record.*
   a Mentor surface, fork H); his labeled-positions goal is the drill question (engine-adjudicated
   labels, never an LLM's); the UCI answer is the engine's own callback surface + `AbilityKey` — the
   bridge protocol is UCI-shaped but engine-specific by construction. Nothing routed.
+- **2026-09-10 (17:49) — THE CALIBRATION READ** ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md),
+  `data/runs/build3-paycal/read.md`): 1,252 windows joined across eot / h2 / end, **1,252 identical /
+  0 mismatched** (the mainline-identity proof at scale); the eot leaf's positives at the fit bar
+  convert **+4.2pp ± 2.7 (t 1.6)** by the outcome, +2.9 ± 1.4 (t 2.0) at 0.01, ties ≈ 0 — **the target
+  is not myopic** (no sign flip; the argmax arm's lean was noise); **the h2 leaf converts at t 2.9
+  (+5.8 ± 2.0 on 133 positives vs eot's 62)** at 3× eot's copy cost vs 12× for the outcome leaf →
+  proposed: h2 = the payment target going forward (the pool re-labelled at the next label run), the
+  bridged-seat read on the h2 judge next (the bar0 seeds, `-searchpay 4 -searchpayleaf h2`, hours).
+  Coverage: the rollout arms lose clipped late windows (end −280, h2 −78, mostly turn ≥ 21). Chain
+  wall 22.5 h with two restarts (the chunk fix, the clock); the end arm's straggler tails ≈ 3 h per
+  seat. The user decides the routing.

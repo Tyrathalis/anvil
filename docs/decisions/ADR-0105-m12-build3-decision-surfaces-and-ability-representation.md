@@ -920,3 +920,54 @@ crash** (turns 32 vs 29, the same seed as every Build 3 forkcheck); fork fidelit
 **PASS; the research fork pin moves to `287e8cca45`** (the leaf family, the snap, `-searchclock`;
 search-copy / recording only). Ran alongside the calibration chain's eot arm (a load, not a
 measurement).
+
+## Addendum (2026-09-10, 17:49): THE CALIBRATION READ — the eot target is not myopic; the h2 leaf is the better-calibrated target
+
+`data/runs/build3-paycal/read.md` (three heuristic-control arms on one seed set, 2 × 200 games
+each, rate 0.25, rolls 4, B 2, the e3 value head; the chain ran 19:12 09-09 → 17:49 09-10 with two
+restarts — the chunk fix and the clock).
+
+**The identity proof holds at scale:** 1,252 windows joined across the three arms, **1,252 identical /
+0 mismatched**; 3,485 (window, goal) pairs. **Coverage:** eot 1,537 windows, h2 1,468, end 1,261 —
+the rollout arms lose their clipped games' late windows (in eot only: h2 78, end 280, of which 218
+sit at turn ≥ 21); the joined set is mid-game-weighted (t06–t20 = 841 of 1,252). Leaf noise (roll
+SD): eot 0.032, h2 0.078, end 0.138. Copy kinds clean (crash 50–59 per arm, the standing class;
+end: 271 draws = the copy's turn cap, 4 timeouts).
+
+**The conversion (the pre-registered number: the eot leaf's positives judged by the outcome):**
+
+| picker → judge | bar | n | mean d ± SE | t | up / flat / down | ties' mean d |
+|---|---|---|---|---|---|---|
+| eot → end | 0.01 | 177 | +0.029 ± 0.014 | 2.0 | 46 / 103 / 28 | +0.005 |
+| eot → end | **0.03** | 62 | **+0.042 ± 0.027** | **1.6** | 18 / 35 / 9 | +0.007 |
+| eot → end | 0.05 | 38 | +0.046 ± 0.037 | 1.2 | 12 / 19 / 7 | +0.007 |
+| eot → h2 | 0.03 | 62 | +0.057 ± 0.011 | 5.2 | 48 / 3 / 11 | −0.003 |
+| h2 → end | 0.01 | 257 | +0.052 ± 0.013 | 3.9 | 81 / 141 / 35 | −0.001 |
+| h2 → end | **0.03** | 133 | **+0.058 ± 0.020** | **2.9** | 49 / 62 / 22 | +0.004 |
+| h2 → end | 0.05 | 86 | +0.070 ± 0.025 | 2.7 | 36 / 36 / 14 | +0.006 |
+| end → eot | any | 223 | −0.001 ± 0.003 | — | 83 / 61 / 79 | — |
+
+Spearman over all pairs: eot vs end 0.11, eot vs h2 0.22, h2 vs end 0.13, eot vs the h2 axes score
+0.23. The certify axes (life + development at the stop) favour the eot-best goal by +1.6 at h2 and
++6.9 at game end (bar 0.03).
+
+**Verdict by the rule:** at the fit bar (0.03) the eot leaf's positives convert **positively but
+below t 2** (+4.2pp ± 2.7, t 1.6; 2:1 up:down among the non-flat); at 0.01 they clear (t 2.0). The
+ties sit at ≈ 0 (the control). So **the target is not myopic** — no sign flip anywhere (the mode
+head's shape was a sign flip), and the argmax arm's 6/12 lean was noise at n 18. **But the h2 leaf
+is the better-calibrated target:** at the same bar it finds twice the positives (133 vs 62) and they
+convert at t 2.9 (+5.8pp ± 2.0), agreeing with the eot leaf where both speak (eot → h2 t 5.2) and
+converting per positive at least as well; its copies cost ≈ 3× eot's (12 s vs 4 s per answer at 4
+rolls) against ≈ 12× for the outcome leaf (49 s), whose best-by-outcome is winner's-cursed at 4
+rolls (end → eot ≈ 0). The outcome leaf is the judge, not a label: too noisy per window and too
+expensive per copy.
+
+**Decision (proposed; the user decides):** (1) the served eot head's target stands as
+*directionally validated* — serving it is no longer blocked by the target; (2) **the h2 leaf becomes
+the payment target going forward** (`-searchpayleaf h2`: the pool re-labelled under it when the
+next label run happens — the loop's, not a bespoke 2-day rerun — and `pay_fit` refits there); (3)
+**the bridged-seat read runs on the h2 judge**: the bar0 arm's seeds replayed with `-search
+-searchpay 4 -searchpayleaf h2` on the e4s ckpt at argmax (hours, not the outcome leaf's day) —
+the head's ~70 deviation windows judged by the validated proxy, which also decides the serve bar
+from the head's own margin curve; (4) the coverage caveat stands on every horizon-leaf read: the
+clock clips late games, and the read reports the loss by turn.
