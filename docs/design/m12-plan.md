@@ -764,3 +764,19 @@ moves verbatim to the status archive and this section stays here as the record.*
   served-head smoke → the paired read `b3e4h` off / on at argmax on the pinned jar). Expected: the
   pool ≈ 08:00 09-11, the read ≈ 16:00. The bridged-seat read on the h2 judge and the throughput
   bench follow in the daytime gaps.
+- **2026-09-10 (21:50) — routed by name: MODEL-SERVER SCALING (user).** The h2 relabel's first launch
+  found the loop's real ceiling under search: one model server = one Python batcher thread (110% CPU
+  at 16 workers of network-played h2 copies, the GPU at 52%, the workers at 30% waiting on the
+  bridge); the harness takes ONE `--bridge` address, so more workers cannot help and the recipe had
+  to shrink 4× instead. **The item (the throughput week, ahead of the 16- vs 24-worker bench — the
+  bench is meaningless until the server scales):** (1) the harness accepts a list of bridge
+  addresses and assigns workers round-robin (`--bridge a,b,c`; one line in the worker command
+  builder); (2) the launchers (`selfplay`, `final_read`, the label + read chains) start N servers on
+  consecutive ports, N = ceil(workers / 8) by default (a `--servers` knob; one `_start_server` loop);
+  (3) **autoscale**: the driver watches the servers' batcher occupancy (the server already counts
+  asks and micro-batch sizes — expose a `/stats` line per minute) and adds a server + rebalances at
+  the next chunk boundary when the mean queue wait exceeds the forward latency (the harness assigns
+  chunks, so a rebalance is a per-chunk address choice, not a live migration); (4) the Build 5 sizing
+  line re-issued with servers as a variable (the GPU has ≥ 2× headroom at 52%). Measured argument:
+  the calibration's heuristic copies ran 16 workers at load 22 with no server pressure; the same
+  recipe on self-play copies saturated one server at 29 g/h.
