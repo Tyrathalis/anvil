@@ -754,3 +754,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   Coverage: the rollout arms lose clipped late windows (end −280, h2 −78, mostly turn ≥ 21). Chain
   wall 22.5 h with two restarts (the chunk fix, the clock); the end arm's straggler tails ≈ 3 h per
   seat. The user decides the routing.
+- **2026-09-10 (20:00) — THE h2 RELABEL LAUNCHED (user: swap the target now, not at the next label
+  run — the loop's label run is weeks out and the pool is a dataset, not a checkpoint).**
+  `scripts/build3_h2_relabel.sh`: the evening-4 pool recipe under `-searchpayleaf h2` (rolls 4, 16
+  workers, the clock 2,400 s, seed base 20260910, the e3 ckpt serving every tag but pay, jar = the
+  pin `287e8cca45`) → `data/runs/build3-surface-labels4/` (watchd `build3-b3-surflab4`), and the
+  evening-4 pay chain waiting on it (`data/runs/build3-e4h2/`, watchd `build3-paychain`: the pool
+  read → `pay_fit` 5 folds at pos-weight 8 / min-rolls 3 → the build `m12-build3-e4h` → the
+  served-head smoke → the paired read `b3e4h` off / on at argmax on the pinned jar). Expected: the
+  pool ≈ 08:00 09-11, the read ≈ 16:00. The bridged-seat read on the h2 judge and the throughput
+  bench follow in the daytime gaps.

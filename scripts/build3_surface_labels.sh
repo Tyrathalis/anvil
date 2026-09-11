@@ -33,6 +33,9 @@ ROLLS=${ROLLS:-1}  # leaf rolls per copy (2 = a roll pair per answer, the leaf-n
 # the pay tag WITHHELD on the mainline for the pay pool: the natural line is
 # auto, the head is untrained, and copies never bridge it under the gate)
 PAY=${PAY:-0}; PAYLEAF=${PAYLEAF:-eot}; PAYTEL=${PAYTEL:-0}; TAGS=${TAGS:-}
+# the searched game's wall allowance (-searchclock; empty = the jar's 900 s default) — a rollout
+# pay leaf (h<N> / end) plays heavier copies; 2,400 s bounds a pathological game (09-10)
+CLOCK=${CLOCK:-}
 DEADLINE_MS=${DEADLINE_MS:-20000}
 CKPT=${CKPT:-data/training/m12-build1-stopstate/last.pt}
 OUT=${OUT:-$REPO/data/runs/build3-surface-labels}
@@ -59,6 +62,7 @@ cd "$WT"
 FARGS="-search -searchrate $RATE -searchrolls $ROLLS -searchsurf $SURF -searchsurfcap $CAP -searchact $BAR -searchtemp $TEMP"
 [[ "$PAY" != "0" ]] && FARGS="$FARGS -searchpay $PAY -searchpayleaf $PAYLEAF"
 [[ "$PAYTEL" != "0" ]] && FARGS="$FARGS -paytelemetry"
+[[ -n "$CLOCK" ]] && FARGS="$FARGS -searchclock $CLOCK"
 SERVER_EXTRA=()
 [[ -n "$TAGS" ]] && SERVER_EXTRA+=(--tags "$TAGS")
 python3 "$REPO/scripts/anvil_watchd.py" register --name "build3-$NAME" --pid $$ --dir "$REPO/data/runs" --stall-min 60

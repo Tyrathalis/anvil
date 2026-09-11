@@ -24,6 +24,7 @@ JAR=${JAR:-$REPO/data/runs/build3-e4/forge-b3e4r.jar}
 BAR=${BAR:-0.03}; TEMP=${TEMP:-0.025}; MIN_ROLLS=${MIN_ROLLS:-2}
 FOLDS=${FOLDS:-5}; STEPS=${STEPS:-3000}; EPOCHS=${EPOCHS:-6}
 PAY_BAR=${PAY_BAR:-0.2}
+POS_WEIGHT=${POS_WEIGHT:-1.0}  # the loss weight on positive rows (8 = the set-keyed head's e4s recipe)
 READ_GAMES=${READ_GAMES:-300}; ARMS=${ARMS:-off on rescue}; PORT=${PORT:-50066}; SMOKE_PORT=${SMOKE_PORT:-50079}
 READ_NAME=${READ_NAME:-b3e4}  # the paired read's name (b3e4s for the set-keyed head)
 TAGS_NOPAY=mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number,mtg.attack,mtg.block,mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode,mtg.surface.order,mtg.surface.damage
@@ -36,7 +37,7 @@ state() { echo "{\"stage\":\"$1\",\"at\":\"$(date -Iseconds)\"}" >> "$OUT/paycha
 python3 scripts/anvil_watchd.py register --name build3-paychain --pid $$ --dir "$REPO/$OUT" --stall-min 120
 notify() { python3 -c "from anvil.training.notify import notify; notify('$1', '$2', tag='build3')"; }
 finish() { python3 scripts/anvil_watchd.py unregister --name build3-paychain; if [[ $1 -eq 0 ]]; then notify "anvil build3 pay chain DONE" "$OUT/read.md + data/runs/build3-surface-read-b3e4/read.json"; else notify "anvil build3 pay chain FAILED" "rc=$1 see $LOG"; fi; exit $1; }
-log "chain start pool=$POOL_OUT out=$OUT ckpt=$CKPT jar=$JAR bar=$BAR T=$TEMP rolls>=$MIN_ROLLS folds=$FOLDS steps=$STEPS paybar=$PAY_BAR arms='$ARMS'"
+log "chain start pool=$POOL_OUT out=$OUT ckpt=$CKPT jar=$JAR bar=$BAR T=$TEMP rolls>=$MIN_ROLLS posw=$POS_WEIGHT folds=$FOLDS steps=$STEPS paybar=$PAY_BAR arms='$ARMS'"
 
 # ---- 1. wait for the pool
 state wait-pool
@@ -82,7 +83,7 @@ for f in $(seq 0 $((FOLDS-1))); do
   if [[ -f "$OUT/payfit-result-fold$f.json" ]]; then log "fold $f done already"; continue; fi
   state "fold$f"
   nice -n 10 uv run python -m anvil.training.pay_fit --run "$RUN" --out "$OUT" --ckpt "$CKPT" --fold "$f" --folds "$FOLDS" \
-      --bar "$BAR" --temp "$TEMP" --min-rolls "$MIN_ROLLS" --steps "$STEPS" --epochs "$EPOCHS" >> "$OUT/payfit-fold$f.log" 2>&1 || { log "fold $f FAILED"; finish 1; }
+      --bar "$BAR" --temp "$TEMP" --min-rolls "$MIN_ROLLS" --pos-weight "$POS_WEIGHT" --steps "$STEPS" --epochs "$EPOCHS" >> "$OUT/payfit-fold$f.log" 2>&1 || { log "fold $f FAILED"; finish 1; }
   log "fold $f: $(python3 -c "import json; r=json.load(open('$OUT/payfit-result-fold$f.json')); print('before', r['before'], 'after', r['after'])")"
 done
 uv run python -m anvil.training.pay_fit --run "$RUN" --out "$OUT" --read >> "$OUT/payfit-read.log" 2>&1 || { log "read FAILED"; finish 1; }
@@ -92,7 +93,7 @@ log "read: $(tail -3 $OUT/payfit-read.md | tr '\n' ' ')"
 if [[ ! -f "$CKPT_OUT/last.pt" ]]; then
   state build
   nice -n 10 uv run python -m anvil.training.pay_fit --run "$RUN" --out "$OUT" --ckpt "$CKPT" --build --ckpt-out "$CKPT_OUT" --folds "$FOLDS" \
-      --bar "$BAR" --temp "$TEMP" --min-rolls "$MIN_ROLLS" --steps "$STEPS" --epochs "$EPOCHS" >> "$OUT/payfit-build.log" 2>&1 || { log "build FAILED"; finish 1; }
+      --bar "$BAR" --temp "$TEMP" --min-rolls "$MIN_ROLLS" --pos-weight "$POS_WEIGHT" --steps "$STEPS" --epochs "$EPOCHS" >> "$OUT/payfit-build.log" 2>&1 || { log "build FAILED"; finish 1; }
 fi
 log "build: $CKPT_OUT/last.pt"
 
