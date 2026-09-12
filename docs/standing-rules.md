@@ -83,6 +83,13 @@ silently delete.
   init is not a fit: the +2.0-init pay head's pointer residuals deviated on 2.7% of windows for a
   measured −2.56 ± 1.88pp; the server's `has_pay` reads `pay_fit` as `has_surf` reads the surface
   params (the never-serve-fresh-init rule, no exceptions; [ADR-0104 addendum 09-09](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
+- **The pool's leaf arithmetic predicts a distilled head's paired read — run the pick-vs-leaf read
+  before any arm**: value the head's deviations by the pool's own leaf (pick − auto), positives
+  and ties apart, out of sample; the net per deviation forecasts the served read within one SE
+  (five pay heads: −1.02 / −1.36 / −1.74 / −0.87 / −0.84 vs a leaf net of ≈ 0). A head whose
+  deviations net ≤ 0 by its own label does not serve; a gate must clear the arithmetic's
+  precision bar (positives' gain × q − ties' cost × (1 − q) > 0) on the held-out curve before it
+  earns a read (`pay_fit --eval`; [ADR-0105 addenda 09-11](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
 ## Training-loop design
 
 - **Clips at birth** for engineered aggregates AND loss terms
