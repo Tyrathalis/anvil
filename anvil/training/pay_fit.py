@@ -73,16 +73,75 @@ def _to(chunk: dict, device: str) -> dict:
     return {k: v.to(device, non_blocking=True) for k, v in chunk.items()}
 
 
+GATE_GRID = (0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7)
+
+
+def gate_curve(rows) -> dict:
+    """The deviation gate read over the pooled (gate logit, positive,
+    deviates, pick gain) rows: AUC (rank-based) and, per threshold p*, the
+    admitted deviations (gate ≥ p* & deviates): count, share of windows,
+    precision (positives among them), mean + total leaf gain (pick − auto,
+    valued rows), recall of positive deviations. gate_pstar = the threshold
+    with the largest TOTAL admitted gain (what a served head realizes)."""
+    import numpy as np
+
+    if rows is None or len(rows) == 0:
+        return {}
+    g, pos, dev, gain = (np.asarray(rows[:, i], dtype=np.float64) for i in range(4))
+    p = 1.0 / (1.0 + np.exp(-g))
+    posb = pos > 0.5
+    devb = dev > 0.5
+    # AUC by ranks (ties averaged)
+    order = np.argsort(p, kind="mergesort")
+    ranks = np.empty(len(p))
+    ranks[order] = np.arange(1, len(p) + 1)
+    # average ranks on ties
+    sp = p[order]
+    i = 0
+    while i < len(sp):
+        j = i
+        while j + 1 < len(sp) and sp[j + 1] == sp[i]:
+            j += 1
+        if j > i:
+            ranks[order[i : j + 1]] = (i + j) / 2.0 + 1
+        i = j + 1
+    n1, n0 = int(posb.sum()), int((~posb).sum())
+    auc = float((ranks[posb].sum() - n1 * (n1 + 1) / 2) / (n1 * n0)) if n1 and n0 else None
+    out: dict = {"n": int(len(p)), "n_pos": n1, "auc": (round(auc, 4) if auc is not None else None),
+                 "base_rate": round(n1 / max(1, len(p)), 4), "curve": []}
+    pos_dev_total = int((posb & devb).sum())
+    best_total, best_p = None, None
+    for ps in GATE_GRID:
+        adm = devb & (p >= ps)
+        n_adm = int(adm.sum())
+        ok = adm & np.isfinite(gain)
+        tot = float(gain[ok].sum()) if ok.any() else 0.0
+        row = {"p": ps, "admitted": n_adm, "share": round(n_adm / max(1, len(p)), 4),
+               "precision": (round(float(posb[adm].mean()), 4) if n_adm else None),
+               "mean_gain": (round(tot / max(1, int(ok.sum())), 4) if ok.any() else None),
+               "total_gain": round(tot, 3),
+               "recall_pos_dev": (round(int((adm & posb).sum()) / pos_dev_total, 4) if pos_dev_total else None)}
+        out["curve"].append(row)
+        if n_adm and (best_total is None or tot > best_total):
+            best_total, best_p = tot, ps
+    out["gate_pstar"] = best_p
+    out["gate_pstar_total_gain"] = best_total
+    return out
+
+
 def evaluate(net, loader, device: str) -> dict:
     import torch
 
     from anvil.training.pay_distill import pay_distill_loss
 
     acc: Counter = Counter()
+    gate_rows = []
     with torch.no_grad():
         for batch in loader:
             b = _to(batch, device)
             _loss, st = pay_distill_loss(net(b), b)
+            if "_gate" in st:
+                gate_rows.append(st.pop("_gate"))
             n, npos = st["n"], st["n_pos"]
             acc["n"] += n
             acc["n_pos"] += npos
@@ -117,6 +176,8 @@ def evaluate(net, loader, device: str) -> dict:
         out[f"dev_n_{name}"] = int(k)
         out[f"dev_gain_{name}"] = round(acc[f"dev_gain_{name}"] / k, 4) if k else None
     out["best_gain_pos"] = round(acc["best_gain_pos"] / acc["best_n_pos"], 4) if acc["best_n_pos"] else None
+    if gate_rows:
+        out["gate"] = gate_curve(torch.cat(gate_rows, 0).numpy())
     return out
 
 
@@ -150,7 +211,8 @@ def fit(a) -> None:
     loader = DataLoader(ds_tr, batch_size=a.batch, collate_fn=collate_pay, num_workers=a.workers,
                         persistent_workers=a.workers > 0)
     res: dict = {"tag": tag, "unfreeze": a.unfreeze, "lr": a.lr, "bar": a.bar, "temp": a.temp,
-                 "min_rolls": a.min_rolls, "pos_weight": a.pos_weight, "run": a.run, "ckpt": a.ckpt}
+                 "min_rolls": a.min_rolls, "pos_weight": a.pos_weight, "gate_weight": a.gate_weight,
+                 "run": a.run, "ckpt": a.ckpt}
     te_loader = None
     if not a.build:
         ds_te = make_dataset(a, "test", a.folds, a.fold, shuffle=False)
@@ -167,7 +229,8 @@ def fit(a) -> None:
         n_in_epoch = 0
         for batch in loader:
             b = _to(batch, device)
-            loss, st = pay_distill_loss(net(b), b, pos_weight=a.pos_weight)
+            loss, st = pay_distill_loss(net(b), b, pos_weight=a.pos_weight, gate_weight=a.gate_weight)
+            st.pop("_gate", None)
             opt.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_([p for p in net.parameters() if p.requires_grad], 1.0)
@@ -206,7 +269,10 @@ def fit(a) -> None:
     if a.build:
         cfg = dict(ck["config"])
         cfg["pay_fit"] = {"steps": step, "unfreeze": a.unfreeze, "lr": a.lr, "bar": a.bar, "temp": a.temp,
-                          "min_rolls": a.min_rolls, "pos_weight": a.pos_weight, "run": a.run, "parent": a.ckpt}
+                          "min_rolls": a.min_rolls, "pos_weight": a.pos_weight, "run": a.run, "parent": a.ckpt,
+                          # the deviation gate: fitted iff gate_weight > 0 (the server's --pay-gate
+                          # requires it); gate_pstar = the cross-fit's pooled choice when known
+                          "gate": bool(a.gate_weight > 0), "gate_pstar": a.gate_pstar}
         ck_out = REPO / a.ckpt_out
         ck_out.mkdir(parents=True, exist_ok=True)
         torch.save({"step": ck.get("step", 0), "model": net.state_dict(), "config": cfg}, ck_out / "last.pt")
@@ -264,6 +330,27 @@ def read(a) -> None:
             c["tie_ce"] += v["tie_ce"] * nt
             c["tie_dev"] += v["tie_dev"] * nt
     out: dict = {"folds": len(folds), "per_fold": per_fold}
+    # the deviation gate pooled over folds: per threshold, sum admitted / total
+    # gain / positives-among-admitted across folds (each fold's curve carries
+    # counts); the AUC is the mean over folds; gate_pstar = argmax total gain
+    gate_after = [r.get("after", {}).get("gate") for r in (json.loads(f.read_text()) for f in folds)]
+    gate_after = [g for g in gate_after if g]
+    if gate_after:
+        pooled_curve = []
+        for i, ps in enumerate(GATE_GRID):
+            adm = sum(g["curve"][i]["admitted"] for g in gate_after)
+            tot = sum(g["curve"][i]["total_gain"] for g in gate_after)
+            npos_adm = sum((g["curve"][i]["precision"] or 0.0) * g["curve"][i]["admitted"] for g in gate_after)
+            n_all = sum(g["n"] for g in gate_after)
+            pooled_curve.append({"p": ps, "admitted": adm, "share": round(adm / max(1, n_all), 4),
+                                 "precision": (round(npos_adm / adm, 4) if adm else None),
+                                 "mean_gain": (round(tot / adm, 4) if adm else None), "total_gain": round(tot, 3)})
+        best = max((r for r in pooled_curve if r["admitted"]), key=lambda r: r["total_gain"], default=None)
+        aucs = [g["auc"] for g in gate_after if g.get("auc") is not None]
+        out["gate"] = {"auc_mean": (round(sum(aucs) / len(aucs), 4) if aucs else None),
+                       "base_rate": gate_after[0]["base_rate"], "curve": pooled_curve,
+                       "gate_pstar": (best["p"] if best else None),
+                       "gate_pstar_total_gain": (best["total_gain"] if best else None)}
     for stage, c in pooled.items():
         n, npos, nt = max(1, c["n"]), max(1, c["n_pos"]), max(1, c["n"] - c["n_pos"])
         out[stage] = {"n": c["n"], "n_pos": c["n_pos"], "ce": round(c["ce"] / n, 4),
@@ -277,6 +364,13 @@ def read(a) -> None:
     for stage in ("before", "after"):
         v = out[stage]
         lines.append(f"| {stage} | {v['n']} | {v['n_pos']} | {v['ce']} | {v['pos_ce']} | {v['pos_top1']} | {v['pos_dev']} | {v['tie_ce']} | {v['tie_dev']} |")
+    if out.get("gate"):
+        g = out["gate"]
+        lines += ["", f"deviation gate: AUC (mean over folds) {g['auc_mean']}, base rate {g['base_rate']}, "
+                  f"p* = {g['gate_pstar']} (total admitted leaf gain {g['gate_pstar_total_gain']})", "",
+                  "| p* | admitted | share of windows | precision | mean gain | total gain |", "|---|---|---|---|---|---|"]
+        for r in g["curve"]:
+            lines.append(f"| {r['p']} | {r['admitted']} | {r['share']} | {r['precision']} | {r['mean_gain']} | {r['total_gain']} |")
     (out_dir / "payfit-read.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 
@@ -292,6 +386,10 @@ def main() -> None:
     ap.add_argument("--bar", type=float, default=0.03, help="margin bar (win-prob units) above which a window is a positive")
     ap.add_argument("--temp", type=float, default=0.025, help="leaf-value softmax temperature on positives")
     ap.add_argument("--min-rolls", type=int, default=2, help="valued rolls an answer needs to count")
+    ap.add_argument("--gate-weight", type=float, default=0.0,
+                    help="the deviation gate's BCE weight (0 = no gate; the 09-11 head fix: P(positive window))")
+    ap.add_argument("--gate-pstar", type=float, default=None,
+                    help="recorded in the build's pay_fit config (the cross-fit read's pooled choice)")
     ap.add_argument("--pos-weight", type=float, default=1.0, help="loss weight on positive rows (the pool is mostly ties)")
     ap.add_argument("--folds", type=int, default=5)
     ap.add_argument("--fold", type=int, default=0)

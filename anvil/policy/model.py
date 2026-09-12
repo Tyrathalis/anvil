@@ -181,6 +181,18 @@ class AnvilNet(nn.Module):
         # server's has_pay gate and the pay-only fits' trainable set.
         self.pay_query = nn.Linear(d_model, d_model)
         self.pay_key = nn.Linear(d_model, d_model)
+        # Evening 4 close (ADR-0105 addendum 09-11): the payment DEVIATION GATE —
+        # P(this payment window is a positive: some goal beats auto by the
+        # leaf's bar) from the state read-out, trained with BCE on the pool's
+        # free label (the pivotality pattern). The served head deviates only
+        # where the gate clears p*; the picks stay the pointer's. Init = the
+        # pool's base rate (logit −2.05 ≈ 11%), weights zero: an unfitted
+        # gate never clears a serve threshold — never-serve-fresh-init by
+        # construction. The pay_ prefix keeps load_compat + the trainable set.
+        self.pay_gate = nn.Linear(d_model, 1)
+        nn.init.zeros_(self.pay_gate.weight)
+        with torch.no_grad():
+            self.pay_gate.bias.fill_(-2.05)
         # D6 plan-latent aux heads (m9-d6-plan-latent-spec §2, ADR-0074 joint
         # selection): emission supervision on out[:, 1] at turn-first windows.
         # plan_act_head = multi-hot over the SA vocab (+OOV) + 3 summary bits
@@ -748,6 +760,7 @@ class AnvilNet(nn.Module):
             "num_logits": num_logits,
             "plan": plan,
             "value_logit": self.value_head(state).squeeze(-1),
+            "pay_gate": self.pay_gate(state).squeeze(-1),
             **self._combat_outputs(state, ent_out, batch),
         }
         # M12 Build 3 (ADR-0105): surface windows carry an option set; the
@@ -914,6 +927,9 @@ class AnvilNet(nn.Module):
             # evening 4 (ADR-0105): the pointer logits (slot 0 = pass / auto) —
             # the server's payment margin bar reads them; no other consumer
             "policy_logits": logits,
+            # the payment deviation gate (P(positive window)); the server's
+            # --pay-gate reads it on pay windows
+            "pay_gate": torch.sigmoid(self.pay_gate(state).squeeze(-1)),
             "plan": out[:, 1],  # D6 serve carry: the emitted plan vector
             **sched,
             "tgt_picks": torch.stack(picks, dim=1),

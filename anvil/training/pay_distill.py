@@ -217,11 +217,15 @@ def collate_pay(items: list[dict]) -> dict[str, torch.Tensor]:
     return out
 
 
-def pay_distill_loss(out: dict, batch: dict, pos_weight: float = 1.0) -> tuple[torch.Tensor, dict]:
+def pay_distill_loss(out: dict, batch: dict, pos_weight: float = 1.0,
+                     gate_weight: float = 0.0) -> tuple[torch.Tensor, dict]:
     """Cross-entropy from the asymmetric target to the pay head's softmax
     over its candidate slots. Stats keep ties and positives apart.
     pos_weight > 1 up-weights the positive rows in the loss (the pool is 94%
-    ties; the stats stay unweighted)."""
+    ties; the stats stay unweighted). gate_weight > 0 adds the deviation
+    gate's BCE (P(positive window) vs the pool's free label, the positive
+    class weighted by pos_weight); the gate's raw logits + labels ride the
+    stats under "_gate" for the fit's curve read."""
     lg = out["policy_logits"].float()
     lp = torch.log_softmax(lg, dim=-1)
     tgt = batch["pay_target"]
@@ -229,6 +233,11 @@ def pay_distill_loss(out: dict, batch: dict, pos_weight: float = 1.0) -> tuple[t
     pos = batch["pay_positive"]
     w = torch.where(pos, torch.full_like(ce, float(pos_weight)), torch.ones_like(ce))
     loss = (w * ce).sum() / w.sum()
+    gate = out.get("pay_gate")
+    if gate is not None and gate_weight > 0:
+        gl = torch.nn.functional.binary_cross_entropy_with_logits(
+            gate.float(), pos.float(), pos_weight=torch.full((), float(pos_weight), device=gate.device))
+        loss = loss + gate_weight * gl
     pred = lp.argmax(-1)
     want = tgt.argmax(-1)
     ce = ce.detach()
@@ -256,4 +265,10 @@ def pay_distill_loss(out: dict, batch: dict, pos_weight: float = 1.0) -> tuple[t
         okb = pos & torch.isfinite(best)
         stats["best_n_pos"] = int(okb.sum())
         stats["best_gain_pos"] = float(best[okb].sum()) if okb.any() else 0.0
+        if gate is not None:
+            # the gate curve's raw material: per row (gate logit, positive,
+            # deviates, the pick's leaf gain — NaN when unvalued)
+            stats["_gate"] = torch.stack([
+                gate.detach().float().cpu(), pos.float().cpu(), (pred != 0).float().cpu(),
+                gain.detach().float().cpu()], dim=1)
     return loss, stats

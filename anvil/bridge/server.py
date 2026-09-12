@@ -182,6 +182,7 @@ class ModelBackend:
         sample: bool = False,
         temperature: float = 1.0,
         pay_bar: "float | None" = None,
+        pay_gate: "float | None" = None,
         serve_init_pay: bool = False,
         mu_path: "str | None" = None,
         instrument: bool = False,
@@ -276,6 +277,13 @@ class ModelBackend:
         self.temperature = temperature
         # evening 4 (ADR-0105): the payment margin bar (log-prob units; None = off)
         self.pay_bar = pay_bar
+        # the deviation gate (ADR-0105 addendum 09-11): a served goal stands
+        # only where the fitted gate's P(positive window) clears p*; requires a
+        # checkpoint whose pay_fit record fitted the gate (an unfitted gate
+        # sits at the base rate and would silence every deviation)
+        self.pay_gate = pay_gate
+        if pay_gate is not None and not ckpt.get("config", {}).get("pay_fit", {}).get("gate"):
+            raise ValueError("--pay-gate needs a checkpoint whose pay_fit record fitted the gate")
         self.serve_init_pay = serve_init_pay
         # M7 forced-branch instrument mode: wire-only fork sessions (g=-1)
         # may be SAMPLED without mu records — forced-branch completions are
@@ -509,6 +517,13 @@ class ModelBackend:
             # SELECT_ONE over {auto} ∪ goal options: choice 0 = auto = wire
             # index 0; goal candidates are positional (cand_first_opt)
             c = int(out["choice"][0])
+            if self.pay_gate is not None and c != 0:
+                # the deviation gate: below p* the natural line (auto) plays
+                if float(out["pay_gate"][0]) < self.pay_gate:
+                    self.counts["pay_gate_auto"] += 1
+                    c = 0
+                else:
+                    self.counts["pay_gate_goal"] += 1
             if self.pay_bar is not None and c != 0:
                 # evening 4 (ADR-0105): the serve-side margin bar — a goal
                 # stands only where its log-prob clears auto's by the bar
@@ -957,6 +972,11 @@ def main() -> None:
         help="evening 4: a served payment goal stands only where its log-prob clears auto's by this margin",
     )
     ap.add_argument(
+        "--pay-gate", type=float, default=None,
+        help="the deviation gate (09-11): a served payment goal stands only where the fitted gate's "
+        "P(positive window) clears this threshold (needs a gate-fitted checkpoint)",
+    )
+    ap.add_argument(
         "--mu-out", default=None, help="behavior-policy mu.jsonl path (required with --sample)"
     )
     ap.add_argument(
@@ -1076,6 +1096,7 @@ def main() -> None:
             sample=args.sample,
             temperature=args.temperature,
             pay_bar=args.pay_bar,
+            pay_gate=args.pay_gate,
             serve_init_pay=args.serve_init_pay,
             mu_path=args.mu_out,
             instrument=args.fork_instrument,

@@ -172,7 +172,8 @@ def test_pay_param_group_splits_by_name(net_and_feat):
     # pay_mark_emb joined at M10 R5 (the slot-conditions marked candidate,
     # zero-init) — a pay-surface param, rightly in the pay_lr group
     assert set(pay) == {"pay_bias", "pay_kind_emb.weight", "pay_mark_emb",
-                        "pay_query.weight", "pay_query.bias", "pay_key.weight", "pay_key.bias"}  # + the evening-4 role copies
+                        "pay_query.weight", "pay_query.bias", "pay_key.weight", "pay_key.bias",
+                        "pay_gate.weight", "pay_gate.bias"}  # + the evening-4 role copies + the 09-11 deviation gate
 
     groups = [
         {"params": [p for n, p in net.named_parameters() if not n.startswith("pay_")], "lr": 1e-5},
@@ -249,3 +250,54 @@ def test_pay_role_copies_init_and_set_key(net_and_feat):
             if n in saved:
                 p.copy_(saved[n])  # exact restore for the tests that follow
     assert torch.equal(l0, l1)
+
+
+def test_pay_deviation_gate_init_and_loss(net_and_feat):
+    """The deviation gate (ADR-0105 addendum 09-11): a fresh gate sits at the
+    pool's base rate (P ≈ 0.11, never clears a serve threshold), forward and
+    act expose it, the distillation loss adds its BCE only when weighted, and
+    the fit's curve read runs over the stats' raw rows."""
+    import math
+
+    import torch
+
+    from anvil.training.dataset import collate, default_methods
+    from anvil.training.pay_distill import pay_distill_loss
+    from anvil.training.pay_fit import gate_curve
+    from anvil.training.train import build_net
+
+    net, feat = net_and_feat
+    # the init on a FRESH net (the module fixture's net is stepped by an
+    # earlier test): zero weights, the base-rate bias
+    cfg = torch.load(CKPT, map_location="cpu", weights_only=False)["config"]
+    fresh = build_net(str(EMBED).removesuffix(".safetensors"), cfg["pool_manifest"],
+                      len(default_methods()), n_sa=cfg.get("sa_vocab_size", 0))
+    assert float(fresh.pay_gate.weight.detach().abs().sum()) == 0.0
+    assert abs(float(fresh.pay_gate.bias.detach()) + 2.05) < 1e-6
+    del fresh
+    with torch.no_grad():
+        net.pay_gate.weight.zero_()
+        net.pay_gate.bias.fill_(-2.05)
+    exs = [feat.example(w, header, "pay_class")[0] for w, header in _pay_windows(4)]
+    batch = collate(exs)
+    n = batch["cand_mask"].shape[1]
+    batch["pay_target"] = torch.zeros(4, n)
+    batch["pay_target"][:, 0] = 1.0
+    batch["pay_target"][0] = 0.0
+    batch["pay_target"][0, 1] = 1.0  # one positive row
+    batch["pay_positive"] = torch.tensor([True, False, False, False])
+    batch["pay_margin"] = torch.tensor([0.05, 0.0, 0.0, 0.0])
+    batch["pay_vals"] = torch.full((4, n), float("nan"))
+    batch["pay_vals"][:, 0] = 0.5
+    batch["pay_vals"][:, 1] = 0.55
+    with torch.no_grad():
+        fwd = net(batch)
+        out = net.act(batch)
+    assert fwd["pay_gate"].shape == (4,)
+    assert all(abs(float(v) - 1 / (1 + math.exp(2.05))) < 1e-4 for v in out["pay_gate"])
+    l0, st0 = pay_distill_loss(fwd, batch)
+    l1, st1 = pay_distill_loss(fwd, batch, gate_weight=1.0)
+    assert float(l1) > float(l0)  # the gate's BCE joined the loss
+    assert st1["_gate"].shape == (4, 4)
+    curve = gate_curve(st1["_gate"].numpy())
+    assert curve["n"] == 4 and curve["n_pos"] == 1 and len(curve["curve"]) > 0
