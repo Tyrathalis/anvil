@@ -800,3 +800,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   ≥ bar) with BCE on the pool's free label; the pivotality pattern), served as deviate-only-above-p*;
   the pool's arithmetic needs precision ≥ 0.26 for a net-positive deviation. `pay_fit --eval` +
   `pay_vals` on the loader landed (tests 27).
+- **2026-09-11 (19:40) — the deviation gate built + the gated fit chain launched** (Anvil `98c4f8e`;
+  [ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)):
+  `pay_gate` (P(positive window), base-rate init), the gate BCE in the distillation loss, the gate
+  curve + `gate_pstar` (argmax total admitted leaf gain) in `pay_fit`'s read, `--pay-gate` on the
+  server (gate-fitted ckpts only), the chain's `GATE_WEIGHT` / `PAY_GATE=auto`. Chain
+  `data/runs/build3-e4h2g/` → `m12-build3-e4hg` → the paired read `b3e4hg` (≈ 22:15).

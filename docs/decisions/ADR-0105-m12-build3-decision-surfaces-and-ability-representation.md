@@ -1064,3 +1064,26 @@ which a gate at AUC 0.7 clears at modest recall. Cross-fit gives the precision /
 is chosen where the held-out net leaf gain per admitted deviation is maximal and the admitted
 count stays ≥ 0.15 / game; then the paired read. Routed as the next fit (hours), the transfer
 read (the bridged-seat replay) only if the gated head still reads ≤ 0.
+
+## Addendum (2026-09-11, 19:40): the deviation gate built and fitting
+
+**Built (Anvil `98c4f8e`):** `AnvilNet.pay_gate` — a linear read-out of the state token giving
+P(this payment window is a positive), zero weights and the pool's base-rate bias (−2.05 ≈ 11%),
+so an unfitted gate never clears a serve threshold (never-serve-fresh-init by construction);
+`pay_distill_loss(gate_weight)` adds its BCE (the positive class at `pos_weight`) beside the
+distillation term and rides the raw rows out in the stats; `pay_fit`'s evaluate / read compute the
+gate curve — AUC, and per threshold p* the admitted deviations (gate ≥ p* and the pointer
+deviates), their share, precision, mean and TOTAL leaf gain (pick − auto by the pool's leaf) —
+and `gate_pstar` = the p* with the largest total admitted gain (what a served head realizes per
+pool); the build records `gate` + `gate_pstar` in the checkpoint's `pay_fit` config; the server's
+`--pay-gate p*` refuses a checkpoint without a fitted gate and blocks deviations below p*; the pay
+chain's `GATE_WEIGHT` / `PAY_GATE=auto` (the read's pooled p* flows to the build, the smoke and
+the read's servers). Tests 44.
+
+**Launched 19:39:** `data/runs/build3-e4h2g/` on the h2 pool — the set-keyed head + the gate
+(gate weight 1, pos-weight 8, min-rolls 2) → the 5-fold read with the gate curve → the build
+`m12-build3-e4hg` at the pooled p* → the smoke → the paired read `b3e4hg` (off / on at argmax
+behind the gate), 2 × 300 on the pinned jar. Pre-registered: the gate's held-out AUC and the
+precision at p* (the pool's arithmetic: precision ≥ 0.26 makes an admitted deviation net
+positive by the leaf); the read's verdict rule unchanged (on − off > 0 with ≥ 0.15 admitted
+deviations per game → the head serves behind the gate; ≤ 0 → the transfer read).
