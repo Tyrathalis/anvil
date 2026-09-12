@@ -787,3 +787,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   0.155 / 0.045); the paired read on − off **−1.36 ± 1.20 (t −1.1)** with 0.77 deviations / game
   (e4s: 0.115). Attribution = the serve-bar arms (0.2 / 0.5) vs the same off reference (≈ 1 h);
   then the bridged-seat read on the h2 judge if no bar reads > 0.
+- **2026-09-11 (19:05) — the serve-bar arms: no bar recovers the h2 head** (argmax −1.36 / bar 0.2
+  −1.74 / bar 0.5 −0.87, each ± 1.2; deviations 0.77 → 0.42 / game). Four served pay heads, four
+  negatives vs a leaf whose positives convert on heuristic games → the picks are not the leaf's
+  picks (pos top-1 0.08) is the hypothesis; the offline pick-vs-leaf read on the pool decides
+  between "the head" and "the transfer" before any replay run ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).

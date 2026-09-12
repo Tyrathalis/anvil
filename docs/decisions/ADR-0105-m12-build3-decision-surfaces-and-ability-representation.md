@@ -1003,3 +1003,31 @@ shows through. If a bar arm reads > 0 → the serve rule is the bar; if every ba
 head's picks on its positives do not convert on network play → the bridged-seat read on the h2
 judge (the on arm's seeds replayed under `-searchpay 4 -searchpayleaf h2`, acting off) attributes
 pick-by-pick.
+
+## Addendum (2026-09-11, 19:05): the serve-bar arms — no bar recovers it
+
+`data/runs/build3-e4h2/read-bars.md` (the h2 head `m12-build3-e4h` vs the same off reference, 2 × 300):
+
+| arm | deviations / game | on − off | t | up / down |
+|---|---|---|---|---|
+| argmax | 0.77 | −1.36 ± 1.20 | −1.1 | 21 / 29 |
+| bar 0.2 | 0.58 | −1.74 ± 1.20 | −1.4 | 19 / 29 |
+| bar 0.5 | 0.42 | −0.87 ± 1.14 | −0.8 | 19 / 24 |
+
+The bar trims the deviations (0.77 → 0.42 / game) and the loss does not turn: every arm negative,
+the same sign as the eot head's argmax arm (−1.02 ± 0.72); four served pay heads, four negatives,
+while the h2 leaf's positives convert +5.8 ± 2.0 on heuristic games. **So the head's picks are not
+the leaf's picks** is the live hypothesis (pos top-1 0.080: on a positive the head names the
+leaf-best goal 8% of the time while deviating 19%; on a tie it deviates 10% — most deviations
+land on a non-best goal, and a non-best goal can lose to auto even at a true positive). The bar
+arms ran at 16 workers without the raised bridge deadline → 15 / 16 `BridgePoisonedException`
+games (vs 2–4 on the 6-worker arms) — a load artifact, excluded from the pairs, not a strength
+term; the read scripts get the deadline raise.
+
+**Next (cheap first):** the head's picks judged by the h2 leaf OFFLINE on the pool — for every
+window where the head deviates, the leaf's value of its pick minus auto (the pool's sub rows carry
+every goal's value; `pay_fit`'s read gains the metric). > 0 → the picks are leaf-good and the loss
+is in the transfer (self-play labels → play vs the heuristic; the leaf on network-played copies)
+→ the bridged-seat replay on the h2 judge; ≤ 0 → the head cannot name the best goal and the fix is
+the head (a confidence gate trained on "pick == leaf-best", or the target restricted to
+positives whose best goal clears the runner-up by the leaf noise).
