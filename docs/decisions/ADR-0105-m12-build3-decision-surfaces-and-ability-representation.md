@@ -1087,3 +1087,35 @@ behind the gate), 2 × 300 on the pinned jar. Pre-registered: the gate's held-ou
 precision at p* (the pool's arithmetic: precision ≥ 0.26 makes an admitted deviation net
 positive by the leaf); the read's verdict rule unchanged (on − off > 0 with ≥ 0.15 admitted
 deviations per game → the head serves behind the gate; ≤ 0 → the transfer read).
+
+## Addendum (2026-09-11, 22:20): the gated read — THE PAYMENT HEAD CLOSES AS A SERVE CANDIDATE AT BUILD 3 FIDELITY; its serve routes to the loop
+
+**The gate's cross-fit** (`data/runs/build3-e4h2g/payfit-read.md`, five folds held out): AUC 0.68 (the
+M10 pivotality level); the curve's precision climbs from 0.19 ungated to 0.23 at p* 0.6 (5.2% of
+windows admitted, ≈ 60% of the positive deviations kept) and flattens at 0.24 by 0.7; the mean
+leaf gain per admitted deviation −0.002 at p* (−0.006 ungated) — break-even, never positive: the
+pool's arithmetic needs precision ≥ 0.26 and an AUC-0.68 classifier at an 11% base rate does not
+reach it at any recall. The pointer as before (pos top-1 0.08 / pos dev 0.17 / tie dev 0.09).
+
+**The paired read** (`build3-surface-read-b3e4hg`, the head at argmax behind the gate at 0.6, 2 × 300
+on the pinned jar): the gate blocked 417 of 560 pointer deviations, **143 admitted = 0.24 per
+game**; off 0.531 / on 0.522, **on − off −0.84pp ± 0.81 (t −1.0, 9 up / 14 down, n 593)**. By the
+rule (> 0 with ≥ 0.15 / game → serve) the head stays withheld; the read agrees with the leaf's
+arithmetic (break-even to slightly negative) and completes the ladder: e4s argmax −1.02 / e4h
+argmax −1.36 / bar 0.2 −1.74 / bar 0.5 −0.87 / gated −0.84 — five served pay heads, five negatives
+of the same size, each within one SE of the leaf's own prediction for it.
+
+**Decision: the payment head closes as a serve candidate at Build 3 fidelity.** What is proven:
+the h2 leaf is a valid target (the calibration), the head's picks are the leaf's picks on true
+positives (+8–10pp of +12 by the leaf), the pool is reliable and cheap to relabel, the gate is as
+good as the pivotality pattern gets. What is not reachable offline: pricing the DECISION to
+deviate finely enough — the tie deviations cost −2.8pp each by the leaf and no offline label
+separates them from the positives at precision 0.26. The user's evening-4 routing stands: **the
+head's training home is the loop** (Build 4½ PG on outcomes prices the deviation decision
+directly; the pool + the gate are its warm start). The served set is unchanged (six surfaces +
+tuck; the pay tag free to bridge — auto ≡ withheld on the probe-fixed jar). Assets banked: the
+h2 pool `b3-surflab4`, `m12-build3-e4h` / `-e4hg`, `pay_gate` + `--pay-gate` + the gate curve read,
+`pay_fit --eval` (the pick-vs-leaf instrument), the leaf family in the fork (pin `287e8cca45`),
+`pay_calibration.py`. Routed by name: the pay head's PG in the loop (Build 4½), the transfer read
+(self-play labels vs play against the heuristic; only if the loop's head also stalls),
+model-server scaling (the throughput week, first). Evening 5 opens next.

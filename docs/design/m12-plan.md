@@ -806,3 +806,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   curve + `gate_pstar` (argmax total admitted leaf gain) in `pay_fit`'s read, `--pay-gate` on the
   server (gate-fitted ckpts only), the chain's `GATE_WEIGHT` / `PAY_GATE=auto`. Chain
   `data/runs/build3-e4h2g/` → `m12-build3-e4hg` → the paired read `b3e4hg` (≈ 22:15).
+- **2026-09-11 (22:20) — the gated read: −0.84 ± 0.81 on 0.24 admitted deviations / game → THE
+  PAYMENT HEAD CLOSES AS A SERVE CANDIDATE AT BUILD 3 FIDELITY** ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  The gate: AUC 0.68, precision 0.23 at p* 0.6 vs the 0.26 the leaf's arithmetic needs → break-even
+  by the leaf, ≈ 0 by outcome; the ladder of five served pay heads (−1.02 / −1.36 / −1.74 / −0.87 /
+  −0.84) each within one SE of the leaf's prediction. The head's serve routes to the loop (Build 4½
+  PG on outcomes; the h2 pool + the gate = the warm start); the served set unchanged. Evening 5 next.
