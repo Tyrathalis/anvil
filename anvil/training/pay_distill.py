@@ -103,6 +103,9 @@ def pay_groups(run: Path, bar: float, temp: float, min_rolls: int, counts: Count
                 else:
                     target[0] = 1.0
                     counts["tie"] += 1
+                slot_vals = np.full(n, np.nan, dtype=np.float32)
+                for k, v in vals.items():
+                    slot_vals[k] = v
                 yield {
                     "seed": int(r["seed"]),
                     "frame": s["frame"],
@@ -113,6 +116,8 @@ def pay_groups(run: Path, bar: float, temp: float, min_rolls: int, counts: Count
                     "spread": float(max(vals.values()) - min(vals.values())),
                     "leaf": s.get("leaf"),
                     "n_valued": len(vals),
+                    # the pick-vs-leaf read (09-11): every slot's mean leaf value
+                    "vals": slot_vals,
                 }
 
 
@@ -163,6 +168,7 @@ class PaySubRows(IterableDataset):
         ex["_target"] = grp["target"]
         ex["_positive"] = grp["positive"]
         ex["_margin"] = grp["margin"]
+        ex["_vals"] = grp["vals"]
         return ex
 
     def __iter__(self) -> Iterator[dict]:
@@ -195,14 +201,19 @@ def collate_pay(items: list[dict]) -> dict[str, torch.Tensor]:
     targets = [ex.pop("_target") for ex in items]
     positive = torch.tensor([bool(ex.pop("_positive")) for ex in items])
     margin = torch.tensor([float(ex.pop("_margin")) for ex in items], dtype=torch.float32)
+    vals = [ex.pop("_vals", None) for ex in items]
     out = collate(items)
     b, cw = out["cand_mask"].shape
     tgt = torch.zeros(b, cw, dtype=torch.float32)
+    pv = torch.full((b, cw), float("nan"), dtype=torch.float32)
     for i, t in enumerate(targets):
         tgt[i, : len(t)] = torch.from_numpy(np.asarray(t, dtype=np.float32))
+        if vals[i] is not None:
+            pv[i, : len(vals[i])] = torch.from_numpy(np.asarray(vals[i], dtype=np.float32))
     out["pay_target"] = tgt
     out["pay_positive"] = positive
     out["pay_margin"] = margin
+    out["pay_vals"] = pv
     return out
 
 
@@ -229,4 +240,20 @@ def pay_distill_loss(out: dict, batch: dict, pos_weight: float = 1.0) -> tuple[t
     if (~pos).any():
         stats["tie_ce"] = float(ce[~pos].mean())
         stats["tie_dev"] = float((pred[~pos] != 0).float().mean())
+    # the pick-vs-leaf read (09-11): where the head deviates, the leaf's value
+    # of its pick minus auto (the label's own currency; NaN = unvalued slot),
+    # split positives / ties, plus the oracle (the leaf-best minus auto) on
+    # positives — "are the head's picks the leaf's picks" in win-prob units
+    pv = batch.get("pay_vals")
+    if pv is not None:
+        gain = pv.gather(1, pred.unsqueeze(1)).squeeze(1) - pv[:, 0]
+        dev = (pred != 0) & torch.isfinite(gain)
+        for name, m in (("pos", pos), ("tie", ~pos)):
+            sel = dev & m
+            stats[f"dev_n_{name}"] = int(sel.sum())
+            stats[f"dev_gain_{name}"] = float(gain[sel].sum()) if sel.any() else 0.0
+        best = torch.nan_to_num(pv, nan=-1.0).max(1).values - pv[:, 0]
+        okb = pos & torch.isfinite(best)
+        stats["best_n_pos"] = int(okb.sum())
+        stats["best_gain_pos"] = float(best[okb].sum()) if okb.any() else 0.0
     return loss, stats

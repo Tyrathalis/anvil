@@ -1031,3 +1031,36 @@ is in the transfer (self-play labels → play vs the heuristic; the leaf on netw
 → the bridged-seat replay on the h2 judge; ≤ 0 → the head cannot name the best goal and the fix is
 the head (a confidence gate trained on "pick == leaf-best", or the target restricted to
 positives whose best goal clears the runner-up by the leaf noise).
+
+## Addendum (2026-09-11, 19:15): the pick-vs-leaf read — the picks are the leaf's on positives; the tie deviations eat it
+
+`pay_fit --eval` (new: the head's deviations valued by the pool's own h2 leaf, pick − auto, in
+win-prob units; `data/runs/build3-e4h2/payfit-eval-*.json`, the whole h2 pool, 22,721 windows /
+2,598 positives; the leaf-best gain on positives = +0.119):
+
+| head | sample | deviations on positives (mean gain) | on ties (mean gain) | net per deviation |
+|---|---|---|---|---|
+| e4h (h2-trained) | in-sample | 1,064 (+0.104) | 1,804 (−0.023) | +0.024 |
+| e4s (eot-trained) | out-of-sample | 158 (+0.083) | 500 (−0.028) | **−0.001** |
+| e3 (untrained) | out-of-sample | 59 (+0.059) | 414 (−0.012) | −0.003 |
+
+**Reading.** Where a head deviates on a true positive its pick is nearly the leaf's (+8 to +10pp of
+the +12pp ceiling) — the imitation is fine on the windows that matter. But three of every four
+deviations fall on ties, each worth −2 to −3pp by the leaf, and out of sample the two cancel
+exactly: the eot head's deviations are net zero by the h2 leaf, which is what four negative
+paired reads look like once serve-time noise and the transfer to play vs the heuristic are added.
+The in-sample h2 head only looks net positive because it memorizes which windows were positives
+(pos top-1 0.25 in-sample vs 0.08 held-out). **The loss is not the picks and not the target; it is
+the decision to deviate** — the head's readiness to leave auto does not discriminate a positive
+window from a tie, and the softmax margin the serve bar reads conflates "which goal" with
+"whether" (the bar arms trimmed deviations without changing the mix).
+
+**The fix is a gate, not a refit:** a second output on the pay head — P(this window is a positive)
+trained with BCE on the pool's free binary label (margin ≥ bar; 11.4% base rate), the M10
+pivotality pattern (AUC 0.69 on a harder question) — served as "deviate only where P ≥ p*, then
+pick the goal". The pool's own arithmetic sets the bar: at precision q the expected leaf gain per
+admitted deviation is q × 8pp − (1 − q) × 2.8pp, positive above q ≈ 0.26 — twice the base rate,
+which a gate at AUC 0.7 clears at modest recall. Cross-fit gives the precision / recall curve; p*
+is chosen where the held-out net leaf gain per admitted deviation is maximal and the admitted
+count stays ≥ 0.15 / game; then the paired read. Routed as the next fit (hours), the transfer
+read (the bridged-seat replay) only if the gated head still reads ≤ 0.

@@ -95,10 +95,12 @@ def evaluate(net, loader, device: str) -> dict:
             if nt:
                 acc["tie_ce"] += st["tie_ce"] * nt
                 acc["tie_dev"] += st["tie_dev"] * nt
+            for k in ("dev_n_pos", "dev_gain_pos", "dev_n_tie", "dev_gain_tie", "best_n_pos", "best_gain_pos"):
+                acc[k] += st.get(k, 0)
     n = max(1, acc["n"])
     npos = max(1, acc["n_pos"])
     nt = max(1, acc["n"] - acc["n_pos"])
-    return {
+    out = {
         "n": acc["n"],
         "n_pos": acc["n_pos"],
         "ce": round(acc["ce"] / n, 4),
@@ -108,6 +110,14 @@ def evaluate(net, loader, device: str) -> dict:
         "tie_ce": round(acc["tie_ce"] / nt, 4),
         "tie_dev": round(acc["tie_dev"] / nt, 4),
     }
+    # the pick-vs-leaf read: mean leaf gain (pick − auto) over the head's
+    # deviations, positives / ties, and the oracle gain on positives
+    for name in ("pos", "tie"):
+        k = acc[f"dev_n_{name}"]
+        out[f"dev_n_{name}"] = int(k)
+        out[f"dev_gain_{name}"] = round(acc[f"dev_gain_{name}"] / k, 4) if k else None
+    out["best_gain_pos"] = round(acc["best_gain_pos"] / acc["best_n_pos"], 4) if acc["best_n_pos"] else None
+    return out
 
 
 def make_dataset(a, split: str, folds: int, fold: int | None, shuffle: bool):
@@ -205,6 +215,31 @@ def fit(a) -> None:
     (out_dir / f"payfit-result-{tag}.json").write_text(json.dumps(res, indent=1) + "\n")
 
 
+def eval_only(a) -> None:
+    """The pick-vs-leaf read on a checkpoint: no training, the pool (or one
+    fold's held-out slice with --fold) valued by the leaf where the head
+    deviates. Writes payfit-eval-<tag>.json under --out."""
+    from torch.utils.data import DataLoader
+
+    from anvil.training.pay_distill import collate_pay
+    from anvil.training.surface_fit import load_net
+
+    device = "cuda"
+    out_dir = REPO / a.out
+    out_dir.mkdir(parents=True, exist_ok=True)
+    net, _ck = load_net(a.ckpt, device)
+    net.eval()
+    ds = make_dataset(a, "test", a.folds, a.fold, shuffle=False) if a.fold is not None and a.fold >= 0 \
+        else make_dataset(a, "all", a.folds, None, shuffle=False)
+    loader = DataLoader(ds, batch_size=a.batch, collate_fn=collate_pay, num_workers=min(a.workers, 2))
+    res = evaluate(net, loader, device)
+    tag = a.eval_tag or Path(a.ckpt).parent.name
+    res.update({"ckpt": a.ckpt, "run": a.run, "bar": a.bar, "temp": a.temp, "min_rolls": a.min_rolls,
+                "fold": a.fold, "counts": dict(ds.counts)})
+    (out_dir / f"payfit-eval-{tag}.json").write_text(json.dumps(res, indent=1) + "\n")
+    print(f"[pay_fit eval {tag}] {res}", flush=True)
+
+
 def read(a) -> None:
     out_dir = REPO / a.out
     folds = sorted(out_dir.glob("payfit-result-fold*.json"))
@@ -262,6 +297,8 @@ def main() -> None:
     ap.add_argument("--fold", type=int, default=0)
     ap.add_argument("--build", action="store_true")
     ap.add_argument("--read", action="store_true")
+    ap.add_argument("--eval", action="store_true", help="the pick-vs-leaf read on --ckpt (no training); --fold -1 = the whole pool")
+    ap.add_argument("--eval-tag", default=None)
     ap.add_argument("--unfreeze", default="pay", help="pay | <N top trunk layers>")
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--steps", type=int, default=3000)
@@ -273,6 +310,8 @@ def main() -> None:
     a = ap.parse_args()
     if a.read:
         read(a)
+    elif a.eval:
+        eval_only(a)
     else:
         fit(a)
 

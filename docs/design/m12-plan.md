@@ -792,3 +792,11 @@ moves verbatim to the status archive and this section stays here as the record.*
   negatives vs a leaf whose positives convert on heuristic games → the picks are not the leaf's
   picks (pos top-1 0.08) is the hypothesis; the offline pick-vs-leaf read on the pool decides
   between "the head" and "the transfer" before any replay run ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+- **2026-09-11 (19:15) — the pick-vs-leaf read: the loss is the DECISION TO DEVIATE, not the picks
+  or the target** ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  By the h2 leaf, a head's deviations on true positives are worth +8 to +10pp (ceiling +12), its
+  deviations on ties −2 to −3pp, and out of sample 3 of 4 deviations are on ties → net zero (e4s
+  −0.001 / deviation; e3 −0.003; e4h +0.024 in-sample only). Next: a positive-window GATE (P(margin
+  ≥ bar) with BCE on the pool's free label; the pivotality pattern), served as deviate-only-above-p*;
+  the pool's arithmetic needs precision ≥ 0.26 for a net-positive deviation. `pay_fit --eval` +
+  `pay_vals` on the loader landed (tests 27).
