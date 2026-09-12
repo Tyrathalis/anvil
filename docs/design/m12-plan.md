@@ -780,3 +780,10 @@ moves verbatim to the status archive and this section stays here as the record.*
   line re-issued with servers as a variable (the GPU has ≥ 2× headroom at 52%). Measured argument:
   the calibration's heuristic copies ran 16 workers at load 22 with no server pressure; the same
   recipe on self-play copies saturated one server at 29 g/h.
+- **2026-09-11 (17:30) — the h2 head's paired read: WITHHELD at argmax; the bar arms running**
+  ([ADR-0105 addendum](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  The h2 pool: 23.1 groups / game at rate 0.5, positives 11.4% at 0.03 (2,598 — the calibration's 2×
+  reproduced); the fit `m12-build3-e4h` pos top-1 0.080 / pos dev 0.188 / tie dev 0.097 (e4s 0.094 /
+  0.155 / 0.045); the paired read on − off **−1.36 ± 1.20 (t −1.1)** with 0.77 deviations / game
+  (e4s: 0.115). Attribution = the serve-bar arms (0.2 / 0.5) vs the same off reference (≈ 1 h);
+  then the bridged-seat read on the h2 judge if no bar reads > 0.

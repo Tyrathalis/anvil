@@ -971,3 +971,35 @@ next label run happens — the loop's, not a bespoke 2-day rerun — and `pay_fi
 the head's ~70 deviation windows judged by the validated proxy, which also decides the serve bar
 from the head's own margin curve; (4) the coverage caveat stands on every horizon-leaf read: the
 clock clips late games, and the read reports the loss by turn.
+
+## Addendum (2026-09-11, 17:30): the h2 relabel + the h2 head's paired read — WITHHELD at argmax; the bar arms attribute
+
+**The h2 pool** (`b3-surflab4-20260910-214424`: 1,000 self-play games, `-searchpayleaf h2`, rate 0.5,
+rolls 2, clock 3,600, the e3 ckpt serving every tag but pay; 21 clipped): 22,722 usable groups
+(23.1 / game — half the eot pool's 42.9 at rate 1), **positives at 0.03: 2,598 = 11.4%** (the eot
+pool 5.7%: the calibration's "twice the positives at the same bar" reproduced; the same positive
+count as before). The first launch (rolls 4, rate 1, clock 2,400) saturated the single model server
+— on self-play the h2 copies are NETWORK-played for 2–3 turns — 29 g/h on 16 workers with the
+workers at 30% and 31% of games clipped; restarted 4× lighter (model-server scaling routed by
+name, the plan record 09-10).
+
+**The fit** (`m12-build3-e4h`, the set-keyed head at pos-weight 8, min-rolls 2, 5 folds pooled):
+pos top-1 0.007 → **0.080**, pos dev 0.023 → **0.188**, tie dev 0.021 → **0.097** (the e4s fit on
+eot: 0.094 / 0.155 / 0.045). Learns the same; deviates on ties twice as often (the noisier leaf's
+spurious positives are learned as readiness to deviate).
+
+**The paired read** (`build3-surface-read-b3e4h`, 2 × 300 on the standard pairs, the pin's jar; off
+= the pay tag withheld, on = the head at ARGMAX): off 0.528 / on 0.516, **on − off −1.36pp ± 1.20
+(t −1.1, 21 up / 29 down, n 588)**; the head deviated on **460 of 5,893 bridged pay windows = 0.77
+per game** (the e4s argmax arm: 0.115 / game, −1.02 ± 0.72). By the pre-registered rule (on − off
+> 0 with deviations ≥ 0.15 / game → serve) **the head stays WITHHELD**. Readable at last (6.7× the
+deviations), and the sign is the e4s arm's.
+
+**Attribution (running 17:31):** the serve-bar arms — the same head at `--pay-bar 0.2` and `0.5` vs
+the same off reference (`data/runs/build3-e4h2/read-bars.md`). Hypothesis: the loss is the tie
+deviations (tie dev 0.097 over the 89% of windows that are ties = most of the 0.77 / game); a
+margin bar trims them and the positives' conversion (+5.8pp per h2-positive on heuristic games)
+shows through. If a bar arm reads > 0 → the serve rule is the bar; if every bar reads ≤ 0 → the
+head's picks on its positives do not convert on network play → the bridged-seat read on the h2
+judge (the on arm's seeds replayed under `-searchpay 4 -searchpayleaf h2`, acting off) attributes
+pick-by-pick.
