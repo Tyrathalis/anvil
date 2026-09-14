@@ -345,7 +345,7 @@ there rather than invent a protocol; Anvil stays plugged into Forge's controller
 protocol is the human prompt surface, not the 64-callback controller surface, and none of the
 search machinery lives there) — no conversion, at least for now.
 
-### 09-13 follow-up: LLM puzzles, LordOfThePigs's draft stack + ability-effect model, Dan B (statisticaldrafting.com) on self-play for limited (read 09-13; nothing posted)
+### 09-13 follow-up: LLM puzzles, LordOfThePigs's draft stack + ability-effect model, Dan B (statisticaldrafting.com) on self-play for limited (read 09-13; the user posted the short reply below)
 
 - **Fuzz (09-10 19:51):** LLMs can already solve puzzles (they know the rules); the in-play gain
   would come from memory; infinite combos are the slow part. **itemfive (21:05):** a Phase developer
@@ -417,7 +417,21 @@ The caveats that matter for his purpose:
   2,000-game paired read every 5–10 iterations (±1.1pp) is what separates the runs that climbed
   from the ones that reported climbing ([standing-rules.md](../standing-rules.md)).
 
-Draft reply (the user posts; nothing posted from here):
+**Posted reply (the user, 09-13; supersedes the longer draft below, which stays for the numbers):**
+
+> Well, how strong do you need? LordOfThePigs is getting really good drafting data from running
+> Forge's standard heuristic bot against itself, but if you want less-consistently-biased play, my
+> guess is that the Anvil architecture can currently get to par with Forge on most arbitrary sets
+> with a few days of training time on one consumer box. Kryptic recently tried Anvil on a
+> single-deck mirror, and it reached a 55% winrate against the heuristic with less than a day of
+> training. For scale, Forge itself runs ~5 CPU-seconds per game heuristic-vs-heuristic, so a
+> 16-core desktop does ~60 games/min. The CPU is the bottleneck, including on ML bots. Shallow
+> search added another ~2.5pp in our read, to either Anvil or the heuristic bot, at ~3× the
+> compute. But I don't think anyone's managed to get much past 55% against the heuristic bot, so
+> if you don't care about its issues with signets, sticking with the heuristic is probably good
+> enough.
+
+Unposted longer draft (the numbers, if he follows up):
 
 > Some numbers from Anvil (BC → V-trace self-play on Forge, 1v1 Commander, ~1.7K-card pool), all
 > on one box (7950X + 4090). Forge runs ~64 games/min heuristic-vs-heuristic at 16 workers, ~1.7K
