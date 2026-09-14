@@ -30,7 +30,14 @@ def main() -> None:
     f.add_argument("--since", help="skip events before YYYY-MM(-DD)")
     f.add_argument("--limit-decks", type=int, help="stop after N new decks")
     sub.add_parser("banlist", help="snapshot the current banlist")
-    sub.add_parser("build", help="derive pool manifest + .dck files from raw")
+    b = sub.add_parser("build", help="derive pool manifest + .dck files from raw")
+    b.add_argument(
+        "--main-size",
+        type=int,
+        default=None,
+        help="main-deck size the Constructed (pauper) slot accepts (default 60; "
+        "40 for Limited decks). Ignored by the dc pipeline.",
+    )
     sub.add_parser("install", help="copy built .dck files into the Forge profile")
     sub.add_parser("status", help="raw/built state summary")
     a = p.parse_args()
@@ -55,7 +62,8 @@ def main() -> None:
         import importlib
 
         build = importlib.import_module(f"{pool_pkg}.build").build
-        print(json.dumps(build(), indent=2))
+        kw = {"main_size": a.main_size} if (a.format == "pauper" and a.main_size) else {}
+        print(json.dumps(build(**kw), indent=2))
     elif a.verb == "install":
         dcks = sorted(DECKS_OUT_DIR.glob("*.dck"))
         if not dcks:

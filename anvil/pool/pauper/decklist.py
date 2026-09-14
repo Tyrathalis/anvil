@@ -70,11 +70,11 @@ def parse_mtgo(text: str) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]
     return main, side
 
 
-def deck_from_export(deck_id: int, text: str, meta: dict) -> Deck:
+def deck_from_export(deck_id: int, text: str, meta: dict, main_size: int = MAIN_SIZE) -> Deck:
     main, side = parse_mtgo(text)
     deck = Deck(deck_id=deck_id, main=main, sideboard=side, meta=meta)
-    if deck.main_size != MAIN_SIZE:
-        raise ShapeError(f"main deck is {deck.main_size} cards, want {MAIN_SIZE}")
+    if deck.main_size != main_size:
+        raise ShapeError(f"main deck is {deck.main_size} cards, want {main_size}")
     if deck.sideboard_size > MAX_SIDEBOARD:
         raise ShapeError(f"sideboard is {deck.sideboard_size} cards, want <= {MAX_SIDEBOARD}")
     for count, name in main + side:

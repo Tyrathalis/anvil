@@ -88,6 +88,18 @@ def main() -> None:
         "serves the leaf values",
     )
     ap.add_argument(
+        "--format",
+        default="Commander",
+        help="Forge GameType for the arms (the harness's --format; Constructed for a 60-card pool)",
+    )
+    ap.add_argument(
+        "--pool-format",
+        choices=["dc", "pauper"],
+        default="dc",
+        help="pool slot whose CURRENT pin supplies --pool-version when it is omitted "
+        "(dc = the Commander pool, pauper = the Constructed slot)",
+    )
+    ap.add_argument(
         "--skip-ante",
         action="store_true",
         help="generation + arms report only (no ingest / Ante certify) — the "
@@ -105,7 +117,7 @@ def main() -> None:
     if a.pool_version is None:
         from anvil.bridge.harness.pairs import latest_pool_manifest
 
-        a.pool_version = latest_pool_manifest()["pool_version"]
+        a.pool_version = latest_pool_manifest(a.pool_format)["pool_version"]
     print(f"[final_read] pool version {a.pool_version}")
 
     # ---- generation: both seat assignments under one argmax server ----
@@ -129,6 +141,8 @@ def main() -> None:
                     "launch",
                     "--pairs-file",
                     a.pairs_file,
+                    "--format",
+                    a.format,
                     "--games",
                     str(a.games),
                     "--games-per-pair",

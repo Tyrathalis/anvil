@@ -24,6 +24,7 @@ added in set-sized chunks once the core features are in place.
 ## Documentation
 
 - [Design doc (v2)](docs/design/anvil-design-v2.md) — canonical, everything flows from here
+- [Quickstart: your own card pool](docs/design/quickstart-custom-pool.md) — build the fork, make a pool from your decklists, BC → self-play → the paired read, with the defaults that worked externally
 - [Project map](docs/project-map.html) — living overview: milestones, headline numbers, ADR index
 - [Devlog](docs/devlog/) — session-by-session working notes
 - [Decision records](docs/decisions/) — changes and resolutions to the design

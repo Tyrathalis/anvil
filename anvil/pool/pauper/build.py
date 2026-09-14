@@ -39,7 +39,7 @@ def _load_overrides() -> dict[str, str]:
     return json.loads(OVERRIDES_FILE.read_text()) if OVERRIDES_FILE.exists() else {}
 
 
-def build() -> dict:
+def build(main_size: int = decklist.MAIN_SIZE) -> dict:
     universe = forge_db.load_names()
     overrides = _load_overrides()
     banlist = latest_banlist()
@@ -60,7 +60,7 @@ def build() -> dict:
             excluded.append({"deck_id": deck_id, "reason": reason, "url": meta.get("source_url")})
 
         try:
-            deck = deck_from_export(deck_id, path.read_text(), meta)
+            deck = deck_from_export(deck_id, path.read_text(), meta, main_size=main_size)
         except ShapeError as e:
             exclude(f"shape: {e}")
             continue

@@ -354,6 +354,10 @@ def _launch_games(
         "anvil.bridge.harness",
         "launch",
         "--pool",
+        "--pool-format",
+        getattr(a, "pool_format", "dc"),
+        "--format",
+        getattr(a, "format", "Commander"),
         "--games",
         str(games),
         "--games-per-pair",
@@ -1530,6 +1534,20 @@ def main() -> None:
         "to other -reask arms",
     )
     ap.add_argument(
+        "--format",
+        default="Commander",
+        help="Forge GameType for generation AND arms (the harness's --format; "
+        "Constructed for a 60-card pool). Pinned into loop_config.",
+    )
+    ap.add_argument(
+        "--pool-format",
+        choices=["dc", "pauper"],
+        default="dc",
+        help="which pool slot generation schedules pairs from (the harness's "
+        "--pool-format): dc = the Commander pool, pauper = the Constructed "
+        "slot (any 60-card decklists; pair with --format Constructed)",
+    )
+    ap.add_argument(
         "--no-inhibit", action="store_true", help="skip the systemd-inhibit sleep holder"
     )
     args = ap.parse_args()
@@ -2232,6 +2250,8 @@ def main() -> None:
                         "launch",
                         "--pairs-file",
                         args.arms_pairs,
+                        "--format",
+                        args.format,
                         "--games",
                         str(args.arms_games),
                         "--workers",

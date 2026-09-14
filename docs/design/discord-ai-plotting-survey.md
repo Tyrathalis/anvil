@@ -483,3 +483,16 @@ games — the Mentor route. Not Anvil-changing; nothing routed.
 > problem, but it's been persistent, even in Anvil. For draft orders themselves, LordOfThePigs
 > seems to be significantly outperforming the Forge default drafting bot, but probably neither
 > drafting bot really drafts in a human-like way.
+
+**09-14 follow-up (the morning thread; nothing posted):** Dan B ran 30K HOB games on the stock bot
+(blue loses, Smaug top common — the instants bias at colour level), asked where Anvil is
+(itemfive: the repo); Shedletsky (100K games/day, offering raw Forge logs; decklist-level pilot
+hints; the two-card-synergy question), LordOfThePigs (1M games = a week on 3 machines; rules of
+thumb: good at combat, bad at spells, esp. instants), talor (fixed-deck curricula train faster;
+cubecobra decks through Forge show white/red aggro over-realized), chrismaghuhn (pilot bias
+leaks into rankings; keep win/loss as reward, plans as conditioning; paired seeds). Two
+corrections for our record: **17lands' replay data does carry per-turn human actions** (casts,
+attacks, blocks; no decision context) — routed as a Mentor calibration lead; and the repo needed
+a newcomer path → [quickstart-custom-pool.md](quickstart-custom-pool.md) (09-14), which also
+exposed and fixed the selfplay/final_read Commander hard-coding.
+
