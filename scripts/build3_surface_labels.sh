@@ -76,9 +76,9 @@ finish() { # rc
   exit $1
 }
 
-# the fleet week (09-14): SERVERS model servers on PORT..PORT+SERVERS-1 (default ceil(WORKERS/8));
+# the fleet week (09-14): SERVERS model servers on PORT..PORT+SERVERS-1 (default ceil(WORKERS/12); the fleet bench 09-14);
 # the supervisor opens the base port LAST, so the base-port poll below sees the whole fleet up
-SERVERS=${SERVERS:-$(( (WORKERS + 7) / 8 ))}
+SERVERS=${SERVERS:-$(( (WORKERS + 11) / 12 ))}
 BRIDGE=$(for i in $(seq 0 $((SERVERS - 1))); do printf "grpc:localhost:%d," $((PORT + i)); done | sed 's/,$//')
 uv run python -m anvil.bridge.server --mode model --ckpt "$CKPT" --port $PORT --servers $SERVERS --pass-delta 0 "${SERVER_EXTRA[@]}" \
   > "$OUT/server.log" 2>&1 &

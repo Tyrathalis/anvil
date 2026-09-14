@@ -33,12 +33,12 @@ import sys
 import time
 from pathlib import Path
 
-PER_SERVER_WORKERS = 8  # the measured pin: one server keeps ≈ 8 workers fed
+PER_SERVER_WORKERS = 12  # the fleet bench (09-14): a server at 12 workers is not binding (24:2 ≈ 24:3), at 16 it is (+14% from a second)
 SPLIT_OUTPUTS = ("--mu-out", "--drill-mu-out", "--bind-trace", "--counts-out")
 
 
 def servers_for(workers: int, servers: int = 0) -> int:
-    """N servers for a worker count: an explicit N > 0, else ceil(workers / 8)."""
+    """N servers for a worker count: an explicit N > 0, else ceil(workers / 12)."""
     if servers and servers > 0:
         return int(servers)
     return max(1, math.ceil(max(int(workers), 1) / PER_SERVER_WORKERS))

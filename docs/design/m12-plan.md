@@ -864,3 +864,21 @@ moves verbatim to the status archive and this section stays here as the record.*
   gRPC threads shares the GIL; moving featurization worker-side or into a subprocess pool would
   let 2 servers do 3's work; the JFR/profile week's Python-side item). The occupancy autoscale
   stays routed (static 24:3 is the run's recipe now).
+- **2026-09-14 (15:47) — THE 24-WORKER SERVERS CURVE (`fleet-bench-20260914b`, the user's question:
+  does a server lose efficiency at 8 workers, does a fourth pay?):** peak steady-state g/h **24:2 489 /
+  24:3 468 / 24:4 418** (rps/server 100 / 74 / 71; wait p90 15.9 / 13.0 / 20.0 ms; forward 15.1 / 16.9
+  / 20.3 ms per batch; busy 61 / 60 / 71%; queue max ≤ 2 everywhere). (a) **A server at 12 workers
+  is not binding** — 24:2 ≈ 24:3 within one cell's noise; the 8-per-server pin was conservative →
+  **N = ceil(workers / 12)** (`fleet.PER_SERVER_WORKERS`; 16 → 2, 24 → 2, 32 → 3). (b) **A fourth
+  server costs −11%**: the card time-shares four processes (forward +35%, mean batch 1.9) — the GPU's
+  process count is the second ceiling, below the card's compute. **The recipe: 24 workers × 2
+  servers (≈ 490 g/h at rolls 2 ≈ 11.7K games/day).** **CORRECTION of the 13:51 hazard:** the
+  asks-per-game spread (2,650–3,276) is NOT the search clock — the copy kinds show **0 timeouts in
+  every cell**, the copy-crash class is the standing paperCard-null copy crash in every cell, and the
+  same 64 seeds produced 4,590–5,441 search windows across the 24-worker cells: bf16 micro-batch
+  composition moves the served logits (the first row's leaf values differ in the 3rd decimal between
+  cells), the games diverge, and asks follow the games. The standing rule re-worded: load is part of
+  the recipe for throughput (the core ceiling at 32, the process ceiling at 4 servers) and served
+  runs are not seed-reproducible across fleet configurations — a paired read pins its fleet on both
+  arms (it always has: one server per read). The `-searchclock` basis item is withdrawn.
+  `fleet_bench.py` reports the peak cumulative rate in its own column from here.

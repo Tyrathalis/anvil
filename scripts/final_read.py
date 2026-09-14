@@ -45,7 +45,7 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=50065)
     ap.add_argument(
         "--servers", type=int, default=0,
-        help="model servers on consecutive ports from --port (0 = ceil(workers / 8); the fleet week 09-14)",
+        help="model servers on consecutive ports from --port (0 = ceil(workers / 12); the fleet week 09-14)",
     )
     ap.add_argument("--pairs-file", default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
     ap.add_argument("--seed-base", type=int, default=20260710)

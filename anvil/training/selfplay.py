@@ -185,7 +185,7 @@ def _start_server(
 
 
 def fleet_size(a) -> int:
-    """The run's server count: --servers, else ceil(workers / 8)."""
+    """The run's server count: --servers, else ceil(workers / 12)."""
     return servers_for(a.workers, getattr(a, "servers", 0) or 0)
 
 
@@ -1040,8 +1040,8 @@ def main() -> None:
         "--servers",
         type=int,
         default=0,
-        help="model servers per fleet on consecutive ports from --port (0 = ceil(workers / 8); "
-        "the fleet week 09-14 — one server saturates at ≈ 8 workers of network-played search copies)",
+        help="model servers per fleet on consecutive ports from --port (0 = ceil(workers / 12); "
+        "the fleet bench 09-14: a server carries 12 workers of network-played search copies, binds at 16)",
     )
     # the run's torch device + autocast regime, forwarded to every server the
     # driver starts and to the rl step (the Mac users' mps / cpu loop —

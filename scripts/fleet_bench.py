@@ -6,8 +6,11 @@ rolls 2 (the h2 relabel's recipe that pinned one server at 110% CPU with
 
 Each cell: a fleet of S servers on consecutive ports -> one harness pool
 launch of G games at W workers (chunk = ceil(G / W), one chunk per worker)
--> the fleet stopped -> a row: wall, g/h, the servers' occupancy from their
-`[server] stats` lines (rps, mean batch, wait p90, busy %), crashes.
+-> the fleet stopped -> a row: wall, g/h (wall), PEAK g/h (the harness's peak
+cumulative rate = every worker busy, before the straggler tail — the number
+to read: the first bench's wall rates were one 1,200 s draw per cell), the
+servers' occupancy from their `[server] stats` lines (rps, mean batch, wait
+p90, busy %), crashes.
 
     uv run python scripts/fleet_bench.py --cells 8:1,16:1,16:2,24:3,32:4 --games 64
 
@@ -30,12 +33,19 @@ from pathlib import Path
 
 from anvil.bridge.fleet import bridge_addrs
 from anvil.training.notify import notify, watch_register, watch_unregister
-from anvil.training.selfplay import RUNS_DIR, _run, _start_server, _stop_server
+from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server
 
+PROGRESS = re.compile(r"\[harness\] \d+/\d+ \((\d+) g/h this session\)")
 STATS = re.compile(
     r"stats: (\d+) asks in [\d.]+s \((\d+) rps\), mean batch ([\d.]+), wait p50 ([\d.]+) / "
     r"p90 ([\d.]+) / p99 ([\d.]+) ms, forward ([\d.]+) ms/batch \((\d+)% busy\), queue max (\d+)"
 )
+
+
+def _run_logged(cmd: list[str], log: Path) -> None:
+    print(f"[bench] $ {' '.join(cmd)} > {log}")
+    with open(log, "w") as f:
+        subprocess.run(cmd, check=True, stdout=f, stderr=subprocess.STDOUT)
 
 
 def _server_occupancy(log: Path) -> dict:
@@ -88,8 +98,8 @@ def main() -> None:
         table.write_text(
             f"# fleet bench {name}\n\nckpt `{a.ckpt}` jar `{a.jar}` games/cell {a.games} "
             f"forge args `{a.forge_args}` (both seats network-played)\n\n"
-            "| workers | servers | games | wall min | g/h | rps/server | mean batch | wait p90 ms | busy % | crashes |\n"
-            "|---|---|---|---|---|---|---|---|---|---|\n"
+            "| workers | servers | games | wall min | g/h wall | g/h peak | rps/server | mean batch | wait p90 ms | busy % | crashes |\n"
+            "|---|---|---|---|---|---|---|---|---|---|---|\n"
         )
     watch_register(name, RUNS_DIR, stall_min=90)
     try:
@@ -107,15 +117,16 @@ def main() -> None:
             purpose = f"{name}-{tag}"
             before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
             t0 = time.monotonic()
+            cell_log = out / f"harness-{tag}.log"
             try:
-                _run([
+                _run_logged([
                     sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
                     "--games", str(a.games), "--games-per-pair", "5",
                     "--workers", str(w), "--chunk", str(math.ceil(a.games / w)),
                     "--bridge", bridge_addrs(a.port, s), "--obs", "--census", "--labels",
                     "--purpose", purpose, "--seed-base", str(a.seed_base),
                     "--jar", a.jar, "--heap", "3g", f"--forge-args={a.forge_args}",
-                ])
+                ], cell_log)
             except subprocess.CalledProcessError as e:
                 print(f"[bench] {tag}: harness rc={e.returncode} (row still recorded)")
             finally:
@@ -127,8 +138,9 @@ def main() -> None:
             crashes = sum(1 for g in games if str(g.get("status", "")).startswith("crash"))
             occ = _server_occupancy(out / f"server-{tag}.log")
             gh = done / wall * 3600 if wall else 0.0
+            peak = max([int(m.group(1)) for m in PROGRESS.finditer(cell_log.read_text())] or [0])
             row = (
-                f"| {w} | {s} | {done} | {wall / 60:.1f} | {gh:.0f} | "
+                f"| {w} | {s} | {done} | {wall / 60:.1f} | {gh:.0f} | {peak} | "
                 f"{occ.get('rps_per_server', 0):.0f} | {occ.get('mean_batch', 0):.2f} | "
                 f"{occ.get('wait_p90_ms', 0):.1f} | {occ.get('busy_pct', 0):.0f} | {crashes} |\n"
             )

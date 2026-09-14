@@ -12,11 +12,13 @@ from anvil.bridge.fleet import (
 )
 
 
-def test_servers_for_default_is_one_per_eight_workers():
+def test_servers_for_default_is_one_per_twelve_workers():
     assert servers_for(8) == 1
-    assert servers_for(9) == 2
+    assert servers_for(12) == 1
+    assert servers_for(13) == 2
     assert servers_for(16) == 2
-    assert servers_for(24) == 3
+    assert servers_for(24) == 2
+    assert servers_for(32) == 3
     assert servers_for(1) == 1
     assert servers_for(16, servers=1) == 1  # explicit wins
     assert servers_for(4, servers=3) == 3

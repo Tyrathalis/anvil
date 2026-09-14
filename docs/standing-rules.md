@@ -360,7 +360,7 @@ silently delete.
 - **A gated search keeps a uniform exploration floor**, and its pivotality labels are the
   search's own margins, era-scoped and regenerated per cycle (the §3d self-sealing hazard)
   ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **A search run's load is part of its recipe** — workers × servers pinned per run and kept under the core ceiling (≤ 24 workers on the 32-core box; N servers = ceil(workers / 8)): `-searchclock` is a wall allowance, so a saturated box searches less (asks/game −15% at 32 workers on the same seeds) and a read at a different load reads a different policy. The fleet bench, m12-plan record 2026-09-14; the allowance's basis routed to the closeout.
+- **A search run's load is part of its recipe** — workers × servers pinned per run and kept under the core ceiling (24 workers on the 32-core box; 32 runs games 2.5× slower) and under the GPU's process count (a fourth server costs −11%: forward latency +35% from time-sharing); N servers = ceil(workers / 12) (a server at 12 workers is not binding, at 16 it is). Served runs are NOT seed-reproducible across fleet configurations (bf16 micro-batch composition moves the logits; the same 64 seeds gave 4,590–5,441 search windows across the 24-worker cells) — a paired read pins its fleet on both arms. The fleet bench, m12-plan record 2026-09-14.
 - **Every search cost is priced per game against generation rate**; throughput is the binding
   constraint until measured otherwise
   ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).

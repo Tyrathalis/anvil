@@ -715,7 +715,7 @@ def main() -> None:
     g.add_argument("--k", type=int, default=None, help="override the manifest K")
     g.add_argument("--port", type=int, default=50067)
     g.add_argument("--workers", type=int, default=8)
-    g.add_argument("--servers", type=int, default=0, help="model servers (0 = ceil(workers / 8))")
+    g.add_argument("--servers", type=int, default=0, help="model servers (0 = ceil(workers / 12))")
     g.add_argument("--chunk", type=int, default=50)
     g.add_argument(
         "--drill-stop",
@@ -823,7 +823,7 @@ def main() -> None:
     )
     v.add_argument("--port", type=int, default=50067)
     v.add_argument("--workers", type=int, default=8)
-    v.add_argument("--servers", type=int, default=0, help="model servers (0 = ceil(workers / 8))")
+    v.add_argument("--servers", type=int, default=0, help="model servers (0 = ceil(workers / 12))")
     v.add_argument("--chunk", type=int, default=50)
     v.set_defaults(fn=eval_ckpt)
 

@@ -17,7 +17,7 @@ FORGE=/home/tyrathalis/Everything/Projects/forge
 cd "$REPO"
 NAME=${NAME:-b3e1}
 CKPT=${CKPT:-data/training/m12-build3-e1/last.pt}
-GAMES=${GAMES:-300}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50066}; SERVERS=${SERVERS:-0}  # 0 = ceil(WORKERS/8)
+GAMES=${GAMES:-300}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50066}; SERVERS=${SERVERS:-0}  # 0 = ceil(WORKERS/12)
 TAGS_OFF=${TAGS_OFF:-mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number,mtg.attack,mtg.block,mtg.pay_mana_class}
 ARMS=${ARMS:-off on}; FORGE_ARGS=${FORGE_ARGS:-}; FORGE_ARGS_RESCUE=${FORGE_ARGS_RESCUE:--payrescue}
 SERVER_ARGS=${SERVER_ARGS:-}  # evening 4: e.g. "--pay-bar 0.2" (every arm's server)
