@@ -76,16 +76,20 @@ finish() { # rc
   exit $1
 }
 
-uv run python -m anvil.bridge.server --mode model --ckpt "$CKPT" --port $PORT --pass-delta 0 "${SERVER_EXTRA[@]}" \
+# the fleet week (09-14): SERVERS model servers on PORT..PORT+SERVERS-1 (default ceil(WORKERS/8));
+# the supervisor opens the base port LAST, so the base-port poll below sees the whole fleet up
+SERVERS=${SERVERS:-$(( (WORKERS + 7) / 8 ))}
+BRIDGE=$(for i in $(seq 0 $((SERVERS - 1))); do printf "grpc:localhost:%d," $((PORT + i)); done | sed 's/,$//')
+uv run python -m anvil.bridge.server --mode model --ckpt "$CKPT" --port $PORT --servers $SERVERS --pass-delta 0 "${SERVER_EXTRA[@]}" \
   > "$OUT/server.log" 2>&1 &
 SERVER=$!
 for i in $(seq 1 300); do (echo > /dev/tcp/127.0.0.1/$PORT) 2>/dev/null && break; sleep 2; done
 (echo > /dev/tcp/127.0.0.1/$PORT) 2>/dev/null || { log "server never opened port"; kill $SERVER; state server-failed; finish 1; }
-log "server up pid=$SERVER"
+log "server up pid=$SERVER servers=$SERVERS bridge=$BRIDGE"
 state generate-start
 t0=$(date +%s)
 nice -n 19 uv run python -m anvil.bridge.harness launch --pool --games "$GAMES" --games-per-pair 5 \
-    --workers "$WORKERS" --chunk 50 --bridge "grpc:localhost:$PORT" --obs --census --labels --reask \
+    --workers "$WORKERS" --chunk 50 --bridge "$BRIDGE" --obs --census --labels --reask \
     --purpose "$NAME" --seed-base "$SEED" --jar "$JAR" --heap 3g --forge-args "$FARGS" \
     >> "$OUT/harness.log" 2>&1
 rc=$?; t1=$(date +%s)

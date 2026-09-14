@@ -17,7 +17,7 @@ FORGE=/home/tyrathalis/Everything/Projects/forge
 cd "$REPO"
 NAME=${NAME:-b3e1}
 CKPT=${CKPT:-data/training/m12-build3-e1/last.pt}
-GAMES=${GAMES:-300}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50066}
+GAMES=${GAMES:-300}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50066}; SERVERS=${SERVERS:-0}  # 0 = ceil(WORKERS/8)
 TAGS_OFF=${TAGS_OFF:-mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number,mtg.attack,mtg.block,mtg.pay_mana_class}
 ARMS=${ARMS:-off on}; FORGE_ARGS=${FORGE_ARGS:-}; FORGE_ARGS_RESCUE=${FORGE_ARGS_RESCUE:--payrescue}
 SERVER_ARGS=${SERVER_ARGS:-}  # evening 4: e.g. "--pay-bar 0.2" (every arm's server)
@@ -44,7 +44,7 @@ run_arm() { # tag [server-tags] [forge-args] [server-args override]
   if [[ -n "${fargs// /}" ]]; then extra+=("--forge-args=$fargs"); fi  # the = form: a value starting with '-' (e.g. -payrescue) is otherwise read as a flag
   if [[ -n "$sargs" ]]; then extra+=(--server-args "$sargs"); fi
   nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "$NAME-$tag" --games "$GAMES" \
-      --workers "$WORKERS" --port "$PORT" --jar "$JAR" --skip-ante "${extra[@]}" >> "$OUT/$tag.log" 2>&1 || return 1
+      --workers "$WORKERS" --port "$PORT" --servers "$SERVERS" --jar "$JAR" --skip-ante "${extra[@]}" >> "$OUT/$tag.log" 2>&1 || return 1
   arms_of "$NAME-$tag" > "$OUT/$tag.done"
   log "arm $tag done: $(cat $OUT/$tag.done)"
 }

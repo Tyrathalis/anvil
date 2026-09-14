@@ -33,6 +33,7 @@ import sys
 import time
 from pathlib import Path
 
+from anvil.bridge.harness.gpu_yield import GpuYield
 from anvil.bridge.harness.seeds import game_seed
 from anvil.store.trajectories import OBS_SCHEMA_VERSION
 
@@ -49,6 +50,37 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: f.read(1 << 20), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def bridge_addrs(m: dict) -> list[str]:
+    """The fleet week (09-14): `--bridge` is a comma list of addresses (one
+    model server each, `anvil.bridge.fleet`); a worker gets ONE of them."""
+    return [b.strip() for b in str(m["bridge"]).split(",") if b.strip()]
+
+
+def bridge_for(m: dict, inv: int) -> str:
+    """Round-robin by invocation index: every chunk is a fresh worker launch,
+    so a rebalance is a per-chunk address choice (never a live migration)."""
+    addrs = bridge_addrs(m)
+    return addrs[inv % len(addrs)]
+
+
+def is_grpc(m: dict) -> bool:
+    return any(b.startswith("grpc:") for b in bridge_addrs(m))
+
+
+def _worker_deadline(m: dict, extra: list[str]) -> list[str]:
+    """The bridge deadline for a served run: 20 s unless the caller pinned
+    one. The 5 s Java default poisoned every game under the first-window
+    burst of a surface expansion round at eight workers (09-07) and again
+    on the bar arms at 16 workers with no search at all (09-11) — a served
+    fleet at 16+ workers is the norm now, so the raise is unconditional
+    for grpc runs (a stuck server is still detected, 15 s later)."""
+    if not is_grpc(m):
+        return []
+    if any(o.startswith("-Danvil.bridge.deadline.ms=") for o in [*m["jvm_opts"], *extra]):
+        return []
+    return ["-Danvil.bridge.deadline.ms=20000"]
 
 
 def _provenance_args(m: dict) -> list[str]:
@@ -90,6 +122,8 @@ class Run:
         self.dir = Path(run_dir).resolve()
         self.manifest = json.loads((self.dir / "run.json").read_text())
         self.stop_file = self.dir / "STOP"
+        self.yield_file = self.dir / "YIELD"  # manual: no new chunks, workers keep going
+        self.yield_state_file = self.dir / "gpu-yield.json"
         self.workers_dir = self.dir / "workers"
         self.skips_file = self.dir / "skips.json"
 
@@ -160,16 +194,7 @@ class Run:
         # -Danvil.crash.trace=true for crash-class diagnosis) without a
         # manifest change; space-separated.
         extra = os.environ.get("ANVIL_EXTRA_JVM_OPTS", "").split()
-        # M12 Build 3 (09-07): the surface expansion round (-searchsurf) makes
-        # up to B x cap extra copies per window, each asking the bridge; at
-        # eight workers the first-window burst pushed an ask past the 5 s
-        # default and poisoned every game. Raise the deadline here unless the
-        # caller pinned one.
-        fargs = m.get("forge_args") or []
-        if "-searchsurf" in fargs and not any(
-            o.startswith("-Danvil.bridge.deadline.ms=") for o in [*m["jvm_opts"], *extra]
-        ):
-            extra = [*extra, "-Danvil.bridge.deadline.ms=20000"]
+        extra = [*extra, *_worker_deadline(m, extra)]
         cmd += [
             "java",
             f"-Xms{m['heap']}",
@@ -192,7 +217,7 @@ class Run:
             "-stopfile",
             str(self.stop_file),
             "-b",
-            m["bridge"],
+            bridge_for(m, inv),
             *_provenance_args(m),
         ]
         if m.get("tags"):
@@ -297,16 +322,45 @@ class Run:
         active: list[tuple[subprocess.Popen, tuple[int, int]]] = []
         slots = self.manifest["workers"]
         t0 = time.monotonic()
+        addrs = bridge_addrs(self.manifest)
         print(
             f"[harness] {len(self.completed())}/{total} done, "
-            f"{len(pending)} spans pending, {slots} slots"
+            f"{len(pending)} spans pending, {slots} slots, "
+            f"{len(addrs)} bridge address{'es' if len(addrs) != 1 else ''}"
         )
+        # the GPU yield (gpu_yield.py): a foreign GPU job or the YIELD file
+        # gates NEW chunk launches only; active workers finish their chunks
+        yielder = GpuYield() if self.manifest.get("yield_gpu") else None
+        yield_state = {"on": False}
+
+        def _yielding() -> bool:
+            manual = self.yield_file.exists()
+            auto = bool(yielder and yielder.poll())
+            on = manual or auto
+            if on != yield_state["on"]:
+                yield_state["on"] = on
+                why = "YIELD file" if manual else (yielder.describe() if yielder else "")
+                print(f"[harness] {'YIELDING' if on else 'resumed'}: {why or 'gpu quiet'}", flush=True)
+                self.yield_state_file.write_text(
+                    json.dumps({"yielding": on, "manual": manual, "foreign": why,
+                                "at": _dt.datetime.now().isoformat(timespec='seconds')}) + "\n"
+                )
+            return on
 
         while pending or active:
-            while pending and len(active) < slots and not self.stop_file.exists():
+            # evaluated once per tick (not only while chunks are pending) so
+            # the YIELDING / resumed transitions land in the log and
+            # gpu-yield.json even when every chunk is already out
+            yielding = _yielding()
+            while (
+                pending and len(active) < slots and not self.stop_file.exists() and not yielding
+            ):
                 span = pending.pop(0)
                 active.append((self.launch_worker(span, inv), span))
-                print(f"[harness] inv-{inv:04d} <- games [{span[0]},{span[0] + span[1]})")
+                print(
+                    f"[harness] inv-{inv:04d} <- games [{span[0]},{span[0] + span[1]})"
+                    + (f" @ {bridge_for(self.manifest, inv)}" if len(addrs) > 1 else "")
+                )
                 inv += 1
             still = []
             for proc, span in active:
@@ -463,6 +517,11 @@ def launch(a) -> Path:
         "heap": getattr(a, "heap", None) or "2g",
         "jvm_opts": ["-XX:ActiveProcessorCount=2", "-XX:+ExitOnOutOfMemoryError"],
         "bridge": a.bridge,
+        "yield_gpu": bool(
+            getattr(a, "yield_gpu", True)
+            and "grpc:" in str(a.bridge)
+            and not os.environ.get("ANVIL_NO_GPU_YIELD")
+        ),
         "tags": a.tags,
         "nice": not a.calibrated,
         "obs": a.obs,
@@ -522,6 +581,13 @@ def status(run_dir: Path) -> None:
         else "in progress"
     )
     print(f"{m['run_id']}: {len(done)}/{m['games']} done, {len(r.skipped())} skipped [{state}]")
+    if r.yield_state_file.exists():
+        try:
+            ys = json.loads(r.yield_state_file.read_text())
+            if ys.get("yielding"):
+                print(f"  YIELDING since {ys.get('at')}: {ys.get('foreign')}")
+        except json.JSONDecodeError:
+            pass
     if done:
         ms = sorted(g["ms"] for g in done.values())
         print(

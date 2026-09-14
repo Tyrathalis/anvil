@@ -50,7 +50,19 @@ def main() -> None:
     )
     la.add_argument("--workers", type=int, default=16)
     la.add_argument("--colocated", action="store_true")
-    la.add_argument("--bridge", default="local-random")
+    la.add_argument(
+        "--bridge",
+        default="local-random",
+        help="local-random | grpc:host:port[,grpc:host:port...] — a comma list is a model-server "
+        "fleet (anvil.bridge.server --servers N); chunks are assigned round-robin",
+    )
+    la.add_argument(
+        "--no-yield-gpu",
+        dest="yield_gpu",
+        action="store_false",
+        help="do not pause new chunk launches while a foreign GPU job holds the card "
+        "(default: yield on grpc runs; env ANVIL_NO_GPU_YIELD=1 disables globally)",
+    )
     la.add_argument("--tags", default="")
     la.add_argument("--purpose", default="run")
     la.add_argument("--seed-base", type=int, default=None)

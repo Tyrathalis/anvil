@@ -35,6 +35,7 @@ import sys
 import time
 from pathlib import Path
 
+from anvil.bridge.fleet import bridge_addrs, servers_for, wait_ports
 from anvil.training.notify import notify as _shared_notify
 from anvil.training.notify import watch_register as _watch_register
 from anvil.training.notify import watch_unregister as _watch_unregister
@@ -133,6 +134,7 @@ def _start_server(
     sched_flags: "list[str] | None" = None,
     device: str | None = None,
     autocast: bool = True,
+    servers: int = 1,
 ):
     cmd = [
         sys.executable,
@@ -147,6 +149,10 @@ def _start_server(
         "--pass-delta",
         "0",
     ]
+    # the fleet week (09-14): N servers on consecutive ports behind one
+    # supervisor (anvil.bridge.fleet); the launch's --bridge carries the list
+    if servers > 1:
+        cmd += ["--servers", str(servers)]
     # the run's device + autocast regime (selfplay --device / --no-autocast;
     # None = the server's default, cuda): the Mac users' mps / cpu serve
     if device:
@@ -171,11 +177,22 @@ def _start_server(
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen(cmd, stdout=open(log, "w"), stderr=subprocess.STDOUT, env=env)
     try:
-        _wait_port(port)
+        wait_ports(port, servers)
     except TimeoutError:
         proc.kill()
         raise
     return proc
+
+
+def fleet_size(a) -> int:
+    """The run's server count: --servers, else ceil(workers / 8)."""
+    return servers_for(a.workers, getattr(a, "servers", 0) or 0)
+
+
+def fleet_bridge(a, port: int | None = None, workers: int | None = None) -> str:
+    """The harness --bridge list for the fleet on `port` (default a.port)."""
+    n = servers_for(workers or a.workers, getattr(a, "servers", 0) or 0)
+    return bridge_addrs(port or a.port, n)
 
 
 def sched_flags(a) -> list[str]:
@@ -369,7 +386,7 @@ def _launch_games(
         "--chunk",
         str(batch_chunk(games, a.workers, a.chunk)),
         "--bridge",
-        f"grpc:localhost:{a.port}",
+        fleet_bridge(a),
         "--obs",
         "--census",
         "--purpose",
@@ -470,6 +487,8 @@ def _drill_phase(
             str(port or args.port),
             "--workers",
             str(workers or args.workers),
+            "--servers",
+            str(servers_for(workers or args.workers, args.servers)),
             "--fork-obs",
             "--sample-forks",
             "--drill-ckpt",
@@ -539,6 +558,8 @@ def _seq_phase(
             str(port or args.port),
             "--workers",
             str(workers or args.workers),
+            "--servers",
+            str(servers_for(workers or args.workers, args.servers)),
             "--force-seq",
             str(args.seq_n),
             "--drill-ckpt",
@@ -583,6 +604,8 @@ def _drill_eval_phase(args, state: dict, k: int, it_dir: Path) -> None:
             str(args.port),
             "--workers",
             str(args.workers),
+            "--servers",
+            str(fleet_size(args)),
         ]
     )
     new = sorted(set(es.glob("eval-*.json")) - before)
@@ -1013,6 +1036,13 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--chunk", type=int, default=30)
     ap.add_argument("--port", type=int, default=50063)
+    ap.add_argument(
+        "--servers",
+        type=int,
+        default=0,
+        help="model servers per fleet on consecutive ports from --port (0 = ceil(workers / 8); "
+        "the fleet week 09-14 — one server saturates at ≈ 8 workers of network-played search copies)",
+    )
     # the run's torch device + autocast regime, forwarded to every server the
     # driver starts and to the rl step (the Mac users' mps / cpu loop —
     # community thread 09-09; the box's default is unchanged)
@@ -1422,8 +1452,8 @@ def main() -> None:
         "--campaign-port",
         type=int,
         default=0,
-        help="drill/campaign server port (default port+2; must differ "
-        "from --port when --overlap-campaign)",
+        help="drill/campaign server port (default port+8, above the generation fleet's "
+        "consecutive ports; must not overlap --port..--port+servers when --overlap-campaign)",
     )
     ap.add_argument(
         "--campaign-workers",
@@ -1659,6 +1689,7 @@ def main() -> None:
                     sched_flags=sched_flags(args),
                     device=args.device,
                     autocast=not args.no_autocast,
+                    servers=fleet_size(args),
                 )
                 try:
                     for j, (bp, n, off, seats) in enumerate(batches):
@@ -1684,7 +1715,7 @@ def main() -> None:
             t0 = time.monotonic()
             dstores: list[str] = []
             sruns: list[str] = []
-            camp_port = args.campaign_port or (args.port + 2)
+            camp_port = args.campaign_port or (args.port + 8)
             camp_w = args.campaign_workers or args.workers
             if args.drill_selection:
                 stores_rec = it_dir / "drill" / "stores.json"
@@ -2238,6 +2269,7 @@ def main() -> None:
             server = _start_server(
                 state["ckpt"], args.port, it_dir / "arms-server.log", sample=False,
                 sched_flags=sched_flags(args), device=args.device, autocast=not args.no_autocast,
+                servers=fleet_size(args),
             )
             try:
                 for seat in (0, 1):
@@ -2259,7 +2291,7 @@ def main() -> None:
                         "--chunk",
                         "50",
                         "--bridge",
-                        f"grpc:localhost:{args.port}",
+                        fleet_bridge(args),
                         "--census",
                         "--obs",
                         "--purpose",

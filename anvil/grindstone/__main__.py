@@ -139,7 +139,9 @@ def _launch_arms(
     fork_obs: bool = False,
     force_seq: int | None = None,
     seq_arms: str | None = None,
+    servers: int = 1,
 ) -> None:
+    from anvil.bridge.fleet import bridge_addrs
     from anvil.training.selfplay import _run
 
     for arm in manifest["arms"]:
@@ -164,7 +166,7 @@ def _launch_arms(
             "--chunk",
             str(chunk),
             "--bridge",
-            f"grpc:localhost:{port}",
+            bridge_addrs(port, servers),
             "--purpose",
             purpose,
             "--obs",
@@ -197,7 +199,10 @@ def _launch_arms(
 def generate(a: argparse.Namespace) -> None:
     import shutil
 
+    from anvil.bridge.fleet import servers_for
     from anvil.training.selfplay import _start_server, _stop_server
+
+    n_servers = servers_for(a.workers, getattr(a, "servers", 0) or 0)
 
     out = Path(a.manifest)
     manifest = json.loads((out / "manifest.json").read_text())
@@ -244,6 +249,7 @@ def generate(a: argparse.Namespace) -> None:
                 drill_ckpt=a.drill_ckpt,
                 drill_sample=True,
                 drill_mu_out=mu_path,
+                servers=n_servers,
             )
             try:
                 _launch_arms(
@@ -255,6 +261,7 @@ def generate(a: argparse.Namespace) -> None:
                     a.drill_stop,
                     prefix,
                     fork_obs=True,
+                    servers=n_servers,
                 )
             finally:
                 _stop_server(server)
@@ -280,6 +287,7 @@ def generate(a: argparse.Namespace) -> None:
             # forced-seq arms are always instrument-served (sampled, no mu —
             # labels-only); sampled mainline needs it for the wire forks too
             instrument=a.sample_mainline or bool(a.force_seq),
+            servers=n_servers,
         )
         try:
             _launch_arms(
@@ -293,6 +301,7 @@ def generate(a: argparse.Namespace) -> None:
                 fork_obs=a.fork_obs,
                 force_seq=a.force_seq,
                 seq_arms=a.seq_arms,
+                servers=n_servers,
             )
         finally:
             _stop_server(server)
@@ -572,6 +581,7 @@ def eval_ckpt(a: argparse.Namespace) -> None:
     """
     import time as _time
 
+    from anvil.bridge.fleet import servers_for
     from anvil.training.selfplay import _start_server, _stop_server
 
     es = Path(a.evalset)
@@ -593,11 +603,15 @@ def eval_ckpt(a: argparse.Namespace) -> None:
         }
     t0 = _time.strftime("%Y%m%d-%H%M%S")
 
+    n_servers = servers_for(a.workers, getattr(a, "servers", 0) or 0)
     server = _start_server(
-        meta["pinned_ckpt"], a.port, es / "eval-server.log", sample=False, drill_ckpt=a.ckpt
+        meta["pinned_ckpt"], a.port, es / "eval-server.log", sample=False, drill_ckpt=a.ckpt,
+        servers=n_servers,
     )
     try:
-        _launch_arms(plan_manifest, a.port, a.workers, a.chunk, meta["k"], True, "drilleval")
+        _launch_arms(
+            plan_manifest, a.port, a.workers, a.chunk, meta["k"], True, "drilleval", servers=n_servers
+        )
     finally:
         _stop_server(server)
 
@@ -701,6 +715,7 @@ def main() -> None:
     g.add_argument("--k", type=int, default=None, help="override the manifest K")
     g.add_argument("--port", type=int, default=50067)
     g.add_argument("--workers", type=int, default=8)
+    g.add_argument("--servers", type=int, default=0, help="model servers (0 = ceil(workers / 8))")
     g.add_argument("--chunk", type=int, default=50)
     g.add_argument(
         "--drill-stop",
@@ -808,6 +823,7 @@ def main() -> None:
     )
     v.add_argument("--port", type=int, default=50067)
     v.add_argument("--workers", type=int, default=8)
+    v.add_argument("--servers", type=int, default=0, help="model servers (0 = ceil(workers / 8))")
     v.add_argument("--chunk", type=int, default=50)
     v.set_defaults(fn=eval_ckpt)
 

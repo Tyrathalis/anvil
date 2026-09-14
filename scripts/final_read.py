@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 from anvil.training.notify import notify, watch_register, watch_unregister
-from anvil.training.selfplay import RUNS_DIR, _run, _start_server, _stop_server
+from anvil.training.selfplay import RUNS_DIR, _run, _start_server, _stop_server, fleet_bridge, fleet_size
 
 CRITIC = "data/training/d4-critic-fullvis/last.pt"
 TRAJ_DIR = Path("data/trajectories")
@@ -43,6 +43,10 @@ def main() -> None:
         "(the fixed 50 left 12 of 16 workers idle on a 200-game arm, 09-09)",
     )
     ap.add_argument("--port", type=int, default=50065)
+    ap.add_argument(
+        "--servers", type=int, default=0,
+        help="model servers on consecutive ports from --port (0 = ceil(workers / 8); the fleet week 09-14)",
+    )
     ap.add_argument("--pairs-file", default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
     ap.add_argument("--seed-base", type=int, default=20260710)
     ap.add_argument("--critic", default=CRITIC)
@@ -128,7 +132,9 @@ def main() -> None:
             (["--tags", a.server_tags] if a.server_tags else [])
             + (a.server_args.split() if a.server_args else [])
         ) or None,
+        servers=fleet_size(a),
     )
+    print(f"[final_read] {fleet_size(a)} server(s) for {a.workers} workers: {fleet_bridge(a)}")
     try:
         for seat in (0, 1):
             purpose = f"{a.name}arm-s{seat}"
@@ -152,7 +158,7 @@ def main() -> None:
                     "--chunk",
                     str(a.chunk),
                     "--bridge",
-                    f"grpc:localhost:{a.port}",
+                    fleet_bridge(a),
                     "--census",
                     "--obs",
                     "--purpose",

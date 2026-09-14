@@ -30,6 +30,7 @@ import json
 import random
 import re
 import signal
+import sys
 import threading
 import time
 from collections import Counter
@@ -95,6 +96,7 @@ class _Batcher:
         window_ms: float = 3.0,
         temperature: float = 1.0,
         autocast: bool = True,
+        stats_every: float = 60.0,
     ):
         import queue
 
@@ -115,10 +117,44 @@ class _Batcher:
         # backend when the ckpt carries sched params; per-window use is the
         # SchedServe's decision — the decode itself is cheap pointer steps)
         self.sched_decode = False
+        # the fleet week (09-14): occupancy telemetry — queue wait per item
+        # (put -> drained), items per batch, queue depth at each drain — and
+        # a periodic `[server] stats` line so a driver can see saturation
+        # (the h2 relabel's 110%-CPU ceiling was read off top, not the log)
+        self._stat_lock = threading.Lock()
+        self._waits: list[float] = []
+        self._items = 0
+        self._batches = 0
+        self._depth_max = 0
+        self._forward_s = 0.0
+        self.stats_every = stats_every
         threading.Thread(target=self._loop, daemon=True, name="gpu-batcher").start()
+        if stats_every and stats_every > 0:
+            threading.Thread(target=self._stats_loop, daemon=True, name="gpu-stats").start()
+
+    def _stats_loop(self) -> None:
+        while True:
+            time.sleep(self.stats_every)
+            print("[server] " + self.stats_line(reset=True), flush=True)
+
+    def stats_line(self, reset: bool = False) -> str:
+        with self._stat_lock:
+            waits = sorted(self._waits)
+            items, batches, depth, fwd = self._items, self._batches, self._depth_max, self._forward_s
+            if reset:
+                self._waits, self._items, self._batches, self._depth_max, self._forward_s = [], 0, 0, 0, 0.0
+        if not batches:
+            return "stats: idle"
+        p = lambda q: waits[min(int(q * len(waits)), len(waits) - 1)] * 1000 if waits else 0.0
+        return (
+            f"stats: {items} asks in {self.stats_every:.0f}s ({items / self.stats_every:.0f} rps), "
+            f"mean batch {items / batches:.2f}, wait p50 {p(0.5):.1f} / p90 {p(0.9):.1f} / "
+            f"p99 {p(0.99):.1f} ms, forward {fwd / batches * 1000:.1f} ms/batch "
+            f"({fwd / self.stats_every * 100:.0f}% busy), queue max {depth}"
+        )
 
     def submit(self, ex: dict, pass_delta: float, noise: "dict | None" = None) -> dict:
-        slot = {"ex": ex, "pd": pass_delta, "nz": noise, "ev": threading.Event()}
+        slot = {"ex": ex, "pd": pass_delta, "nz": noise, "ev": threading.Event(), "t": time.monotonic()}
         self.q.put(slot)
         slot["ev"].wait()
         if "err" in slot:
@@ -142,6 +178,12 @@ class _Batcher:
                 except queue.Empty:
                     break
             self.counts[f"gpu_batch_{min(len(slots), 16)}"] += 1
+            now = time.monotonic()
+            with self._stat_lock:
+                self._waits.extend(now - s["t"] for s in slots)
+                self._items += len(slots)
+                self._batches += 1
+                self._depth_max = max(self._depth_max, self.q.qsize())
             try:
                 batch = {k: v.to(self.device) for k, v in collate([s["ex"] for s in slots]).items()}
                 pd = self.torch.tensor(
@@ -178,6 +220,8 @@ class _Batcher:
                 for s in slots:
                     s["err"] = e
             finally:
+                with self._stat_lock:
+                    self._forward_s += time.monotonic() - now
                 for s in slots:
                     s["ev"].set()
 
@@ -207,6 +251,9 @@ class ModelBackend:
         sched_basis: str = "legal",
         ability_table: "str | None" = None,
         autocast: bool = True,
+        max_batch: int = 16,
+        window_ms: float = 3.0,
+        stats_every: float = 60.0,
     ):
         import torch
 
@@ -284,7 +331,8 @@ class ModelBackend:
         self.device = device
         self.counts: Counter[str] = Counter()
         self.batcher = _Batcher(
-            self.net, torch, device, self.counts, temperature=temperature, autocast=autocast
+            self.net, torch, device, self.counts, max_batch=max_batch, window_ms=window_ms,
+            temperature=temperature, autocast=autocast, stats_every=stats_every,
         )
         # sampling mode (M2 D6): Gumbel-max instead of argmax, behavior-policy
         # record per answered decision -> mu.jsonl, joined at ingest on (g, s)
@@ -970,6 +1018,18 @@ def main() -> None:
     )
     ap.add_argument("--device", default="cuda")
     ap.add_argument(
+        "--servers", type=int, default=1,
+        help="the fleet week (09-14): run N servers on ports --port..--port+N-1 behind one "
+        "supervisor (anvil.bridge.fleet); the harness takes the matching --bridge comma list. "
+        "Per-child outputs (--mu-out/--drill-mu-out/--bind-trace/--counts-out) are merged at shutdown.",
+    )
+    ap.add_argument("--max-batch", type=int, default=16, help="micro-batch cap (the batcher drains up to this)")
+    ap.add_argument("--window-ms", type=float, default=3.0, help="micro-batch gather window")
+    ap.add_argument(
+        "--stats-every", type=float, default=60.0,
+        help="seconds between `[server] stats` occupancy lines (asks, mean batch, queue wait, busy %%); 0 = off",
+    )
+    ap.add_argument(
         "--no-autocast",
         action="store_true",
         help="serve without the bf16 autocast (a device without a bf16 path: mps / cpu)",
@@ -1106,6 +1166,11 @@ def main() -> None:
     )
     args = ap.parse_args()
 
+    if args.servers > 1:
+        from anvil.bridge.fleet import supervise
+
+        raise SystemExit(supervise(sys.argv[1:], args.servers, args.port))
+
     backend = None
     drill_backend = None
     if args.mode == "model":
@@ -1129,6 +1194,9 @@ def main() -> None:
             sched_basis=args.sched_basis,
             ability_table=args.ability_table,
             autocast=not args.no_autocast,
+            max_batch=args.max_batch,
+            window_ms=args.window_ms,
+            stats_every=args.stats_every,
         )
         if args.drill_ckpt:
             drill_backend = ModelBackend(
@@ -1136,6 +1204,9 @@ def main() -> None:
                 args.pass_delta,
                 args.device,
                 autocast=not args.no_autocast,
+                max_batch=args.max_batch,
+                window_ms=args.window_ms,
+                stats_every=args.stats_every,
                 sample=args.drill_sample,
                 temperature=args.temperature,
                 mu_path=args.drill_mu_out,

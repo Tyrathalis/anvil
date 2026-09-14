@@ -812,3 +812,27 @@ moves verbatim to the status archive and this section stays here as the record.*
   by the leaf, ≈ 0 by outcome; the ladder of five served pay heads (−1.02 / −1.36 / −1.74 / −0.87 /
   −0.84) each within one SE of the leaf's prediction. The head's serve routes to the loop (Build 4½
   PG on outcomes; the h2 pool + the gate = the warm start); the served set unchanged. Evening 5 next.
+- **2026-09-14 (s2) — THE MODEL-SERVER FLEET LANDED (the throughput week, item 1 of the 09-10
+  routing; user session).** Decisions: the server module owns the fleet (`anvil.bridge.server
+  --servers N` → `anvil.bridge.fleet.supervise`: N children on consecutive ports, SIGTERM fan-out,
+  per-child output parts `.sN` for `--mu-out/--drill-mu-out/--bind-trace/--counts-out` APPENDED /
+  SUMMED into the base paths at shutdown — every launcher changes by one flag, the counts merge
+  lives in one place; child 0 opens the base port LAST so a base-port poll sees the whole fleet);
+  the harness `--bridge` takes a comma list and assigns chunks round-robin by invocation index
+  (`bridge_for(m, inv)`, one line in the worker command; Java untouched); static N = ceil(workers /
+  8) by default (`--servers` on selfplay / final_read / grindstone, `SERVERS` on the label chain,
+  the read chain passes it through; the campaign fleet moves to port+8); the batcher's `--max-batch`
+  / `--window-ms` exposed and a per-minute `[server] stats` line (asks, rps, mean batch, queue wait
+  p50/p90/p99, forward ms, busy %, queue max — the occupancy an autoscale rule would read); the
+  bridge deadline 20 s on EVERY served run unless pinned (the bar arms' 15 poison crashes at 16
+  workers, 09-11); **the crude autoscaler = the GPU YIELD** (user pin: `harness/gpu_yield.py` — a
+  compute process from outside the run's session using ≥ 1 GiB or ≥ 20% SM for 60 s gates NEW
+  chunk launches, active chunks finish, resume after 120 s quiet; a `YIELD` file is the manual form;
+  `gpu-yield.json` + `status` show it; default on for grpc runs, `--no-yield-gpu` /
+  `ANVIL_NO_GPU_YIELD`). The full autoscale (add a server on occupancy) stays routed. Smoke: 2
+  servers under 16 search workers, 32 games (`fleet-smoke-20260914-112514`): 32/32, chunks
+  alternated ports, each server ≈ 120 rps at mean batch 2.2 and ≈ 80% forward-busy, merged counts
+  `servers: 2`. Tests 309 (+13). **The fleet bench LAUNCHED 11:35** (`scripts/fleet_bench.py`,
+  `data/runs/fleet-bench-20260914/bench.md`: cells 8:1 / 16:1 / 16:2 / 24:3 / 32:4 at 64 self-play
+  search games each, both seats network-played, rolls 2 — the h2 relabel's saturating regime; g/h +
+  server occupancy per cell; ≈ 2 h) → the Build 5 sizing line re-issued with servers as a variable.
