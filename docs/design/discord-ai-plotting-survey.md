@@ -451,3 +451,35 @@ Unposted longer draft (the numbers, if he follows up):
 > a learned pilot only moves them where it plays differently from the heuristic. Also: read
 > strength with ≥2,000-game paired evals every few iterations, never per-round 100-game evals —
 > that's what separated the runs that climbed from the ones that reported climbing.
+
+**Dan B's follow-up (09-13 21:06):** the goal is 17lands-style draft statistics from self-play; a
+few misplays are fine, "a reasonably-human play style would be a big plus."
+
+*Assessment (for the record):* his stats split in two. The game-side family (GIH WR, OH WR, IWD)
+needs per-game draw/cast logs plus the outcome and a pilot whose errors are **card-uniform**; the
+heuristic's known holes are card-class-correlated (declined modes → charms/Confluences, payment
+slack → mana rocks, no combat ordering → tricks), and Anvil inherits the payment one (the head
+withheld after five negative reads). The pick-side family (ATA, ALSA) is circular in self-play:
+it describes the drafter, not the cards. Useful honesty check: each card's winrate under two
+pilots (heuristic vs trained, plain vs search) — the cards whose number moves are where pilot bias
+is the error bar. Ante's AIVAT correction applies to per-card winrates and would cut games per
+card. Human-like play: no human Forge corpus exists (17lands has draws and outcomes, no in-game
+decisions); ours arrives only after blunder detection gives Forge players a reason to record
+games — the Mentor route. Not Anvil-changing; nothing routed.
+
+**Posted reply (the user, 09-13):**
+
+> Hm, yeah, human-like is trickier. I'm hoping to eventually give Anvil the ability to target
+> human-like skill levels, but I'm not aware of any human-play database usable to train such a
+> thing, since 17lands doesn't have within-game decisions. My plan was to eventually use the Anvil
+> model to implement blunder detection, so Forge players could record their games and have the bot
+> identify mistakes, and then convince some of those players to send me their recorded games to
+> calibrate human play and difficulty ratings.
+>
+> Is your hope to use self-play data to determine the value of cards in the draft? Or are you
+> hoping to directly generate pick orders from bot drafting? For the former, I'd guess that both
+> the heuristic bot and Anvil are good enough for most purposes, but you'll get a systematic bias
+> on the cards they aren't good at, like signets. I'm still hoping I'll be able to fix that
+> problem, but it's been persistent, even in Anvil. For draft orders themselves, LordOfThePigs
+> seems to be significantly outperforming the Forge default drafting bot, but probably neither
+> drafting bot really drafts in a human-like way.
