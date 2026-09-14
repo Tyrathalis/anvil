@@ -344,3 +344,96 @@ their lockstep harness) both speak it — so any MCP / "UCI" effort in the commu
 there rather than invent a protocol; Anvil stays plugged into Forge's controller directly (the
 protocol is the human prompt surface, not the 64-callback controller surface, and none of the
 search machinery lives there) — no conversion, at least for now.
+
+### 09-13 follow-up: LLM puzzles, LordOfThePigs's draft stack + ability-effect model, Dan B (statisticaldrafting.com) on self-play for limited (read 09-13; nothing posted)
+
+- **Fuzz (09-10 19:51):** LLMs can already solve puzzles (they know the rules); the in-play gain
+  would come from memory; infinite combos are the slow part. **itemfive (21:05):** a Phase developer
+  has put serious work into auto-recognizing and executing infinite combos in play.
+- **LordOfThePigs (09-11 05:34–09:08), the draft stack in one post** (specs in `npiguet/price-predictor`):
+  per-card played/win statistics from ~1M forge-vs-forge sealed games
+  (`specs/2026-05-03-card-winnability-pretraining.md`) → a text-only card encoder that predicts
+  those statistics for unseen cards (`experiments/2026-05-11-sealed-encoder-hparam-sweep.md`) →
+  a deck scorer trained on game outcomes → a deck builder over it (simulated annealing first,
+  then a small transformer, `specs/2026-05-19-one-shot-deck-picker.md`) → a draft agent trained
+  online (GRPO, `specs/2026-08-04-draft-agent-gen3-online-grpo.md`) to maximize its own deck score
+  minus the pod's average; **Forge AI piloting its decks wins >80% vs Forge-built decks**, on all
+  draftable sets (>28K cards), not a restricted pool. Behaviour analyses:
+  `experiments/2026-08-28-encoder-preferences.md`, `2026-08-27-scorer-preferences.md`,
+  `2026-08-29-draft-agent-behaviour.md`. **Now:** ability-level embeddings trained by predicting
+  what an ability does to the battlefield when it resolves — two transformers (abilities, game
+  state), `experiments/2026-09-04-ability-effect-model-design.md` — with no concrete plan yet for
+  a player on top; the candidate is a **"game state scorer"** (per-player visible-info views of
+  full-game snapshots labelled by outcome, then a tree search over score increase).
+  *Our record:* the ability-effect model is fork K's probe as a training objective (our pin keeps
+  the pinned LLM over canonical ability text, hash-keyed; the effect loss stayed an instrument at
+  AUC 0.98–1.00, [ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md));
+  the state scorer + tree search is Build 1 + Build 2 of M12 (the value head inside the trunk,
+  the budgeted lookahead) — our numbers for what that buys are in the reply below. Not Anvil-changing.
+- **Dan B (09-12 20:03; maintains statisticaldrafting.com, pick orders learned from 17lands
+  data):** 17lands is the bottleneck; wants self-play agents for limited; asks how much work has
+  been done on self-play agents that play games of limited, and specifically **how easy/hard it
+  would be to train an MCTS-type approach to play a set (his example: the Hobbit set) at a
+  reasonably strong level, and how much compute per game.** The presumed purpose: card-quality
+  statistics for drafting without 17lands.
+
+**The compute estimate for Dan B (from our run records; one consumer box = Ryzen 9 7950X 16c/32t +
+RTX 4090 throughout).** Everything below is "match the Forge heuristic", which is the level every
+Forge-based learner in this channel has reached and roughly where all of them sit; "reasonably
+strong" beyond it is the open problem (our M12).
+
+| Stage | What it cost us / others | Source |
+|---|---|---|
+| Engine throughput, heuristic vs heuristic | 64 games/min at 16 workers (~5 s of one core per game); 1,700 g/h with a network seat over the bridge at w=16 | [ADR-0003](../decisions/ADR-0003-m0-closeout.md), [ADR-0009](../decisions/ADR-0009-m1-closeout.md) |
+| Imitation (BC) on the heuristic's games | 113,592 games (~30 h generation) → 46.8% vs the heuristic on a 1,701-card pool; **4,000 games → 38.9% on a single-deck mirror** (Kryptic) | [ADR-0009](../decisions/ADR-0009-m1-closeout.md), [devlog 09-07](../devlog/2026-09-07-session2.md) |
+| Self-play to parity (V-trace, no search) | Kryptic's mirror: 25 iterations × 480 games ≈ 12K games, ~28 min/iteration (gen ~1,400 s + train ~290 s) ≈ **12 h on one box, 38.9% → 55.2%**; our full pool: parity at M3 (0.5121) then +2pp by M4 over several 20-iteration runs | [devlog 09-07](../devlog/2026-09-07-session2.md), [ADR-0026](../decisions/ADR-0026-m3-closeout.md), [ADR-0033](../decisions/ADR-0033-m4-closeout.md) |
+| The failure mode to avoid | Austinio/Kryptic PPO: 200 rounds / 220 h → 30–35%, flat (small-N per-round evals, value-delta rewards) | §1, [devlog 09-07](../devlog/2026-09-07-session2.md) |
+| Search on top ("MCTS-type") | our budgeted one-ply lookahead at the day-zero settings: 1.75× forward calls, 2.1–3× wall vs plain play, buys **+2.5pp** for the heuristic and for the network alike (the value head carries it); MageZero (AlphaZero-style on XMage, 300 sims/decision) ≈ 250 g/h ≈ 15× slower than plain play | [ADR-0104](../decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md), §1 |
+
+So for one limited set (~250–300 cards, sealed/draft decks): **on the order of 10⁴–10⁵ heuristic
+games for imitation (hours to a day of one 16-core box) plus ~10⁴–10⁵ self-play games (a day or
+two on one 4090 + the same CPU) gets a plain policy to heuristic parity; per game that is ~5 CPU-
+seconds at heuristic speed, ~2–3× that with a shallow value-head lookahead, ~15× with a full
+MCTS budget.** The CPU is the bottleneck, not the GPU (the loop is engine-bound; the 4090 idles at
+8 workers). A set is larger than Kryptic's mirror but far narrower than our pool, so the cost sits
+between his numbers and ours, closer to his — the deck distribution is the thing he has to supply
+(Forge's sealed builder, or LordOfThePigs's drafter, which already beats it >80%).
+
+The caveats that matter for his purpose:
+
+- **"Match the heuristic" ≠ strong.** No learner in this channel has beaten the Forge heuristic
+  by more than a few pp with a network alone; our whole M12 is about whether search as the
+  behaviour policy gets past that (the day-zero read: lookahead +2.5pp for either policy). A
+  self-play limited agent's card statistics will therefore look like the heuristic's card statistics
+  plus a small correction — and the heuristic's known holes (declines half of mode choices, no
+  combat-ordering sense, payment slack ≈ +3pp/game, [ADR-0075](../decisions/ADR-0075-perfect-payment-headroom.md))
+  are exactly the places where a card's value is mis-measured.
+- **For card quality you may not need a learned player at all.** LordOfThePigs's stack derives
+  per-card played/win statistics straight from ~1M forge-vs-forge games and pretrains a text-only
+  encoder on them; that is the 17lands-replacement he is asking for, and it is already built and
+  analysed. A learned player only changes those statistics where it plays differently from the
+  heuristic in card-relevant ways — which is the same open question.
+- **The rule we would push hardest:** never read strength from per-round small-N evals; a
+  2,000-game paired read every 5–10 iterations (±1.1pp) is what separates the runs that climbed
+  from the ones that reported climbing ([standing-rules.md](../standing-rules.md)).
+
+Draft reply (the user posts; nothing posted from here):
+
+> Some numbers from Anvil (BC → V-trace self-play on Forge, 1v1 Commander, ~1.7K-card pool), all
+> on one box (7950X + 4090). Forge runs ~64 games/min heuristic-vs-heuristic at 16 workers, ~1.7K
+> games/h with a network seat in the loop; the engine's CPU is the bottleneck, the GPU mostly
+> idles. Imitation on ~114K heuristic games got us to ~47% vs the heuristic; V-trace self-play
+> from there reached parity (~51%) and then +2pp. The clean data point for a narrow pool is
+> Kryptic's run last week on a single-deck mirror: 4K BC games → 39%, then 25 iterations × 480
+> self-play games (~12h, ~28 min/iteration) → 55%. A set is between that and our pool, so I'd
+> budget ~10⁴–10⁵ heuristic games + ~10⁴–10⁵ self-play games, a few days on one consumer box, to
+> match the Forge heuristic on one set. Per game: ~5 CPU-seconds plain, ~2–3× that with a shallow
+> value-head lookahead (what we run; it's worth about +2.5pp for either policy), ~15× with a full
+> AlphaZero-style MCTS budget (MageZero on XMage ran ~250 games/h at 300 sims/decision). Two
+> caveats: nobody here has beaten the heuristic by more than a few pp with a network yet, so
+> "reasonably strong" past parity is the open problem, and the card statistics such an agent
+> produces will mostly be the heuristic's statistics; and for card quality per se,
+> LordOfThePigs's card-winnability stats from ~1M forge-vs-forge games are already the thing —
+> a learned pilot only moves them where it plays differently from the heuristic. Also: read
+> strength with ≥2,000-game paired evals every few iterations, never per-round 100-game evals —
+> that's what separated the runs that climbed from the ones that reported climbing.
