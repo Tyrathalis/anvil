@@ -836,3 +836,31 @@ moves verbatim to the status archive and this section stays here as the record.*
   `data/runs/fleet-bench-20260914/bench.md`: cells 8:1 / 16:1 / 16:2 / 24:3 / 32:4 at 64 self-play
   search games each, both seats network-played, rolls 2 — the h2 relabel's saturating regime; g/h +
   server occupancy per cell; ≈ 2 h) → the Build 5 sizing line re-issued with servers as a variable.
+- **2026-09-14 (13:51) — THE FLEET BENCH READ** (`data/runs/fleet-bench-20260914/bench.md`; five
+  cells, 64 pool self-play games each, both seats network-played, `-search -searchrate 1
+  -searchrolls 2`, the e3 ckpt, the pin's jar; the same 64 seeds in every cell). **The wall-based
+  g/h is tail-dominated and unreadable** (every cell 23–26 min = one 1,200 s draw-clock game in the
+  last chunk; 146–166 g/h flat) — **the steady-state number is the harness's cumulative rate at its
+  peak (every worker busy, before the tail):** 8:1 **316** → 16:1 **381** → 16:2 **433** → 24:3
+  **468** → 32:4 **323** g/h. Reading: (a) one server DID carry 16 workers at rolls 2 (+21% over 8;
+  the relabel's saturation was rolls 4 + the pay copies), the second server adds +14% at 16 (server
+  rps 138 → 190 total); (b) **24 workers / 3 servers is the sweet spot — 468 g/h**, +8% over 16:2;
+  (c) **32 workers is the CORE ceiling, not the GPU's**: games ran 2.5× slower (median 253 s vs
+  84–111; the game-hours sum 4.78 vs 2.3–2.5), the 08-12 w-bench's "peaks at 24, regresses at 32"
+  reproduced under search with the servers scaled; (d) **the GPU is not the ceiling anywhere in the
+  grid**: forward ms/batch 12 → 14 → 14 → 17 → 25 (the card time-shares at 4 servers but queue max
+  ≤ 3 and busy ≈ 62% per server throughout; mean batch 1.7–2.8 = the card stays starved). **Hazard
+  found: the load changes the behavior policy.** Asks per game fell 15% at 32 workers (2,656 vs
+  3,026–3,234 on the same seeds): `-searchclock` is a WALL-clock allowance (900 s default; search
+  switches off past it), so a saturated box searches less — a read at 32 workers reads a weaker
+  policy than the same recipe at 16. Standing rule: a search run's load (workers × servers) is part
+  of its recipe and stays under the core ceiling (≤ 24 on this box); the allowance's basis (wall
+  → game-time or forward calls) routed to the closeout. **The Build 5 sizing line re-issued with
+  servers as a variable:** at 24 workers / 3 servers the rolls-2 search recipe runs ≈ 470 g/h
+  steady-state ≈ 11K games/day on the idle box → the 20–30K shakedown is 2–3 days, the four-to-six-week
+  envelope holds ≈ 300–450K searched games at rolls 2 (≈ 3× the pre-fleet rate of the h2 relabel's
+  115 g/h at 16 workers under the lighter recipe; rolls 4 halves it). The lever left on the table:
+  the per-server GIL (each server's forward is busy 62% at mean batch 2 — featurization on the
+  gRPC threads shares the GIL; moving featurization worker-side or into a subprocess pool would
+  let 2 servers do 3's work; the JFR/profile week's Python-side item). The occupancy autoscale
+  stays routed (static 24:3 is the run's recipe now).
