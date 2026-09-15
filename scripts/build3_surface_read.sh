@@ -46,6 +46,7 @@ run_arm() { # tag [server-tags] [forge-args] [server-args override]
   if [[ -n "$stags" ]]; then extra=(--server-tags "$stags"); fi
   if [[ -n "${fargs// /}" ]]; then extra+=("--forge-args=$fargs"); fi  # the = form: a value starting with '-' (e.g. -payrescue) is otherwise read as a flag
   if [[ -n "$sargs" ]]; then extra+=(--server-args "$sargs"); fi
+  if [[ "$fargs" == *-search* ]]; then extra+=(--labels); fi  # the harness refuses -search without -labels (the 09-15 b3e5 launch failed on it)
   nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "$NAME-$tag" --games "$GAMES" \
       --workers "$WORKERS" --port "$PORT" --servers "$SERVERS" --jar "$JAR" --skip-ante "${extra[@]}" >> "$OUT/$tag.log" 2>&1 || return 1
   arms_of "$NAME-$tag" > "$OUT/$tag.done"

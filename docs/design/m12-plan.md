@@ -1054,3 +1054,17 @@ moves verbatim to the status archive and this section stays here as the record.*
   24 × 2, jar snapshot `abec2b2982`; GO set on the forkcheck PASS; launches when the chain's
   read lands). Next: the calibration read (≈ 04:30 09-15); the
   paired read; then the partial-expansion slot (C3) sized by the calibration read.
+- **2026-09-15 (morning) — THE PRIORITY-SLOT CALIBRATION READ; THE PAIRED READ RELAUNCHED**
+  ([devlog](../devlog/2026-09-14-session4.md)). C1's read (`data/runs/build3-priocal/read.md`, 1,360
+  windows joined identical, 828 read): **next is the resolved leaf** (spread 0.086 vs roll SD 0.009,
+  91% resolved; the acting rule converts by the outcome at bar 0.10: +0.062 ± 0.025 on 81 positives);
+  **h2 is ≈ 8× noisier per roll** (SD 0.073, 35% resolved, ρ 0.34 vs next, flips on 53% of windows)
+  **yet its flips read right by the outcome** (+0.022 ± 0.008, 87 up / 58 down) and its acting
+  conversion is ≈ 2× next's at the same bar; the end leaf is binary at 4 rolls (median spread 0).
+  **Caveat: CRN across arms** — an h2 copy and the end copy of the same roll share their first turns,
+  so the deeper leaves' agreement with the outcome is optimistic by construction; the clean read = an
+  end arm on independent roll seeds (routed: `-searchrollsalt`, one arm, after the paired read).
+  Provisional: next stays the recipe's leaf; h2 is the shakedown's deep arm, not a winner; no second
+  ply read. The paired read failed at launch (the harness refuses `-search` without `-labels`; the
+  launcher now passes it) and was **relaunched 08:30** (on / act, 300 per seat, 24 × 2, jar
+  `abec2b2982`).
