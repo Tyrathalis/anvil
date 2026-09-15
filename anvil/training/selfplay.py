@@ -357,8 +357,10 @@ def batch_chunk(games: int, workers: int, chunk: int) -> int:
     deck-pair block (an 11x finish-time spread observed in the wild; see the
     2026-08-03 bench retraction). args.chunk is a ceiling; each generation
     batch (mirror / heur splits are separate launches) shrinks it so every
-    worker gets at least two rounds of refill."""
-    return max(1, min(chunk, games // (2 * workers)))
+    worker gets at least two rounds of refill — four since the fleet bench
+    (09-14: the tail is then a game, not a chunk; a JVM start per chunk is
+    ~20 s against a 20-min tail)."""
+    return max(1, min(chunk, games // (4 * workers)))
 
 
 def _launch_games(

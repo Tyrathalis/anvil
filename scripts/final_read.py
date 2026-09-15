@@ -39,7 +39,8 @@ def main() -> None:
         "--chunk",
         type=int,
         default=None,
-        help="games per worker chunk; default = ceil(games / workers) so every worker is busy "
+        help="games per worker chunk; default = ceil(games / (4 * workers)) — four rounds of refill per worker so the "
+        "straggler tail is a game, not a chunk (the fleet bench 09-14: every cell waited ~20 min on its last chunk); was ceil(games / workers) "
         "(the fixed 50 left 12 of 16 workers idle on a 200-game arm, 09-09)",
     )
     ap.add_argument("--port", type=int, default=50065)
@@ -111,7 +112,7 @@ def main() -> None:
     )
     a = ap.parse_args()
     if a.chunk is None:
-        a.chunk = max(1, -(-a.games // a.workers))
+        a.chunk = max(1, -(-a.games // (4 * a.workers)))
     # Self-registration with the standing watcher: the read reports its OWN
     # pid (the 07-31 chain waiter grabbed a pgrep'd pid that was its own
     # wrapper shell and waited on itself forever). Crash without unregister

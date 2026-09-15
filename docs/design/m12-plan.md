@@ -897,3 +897,30 @@ moves verbatim to the status archive and this section stays here as the record.*
   as the result; then the harness chunk rule for the straggler tail (work-stealing stays routed);
   the AI eval-thread timeout class deferred by name to the horizon leaves' use; the server-side GIL
   lever deferred (24:2 is the recipe, the GPU is starved).
+- **2026-09-14 (19:00) — THE JFR READ** (`data/runs/jfr-20260914/`: `idle-read.md` = one worker on the idle box,
+  16 pool self-play games at the recipe, 77K samples; `fleet-read.md` = 22 workers of a 24:2 fleet run, the
+  first 284 s, 248K samples; `scripts/jfr_hot.py`). **The shape is the same on the idle box and under the
+  fleet** (GC 0.5% → 1.4% of CPU; contention at 24 workers is core oversubscription, not a different hot
+  path). 92% / 79% of samples sit under the search copies. The cost centres (inclusive, idle / fleet):
+  **the exact payability mask 24.5% / 21.4%** (`ComputerUtilMana.canPayManaCost` per candidate, 98% from
+  `AnvilOptions.payable`; `groupSourcesByManaColor` 17.9% — the player's mana sources regrouped for EVERY
+  candidate of a window); **replacement-effect scans 22.9% / 26.7%** (75% `cantHappenCheck`: every card in
+  the game walked per event — engine); **static-ability checks 23.6% / 11.7%** (44% the state check, 32%
+  via `getAlternativeCosts` = PR 11916's path, 12.8% / 6.0% inclusive); **GUI view maintenance 19.9% /
+  18.2%** (`CardView` via `updateStateForView` + `updateKeywords` + `updateAbilityTextForView`, on LKI
+  copies (52%) and on every card the copier builds (47%) — a headless worker maintains views nobody
+  reads); **the game copy 17.5% / 22.0%** (one per option per window; `CardFactory.getCard` 11–17%: the
+  copier REBUILDS cards from scripts instead of cloning). The 09-09 suspects: the payability predicate
+  confirmed; trigger churn negligible (0.1%); the obs snapshot 0.5–1.5%; the bridge 0.2–1.7%. The
+  exception count (14K/2 games) was a false lead (`getStackTrace` for a depth field; 0.0% of samples).
+  **Levers, ranked by share × ease:** (1) the mask: memoize the mana-source grouping per window and/or an
+  exact-safe upper-bound prefilter (total available mana < the cost's pips ⇒ skip the test) — ours,
+  mask-exact by construction, forkcheck-provable, ≈ −10–15%; (2) a headless-views switch (no
+  `TrackableObject` updates when no GUI) — one engine flag, ≈ −15%, forkcheck decides (views are read by
+  `canBeShownTo` in the copier's hidden-info prune); (3) PR 11916 at the rebase ≈ −5%; (4) the copier's
+  card rebuild and (5) the per-event replacement scan are upstream-scale (routed to the closeout; the
+  Rust-subset argument's numbers). Together (1)–(3) ≈ −30% of worker CPU ≈ +40% g/h at the core ceiling.
+  **The chunk rule landed** (final_read / fleet_bench: chunk = ceil(games / 4·workers); selfplay's
+  `batch_chunk` 2 → 4 rounds). **Incident 17:58:** `jfr print --json` ×2 on the idle recording (~4 GB RSS
+  each) with 24 recording JVMs live → OOM → the desktop killed; the fleet run died at 16/64 (its 22
+  recordings are the fleet read). `jfr_hot.py` streams now; memory note updated.

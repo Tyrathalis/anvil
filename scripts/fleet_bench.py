@@ -5,7 +5,7 @@ rolls 2 (the h2 relabel's recipe that pinned one server at 110% CPU with
 16 workers). Re-issues the Build 5 sizing line with servers as a variable.
 
 Each cell: a fleet of S servers on consecutive ports -> one harness pool
-launch of G games at W workers (chunk = ceil(G / W), one chunk per worker)
+launch of G games at W workers (chunk = ceil(G / 4W), four rounds per worker)
 -> the fleet stopped -> a row: wall, g/h (wall), PEAK g/h (the harness's peak
 cumulative rate = every worker busy, before the straggler tail — the number
 to read: the first bench's wall rates were one 1,200 s draw per cell), the
@@ -122,7 +122,7 @@ def main() -> None:
                 _run_logged([
                     sys.executable, "-m", "anvil.bridge.harness", "launch", "--pool",
                     "--games", str(a.games), "--games-per-pair", "5",
-                    "--workers", str(w), "--chunk", str(math.ceil(a.games / w)),
+                    "--workers", str(w), "--chunk", str(max(1, math.ceil(a.games / (4 * w)))),
                     "--bridge", bridge_addrs(a.port, s), "--obs", "--census", "--labels",
                     "--purpose", purpose, "--seed-base", str(a.seed_base),
                     "--jar", a.jar, "--heap", "3g", f"--forge-args={a.forge_args}",
