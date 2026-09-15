@@ -75,7 +75,13 @@ def main() -> None:
         "ingest warns 'provenance is incomplete' (every "
         "final_read arm did, through the D4 re-baseline).",
     )
-    la.add_argument("--chunk", type=int, default=200)
+    la.add_argument(
+        "--chunk",
+        type=int,
+        default=None,
+        help="games per worker invocation; default = ceil(games / (4 * workers)) — four rounds of refill per "
+        "worker so the straggler tail is a game, not a chunk (the fleet bench 09-14); was a fixed 200",
+    )
     la.add_argument("--calibrated", action="store_true")
     la.add_argument(
         "--obs",

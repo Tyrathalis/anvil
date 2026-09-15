@@ -30,3 +30,12 @@ def test_deadline_raised_on_grpc_unless_pinned():
     assert _worker_deadline(_m("grpc:localhost:1"), []) == ["-Danvil.bridge.deadline.ms=20000"]
     assert _worker_deadline(_m("grpc:localhost:1"), ["-Danvil.bridge.deadline.ms=9000"]) == []
     assert _worker_deadline(_m("grpc:localhost:1", ["-Danvil.bridge.deadline.ms=9000"]), []) == []
+
+
+def test_default_chunk_is_four_rounds_per_worker():
+    from anvil.bridge.harness.orchestrator import default_chunk
+
+    assert default_chunk(64, 24) == 1
+    assert default_chunk(1000, 16) == 16
+    assert default_chunk(2000, 8) == 63
+    assert default_chunk(3, 16) == 1

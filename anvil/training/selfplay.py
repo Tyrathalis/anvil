@@ -2290,8 +2290,6 @@ def main() -> None:
                         str(args.arms_games),
                         "--workers",
                         str(args.workers),
-                        "--chunk",
-                        "50",
                         "--bridge",
                         fleet_bridge(args),
                         "--census",

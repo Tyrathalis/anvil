@@ -52,6 +52,13 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def default_chunk(games: int, workers: int) -> int:
+    """The chunk rule (the fleet bench 09-14): four rounds of refill per worker
+    — the tail is then one game, not one chunk (every bench cell waited ~20
+    min on its last chunk at one round); a JVM start per chunk is ~20 s."""
+    return max(1, -(-int(games) // (4 * max(int(workers), 1))))
+
+
 def bridge_addrs(m: dict) -> list[str]:
     """The fleet week (09-14): `--bridge` is a comma list of addresses (one
     model server each, `anvil.bridge.fleet`); a worker gets ONE of them."""
@@ -506,7 +513,7 @@ def launch(a) -> Path:
         **pool_fields,
         "seed_base": a.seed_base,
         "games": a.games,
-        "chunk": a.chunk,
+        "chunk": a.chunk or default_chunk(a.games, 12 if a.colocated else a.workers),
         "start_index": a.start_index,
         "workers": 12 if a.colocated else a.workers,
         # ExitOnOutOfMemoryError: a batch worker must die (chunk re-issue

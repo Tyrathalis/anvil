@@ -163,8 +163,7 @@ def _launch_arms(
             str(arm["index_span"]),
             "--workers",
             str(workers),
-            "--chunk",
-            str(chunk),
+            *(["--chunk", str(chunk)] if chunk else []),  # 0 = the harness's four-round default
             "--bridge",
             bridge_addrs(port, servers),
             "--purpose",
@@ -716,7 +715,7 @@ def main() -> None:
     g.add_argument("--port", type=int, default=50067)
     g.add_argument("--workers", type=int, default=8)
     g.add_argument("--servers", type=int, default=0, help="model servers (0 = ceil(workers / 12))")
-    g.add_argument("--chunk", type=int, default=50)
+    g.add_argument("--chunk", type=int, default=0, help="0 = the harness default, ceil(games / (4 * workers))")
     g.add_argument(
         "--drill-stop",
         action=argparse.BooleanOptionalAction,
@@ -824,7 +823,7 @@ def main() -> None:
     v.add_argument("--port", type=int, default=50067)
     v.add_argument("--workers", type=int, default=8)
     v.add_argument("--servers", type=int, default=0, help="model servers (0 = ceil(workers / 12))")
-    v.add_argument("--chunk", type=int, default=50)
+    v.add_argument("--chunk", type=int, default=0, help="0 = the harness default, ceil(games / (4 * workers))")
     v.set_defaults(fn=eval_ckpt)
 
     args = ap.parse_args()

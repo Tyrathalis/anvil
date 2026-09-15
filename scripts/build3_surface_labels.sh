@@ -89,7 +89,7 @@ log "server up pid=$SERVER servers=$SERVERS bridge=$BRIDGE"
 state generate-start
 t0=$(date +%s)
 nice -n 19 uv run python -m anvil.bridge.harness launch --pool --games "$GAMES" --games-per-pair 5 \
-    --workers "$WORKERS" --chunk 50 --bridge "$BRIDGE" --obs --census --labels --reask \
+    --workers "$WORKERS" --bridge "$BRIDGE" --obs --census --labels --reask \
     --purpose "$NAME" --seed-base "$SEED" --jar "$JAR" --heap 3g --forge-args "$FARGS" \
     >> "$OUT/harness.log" 2>&1
 rc=$?; t1=$(date +%s)
