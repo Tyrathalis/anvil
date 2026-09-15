@@ -954,3 +954,18 @@ moves verbatim to the status archive and this section stays here as the record.*
   lever (the headless-views flag) is read that way, and the g/h of the whole batch of levers is read
   once, at three cells per arm, before the Build 5 sizing line is touched. The memo stays (exact, free,
   the profile's −12 points).
+- **2026-09-14 (20:50) — THE VIEWS LEVER DROPPED; THE THROUGHPUT WEEK CLOSES (user).** The survey: the
+  engine reads card views AS STATE outside the GUI (the state name via `CardTraitBase` / `CardState`,
+  zone + controller in `Game.forEachCardInGame`, card text in `SpellAbility` (two compares) and `Card`
+  (the transform marker), visibility in the copier's hidden-info prune) → a blanket views-off switch
+  changes rules outcomes; the safe subset (name / zone text / damage / marker / image keys) is ≈ a third of
+  the 20% for a change on the layer every rebase touches, whose failure mode is a silent post-rebase
+  forkcheck mismatch. Dropped as an Anvil-side change. **Routed by name to the closeout's upstream
+  list:** the LKI copy recomputing a full view per event (52% of `updateStateForView`; clone the view
+  props instead), the copier's `CardFactory` card rebuild (17–22%), the per-event replacement scan in
+  `cantHappenCheck` (17%) — small reviewable PRs in the vein of #11916. **The throughput week's
+  assets:** the fleet (`--servers N`, the bridge list, the stats line, the GPU yield), the recipe (24
+  workers × 2 servers ≈ 490 g/h at rolls 2), the chunk rule (four rounds per worker), the mana-source
+  memo (the mask's share halved; fork pin `1dd36f7342`), PR 11916 queued for the rebase, `jfr_hot.py` +
+  `fleet_bench.py` + the one-worker gate as standing instruments; the three-cell g/h read follows the
+  rebase. **Next: evening 5 = mainline surface acting (modes first) — a design session before code.**
