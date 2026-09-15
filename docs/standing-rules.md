@@ -362,6 +362,11 @@ silently delete.
   ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
 - **An identity gate on a served arm runs ONE worker** — under bf16 autocast the micro-batch composition flips near-tie argmax picks (13/120 games diverged on identical masks at 8 workers; 0/32 at one), so a multi-worker obs-diff cannot separate a code change from serve nondeterminism. The memo gate, m12-plan record 2026-09-14.
 - **A search run's load is part of its recipe** — workers × servers pinned per run and kept under the core ceiling (24 workers on the 32-core box; 32 runs games 2.5× slower) and under the GPU's process count (a fourth server costs −11%: forward latency +35% from time-sharing); N servers = ceil(workers / 12) (a server at 12 workers is not binding, at 16 it is). Served runs are NOT seed-reproducible across fleet configurations (bf16 micro-batch composition moves the logits; the same 64 seeds gave 4,590–5,441 search windows across the 24-worker cells) — a paired read pins its fleet on both arms. The fleet bench, m12-plan record 2026-09-14.
+- **Search recipes are compared at EQUAL BOX TIME, never equal games, and the read is the
+  network-alone gain per box-hour** — the training-signal question (which shape teaches most per
+  hour); fork F's two-budget read on a fixed checkpoint is the serving-budget question and does
+  not answer it; "no detectable difference" is itself the decision (the cheaper arm)
+  ([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
 - **Every search cost is priced per game against generation rate**; throughput is the binding
   constraint until measured otherwise
   ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).

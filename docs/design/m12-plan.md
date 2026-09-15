@@ -152,7 +152,7 @@ whether teaching is happening. The milestone's product is one big training run, 
    naming, payment classes, combat damage). Each integration: forkcheck + a one-hour smoke run +
    a 600-game paired read (a check that nothing broke — every shipped surface has landed a
    silent landmine caught by its first run).
-4. **Representation completions** — stack-entry tokens (§J-10), embedded ability text (the
+4. **Representation completions** (**the upstream rebase lands before this item**, carrying PR 11916 + the three-cell g/h read — [ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md) B) — stack-entry tokens (§J-10), embedded ability text (the
    pinned LLM in place of the 33K string-id table `sa_emb`, ADR-0012; **cache keyed by text hash,
    not pool version**, so a new set is an append — fork I), and **format-as-features emitted**
    (design §2: starting life, deck size, singleton flag, command zone, mulligan variant + a small
@@ -163,11 +163,22 @@ whether teaching is happening. The milestone's product is one big training run, 
    The **format-onboarding recipe doc** (`docs/design/format-onboarding.md`: pairs file + fixed
    population, Ante certification, ladder anchor, era-scoped calibration maps, pool `CURRENT`)
    is written when the format block lands.
-4½. **The shakedown run** — ~20–30K games with everything on, same loop shape as Build 5. The
-   loop's lr 1e-5 / KL 0.06 / replay 4 were tuned for sparse PG from a fixed checkpoint and dense
-   distillation turns the KL guard into a brake; the shakedown tests those settings, is the last
-   landmine catcher, and supplies the learning-curve slope the power statement's "games to
-   produce" line needs.
+4½. **The shakedown run = the search-budget read** (amended [ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md),
+   09-14 s3; the rebase carrying PR 11916 lands between evening 5 and Build 4, so this and
+   everything after it sit in one era against one fresh reference read). Two or three arms at
+   EQUAL BOX TIME, the same loop settings, the same day-zero start, each closing with the
+   2,000-game read vs `ref` + the network-alone vs with-lookahead gap + the state-ranking
+   Spearman: shallow-wide (rate 1, rolls 1, next leaf, no surface expansion) / the recipe (rolls 2
+   + surface acting) / deep (partial expansion: every candidate at the next leaf, the top-3
+   re-expanded to the horizon the priority-slot leaf calibration read measured as the peak, rolls
+   2). **Pre-registered: the big run takes the arm with the best network-alone gain per box-hour;
+   ties within one SE go to the cheaper arm** ("no detectable difference" at 10–15K games/arm is
+   itself the decision — the cheap arm). One 64-game bench cell per arm at 24 × 2 sets the
+   equal-box-time split from measured multipliers. The settings pass (lr 1e-5 / KL 0.06 / replay
+   4 were tuned for sparse PG from a fixed checkpoint; dense distillation turns the KL guard into
+   a brake) runs on the winning arm before the launch; the run stays the last landmine catcher
+   and supplies the learning-curve slope the power statement's "games to produce" line needs.
+   ≈ a week (was ≈ three days). A two-ply arm is gated on the deep arm showing gain per box-hour.
 5. **The big run.** **Envelope: four to six weeks of unattended box time**; games × per-game
    budget derived from it with Build 0's measured search multiplier (300K games at today's
    800–1,600 g/h is 8–16 days flag-off; ×3 is 3–7 weeks; ×10 is 2.5–5 months). Power statement
@@ -200,9 +211,21 @@ whether teaching is happening. The milestone's product is one big training run, 
 - **E. Reads.** **ADJUDICATED: one gate (the day-zero paired read + the control arm); smoke reads
   at every integration; the gap + state-ranking as mid-run health; the standard 2,000-game read
   closes.**
-- **F. Depth as the lever.** **ADJUDICATED (amended): depth, breadth and leaf rolls are what a
-  budget buys, not flags** — the scaling curve is budget-per-game vs paired strength, read on
-  the big run's checkpoints at two budgets, not as a separate build.
+- **F. Depth as the lever.** **ADJUDICATED (amended twice): depth, breadth and leaf rolls are what a
+  budget buys, not flags.** The serving-budget curve (budget-per-game vs paired strength on a fixed
+  checkpoint) is read on the big run's checkpoints at two budgets; **the TRAINING-signal curve
+  (network-alone gain per box-hour by search shape) is a different question and is read by the
+  Build 4½ multi-arm shakedown after the priority-slot leaf calibration read sets the horizon**
+  ([ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
+- **L. (new, 09-14 s3) Search-shape allocation — the model learns which assessment is useful to
+  it** (user's aim). The pivotality head generalizes from "search or not" to "which shape" (none /
+  one-ply next / partial-deep / …): input the state + the first ply's margin, label the search's
+  own MEASURED gain per shape at that window (the flip-and-outcome facts the calibration read
+  produces; era-scoped, regenerated per cycle), the uniform exploration floor kept for every
+  shape, deployment the same allocation under a per-device budget. A time-management model, not a
+  value estimate; the engine adjudicates every shape's answer; the head never chooses actions.
+  Built after the calibration read's first labels; served in the loop with the floor; read as
+  budget-matched strength vs the uniform-rate arm ([ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
 - **G. Format testbed.** **ADJUDICATED (09-06 s3): no Pauper in M12.** The Pauper pool dir
   holds a flex list only (builder exists, raw decks do not); a switch is pool + decks + ruleset +
   every per-format asset at once, and it depends on Build 4. Commander is the run. Routed by
@@ -969,3 +992,32 @@ moves verbatim to the status archive and this section stays here as the record.*
   memo (the mask's share halved; fork pin `1dd36f7342`), PR 11916 queued for the rebase, `jfr_hot.py` +
   `fleet_bench.py` + the one-worker gate as standing instruments; the three-cell g/h read follows the
   rebase. **Next: evening 5 = mainline surface acting (modes first) — a design session before code.**
+- **2026-09-14 (session 3, evening) — THE DESIGN SESSION BEFORE EVENING 5; THE REBASE PLACED; THE
+  SEARCH-SHAPE READS** ([ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
+  State review: Build 3 one evening from closing (six surfaces + tuck served, all −0.17 ± 1.80 vs
+  withheld; the pay head withheld → the loop), the throughput week closed, the box idle. **Evening 5
+  pinned (seven):** the (option, answer) pair chosen at the priority window (no mid-action fork;
+  the second round already values it; the mainline arms the `SurfaceDirective` consumed at the
+  callback); the natural line = the served behavior (the gated head); bar 0.10 / T 0.025 / rolls 2,
+  no bar sweep; the rule kind-agnostic, modes served first, entity acting a second arm if modes are
+  not negative; the multiplier measured by the smoke; the 600-game paired read (acting within one
+  SE of the gated arm → the gate retires on searched windows). **The rebase lands between evening
+  5 and Build 4** (user): one era for the post-Build-4 read + shakedown + big run + close, the
+  shakedown as the rebase's landmine catcher, drift 263 commits now vs ≈ three months' after the
+  run; cost one to three days + a reference re-read on the new jar (owed anyway — the probe cost).
+  Sizing re-issued: ≈ 490 g/h → 330–500K games; with surface acting (≈ 2.5×, est.) ≈ 350 g/h →
+  235–350K; launch two to three weeks out, close six to nine. **The search-shape reads (user: worth
+  the week — signal strength has been the recurring bottleneck, depth the lever):** (1) the leaf
+  calibration on the PRIORITY slot first (the pay slot's leaf family plumbed over; three
+  heuristic-control arms on one seed set; signal-to-noise per horizon, flip rate vs the one-ply
+  pick, outcome agreement — hours, no training, runs while the acting code is written); (2) the
+  shakedown = the multi-arm search-budget read at EQUAL BOX TIME (shallow-wide / the recipe /
+  partial-deep at top-3 × the measured peak horizon; the arm with the best network-alone gain per
+  box-hour wins, ties to the cheaper); (3) the partial-expansion slot in the fork; (4) **the
+  allocation head** (fork L) — the pivotality head generalized to "which shape", labels = the
+  search's measured gain per shape, the floor kept: the model learns which assessment is useful to
+  it. The two-ply shape (72 copies/window, ≈ 10–12×, ≈ 50K games) is gated on the deep arm. Not a
+  fresh model: the subject is the day-zero ckpt, the early signal its 1.6pp pretrain debt and
+  whether network-alone moves. Standing rule: search recipes compare at equal box time, never
+  equal games. **Next: evening 5's fork code (the acting rule over sub rows, the mainline arm, the
+  leaf plumb `-searchleaf`, the partial-expansion slot) ∥ the priority-slot calibration read.**
