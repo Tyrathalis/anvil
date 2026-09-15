@@ -147,9 +147,9 @@ def main() -> None:
             with open(table, "a") as f:
                 f.write(row)
             print(f"[bench] {tag}: {row.strip()}")
-        notify(f"anvil fleet bench DONE", str(table), tag="fleet")
+        notify("anvil fleet bench DONE", str(table), tag="fleet")
     except BaseException as e:  # noqa: BLE001 — the notify is the point
-        notify(f"anvil fleet bench FAILED", f"{type(e).__name__}: {e} — see {out}", tag="fleet")
+        notify("anvil fleet bench FAILED", f"{type(e).__name__}: {e} — see {out}", tag="fleet")
         raise
     finally:
         watch_unregister(name)

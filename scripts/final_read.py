@@ -17,7 +17,14 @@ import sys
 from pathlib import Path
 
 from anvil.training.notify import notify, watch_register, watch_unregister
-from anvil.training.selfplay import RUNS_DIR, _run, _start_server, _stop_server, fleet_bridge, fleet_size
+from anvil.training.selfplay import (
+    RUNS_DIR,
+    _run,
+    _start_server,
+    _stop_server,
+    fleet_bridge,
+    fleet_size,
+)
 
 CRITIC = "data/training/d4-critic-fullvis/last.pt"
 TRAJ_DIR = Path("data/trajectories")
