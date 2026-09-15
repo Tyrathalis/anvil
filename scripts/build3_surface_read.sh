@@ -35,9 +35,9 @@ export PYTHONUNBUFFERED=1 DISPLAY=:0
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
 LOG="$OUT/chain.log"
 log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
-python3 scripts/anvil_watchd.py register --name build3-read-$NAME --pid $$ --dir "$REPO/data/runs" --stall-min 60
-notify() { python3 -c "from anvil.training.notify import notify; notify('$1', '$2', tag='build3')"; }
-finish() { python3 scripts/anvil_watchd.py unregister --name build3-read-$NAME; if [[ $1 -eq 0 ]]; then notify "anvil build3 surface read DONE" "$OUT/read.json"; else notify "anvil build3 surface read FAILED" "rc=$1 see $LOG"; fi; exit $1; }
+# ADR-0107: launched through `python -m anvil.runs launch --name build3-read-$NAME --dir $OUT -- bash scripts/build3_surface_read.sh`;
+# the supervisor records done / failed (with the log tail), ticks the stall check and queues the alert — nothing here notifies.
+finish() { exit $1; }
 arms_of() { ls -dt data/runs/${1}arm-s0-* | head -1 | tr -d '\n'; echo -n ","; ls -dt data/runs/${1}arm-s1-* | head -1; }
 run_arm() { # tag [server-tags] [forge-args] [server-args override]
   local tag=$1 stags=${2:-} fargs="${FORGE_ARGS:+$FORGE_ARGS }${3:-}" sargs="${4:-$SERVER_ARGS}"

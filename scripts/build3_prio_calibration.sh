@@ -45,11 +45,11 @@ export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
 LOG="$OUT/chain.log"
 log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
 state() { echo "{\"stage\":\"$1\",\"at\":\"$(date -Iseconds)\"}" >> "$OUT/stages.jsonl"; }
-notify() { python3 -c "from anvil.training.notify import notify; notify('$1', '''$2''', tag='build3')"; }
-python3 scripts/anvil_watchd.py register --name build3-priocal --pid $$ --dir "$REPO/data/runs" --stall-min 90
+# ADR-0107: launched through `python -m anvil.runs launch --name build3-priocal --dir $OUT -- bash scripts/build3_prio_calibration.sh` (the supervisor records
+# done / failed with the log tail, ticks the stall check, queues the alert); nothing here registers or notifies.
 log "start jar=$JAR ($(cat $OUT/forge-b3pcal.commit)) ckpt=$CKPT games=$GAMES/seat workers=$WORKERS rate=$RATE rolls=$ROLLS clock=$CLOCK leaves='$LEAVES'"
 state start
-fail() { log "CALIBRATION CHAIN FAILED at $1"; state "failed-$1"; notify "anvil build3 priority-slot calibration FAILED" "$1 see $LOG"; python3 scripts/anvil_watchd.py unregister --name build3-priocal; exit 1; }
+fail() { log "CALIBRATION CHAIN FAILED at $1"; state "failed-$1"; exit 1; }
 arms_of() { ls -dt data/runs/${1}arm-s0-* | head -1 | tr -d '\n'; echo -n ","; ls -dt data/runs/${1}arm-s1-* | head -1; }
 
 for LEAF in $LEAVES; do
@@ -69,6 +69,4 @@ ARMS=()
 for LEAF in $LEAVES; do ARMS+=(--arm "$LEAF=$(cat $OUT/$LEAF.done)"); done
 uv run python scripts/prio_calibration.py "${ARMS[@]}" --out "$OUT/read.json" 2>&1 | tee "$OUT/read.md" | tee -a "$LOG" || fail read
 state done
-notify "anvil build3 priority-slot calibration DONE" "$(head -c 1500 $OUT/read.md)"
-python3 scripts/anvil_watchd.py unregister --name build3-priocal
 log "chain done"

@@ -62,6 +62,22 @@ def notify(title: str, msg: str, tag: str = "anvil") -> None:
     the at-desk fallback. Never raises: no notification path may kill the job
     it exists to report on."""
     print(f"[{tag}] NOTIFY: {title} — {msg}", flush=True)
+    # ADR-0107: every end-of-run note also lands on the alert queue (the
+    # check-in's source of truth); the sinks below stay best-effort side effects
+    try:
+        import json as _json
+        import uuid as _uuid
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        from anvil.runs import state_dir as _sd
+        with open(_sd() / "alerts.jsonl", "a") as _f:
+            _f.write(_json.dumps({"id": _uuid.uuid4().hex[:12],
+                                  "ts": _dt.now(_tz.utc).astimezone().isoformat(timespec="seconds"),
+                                  "run": tag, "kind": "note", "msg": f"{title} — {msg}", "dir": None,
+                                  "acked": False}) + "\n")
+    except Exception as e:  # noqa: BLE001
+        print(f"[{tag}] alert queue write failed: {e}", flush=True)
     if os.environ.get("ANVIL_NOTIFY_SILENT"):
         return  # test seam — see anvil_watchd._notify
     cmds = []
