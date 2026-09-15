@@ -1078,3 +1078,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   ply read. The paired read failed at launch (the harness refuses `-search` without `-labels`; the
   launcher now passes it) and was **relaunched 08:30** (on / act, 300 per seat, 24 × 2, jar
   `abec2b2982`).
+- **2026-09-15 (midday) — THE PAIRED READ: MODE ACTING NEARLY INERT AT BAR 0.10; RUN HYGIENE REBUILT;
+  THE ENTITY ARM** ([devlog](../devlog/2026-09-14-session4.md)). act − on **−0.69 ± 0.81pp** (n 579,
+  9 up / 13 down): in 21,903 searched windows the mode answer stage reached 115 and cleared the bar
+  9 times (9 arms fired clean) — "nothing broke", not a mechanism read; the gate decides only
+  unacted windows by construction, nothing to retire; pin 4 → the entity arm (`actent`:
+  entity_one + entity_set + mode) launched 12:39 on the same reference — **the first real launch
+  through `anvil.runs`** ([ADR-0107](../decisions/ADR-0107-run-launcher-and-checkin.md): the
+  launcher as the checklist, the alert queue, the check-in task; the quickstart's §7½; the
+  documentation review session routed as Build order 4¾). The salt plumb (`-searchrollsalt`) for
+  the de-confounded end arm written; its forkcheck + arm queue behind the entity arm.

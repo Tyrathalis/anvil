@@ -60,7 +60,8 @@ for arm in $ARMS; do
     on) run_arm on || { log "arm on FAILED"; finish 1; } ;;
     rescue) run_arm rescue "" "$FORGE_ARGS_RESCUE" || { log "arm rescue FAILED"; finish 1; } ;;
     autoonly) run_arm autoonly "" "" "--pay-bar 100" || { log "arm autoonly FAILED"; finish 1; } ;;  # the tag bridged, auto on every window (the probe-path arm)
-    act) run_arm act "" "$FORGE_ARGS_ACT" || { log "arm act FAILED"; finish 1; } ;;  # evening 5 (ADR-0106 A6): the on arm + surface acting (FORGE_ARGS carries the search recipe on every arm)
+    act) run_arm act "" "$FORGE_ARGS_ACT" || { log "arm act FAILED"; finish 1; } ;;
+    actent) run_arm actent "" "-searchactkinds entity_one,entity_set,mode" || { log "arm actent FAILED"; finish 1; } ;;  # evening 5 pin 4: entity one + set acting, the second arm (modes stay on)  # evening 5 (ADR-0106 A6): the on arm + surface acting (FORGE_ARGS carries the search recipe on every arm)
     *) log "unknown arm $arm"; finish 1 ;;
   esac
   ARMSPEC+=(--arm "$arm=$(cat $OUT/$arm.done)")
