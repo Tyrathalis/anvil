@@ -22,12 +22,12 @@ what you use).
 
 | Thing | Why |
 |---|---|
-| Linux, 16+ cores, 32+ GB RAM | Forge workers are the bottleneck: ~5 CPU-seconds per game, one JVM per worker at 2 GB heap |
+| Linux or macOS, 16+ cores, 32+ GB RAM (everything below was measured on Linux) | Forge workers are the bottleneck: ~5 CPU-seconds per game, one JVM per worker at 2 GB heap. Nothing needs systemd or `/proc`; the run launcher (§7½) is plain Python |
 | An NVIDIA GPU with ≥ 12 GB (a 4090 is what everything below was measured on) | the decision server and the learner; `--device cpu` exists on every driver but generation then waits on inference |
 | JDK 17+ and Maven | building the Forge fork (Java 26 works; the fork compiles at release 17) |
 | Python ≥ 3.11 and [uv](https://docs.astral.sh/uv/) | the Anvil package |
 | ~30 GB of disk | the fork, the Qwen3 embedding model (~8 GB), stores and checkpoints |
-| A display, or `Xvfb` | Forge initialises AWT before the CLI dispatches; with no `DISPLAY` the JVM exits 1 silently. The harness defaults `DISPLAY=:0`; on a headless box run `Xvfb :0 &` first |
+| A display, or `Xvfb` (Linux) | Forge initialises AWT before the CLI dispatches; with no `DISPLAY` the JVM exits 1 silently. The harness defaults `DISPLAY=:0`; on a headless Linux box run `Xvfb :0 &` first. macOS has a display; leave `DISPLAY` unset there |
 
 ## 1. Build the Forge fork
 
@@ -117,8 +117,9 @@ uv run python -m anvil.bridge.harness launch --pool --pool-format pauper --forma
 
 The run lands in `data/runs/bc-corpus-<timestamp>/`. Sizes that worked: 4,000 games for a
 mirror (Kryptic); 50,000–110,000 for a 1,700-card pool (ours). At 16 workers the heuristic mirror
-runs about 60 games/min, so 4,000 games is about an hour and 30,000 is an overnight. `STOP` in
-the run dir pauses it; `resume` picks up at game granularity.
+runs about 60 games/min, so 4,000 games is about an hour and 30,000 is an overnight — launch it
+through the run launcher (§7½) rather than leaving a terminal open. `STOP` in the run dir pauses
+it; `resume` picks up at game granularity.
 
 Ingest the run into a trajectory store:
 
@@ -174,6 +175,51 @@ What the flags mean, in the order you would change them:
 Checkpoints land in `data/training/<name>-loop/iter-NNN/train/last.pt`; the monitor is
 `monitor.jsonl` in the loop dir (reward, entropy, KL, veto rate per iteration). `STOP` in the loop
 dir exits cleanly after the current iteration.
+
+## 7½. Running the long steps unattended
+
+Steps 4, 7 and 8 take hours. Do not run them as foreground commands in a terminal you might
+close, and do not hand-roll `nohup` wrappers: launch them through the run launcher, which is the
+whole unattended-run checklist in one command (ADR-0107).
+
+```bash
+uv run python -m anvil.runs launch --name pauper-loop --dir data/training/pauper-loop --stall-min 60 -- \
+  uv run python -m anvil.training.selfplay --name pauper-loop --ckpt data/training/bc-pauper/last.pt ... (the §7 command)
+```
+
+It detaches (the command survives your terminal and your session), unbuffers the child's output
+into `<dir>/run.log`, runs it at low priority, records the run's state as it goes, and prints one
+line naming what it armed:
+
+```
+[runs] LAUNCHED pauper-loop: state ~/.local/state/anvil/runs/pauper-loop.json (running, pid 41213), log .../run.log, stall alarm 60 min on data/training/pauper-loop, sinks queue+desk
+```
+
+While it runs, the launcher's supervisor watches the run's own directory: no new file for
+`--stall-min` minutes raises a `stalled` alert, a fresh file after that raises `recovered`, and
+the exit raises `done` or `failed` with the exit code and the last lines of the log. A run that
+dies in its first ten seconds is a recorded failure, not a silent absence. The reads:
+
+```bash
+uv run python -m anvil.runs status            # every run: running / stalled / done / failed / gone
+uv run python -m anvil.runs alerts --unacked  # what you have not seen yet
+uv run python -m anvil.runs wait --name pauper-loop   # block a script until it ends (exit 0 = done)
+uv run python -m anvil.runs ack --all
+```
+
+Alerts land in `~/.local/state/anvil/alerts.jsonl` and, as side effects, on a desktop toast
+(`notify-send` on Linux, `osascript` on macOS). To reach your phone set `ANVIL_NOTIFY_CMD` to any
+executable that takes `<title> <message>`; with [ntfy](https://ntfy.sh) that is a two-line script:
+
+```bash
+#!/bin/sh
+curl -s -H "Title: $1" -d "$2" https://ntfy.sh/<your-topic> > /dev/null
+```
+
+If you drive Anvil from Claude Code, [docs/ops/run-checkin.md](../ops/run-checkin.md) is a
+read-only scheduled-task prompt that drains the queue to your phone and to the session doing the
+work. `--memory-max 20G` caps the child through `systemd-run` on Linux and is ignored with a
+note elsewhere. `STOP` files still work: the driver exits cleanly and the launcher records `done`.
 
 ## 8. Read the result
 

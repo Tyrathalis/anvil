@@ -93,6 +93,7 @@ Each line names its trigger; most sessions touch only the first group. Nothing e
 - **On a run close:** its row in the map's run ledger (verdict-colored) · the battery `analysis.md` read.
 - **On a milestone open or close:** the milestone table row + the verbatim move of the old Now paragraph to [status-archive.md](docs/status-archive.md) · the new plan doc with a Running record section · `**Doc status:**` lines (the closed plan → historical) and `uv run python scripts/docs_index.py` · the map's milestone block, Now panel and state-of-record table · design doc §13 row · the root README status line · the **stale-data deletion pass** (inventory `data/` scratch dirs → reference-grep `docs/decisions/`, `scripts/`, `anvil/` → kill list with sizes → delete on user sign-off; unconditional keeps: ckpts of record, drills.jsonl dirs, selection/evalset assets, baseline-era arm stores, Ante certs).
 - **On a state-of-record change** (ckpt, baseline, pool, fork pin, release): the table above and the map's copy.
+- **On a user-facing change** (a launcher, a harness or driver flag, pool tooling, a prerequisite): [quickstart-custom-pool.md](docs/design/quickstart-custom-pool.md) — external users run from it; it is maintained, not generated.
 - **At documentation passes only:** the field guide, standing-rules prune, design doc ledger §3d′, the canonical register.
 
 Deferrals are routed by name at the next scoping session or closeout ADR — scheduled or re-deferred with a reason, never silently dropped.
