@@ -23,7 +23,11 @@ from anvil.store.trajectories import TrajectoryStore
 
 def _key(d: dict, picks_only: bool = False) -> tuple:
     opts = None if picks_only else d.get("opts")
-    labels = tuple((o.get("e"), o.get("sa"), o.get("kind")) for o in opts) if opts else None
+    # sv=3 (Build 0) options may be plain strings; a dict keeps its label triple
+    labels = (
+        tuple((o.get("e"), o.get("sa"), o.get("kind")) if isinstance(o, dict) else o for o in opts)
+        if opts else None
+    )
     ret = d.get("ret")
     return (d.get("s"), d.get("m"), d.get("t"), d.get("p"), labels, d.get("oi"),
             json.dumps(ret, sort_keys=True) if isinstance(ret, (dict, list)) else ret)
