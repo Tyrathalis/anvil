@@ -32,6 +32,8 @@ mkdir -p "$OUT"
 GAMES=${GAMES:-200}; WORKERS=${WORKERS:-24}; SERVERS=${SERVERS:-2}; PORT=${PORT:-50077}; CHUNK=${CHUNK:-9}  # 200 games / 9 = 23 chunks over 24 workers
 RATE=${RATE:-0.1}; ROLLS=${ROLLS:-4}; CLOCK=${CLOCK:-2400}  # 2,400 s: bounds a pathological game (the eot arm: one seed ran 6,928 s of AI eval-thread timeouts under 7,200 and held the arm 4 h); sub rows are written per window, so a clipped game only loses its remaining windows
 LEAVES=${LEAVES:-"next h2 end"}
+TAG=${TAG:-b3pcal}      # the arm-name prefix (a second chain on the same seeds names its own)
+SALT=${SALT:-0}         # -searchrollsalt: 0 = the CRN baseline; the de-confounded end arm salts its rolls (ADR-0106 C1 follow-up)
 CKPT=${CKPT:-data/training/m12-build3-e3/last.pt}
 SRC_JAR=${JAR:-$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)}
 JAR="$OUT/forge-b3pcal.jar"
@@ -47,7 +49,7 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
 state() { echo "{\"stage\":\"$1\",\"at\":\"$(date -Iseconds)\"}" >> "$OUT/stages.jsonl"; }
 # ADR-0107: launched through `python -m anvil.runs launch --name build3-priocal --dir $OUT -- bash scripts/build3_prio_calibration.sh` (the supervisor records
 # done / failed with the log tail, ticks the stall check, queues the alert); nothing here registers or notifies.
-log "start jar=$JAR ($(cat $OUT/forge-b3pcal.commit)) ckpt=$CKPT games=$GAMES/seat workers=$WORKERS rate=$RATE rolls=$ROLLS clock=$CLOCK leaves='$LEAVES'"
+log "start jar=$JAR ($(cat $OUT/forge-b3pcal.commit)) ckpt=$CKPT games=$GAMES/seat workers=$WORKERS rate=$RATE rolls=$ROLLS clock=$CLOCK tag=$TAG salt=$SALT leaves='$LEAVES'"
 state start
 fail() { log "CALIBRATION CHAIN FAILED at $1"; state "failed-$1"; exit 1; }
 arms_of() { ls -dt data/runs/${1}arm-s0-* | head -1 | tr -d '\n'; echo -n ","; ls -dt data/runs/${1}arm-s1-* | head -1; }
@@ -55,12 +57,12 @@ arms_of() { ls -dt data/runs/${1}arm-s0-* | head -1 | tr -d '\n'; echo -n ","; l
 for LEAF in $LEAVES; do
   if [[ -f "$OUT/$LEAF.done" ]]; then log "arm $LEAF: done already ($(cat $OUT/$LEAF.done))"; continue; fi
   state "arm-$LEAF"
-  FARGS="-search -searchrate $RATE -searchrolls $ROLLS -searchleaf $LEAF -searchclock $CLOCK"
+  FARGS="-search -searchrate $RATE -searchrolls $ROLLS -searchleaf $LEAF -searchclock $CLOCK"; [[ "$SALT" != "0" ]] && FARGS="$FARGS -searchrollsalt $SALT"
   log "arm $LEAF start fargs='$FARGS'"
-  nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "b3pcal-$LEAF" --games "$GAMES" \
+  nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "$TAG-$LEAF" --games "$GAMES" \
       --workers "$WORKERS" --servers "$SERVERS" --chunk "$CHUNK" --port "$PORT" --jar "$JAR" --skip-ante --heuristic-control --labels \
       --forge-args="$FARGS" >> "$OUT/$LEAF.log" 2>&1 || fail "$LEAF"
-  arms_of "b3pcal-$LEAF" > "$OUT/$LEAF.done"
+  arms_of "$TAG-$LEAF" > "$OUT/$LEAF.done"
   log "arm $LEAF done: $(cat $OUT/$LEAF.done)"
 done
 
