@@ -1021,3 +1021,35 @@ moves verbatim to the status archive and this section stays here as the record.*
   whether network-alone moves. Standing rule: search recipes compare at equal box time, never
   equal games. **Next: evening 5's fork code (the acting rule over sub rows, the mainline arm, the
   leaf plumb `-searchleaf`, the partial-expansion slot) ∥ the priority-slot calibration read.**
+- **2026-09-14 (session 4, late evening) — EVENING 5's CODE: THE LEAF PLUMB, THE PRIORITY-SLOT
+  CALIBRATION CHAIN, MAINLINE SURFACE ACTING** ([devlog](../devlog/2026-09-14-session4.md)). Four
+  determinations before code (the user took the recommendations): **the pair rule = the bar-lifted
+  joint pick** (stage 1 per expanded candidate: answer margin = max V(answer) − V(natural answer),
+  ≥ bar → an answer sampled from the answers' softmax at T and the candidate's option value LIFTED to
+  it; stage 2 = Build 2's option rule on the lifted values — a flat softmax over pairs would weight an
+  expanded candidate by its answer count, max-over-answers is the winner's curse; surfaces off =
+  Build 2 byte-identical); the natural option outside the top-B = its own `ans_unsearched` class, B
+  stays 2; the mainline arm lives to the seat's next quiescent window (the copy's leaf) and is
+  label-guarded; the calibration read sized at rate 0.1 / rolls 4 / 200 games per seat / 24 × 2. **The
+  leaf plumb** (fork `de9745d089`: `-searchleaf next|eot|h<N>|end` on the first-ply copies, the
+  surface slot following, `snap` per roll under a horizon leaf) → **the calibration chain LAUNCHED
+  22:29** (`data/runs/build3-priocal/`: arms next / h2 / end on heuristic control; next done in 40
+  min, h2 ≈ 1 h per seat run; the read `scripts/prio_calibration.py`; caveat: a heuristic seat voids
+  what its AI would not play — the spread reads over the heuristic-playable set, ≈ 61% of windows
+  with ≥ 2 valued candidates on the 09-11 arms). **Mainline surface acting** (fork `e28f40d476` →
+  `abec2b2982`): `Pending.SurfAnswers` + the two-stage `decide` + the row's `lifted` / `ans` verdict,
+  `SurfaceDirective.armMainline` (per (game, seat), label-guarded, taken at the next quiescent
+  window; census `surfaceAct` kind / ord / outcome act | miss:* | unfired), `-searchactkinds`
+  (pay never; pinned `actkinds`), tests 14. **The first arm design never fired** (14/14 unfired: a
+  cast spell's entity choices fire at resolution, after the play returns; and the served-path traces
+  carried the method name as the label) — fixed in `abec2b2982`; the mechanism smoke (4 games, all
+  kinds, bar 0.02) then fires arms at the next window (entity one / set / order act, a few
+  unfired). The recipe smoke (8 games, modes, bar 0.10): 547 windows, 259 sub rows (23 mode), 3
+  mode windows on acted options all below the bar — **mode acting is rare at bar 0.10; the 600-game
+  read will say how rare**; ≈ 3,800 copy forward calls per game at rate 1 / rolls 2 / surf 2. Forkcheck
+  `run-20260914-build3-e5b` on `abec2b2982` running (the partial run on `e28f40d476`: 450/452
+  identical, the standing pair). **The paired read (A6) QUEUED** (`scripts/build3_e5_read_queue.sh`:
+  on = the served set under the search recipe vs act = + `-searchactkinds mode`, 300 games per seat,
+  24 × 2, jar snapshot `abec2b2982`; launches after the chain's read + a GO marker set on the
+  forkcheck PASS). Next: the forkcheck compare → fork pin; the calibration read (≈ 04:30 09-15); the
+  paired read; then the partial-expansion slot (C3) sized by the calibration read.

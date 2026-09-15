@@ -10,7 +10,9 @@
 #        PORT (50066), JAR (snapshot source), TAGS_OFF (the server's tag list without surfaces),
 #        ARMS (evening 4: "off on" default; "off on rescue" adds the third rung — the on arm
 #        under FORGE_ARGS_RESCUE, default "-payrescue": the ADR-0102 rescue class admitted + paid
-#        directed, the flag-gated bundle read on the same reference), FORGE_ARGS (every arm)
+#        directed, the flag-gated bundle read on the same reference; evening 5: "on act" = the served
+#        set under the search recipe in FORGE_ARGS vs the same + FORGE_ARGS_ACT, surface acting),
+#        FORGE_ARGS (every arm)
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil
 FORGE=/home/tyrathalis/Everything/Projects/forge
@@ -21,6 +23,7 @@ GAMES=${GAMES:-300}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50066}; SERVERS=${SERVE
 TAGS_OFF=${TAGS_OFF:-mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number,mtg.attack,mtg.block,mtg.pay_mana_class}
 ARMS=${ARMS:-off on}; FORGE_ARGS=${FORGE_ARGS:-}; FORGE_ARGS_RESCUE=${FORGE_ARGS_RESCUE:--payrescue}
 SERVER_ARGS=${SERVER_ARGS:-}  # evening 4: e.g. "--pay-bar 0.2" (every arm's server)
+FORGE_ARGS_ACT=${FORGE_ARGS_ACT:--searchactkinds mode}  # evening 5: the act arm's extra forge args (modes first; "all" = every kind)
 OUT=data/runs/build3-surface-read-$NAME
 mkdir -p "$OUT"
 SRC_JAR=${JAR:-$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)}
@@ -56,6 +59,7 @@ for arm in $ARMS; do
     on) run_arm on || { log "arm on FAILED"; finish 1; } ;;
     rescue) run_arm rescue "" "$FORGE_ARGS_RESCUE" || { log "arm rescue FAILED"; finish 1; } ;;
     autoonly) run_arm autoonly "" "" "--pay-bar 100" || { log "arm autoonly FAILED"; finish 1; } ;;  # the tag bridged, auto on every window (the probe-path arm)
+    act) run_arm act "" "$FORGE_ARGS_ACT" || { log "arm act FAILED"; finish 1; } ;;  # evening 5 (ADR-0106 A6): the on arm + surface acting (FORGE_ARGS carries the search recipe on every arm)
     *) log "unknown arm $arm"; finish 1 ;;
   esac
   ARMSPEC+=(--arm "$arm=$(cat $OUT/$arm.done)")
