@@ -179,6 +179,16 @@ whether teaching is happening. The milestone's product is one big training run, 
    a brake) runs on the winning arm before the launch; the run stays the last landmine catcher
    and supplies the learning-curve slope the power statement's "games to produce" line needs.
    ≈ a week (was ≈ three days). A two-ply arm is gated on the deep arm showing gain per box-hour.
+4¾. **The documentation review session** (user, 09-15) — scheduled between the shakedown's verdict
+   and the big run's launch, once every piece of M12 implementation is in: the architectural
+   changes since ADR-0101 (search as the behavior policy, the surfaces, the acting rule, the leaf
+   family, the fleet, the rebase) and the new tooling (the quickstart, the run launcher + the
+   check-in, the calibration instruments) each documented for the long haul in the place a reader
+   would look, not in the running record alone. Scope = the wrap-up checklist's documentation-pass
+   line in CLAUDE.md (the field guide, standing-rules prune, the design doc's §3d′ ledger and §13,
+   the canonical register, the quickstart, the ops docs, the map) **plus the Now block trimmed to
+   what is running, what is next and the pins** — the narrative already lives here. Its output is
+   one commit and a devlog; no design decisions are taken in it (those go to ADRs before it).
 5. **The big run.** **Envelope: four to six weeks of unattended box time**; games × per-game
    budget derived from it with Build 0's measured search multiplier (300K games at today's
    800–1,600 g/h is 8–16 days flag-off; ×3 is 3–7 weeks; ×10 is 2.5–5 months). Power statement
