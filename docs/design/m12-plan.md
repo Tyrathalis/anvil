@@ -940,3 +940,17 @@ moves verbatim to the status archive and this section stays here as the record.*
   gate's walls hint at the win (off 356 s / on 337 s on the no-search recipe). The re-profile (one
   worker, 16 games) + the 24:2 bench cell on the memo jar launched 19:30 (`data/runs/jfr-20260914-memo/`,
   `fleet-bench-20260914-memo`); the reference: 489 g/h, the mask 24.5% of samples.
+- **2026-09-14 (20:35) — THE MEMO'S READ: the profile moved as predicted, the single bench cell is
+  inconclusive.** Re-profile (one worker, 16 games, the memo jar, `data/runs/jfr-20260914-memo/idle-read.md`):
+  `groupSourcesByManaColor` **17.9% → 5.2%**, `canPayManaCost` 24.5% → 12.9%, `AnvilOptions.payable` 25.5%
+  → 14.0% (the remaining half is the per-shard payment logic proper); per search copy the option playout
+  fell 212 → 194 ms p50 (−8%; −16% adjusting for the memo run's wider boards — copy_ms, a pure board-size
+  proxy the memo cannot touch, ran 86 → 97 ms). The 24:2 bench cell read **445 g/h peak vs 489** — but
+  its games were much wider (copy_ms p50 138 vs 81, ms/window 352 vs 290, the servers at 79 rps / 47%
+  busy vs 100 / 61%: the workers were slower on the engine, not waiting on anything), so the cell is a
+  board-size draw, not a memo read. **Lesson: one 64-game cell has a ≥ 10% noise floor under search
+  (the games diverge per cell, the draw-clock games land where they land); per-lever reads use the
+  one-worker profile's shares and per-copy ms, and a g/h read needs ≥ 3 cells per arm** — the next
+  lever (the headless-views flag) is read that way, and the g/h of the whole batch of levers is read
+  once, at three cells per arm, before the Build 5 sizing line is touched. The memo stays (exact, free,
+  the profile's −12 points).
