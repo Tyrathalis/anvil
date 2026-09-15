@@ -924,3 +924,19 @@ moves verbatim to the status archive and this section stays here as the record.*
   `batch_chunk` 2 → 4 rounds). **Incident 17:58:** `jfr print --json` ×2 on the idle recording (~4 GB RSS
   each) with 24 recording JVMs live → OOM → the desktop killed; the fleet run died at 16/64 (its 22
   recordings are the fleet read). `jfr_hot.py` streams now; memory note updated.
+- **2026-09-14 (19:30) — THE MANA-SOURCE MEMO LANDED (the JFR read's first lever; user: memo scoped to one
+  scan, the prefilter dropped as not exact-safe, the 08-11 mask cache left off).** Fork `1dd36f7342`:
+  `ComputerUtilMana.groupSourcesByManaColor` is built once per `AnvilOptions.buildPriorityOptions` scan
+  (a ThreadLocal memo armed for the scan's duration, a fresh copy per consumer, the heuristic AI's own
+  payment calls never see it; `-Danvil.scan.sourcememo=off` = the per-candidate rebuild). **Proofs:**
+  the identity gate (`scripts/build3_memo_gate.sh`, memo off vs on on ONE jar, obs-diff window by window)
+  **32/32 games, 32,306 windows identical** at one worker; the forkcheck `run-20260914-memo` **499/500**
+  vs the 08-21 baseline, 20260969 the standing crash → **PASS → fork pin `1dd36f7342`** (ADR-0025-exempt:
+  the mainline heuristic path never arms the memo; the bridged path's identity is the gate's). **Finding
+  — the eight-worker obs-diff gate is no longer an identity instrument on a served arm:** the first
+  gate at 8 workers diverged 13/120 games on IDENTICAL masks (a near-tie argmax pick flipped between
+  two `Play land` options: bf16 micro-batch composition), and the same games replayed identical at one
+  worker → standing rule: an identity gate on a served arm serves batches of one (`WORKERS=1`). The
+  gate's walls hint at the win (off 356 s / on 337 s on the no-search recipe). The re-profile (one
+  worker, 16 games) + the 24:2 bench cell on the memo jar launched 19:30 (`data/runs/jfr-20260914-memo/`,
+  `fleet-bench-20260914-memo`); the reference: 489 g/h, the mask 24.5% of samples.
