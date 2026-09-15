@@ -1088,3 +1088,11 @@ moves verbatim to the status archive and this section stays here as the record.*
   launcher as the checklist, the alert queue, the check-in task; the quickstart's §7½; the
   documentation review session routed as Build order 4¾). The salt plumb (`-searchrollsalt`) for
   the de-confounded end arm written; its forkcheck + arm queue behind the entity arm.
+- **2026-09-15 (afternoon) — EVENING 5 CLOSED; BUILD 3 CLOSES WITH IT** ([ADR-0106
+  addendum](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)). The entity
+  arm −0.69 ± 0.91 (n 579; 70 acted answers in 600 games, 63 fired clean); with the mode arm −0.69 ±
+  0.81: neutral at low exposure, nothing broke, the gate moot. **Recipe pin: surface acting ON**
+  (`-searchactkinds entity_one,entity_set,mode`, bar 0.10; the bar a settings-pass axis). C1
+  provisional (next the resolved leaf; h2's flips right by the CRN outcome but optimistic by
+  construction) → the salted end arm running (fork `e63a0cac20`, forkcheck ∥). Next: the salt read
+  → C1's verdict + the partial-expansion slot; Build 3's closeout ADR; the rebase; Build 4.

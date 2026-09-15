@@ -178,3 +178,28 @@ moves at all (the charter's kill condition, read early).
 - Routed by name: the two-ply arm (gated on C2's deep arm); the allocation head's first fit (after
   C1's labels; Build 4½); the certifier merge (unchanged: Build 4½ or the closeout); the
   three-cell g/h read (at the rebase).
+
+## Addendum (2026-09-15) — evening 5 read; C1's first read; the recipe pin
+
+- **A6 read (600 games, e3 ckpt, 24 × 2, the search recipe on both arms)**: mode acting − served
+  **−0.69 ± 0.81pp** (n 579, 9 up / 13 down); entity one + set + mode acting − served **−0.69 ±
+  0.91** (12 up / 16 down). Exposure: 21.9K searched windows per arm; the answer stage cleared the
+  0.10 bar 9 times (modes) and 70 times (entities + modes; 63 arms fired clean, 6 unfired, 0 label
+  misses). Neither read can resolve a 70-act mechanism at n 579; both say **nothing broke**. The
+  pre-registered "gate retires on searched windows" is moot: a fired arm already replaces `askMode`
+  gate included, and the gate decides only unacted windows — the structure the rule wanted.
+- **Recipe pin**: surface acting stays ON in the shakedown's recipe arm
+  (`-searchactkinds entity_one,entity_set,mode`, bar 0.10, T 0.025): neutral in two reads, free at
+  the margin (the second round is paid for labels), and the acted answers carry a behavior logp
+  for the loop's PG. The answer bar is a settings-pass axis (0.05 would act ≈ 3× as often), not a
+  first-read sweep. Ordering / damage stay imitation-only.
+- **C1's first read** (heuristic control, 828 windows): next is the resolved leaf (spread 0.086 vs
+  roll SD 0.009, 91% resolved; the acting rule converts by the outcome at bar 0.10, +0.062 ±
+  0.025); h2 is ≈ 8× noisier per roll (35% resolved, flips 53% of picks) yet its flips read right by
+  the CRN end arm (+0.022 ± 0.008) with ≈ 2× the acting conversion — **optimistic by construction**
+  (the h2 copy and the end copy of a roll share their first turns). The de-confounded verdict = the
+  end arm under `-searchrollsalt` (fork `e63a0cac20`; running). Until it lands: next stays the
+  recipe's leaf; h2 is the shakedown's deep arm, not a winner; no second-ply read.
+- **Evening 5 CLOSED on components** (the leaf plumb, the acting rule, the mainline arm, the salt,
+  `prio_calibration.py`, the acting smoke + read; fork pin `abec2b2982` → `e63a0cac20` on its
+  forkcheck). Build 3 closes with it; next = the rebase (B), then Build 4.
