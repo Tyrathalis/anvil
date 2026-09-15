@@ -1047,9 +1047,10 @@ moves verbatim to the status archive and this section stays here as the record.*
   unfired). The recipe smoke (8 games, modes, bar 0.10): 547 windows, 259 sub rows (23 mode), 3
   mode windows on acted options all below the bar — **mode acting is rare at bar 0.10; the 600-game
   read will say how rare**; ≈ 3,800 copy forward calls per game at rate 1 / rolls 2 / surf 2. Forkcheck
-  `run-20260914-build3-e5b` on `abec2b2982` running (the partial run on `e28f40d476`: 450/452
-  identical, the standing pair). **The paired read (A6) QUEUED** (`scripts/build3_e5_read_queue.sh`:
+  `run-20260914-build3-e5b` on `abec2b2982`: **498/500, the standing pair (20260739 replayed to the
+  baseline hash on the same jar) — PASS 00:30 09-15 → fork pin `abec2b2982`** (the partial run on
+  `e28f40d476`: 450/452, the same pair). **The paired read (A6) QUEUED** (`scripts/build3_e5_read_queue.sh`:
   on = the served set under the search recipe vs act = + `-searchactkinds mode`, 300 games per seat,
-  24 × 2, jar snapshot `abec2b2982`; launches after the chain's read + a GO marker set on the
-  forkcheck PASS). Next: the forkcheck compare → fork pin; the calibration read (≈ 04:30 09-15); the
+  24 × 2, jar snapshot `abec2b2982`; GO set on the forkcheck PASS; launches when the chain's
+  read lands). Next: the calibration read (≈ 04:30 09-15); the
   paired read; then the partial-expansion slot (C3) sized by the calibration read.

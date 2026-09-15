@@ -207,7 +207,7 @@ def main() -> None:
 
     for leaf in leaves:
         c = counts[leaf]
-        spreads, sds, resolved, ms = [], [], [], []
+        spreads, sds, resolved = [], [], []
         rho, top_agree, flips, flip_d_end, flip_pos, flip_neg = [], [], 0, [], 0, 0
         conv = {b: [] for b in BARS}
         conv_n = {b: 0 for b in BARS}
