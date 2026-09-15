@@ -23,6 +23,7 @@ from __future__ import annotations
 import os
 import subprocess
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 
 
@@ -96,6 +97,17 @@ def _sid(pid: int) -> int | None:
         return None
 
 
+def _is_anvil_server(pid: int) -> bool:
+    """An Anvil model server is ours whatever session started it (an ad-hoc
+    launch starts the server and the harness from different shells; the
+    09-14 JFR run yielded to its own server)."""
+    try:
+        cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ")
+    except OSError:
+        return False
+    return b"anvil.bridge.server" in cmd
+
+
 def foreign_procs(
     procs: list[GpuProc], own_sid: int, fb_mb: float = 1024.0, sm_pct: float = 20.0
 ) -> list[GpuProc]:
@@ -105,7 +117,7 @@ def foreign_procs(
             continue
         if p.fb_mb < fb_mb and p.sm < sm_pct:
             continue
-        if _sid(p.pid) == own_sid:
+        if _sid(p.pid) == own_sid or _is_anvil_server(p.pid):
             continue
         out.append(p)
     return out

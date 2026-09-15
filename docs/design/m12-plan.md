@@ -882,3 +882,18 @@ moves verbatim to the status archive and this section stays here as the record.*
   runs are not seed-reproducible across fleet configurations — a paired read pins its fleet on both
   arms (it always has: one server per read). The `-searchclock` basis item is withdrawn.
   `fleet_bench.py` reports the peak cumulative rate in its own column from here.
+- **2026-09-14 (16:30) — routed by name: upstream PR [#11916](https://github.com/Card-Forge/forge/pull/11916)
+  (khaliostr: cheap checks before expensive ones in `StaticAbilityAlternativeCost.alternativeCosts`
+  and `ComputerUtilCombat.canGainKeyword`; merged upstream) goes into the research fork AT THE NEXT
+  REBASE / engine bump whether or not the sync reaches it (user).** `getAlternativeCosts` sits under
+  `getAllPossibleAbilities` = our option enumeration at every window and every search copy's
+  heuristic playout; his 53% → 16% CPU was four-player Commander. NOT ADR-0025-exempt: the
+  `canGainKeyword` reorder skips `canPayCost` calls, whose mana test draws the game RNG and writes
+  AI memory (the 09-09 quietProbe finding), so seeded games diverge — a boundary by construction.
+  [#11917](https://github.com/Card-Forge/forge/pull/11917) (the Coram LKI NPE; not in the pool)
+  rides the same bump. The JFR read decides whether the bump moves up. **The JFR plan agreed
+  (user):** two recordings (one worker on the idle box, 16 games at the recipe; one worker inside
+  a 24:2 fleet run), the copy path's hot frames + the engine / bridge / GameCopier / snapshot split
+  as the result; then the harness chunk rule for the straggler tail (work-stealing stays routed);
+  the AI eval-thread timeout class deferred by name to the horizon leaves' use; the server-side GIL
+  lever deferred (24:2 is the recipe, the GPU is starved).

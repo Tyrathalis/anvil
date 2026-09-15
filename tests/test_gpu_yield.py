@@ -26,15 +26,21 @@ def test_foreign_rule(monkeypatch):
     procs = gy.parse_pmon(PMON)
     # 9001 is ours (same sid); 9002 uses 1.4 GB from another session; 1750 idle
     monkeypatch.setattr(gy, "_sid", lambda pid: 77 if pid == 9001 else 5)
+    monkeypatch.setattr(gy, "_is_anvil_server", lambda pid: False)
     f = gy.foreign_procs(procs, own_sid=77)
     assert [p.pid for p in f] == [9002]
+    # an Anvil model server from another session is still ours
+    monkeypatch.setattr(gy, "_is_anvil_server", lambda pid: pid == 9002)
+    assert gy.foreign_procs(procs, own_sid=77) == []
     # everything foreign: the graphics-only and the idle context still do not count
     monkeypatch.setattr(gy, "_sid", lambda pid: 5)
+    monkeypatch.setattr(gy, "_is_anvil_server", lambda pid: False)
     assert sorted(p.pid for p in gy.foreign_procs(procs, own_sid=77)) == [9001, 9002]
 
 
 def test_hysteresis(monkeypatch):
     monkeypatch.setattr(gy, "_sid", lambda pid: 5)
+    monkeypatch.setattr(gy, "_is_anvil_server", lambda pid: False)
     now = {"t": 0.0}
     state = {"procs": []}
     y = gy.GpuYield(own_sid=77, on_s=60, off_s=120, sample_s=30,
