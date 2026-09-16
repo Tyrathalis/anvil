@@ -1122,7 +1122,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   `deep` block (gate verdict, shallow margin + argmax, the set + values, the copies), header pins;
   tests 24. **The smoke** (4 games, recipe + deep 3, jar `5e333e96930`): 4/4, 0 copy crashes; the deep round on 23% of windows (band 82 / floor 11 of 399), 18.8 s p50 per round, 84% of copy forward calls (≈ 6× the recipe in calls, ≈ 3× in one-worker wall), flips the first-ply argmax on 55/93 rounds, clears the bar on 9 (all acted). Standing rule: a shape's per-copy price is measured before its arm is sized.
   Launched: the queue (forkcheck on the deep tip → the 24 × 2 bench pair recipe / recipe + deep →
-  `deep_bench_read.py`). Routed: the pass-through next peek on deep copies; the deep bar / band /
+  `deep_bench_read.py`); **forkcheck PASS 22:15 (499/500, the standing crash) → fork pin `5e333e96930`**. Routed: the pass-through next peek on deep copies; the deep bar / band /
   floor as settings-pass axes. Next: the queue's reads → the fork pin + the deep arm's multiplier;
   Build 3's closeout ADR; the rebase.
 - **2026-09-15 (community watch, noted + routed)** — the Discord read (the survey doc's 09-14/15
