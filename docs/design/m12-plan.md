@@ -1294,3 +1294,32 @@ moves verbatim to the status archive and this section stays here as the record.*
   seat, network alone, one jar `forge-targets-gate.jar` = tip `a36975497b`). Forkchecks: the retarget
   tip `5dd8ab3ede` running (`run-20260916-build4-targets`), the gate tip queued behind it
   (`run-20260916-build4-gate`). Reads land overnight.
+- **2026-09-16 15:20 — the representation completions BUILT (worktree `anvil-wt-b4rep`, branch
+  `b4-representation`, commit `dc6b362`; not yet on main — the main tree is under the evening's
+  chain), all three additive and ZERO-INIT so the day-zero forward is byte-identical (the identity
+  contract in `tests/test_representation_b4.py`; the worktree's full suite 313 pass):**
+  (1) format-as-features — the explicit scalars (start life, deck size, singleton, command zone,
+  mulligan variant) from `vocab_mtg.json`'s `format_features` table ride the globals after the
+  one-hot (`TRANSFORM_VERSION` 5; load_compat's end-of-globals pad; the one-hot through
+  `state_proj` was already the learned format embedding); (2) the stack entries — `assemble`
+  passes the recorded stack through, `anvil.encoder.stack_fields` maps up to 8 entries (top-first)
+  onto host rows / ability-table rows / controller / first card target / first player seat, and
+  `StateAssembler` adds each entry onto its HOST token (text + controller + position), its card
+  target's token and the [STATE] token for a player target — **additive, not new tokens: a
+  zero-vector token would still renormalize the attention, so a token design cannot be
+  identity-preserving; the additive form is, and the re-warm only improves from the current
+  strength** (the token variant stays the alternative if a probe says the stack information does
+  not land); (3) the ability text beside the string id — `cand_ak` per priority candidate (the
+  option's `ak` through the AbilityCache) → `cand_abil_proj` (zero-init, 2560 → 64) added to
+  `sa_emb`'s descriptor, so an OOV string keys on its text alone and a new set is an append (the
+  string path is dropped later, after the loop has trained the text path — a flag at the closeout,
+  not a re-init now). Fork tip `7343c40d84`: the ability key on every recorded stack entry
+  (recording-only; its forkcheck `run-20260916-build4-stackak` queued behind the gate tip's).
+  **OPEN for the next session (the user's call): the re-warm's recipe** — `value_pretrain fit
+  --build` (the Build 1 recipe) has no init flag (it starts from `iter-019` by design), so the
+  re-warm is either (a) the Build 1 fit re-run with the new fields present → a new day-zero ckpt
+  → the surface chain on it (the served set re-fit on the moved trunk), read by the Build 1 cells
+  (one-ply ≈ 0.39, state ≈ 0.375 to hold) — the clean lineage; or (b) a continuation fit from
+  tonight's `m12-build4-e1` on the banked priority labels + the value targets with the new paths
+  unfrozen — cheaper, keeps the surface heads. The new fields get no gradient until one of these
+  runs; until then every build serves byte-identically.
