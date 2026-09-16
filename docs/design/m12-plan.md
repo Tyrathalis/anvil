@@ -1234,4 +1234,16 @@ moves verbatim to the status archive and this section stays here as the record.*
   arm in the shakedown at equal box time (pre-registered in ADR-0109). Next for the head: the
   output on the priority forward pass + the Java rate draw as the head's probability with the
   floor (`-searchfloor`), on the merged jar, during Build 4.
+- **2026-09-16 (session 2, continued) — THE BOUNDARY LANDED (ADR-0110 addenda 10:12 / 11:15).**
+  The new baseline `run-20260916-merge-baseline` on jar `1db054ade4`: fidelity 451 / 48 / 1
+  (08-21: 450 / 50), 332 / 500 identical to 08-21 (the boundary's drift, for the record);
+  `compare.py` defaults to it. The views-flag proof `run-20260916-merge-nogui`: **499 / 500
+  identical, 20260969 the standing launch-unstable seed → PASS**; the default flips on the flip
+  tip `8137d0c41c` (+ the fork's console modes headless; its forkcheck heads the g/h queue).
+  **The fork pin → `1db054ade4`**, `master` fast-forwarded (unpushed). **`merge-ref` (iter-019 on
+  the merged jar, 2,000 games, 1 crash): 0.5300 raw / 0.5348 ± 0.0110 Ante-corrected — the era's
+  reference number** (0.5279 was the previous era's). The ability-key drift 15 / 5,148 (the OOV
+  path = host + kind, verified; the table's extension routed). Running: `merge-heur` (the
+  mirror) and `merge-gh` (the flip forkcheck → three 24 × 2 recipe cells; the recipe's rate on
+  the merged jar with the views lever + the void skip in = the big-run sizing line).
 
