@@ -69,6 +69,7 @@ TAG_TASK = {
     # evening 3: ordering (a permutation) and combat damage (a kill order)
     "mtg.surface.order": "surf_order",
     "mtg.surface.damage": "surf_damage",
+    "mtg.surface.target": "surf_target",  # Build 4
 }
 
 

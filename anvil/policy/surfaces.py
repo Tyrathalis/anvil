@@ -53,9 +53,10 @@ SURF_TASK = {
     "mode": "surf_mode",
     "name": "surf_name",
     "damage": "surf_damage",
+    "target": "surf_target",  # Build 4 (ADR-0109): the entity-set shape over the legal-target set
 }
 # the shapes whose loader / serve path exist (grows one evening at a time)
-SURF_BUILT = {"surf_one", "surf_set", "surf_mode", "surf_order", "surf_damage"}
+SURF_BUILT = {"surf_one", "surf_set", "surf_mode", "surf_order", "surf_damage", "surf_target"}
 OPT_KINDS = {"entity": 0, "player": 1, "ability": 2, "other": 3}
 SURF_MAX = 12  # answer slots (+1 STOP); discard-to-hand-size and sacrifice-N sit under it
 
@@ -292,10 +293,10 @@ def surface_fields(
     if task == "surf_one" and len(idxs) != 1:
         out["_miss"] = "label_count"
         return out
-    if task in ("surf_set", "surf_mode", "surf_order", "surf_damage") and not (lo <= len(idxs) <= hi):
+    if task in ("surf_set", "surf_mode", "surf_order", "surf_damage", "surf_target") and not (lo <= len(idxs) <= hi):
         out["_miss"] = "label_count"
         return out
-    if task in ("surf_set", "surf_mode"):
+    if task in ("surf_set", "surf_mode", "surf_target"):
         idxs.sort()  # set-like answers are order-free to the engine: one canonical order
     if len(idxs) > SURF_MAX:
         out["_miss"] = "label_truncated"

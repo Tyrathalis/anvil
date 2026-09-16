@@ -69,11 +69,11 @@ COMBAT_TAGS = "mtg.attack,mtg.block"
 PAY_TAGS = "mtg.pay_mana_class"
 # M12 Build 3 (ADR-0105): served only by a checkpoint whose surface decoder
 # was fitted (surf_ params present; the has_pay never-serve-fresh-init rule)
-SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode,mtg.surface.order,mtg.surface.damage"
+SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode,mtg.surface.order,mtg.surface.damage,mtg.surface.target"
 _HOST_ID = re.compile(r"\((\d+)\)$")  # "Name (id)" labels (mirrors featurize._HOST_ID)
 SURFACE_TAG_OF_TASK = {"surf_one": "mtg.surface.entity_one", "surf_set": "mtg.surface.entity_set",
                        "surf_mode": "mtg.surface.mode", "surf_order": "mtg.surface.order",
-                       "surf_damage": "mtg.surface.damage"}
+                       "surf_damage": "mtg.surface.damage", "surf_target": "mtg.surface.target"}
 
 
 class _Batcher:

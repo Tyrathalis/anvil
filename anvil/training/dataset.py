@@ -138,6 +138,7 @@ TASKS = {
     "surf_mode": 13,
     "surf_name": 14,
     "surf_damage": 15,
+    "surf_target": 16,  # Build 4 (ADR-0109): targets chosen outside a cast
 }
 
 # M9 rung 3: goal-kind codes for payment options (the "gk" field the fork

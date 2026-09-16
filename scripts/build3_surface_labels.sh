@@ -65,6 +65,9 @@ FARGS="-search -searchrate $RATE -searchrolls $ROLLS -searchsurf $SURF -searchsu
 [[ -n "$CLOCK" ]] && FARGS="$FARGS -searchclock $CLOCK"
 SERVER_EXTRA=()
 [[ -n "$TAGS" ]] && SERVER_EXTRA+=(--tags "$TAGS")
+# Build 4 (ADR-0110 addendum): the ability table stem the server serves (empty = the ckpt config's)
+ABIL=${ABIL:-}
+[[ -n "$ABIL" ]] && SERVER_EXTRA+=(--abilities "$ABIL")
 python3 "$REPO/scripts/anvil_watchd.py" register --name "build3-$NAME" --pid $$ --dir "$REPO/data/runs" --stall-min 60
 log "start wt=$WT ($(git -C "$WT" rev-parse --short HEAD)) jar=$SRC_JAR -> $JAR ($(cat $OUT/forge-b3.commit)) ckpt=$CKPT games=$GAMES workers=$WORKERS deadline_ms=$DEADLINE_MS fargs='$FARGS'"
 state start
