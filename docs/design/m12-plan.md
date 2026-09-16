@@ -1326,3 +1326,6 @@ moves verbatim to the status archive and this section stays here as the record.*
 - **2026-09-16 15:50 — forkcheck PASS on the retarget tip `5dd8ab3ede`** (`run-20260916-build4-targets`
   499/500, 20260969 the standing seed, fidelity 451/48/1 = the baseline's). The gate tip's and the
   stack-key tip's forkchecks follow; the pin moves to the read's jar once it is proven.
+- **2026-09-16 16:27 — forkcheck PASS on the gate tip `a36975497b` (499/500, the standing seed) →
+  THE FORK PIN = `a36975497b`** (the target surface's two tips + `-modegate off`; the evening's read
+  jar). The stack-key tip's forkcheck starts now; the pool at 705/1,000.

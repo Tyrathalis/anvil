@@ -95,3 +95,10 @@ projects but not essential), and whether the mask cache's routed re-read is wort
   PASS.** The `preparedTrigger` hook + the three callback hooks are behavior-identical with no
   directive and no bridged target tag (ADR-0025-exempt). The gate tip `a36975497b` (the read's jar)
   and the stack-key tip `7343c40d84` follow in the queue; the pin moves when the read's jar is proven.
+
+## Addendum 09-16 16:27 — the gate tip proven → the fork pin `a36975497b`
+
+- `run-20260916-build4-gate` (jar `a36975497b` = the evening's read jar `forge-targets-gate.jar`):
+  **499 / 500 identical, 20260969 the standing seed; fidelity 451 / 48 / 1 = the baseline's → PASS.**
+  The fork pin moves to `a36975497b` (the target surface + `-modegate`). The stack-key tip
+  `7343c40d84` follows (`run-20260916-build4-stackak`).
