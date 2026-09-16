@@ -184,3 +184,14 @@ alongside), then asked for the upstream patches to be read before pinning.
   arms' mean, 0.500 by construction). Mean game length 23.2 turns. The era's heuristic
   population for the pool's statistics; the mirror's `arms_report` line reads 0.0000 because no
   seat is Anvil — read the per-seat split from `games.jsonl` as above.
+
+## Addendum 09-16 12:45 — the flip tip proven; the pin moves to `8137d0c41c`
+
+- `run-20260916-merge-flip` (the flip jar `8137d0c41c`: views default ON + the console modes
+  headless) vs the merge baseline: **499 / 500 identical, 20260969 the standing seed → PASS.**
+  The fork pin = `8137d0c41c`; `master` fast-forwarded to it (unpushed). Every harness game now
+  runs with `DummyCardView` (`-Danvil.nogui=off` restores the GUI views).
+- The first 24 × 2 recipe cell on that jar: **347 g/h peak / 272 g/h wall (14.1 min, 64 games,
+  0 crashes; mean batch 3.9, servers 74% busy)** vs the 09-15 recipe cell's 294 peak / 213 wall
+  on the pre-merge jar — the views lever + the void skip + upstream's own perf work, one cell so
+  far (the 09-14 rule: three cells decide; cells 2–3 running).
