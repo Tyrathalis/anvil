@@ -7,6 +7,8 @@
 #                  FORGE_DIR (default ~/Everything/Projects/forge),
 #                  EXTRA_ARGS (e.g. "-freshrng" or "-perturb"),
 #                  FIXED_HASH=1 (deterministic identity hashCodes)
+#                  JVM_ARGS (extra JVM flags, e.g. "-Danvil.nogui=on" — ADR-0110's
+#                  views-flag proof run; recorded in meta.txt)
 #
 # FIXED_HASH=1 pins -XX:hashCode=3 (identity hash = a per-thread deterministic
 # sequence instead of a per-JVM-launch random). Hash-ordered iteration in
@@ -57,6 +59,7 @@ mkdir -p "$OUT_DIR"
   echo "jar=$JAR"
   echo "n_games=$N_GAMES seed=$SEED heap=$HEAP extra_args=${EXTRA_ARGS:-}"
   echo "fixed_hash=${FIXED_HASH:-0}"
+  echo "jvm_args=${JVM_ARGS:-}"
   echo "deck1=$DECK1"
   echo "deck2=$DECK2"
   java -version 2>&1 | head -1
@@ -64,7 +67,7 @@ mkdir -p "$OUT_DIR"
 
 # Low priority: the desktop stays responsive; an idle box measures the same.
 cd "$FORGE_GUI_DIR"
-nohup nice -n 19 java -Xms"$HEAP" -Xmx"$HEAP" "${HASH_ARGS[@]}" \
+nohup nice -n 19 java -Xms"$HEAP" -Xmx"$HEAP" "${HASH_ARGS[@]}" ${JVM_ARGS:-} \
   -jar "$JAR" forkcheck -d "$DECK1" "$DECK2" -f Commander \
   -n "$N_GAMES" -s "$SEED" -o "$OUT_DIR/results.jsonl" ${EXTRA_ARGS:-} \
   > "$OUT_DIR/run.log" 2>&1 &

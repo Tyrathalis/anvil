@@ -265,6 +265,10 @@ silently delete.
   identical forkcheck trace hashes), never argued
   ([ADR-0025](decisions/ADR-0025-d4-rebase-closeout.md)); `forge
   forkcheck` at the BC certification ckpt is the standing bump gate.
+- **An engine bump lands as a MERGE with a pre-merge tag, never a rebase**
+  — the fork's tip hashes are cited by every run header, ADR and
+  forkcheck record and must stay resolvable; the merge commit names the
+  boundary ([ADR-0110](decisions/ADR-0110-m12-upstream-merge-20260916.md)).
 - **Every pre-boundary number is old-scale** — never compare winrates
   across eras; cross-era gen_s comparisons only at identical chunking
   ([ADR-0025](decisions/ADR-0025-d4-rebase-closeout.md)/[ADR-0033](decisions/ADR-0033-m4-closeout.md)).

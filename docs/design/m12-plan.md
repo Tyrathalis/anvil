@@ -154,7 +154,7 @@ whether teaching is happening. The milestone's product is one big training run, 
    naming, payment classes, combat damage). Each integration: forkcheck + a one-hour smoke run +
    a 600-game paired read (a check that nothing broke — every shipped surface has landed a
    silent landmine caught by its first run).
-4. **Representation completions** (**the upstream rebase lands before this item**, carrying PR 11916 + the three-cell g/h read — [ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md) B) — stack-entry tokens (§J-10), embedded ability text (the
+4. **Representation completions** (**the upstream MERGE lands before this item** — [ADR-0110](../decisions/ADR-0110-m12-upstream-merge-20260916.md): engine pin `23c3d2a85d` → `97535e047f` as a merge with the tag `pre-merge-20260916`, PR 11916 already upstream, the three-cell g/h read on the merged jar; the placement per [ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md) B) — stack-entry tokens (§J-10), embedded ability text (the
    pinned LLM in place of the 33K string-id table `sa_emb`, ADR-0012; **cache keyed by text hash,
    not pool version**, so a new set is an append — fork I), and **format-as-features emitted**
    (design §2: starting life, deck size, singleton flag, command zone, mulligan variant + a small
@@ -165,7 +165,7 @@ whether teaching is happening. The milestone's product is one big training run, 
    The **format-onboarding recipe doc** (`docs/design/format-onboarding.md`: pairs file + fixed
    population, Ante certification, ladder anchor, era-scoped calibration maps, pool `CURRENT`)
    is written when the format block lands. **Amended 09-16 ([ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md)):
-   the void re-roll skip rides the rebase; Build 4's surface evening = TARGETS AS A SURFACE
+   the void re-roll skip rides the merge (ADR-0110, landed 09-16); Build 4's surface evening = TARGETS AS A SURFACE
    (triggered-ability targets, re-targeting, the generic target choosers — the largest deferral
    left; the mode head rides it: a three-arm paired read pre-registers the playability gate's
    retirement); then THE ALLOCATION HEAD (fork L's first fit, fork D's allocation served as an
@@ -1202,3 +1202,20 @@ moves verbatim to the status archive and this section stays here as the record.*
   khaliostr's Java `forge-engine` module (the front-end / engine split) = the engine-side legality
   surface's direction from the other end. The user stated the upstreaming schedule publicly: one
   patch at a time while the big run runs.
+- **2026-09-16 (session 2, continued) — THE UPSTREAM MERGE LANDED
+  ([ADR-0110](../decisions/ADR-0110-m12-upstream-merge-20260916.md))**: the user's call — a merge
+  (the "rebase" wording was imprecise), the pin at the tip, the archaeology resized to a day.
+  Tag `pre-merge-20260916` on `5e333e9693`; worktree `../forge-merge`, branch
+  `merge-upstream-20260916`; the merge of `97535e047f` = two conflicts (`AiBlockController`:
+  #11790's restructure + the fork's `canBlockCached`; `FCollectionTest`: upstream's deterministic
+  test) + one rename (`predictMana`) → `4112a89563`; the riders → `1db054ade4`: the probe snapshot
+  (whole-map `snapshotAll/restoreAll`, `AiMemorySnapshotTest`), the views flag `-Danvil.nogui=on`
+  (`AnvilGames.noGui` at the four game-creation sites), the void re-roll skip `-searchvoidskip`
+  (rolls ≥ 1 of a roll-0-void candidate recorded `skip`, arrays unchanged). Tests 69 + 2 pass.
+  The runner gained `JVM_ARGS`; `scripts/merge_boundary_queue.sh` = the flag-off baseline
+  `run-20260916-merge-baseline` (compared to 08-21 for the record) → the flag-on proof
+  `run-20260916-merge-nogui` vs the new baseline; launched 09:40 through `anvil.runs`
+  (`merge-boundary`). Standing rule: engine bumps land as merges with a pre-merge tag. Next on
+  the merged jar: the pin move, `compare.py`'s default, the reads (heuristic ref + `iter-019`,
+  three-cell g/h, the probe's divergence read), the ability-key diff, Build 4.
+
