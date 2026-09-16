@@ -24,7 +24,8 @@ REPO = Path(__file__).resolve().parents[1]
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True, help="the table stem to extend")
-    ap.add_argument("--dump", nargs="+", required=True, help="AnvilRun -abilities jsonl file(s)")
+    ap.add_argument("--dump", nargs="*", default=[], help="AnvilRun -abilities jsonl file(s)")
+    ap.add_argument("--stores", nargs="*", default=[], help="ingested store dirs whose abil side tables to fold in (in-play keys)")
     ap.add_argument("--out", required=True, help="output stem (basename under data/embeddings)")
     ap.add_argument("--model", default="qwen3")
     ap.add_argument("--batch", type=int, default=16)
@@ -45,7 +46,7 @@ def main() -> None:
     if meta["model"] != MODELS[a.model]:
         raise SystemExit(f"base model {meta['model']} != {MODELS[a.model]}")
 
-    table = _load_abilities([Path(p) for p in a.dump], [])
+    table = _load_abilities([Path(p) for p in a.dump], [Path(p) for p in a.stores])
     have = set(meta["keys"])
     new_keys = sorted(k for k in table if k not in have)
     print(f"[extend] base {len(have)} keys; dump {len(table)} keys; new {len(new_keys)}")
@@ -94,7 +95,7 @@ def main() -> None:
         "text_sha256": text_hash,
         "base": a.base,
         "base_count": int(emb.shape[0]),
-        "sources": list(meta.get("sources", [])) + [str(p) for p in a.dump],
+        "sources": list(meta.get("sources", [])) + [str(p) for p in a.dump] + [str(p) for p in a.stores],
         "keys": keys,
         "hosts": hosts,
         "kinds": kinds,
