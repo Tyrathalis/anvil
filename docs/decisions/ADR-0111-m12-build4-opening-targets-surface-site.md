@@ -87,3 +87,11 @@ projects but not essential), and whether the mask cache's routed re-read is wort
 - Routed: the representation items + the one re-warm (next), the allocation head's served output,
   the mode head's refit on a pool whose copies play model-chosen targets (if the gate retires), the
   upstream note for `preparedTrigger` (a two-line hook; the same shape as `orderSimultaneousSa`).
+
+## Addendum 09-16 15:50 — the retarget tip proven
+
+- `run-20260916-build4-targets` (jar `5dd8ab3ede`, 500 seeds vs the merge baseline): **499 / 500
+  main-trace hashes identical, 20260969 the standing seed; fork fidelity 451 / 48 / 1 on both →
+  PASS.** The `preparedTrigger` hook + the three callback hooks are behavior-identical with no
+  directive and no bridged target tag (ADR-0025-exempt). The gate tip `a36975497b` (the read's jar)
+  and the stack-key tip `7343c40d84` follow in the queue; the pin moves when the read's jar is proven.

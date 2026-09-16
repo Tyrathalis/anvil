@@ -1323,3 +1323,6 @@ moves verbatim to the status archive and this section stays here as the record.*
   tonight's `m12-build4-e1` on the banked priority labels + the value targets with the new paths
   unfrozen — cheaper, keeps the surface heads. The new fields get no gradient until one of these
   runs; until then every build serves byte-identically.
+- **2026-09-16 15:50 — forkcheck PASS on the retarget tip `5dd8ab3ede`** (`run-20260916-build4-targets`
+  499/500, 20260969 the standing seed, fidelity 451/48/1 = the baseline's). The gate tip's and the
+  stack-key tip's forkchecks follow; the pin moves to the read's jar once it is proven.
