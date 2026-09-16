@@ -1218,4 +1218,20 @@ moves verbatim to the status archive and this section stays here as the record.*
   (`merge-boundary`). Standing rule: engine bumps land as merges with a pre-merge tag. Next on
   the merged jar: the pin move, `compare.py`'s default, the reads (heuristic ref + `iter-019`,
   three-cell g/h, the probe's divergence read), the ability-key diff, Build 4.
+- **2026-09-16 (session 2, continued) — THE ALLOCATION HEAD'S FIRST FIT (ADR-0109 item 2; forks
+  D / L): the frozen-trunk read.** `scripts/alloc_fit.py`: every search row of the six pre-merge
+  search runs (the 09-15 bench pair + the four b3e5 act / actent arms; **52,697 windows, 1,328
+  games, joined 100%** to their priority decs in the ingested stores) featurized with the e3
+  ckpt's serve featurizer, the frozen `[STATE]` + scalars (n_opts, turn, phase, seat, the value
+  head's win) → a logistic head, five game-grouped folds, `data/runs/alloc-fit-1/probe.json`.
+  **Label margin ≥ 0.10 (the acting bar; 9.2% of windows): AUC state + scalars 0.802 ± 0.014,
+  state alone 0.780, scalars alone 0.692** (bars 0.05 / 0.02 the same within 0.01). **The
+  allocation curve at the 0.1 uniform floor: 90% of the acts captured at 67% of the search's
+  forward calls (53% of windows) → ×1.49 in search cost, ×1.25 in whole-game box time at the
+  recipe's copy share (131 of 213 s per game, 09-15); 80% at 56% → ×1.80 / ×1.38.** The frozen
+  probe already clears the M10 head's 0.69 that ADR-0109 sized from; the trained head (the extra
+  output on the priority ask, the loop's own labels) is the served version. Reads: the head's
+  arm in the shakedown at equal box time (pre-registered in ADR-0109). Next for the head: the
+  output on the priority forward pass + the Java rate draw as the head's probability with the
+  floor (`-searchfloor`), on the merged jar, during Build 4.
 
