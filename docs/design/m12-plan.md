@@ -1250,4 +1250,11 @@ moves verbatim to the status archive and this section stays here as the record.*
   bridged seat) → one population of 1,000: 980 decided, 19–20 draws, 1 NPE crash; **seat 0 wins
   0.470 ± 0.016** (the fixed deck-pair population's seat asymmetry; the Build 2 "0.500" was the
   two arms' mean by construction); 23.2 turns mean. ADR-0110 addendum.
+- **2026-09-16 13:25 — THE BOUNDARY CLOSED (ADR-0110 addendum).** The flip tip `8137d0c41c`
+  proven (499 / 500) → the pin; three 24 × 2 recipe cells on it: **peak 347 / 353 / 288 → 347 g/h
+  (+18% vs the pre-merge 294; wall 272 / 166 / 186 carries the tails)** → the big-run sizing line
+  **235–350K games in the four-to-six-week envelope** at ≈ 8.3K games/day. The era's assets:
+  the baseline, the reference 0.5348 ± 0.0110, the mirror population, the Ante arms, the key
+  drift + the OOV path, the allocation head's frozen read. Build 4 opens on this jar: the targets
+  surface first (the ability table extended with the 16 new keys before any served arm).
 

@@ -195,3 +195,21 @@ alongside), then asked for the upstream patches to be read before pinning.
   0 crashes; mean batch 3.9, servers 74% busy)** vs the 09-15 recipe cell's 294 peak / 213 wall
   on the pre-merge jar — the views lever + the void skip + upstream's own perf work, one cell so
   far (the 09-14 rule: three cells decide; cells 2–3 running).
+
+## Addendum 09-16 13:25 — the three-cell g/h read; the boundary closed
+
+- Three 24 × 2 recipe cells on the pinned jar `8137d0c41c` (64 games each, seed bases
+  20260917–19, 0 crashes in 192 games): **peak 347 / 353 / 288 g/h → the median 347 g/h; wall
+  272 / 166 / 186 (median 186; the wall figure carries each cell's last-game tail and is not the
+  read).** The pre-merge recipe cell (09-15, one cell) read 294 peak → **+18% on the merged jar**
+  (the views lever + the void skip + upstream's own perf work; not separable at three cells and
+  not worth separating). **The big-run sizing line re-issued: the recipe at ≈ 347 g/h ≈ 8.3K
+  games/day → 235–350K games in the four-to-six-week envelope** (surface acting on; the
+  shakedown's deep arm at its ×2.83 price).
+- **The boundary is closed**: the pin `8137d0c41c`, the baseline `run-20260916-merge-baseline`,
+  the era's reference (`iter-019` 0.5348 ± 0.0110), the mirror population, the Ante arms for
+  the era-scoped maps, the ability-key drift (15 keys; the table's extension routed), the
+  allocation head's frozen read (AUC 0.80; ×1.25 whole-game at 90% recall). Every pre-merge number
+  is old-scale from here. Next: Build 4 on this jar — the targets surface first (ADR-0109), the
+  representation completions, the allocation head's served output; the shakedown after the
+  post-Build-4 read.

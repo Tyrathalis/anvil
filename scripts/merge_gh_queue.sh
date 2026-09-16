@@ -15,7 +15,7 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/gh.log"; }
 if [[ -z "${SKIP_FC:-}" ]]; then
   log "flip-tip forkcheck jar=$JAR"
   N_GAMES=500 SEED=20260703 JAR="$JAR" FORGE_DIR="$FORGE_DIR" bash scripts/forkcheck/run_forkcheck.sh "$FC" | tee -a "$OUT/gh.log"
-  pid=$(cat "$FC/run.pid"); until [ ! -d /proc/$pid ] || [ "$(wc -l < "$FC/results.jsonl" 2>/dev/null || echo 0)" -ge 500 ]; do sleep 60; done
+  pid=$(cat "$FC/run.pid"); until [ ! -d /proc/$pid ] || { [ -f "$FC/results.jsonl" ] && [ "$(wc -l < "$FC/results.jsonl")" -ge 500 ]; }; do sleep 60; done  # the file test first (peer fix c8ad6de)
   uv run python scripts/forkcheck/compare.py "$FC" | tee "$FC/compare.txt" | tee -a "$OUT/gh.log"
   log "flip-tip forkcheck compared (read $FC/compare.txt)"
 fi
