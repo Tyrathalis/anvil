@@ -1271,3 +1271,17 @@ moves verbatim to the status archive and this section stays here as the record.*
   build; the pool dump re-pinned; fit defaults → b4 (ADR-0110 addendum 14:40). **The mask-cache
   gate** (`maskcache-gate`, 120 games at one worker, off vs on on the pin jar, e3 serving) launched
   14:11; the read ≈ 14:50 — any mask-class first divergence = OFF stays.
+- **2026-09-16 14:50 — the mask-cache gate re-read: FAIL (108 / 120 identical at one worker, 9
+  mask-class first divergences on the ADR-0102 classes) → the cache stays OFF, closed for the era
+  (ADR-0110 addendum 14:50).** **The target surface's real site found by the 4-game smoke on the
+  callback tip: 47 `playTrigger` vs 3 `chooseTargetsFor` — the AI targets its triggers inside
+  `doTrigger` (`PlayerControllerAi.prepareSingleSa`), never through the callback ADR-0109 named.**
+  The fix: `PlayerControllerAi.preparedTrigger(sa)` (a protected no-op hook between a trigger's
+  preparation and its play, at both sites — the first fork delta in that file) overridden in the
+  census controller: one TARGET window per targeting ability in the prepared chain
+  (`playTriggerTargets`), the heuristic's picks = the natural line, a directed / bridged answer
+  re-targets the ability under `canTarget` + `isTargetNumberValid`; every other decision the
+  trigger logic made (modes, X, optional yes/no) is kept — exactly the joint choice ADR-0109 wants
+  (fork `5dd8ab3ede` on the callback tip `23b8e36c03` + test fix `9438db1146`). The smoke +
+  forkcheck queue relaunched on it 14:46 (`build4-targets-queue2`); the superseded forkcheck
+  killed at 38/500.

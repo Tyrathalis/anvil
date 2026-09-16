@@ -224,3 +224,15 @@ alongside), then asked for the upstream patches to be read before pinning.
   stores. The pool dump re-pinned (the pre-merge dump kept beside it); the fit defaults moved to
   b4; **`anvil.bridge.server --abilities <stem>`** overrides a ckpt's stem, so the e3 build serves
   the extended table in the targets read's reference arm (no OOV confound between arms).
+
+## Addendum 09-16 14:50 — the mask-cache gate re-read FAILS; the cache stays OFF (closed for the era)
+
+- ADR-0102's routed re-read on the pin jar (`scripts/build4_maskcache_gate.sh`; 120 same-seed
+  games at ONE worker, cache off vs on, the e3 build serving; the off/off control at one worker is
+  identity, the memo gate's 32/32): **108 / 120 identical, 12 divergent — 9 mask-class** (first
+  divergences at `chooseOptionalCosts`, `chooseCardsForConvokeOrImprovise`,
+  `chooseSingleStaticAbility`, `chooseSpellAbilityToPlay`), 3 other-class. The key gap ADR-0102
+  named persists on the merged engine → **the cache stays OFF**; the residual it would buy (the
+  mask at 12.9% of worker CPU after the memo, a fraction of it cacheable) is not chased before the
+  run. The cache map is weak-keyed (checked: no retention on search copies), so the flag is safe
+  to re-read later, but the key would need the transitions those four callbacks see.

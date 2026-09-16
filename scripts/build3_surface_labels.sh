@@ -63,6 +63,8 @@ FARGS="-search -searchrate $RATE -searchrolls $ROLLS -searchsurf $SURF -searchsu
 [[ "$PAY" != "0" ]] && FARGS="$FARGS -searchpay $PAY -searchpayleaf $PAYLEAF"
 [[ "$PAYTEL" != "0" ]] && FARGS="$FARGS -paytelemetry"
 [[ -n "$CLOCK" ]] && FARGS="$FARGS -searchclock $CLOCK"
+# Build 4: extra AnvilRun flags verbatim (e.g. "-searchactkinds entity_one,entity_set,mode" = the recipe arm's surface acting)
+[[ -n "${EXTRA_FARGS:-}" ]] && FARGS="$FARGS $EXTRA_FARGS"
 SERVER_EXTRA=()
 [[ -n "$TAGS" ]] && SERVER_EXTRA+=(--tags "$TAGS")
 # Build 4 (ADR-0110 addendum): the ability table stem the server serves (empty = the ckpt config's)

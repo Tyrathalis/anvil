@@ -22,6 +22,7 @@ RUN=$(ls -dt "$REPO"/data/runs/b4-tgt-smoke-* 2>/dev/null | head -1)
 log "smoke harness done: $(cat $OUT/smoke/DONE 2>/dev/null)"
 uv run python scripts/build3_label_read.py --run "$RUN" --abilities "$ABIL" > "$OUT/smoke-read.txt" 2>&1
 log "smoke read -> $OUT/smoke-read.txt ($(grep -c . $OUT/smoke-read.txt) lines)"
+log "smoke census: playTriggerTargets $(cat $RUN/workers/inv-*/census.jsonl | grep -c '"playTriggerTargets"') rows, target sub-rows $(grep -c '^| target' $OUT/smoke-read.txt)"
 if [[ -z "${SKIP_FC:-}" ]]; then
   log "forkcheck start jar=$JAR"
   N_GAMES=500 SEED=20260703 JAR="$JAR" bash scripts/forkcheck/run_forkcheck.sh "$FC" | tee -a "$OUT/queue.log"
