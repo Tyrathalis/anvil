@@ -2,7 +2,11 @@
 
 **Doc status:** operational — the prompt installed as the desktop app's scheduled task
 `anvil-run-checkin` (every 30 min while the app is open). Read-only by design: it reports, it
-never fixes. Install: paste the block below as the task prompt (Claude Code → scheduled tasks), or
+never fixes. **Enabled only while runs are in flight** (user, 09-15): the session that launches a
+run enables the routine and names its state in the launch message next to the launcher's coverage
+line; the session that sees the last run land disables it. The app owns that switch (the sidebar,
+or `update_scheduled_task enabled`), so this is a practice, not code — the launcher's alert queue
+records everything regardless, for whoever looks next. Install: paste the block below as the task prompt (Claude Code → scheduled tasks), or
 run `python -m anvil.runs alerts --unacked` from any cron and pipe it to your own channel.
 
 ---

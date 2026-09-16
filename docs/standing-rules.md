@@ -300,7 +300,7 @@ silently delete.
   -p MemoryMax=…`) — decoded obs are ~10× raw JSON in Python objects; a retained-trajectory read
   of 96K completions hit 51.6 GB and OOM-killed the desktop session 2026-09-06
   ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
-- **Every detached run launches through `uv run python -m anvil.runs launch --name <run> --dir <dir> -- <cmd>`** (ADR-0107): the launcher's supervisor detaches, records done / failed with the log tail, ticks its own stall check on the artifact dir and queues an alert on every transition; the launch message is its one coverage line and a session never claims coverage it did not arm. A chain's `fail()` is `exit 1`; nothing new registers with the watcher or notifies itself. The check-in task drains the queue to the phone and the supervising session.
+- **Every detached run launches through `uv run python -m anvil.runs launch --name <run> --dir <dir> -- <cmd>`** (ADR-0107): the launcher's supervisor detaches, records done / failed with the log tail, ticks its own stall check on the artifact dir and queues an alert on every transition; the launch message is its one coverage line and a session never claims coverage it did not arm. A chain's `fail()` is `exit 1`; nothing new registers with the watcher or notifies itself. The check-in task drains the queue to the phone and the supervising session; it is enabled at launch and named in the launch message, disabled when the last run lands (user, 09-15).
 
 ## Scoping and routing
 
