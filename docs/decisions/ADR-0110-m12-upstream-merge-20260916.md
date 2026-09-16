@@ -152,3 +152,24 @@ alongside), then asked for the upstream patches to be read before pinning.
 - The views-flag proof `run-20260916-merge-nogui` started 10:11 (the same jar, `-Danvil.nogui=on`);
   the reads queue started `merge-ref` at 10:11. The fork pin moves to `1db054ade4` when the proof
   reads identical; the crash-class census on this baseline is read with it.
+
+## Addendum 09-16 11:15 — the views-flag proof PASS, the pin moves, the era's reference number
+
+- **`run-20260916-merge-nogui` (the same jar, `-Danvil.nogui=on`): 499/500 main-trace hashes
+  identical to the flag-off baseline; the one miss = 20260969, the standing launch-unstable
+  seed (status `divergence` on both sides in both eras, a different hash on every launch — the
+  identity-hash residual class); fork fidelity identical (451 / 48 / 1). PASS at the ADR-0025
+  standard → the views default flips ON.** The flip tip `8137d0c41c` (views default on,
+  `-Danvil.nogui=off` restores; the fork's console modes `anvil` / `forkcheck` / `census` join
+  upstream's headless list in `Main.isCommandLineMode` — the silent exit-1-without-DISPLAY
+  hazard closed) is committed on the merge branch; its own forkcheck vs the merge baseline heads
+  the g/h queue; the three-cell 24 × 2 read then prices the recipe on the merged jar with the
+  views lever and the void skip in.
+- **The fork pin moves to `1db054ade4`** (the merge `4112a89563` + the riders); `master`
+  fast-forwarded to it (285 ahead of origin, unpushed); the worktree `../forge-merge` carries
+  the flip tip.
+- **`merge-ref` (iter-019 vs the heuristic on the merged jar, 2,000 games, 1,983 decisive, 1
+  crash): raw 0.5300 ± 0.0112, Ante-corrected 0.5348 ± 0.0110** — the ckpt of record's number
+  in the new era (the old era's 0.5279 ± 0.0110 is not comparable across the boundary; the
+  day-zero read's ref 0.538 on the pre-merge jar sat on this scale). The era-scoped Ante maps
+  come from these two arms (`ante-merge-refarm-s0/s1`). `merge-heur` (the mirror) running.
