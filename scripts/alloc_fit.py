@@ -91,6 +91,7 @@ def join_run(run: Path, store: Path):
 
 def build(a) -> None:
     import torch
+
     from anvil.bridge.featurize import Featurizer, store_wire_hist
     from anvil.training.dataset import collate, default_methods
     from anvil.training.surface_fit import load_net
@@ -104,7 +105,7 @@ def build(a) -> None:
     # the serve path's featurizer (anvil.bridge.server: ability_table only under the
     # M10 "hand" sched basis, never on the M12 recipe)
     feat = Featurizer(cfg["embed"], default_methods(), abilities=cfg.get("abilities"))
-    states, scal, meta = [], [], []
+    states, meta = [], []
     stats = collections.Counter()
     t0 = time.time()
 
