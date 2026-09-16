@@ -123,3 +123,19 @@ alongside), then asked for the upstream patches to be read before pinning.
   upstream worklist, 09-16); the mana-source memo as the second; the OOV-key serve path check at
   the smoke; the lazy-card-loading startup timing (opt-in) when the fleet's startup is next
   profiled.
+
+## Addendum 09-16 10:00 — the ability-key drift at the boundary, and the OOV path verified
+
+- The re-dump on the merged jar (`data/runs/merge-boundary/abilities-1db054ade4.jsonl`: 1,701
+  cards, 5,149 abilities, 0 missing) vs the pool's table (`abilities-cf2ca6ba.jsonl`, 5,148):
+  **5,133 keys stable; 15 gone / 16 added across 12 hosts** — the eight changed pool scripts
+  (Atraxa, Dance of the Dead, Emrakul the World Anew ×4, Endurance, Hogaak +2, Orochi Hatchery,
+  Sylvan Library) plus four whose canonical text moved under an engine refactor (Entreat the
+  Angels, Temporal Mastery, Terminus — the Miracle family — and Ocelot Pride). 0.3% of the table.
+- **The OOV path, verified in code** (`anvil/policy/surfaces.py` `AbilityCache.index`): a key
+  outside the table returns −1, the caller counts it, and the model keys that option on its host
+  row + kind alone — the same path a never-dumped ability play takes today. So the served e3 build
+  degrades gracefully on those 16 abilities until the table is extended.
+- **Routed:** the table's extension with the 16 new keys through the encoder's ability-table
+  command (the pinned LLM embedding; one short job) before the first served arm on the merged
+  jar; `data/pool/abilities-<pool>.jsonl` is re-pinned to the merged jar's dump at that step.
