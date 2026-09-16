@@ -250,6 +250,7 @@ class ModelBackend:
         empty_emit: str = "hold",
         sched_basis: str = "legal",
         ability_table: "str | None" = None,
+        abilities: "str | None" = None,
         autocast: bool = True,
         max_batch: int = 16,
         window_ms: float = 3.0,
@@ -313,10 +314,14 @@ class ModelBackend:
         if self.has_surf:
             from anvil.policy.surfaces import AbilityCache
 
-            abil_stem = str(Path(cfg["abilities"]))
+            # --abilities overrides the ckpt config's stem (ADR-0110: a superset
+            # table whose base rows are byte-identical serves an older build with
+            # the keys the merge added; the loader and the net share the cache)
+            abil_stem = str(Path(abilities or cfg["abilities"]))
             if not Path(abil_stem).is_absolute():
                 abil_stem = str(Path(__file__).resolve().parents[2] / abil_stem)
             self.net.set_ability_table(AbilityCache(abil_stem).vectors)
+            print(f"[server] ability table {abil_stem}" + (" (override)" if abilities else ""), flush=True)
         self.feat = Featurizer(
             cfg["embed"], default_methods(),
             ability_table=ability_table if sched_basis == "hand" else None,
@@ -1111,6 +1116,7 @@ def main() -> None:
         "the mined ability table; binding WAITs for held-but-not-yet-legal "
         "slots; land-first off — the plan orders the drop)",
     )
+    ap.add_argument("--abilities", default=None, help="ability table stem override (default: the ckpt config's; ADR-0110)")
     ap.add_argument(
         "--ability-table",
         default=str(Path(__file__).resolve().parents[2] / "data/pool/ability-table.json"),
@@ -1193,6 +1199,7 @@ def main() -> None:
             empty_emit=args.sched_empty_emit,
             sched_basis=args.sched_basis,
             ability_table=args.ability_table,
+            abilities=args.abilities,
             autocast=not args.no_autocast,
             max_batch=args.max_batch,
             window_ms=args.window_ms,
@@ -1219,6 +1226,7 @@ def main() -> None:
                 empty_emit=args.sched_empty_emit,
                 sched_basis=args.sched_basis,
                 ability_table=args.ability_table,
+                abilities=args.abilities,
             )
         if not args.no_warmup:
             for b in (backend, drill_backend):

@@ -31,7 +31,7 @@ def q(v: list[float], p: float) -> float | None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True)
-    ap.add_argument("--abilities", default="data/embeddings/abil-cf2ca6ba-qwen3")
+    ap.add_argument("--abilities", default="data/embeddings/abil-cf2ca6ba-b4-qwen3")
     ap.add_argument("--frames", type=int, default=200)
     a = ap.parse_args()
     run = Path(a.run)

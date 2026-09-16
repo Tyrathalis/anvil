@@ -1257,4 +1257,17 @@ moves verbatim to the status archive and this section stays here as the record.*
   the baseline, the reference 0.5348 ± 0.0110, the mirror population, the Ante arms, the key
   drift + the OOV path, the allocation head's frozen read. Build 4 opens on this jar: the targets
   surface first (the ability table extended with the 16 new keys before any served arm).
-
+- **2026-09-16 (session 3) — BUILD 4 OPENED: the ability table extended, the representation scope
+  pinned, the mask-cache gate re-read launched.** The user's premise corrected (the void re-roll
+  skip landed as an ADR-0110 rider). Decisions (user): the order = the table → the targets
+  evening on the current trunk → the three representation items under ONE re-warm → the
+  allocation head on the re-warmed trunk → the post-Build-4 read; **the scope = all three items**
+  — the finding: the obs records every stack instance but the encoder consumes only `stack_size`,
+  so stack-entry tokens are a strength item for the network-alone windows; `sa_emb` is still the
+  string-id table; format-as-features is a Python-side lookup from the row's format id (inert
+  single-format, rides the re-warm). **The table:** the pin's re-dump = the riders' key set;
+  `scripts/extend_ability_table.py` → `abil-cf2ca6ba-b4-qwen3` (15,489 keys; the 15,473 served
+  rows byte-identical, cosine check 1.00000); `bridge.server --abilities` serves it to the e3
+  build; the pool dump re-pinned; fit defaults → b4 (ADR-0110 addendum 14:40). **The mask-cache
+  gate** (`maskcache-gate`, 120 games at one worker, off vs on on the pin jar, e3 serving) launched
+  14:11; the read ≈ 14:50 — any mask-class first divergence = OFF stays.

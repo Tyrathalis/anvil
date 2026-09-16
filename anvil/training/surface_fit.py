@@ -41,7 +41,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 CKPT = "data/training/m12-build1-stopstate/last.pt"
-ABIL = "data/embeddings/abil-cf2ca6ba-qwen3"
+ABIL = "data/embeddings/abil-cf2ca6ba-b4-qwen3"  # the merged jar's keys (ADR-0110); b3s2 rows byte-identical
 EMBED = "data/embeddings/cf2ca6ba-qwen3"
 
 

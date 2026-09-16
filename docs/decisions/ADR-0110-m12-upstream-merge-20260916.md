@@ -213,3 +213,14 @@ alongside), then asked for the upstream patches to be read before pinning.
   is old-scale from here. Next: Build 4 on this jar — the targets surface first (ADR-0109), the
   representation completions, the allocation head's served output; the shakedown after the
   post-Build-4 read.
+
+## Addendum 09-16 14:40 — the ability table extended (the routed step landed; session 3)
+
+- The re-dump on the pin jar `8137d0c41c` (`data/runs/build4-abilities/abilities-8137d0c41c.jsonl`)
+  = the riders-tip key set exactly (5,149; the flip tip is harness-side).
+  `scripts/extend_ability_table.py`: the served table's 15,473 rows byte-identical (row indices
+  kept) + the 16 new keys embedded with the pinned model (revision check cosine 1.00000) →
+  **`data/embeddings/abil-cf2ca6ba-b4-qwen3` (15,489 keys)**; the 15 gone keys stay for the banked
+  stores. The pool dump re-pinned (the pre-merge dump kept beside it); the fit defaults moved to
+  b4; **`anvil.bridge.server --abilities <stem>`** overrides a ckpt's stem, so the e3 build serves
+  the extended table in the targets read's reference arm (no OOV confound between arms).

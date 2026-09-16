@@ -37,7 +37,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 CKPT = "data/training/m12-build3-e3/last.pt"
-ABIL = "data/embeddings/abil-cf2ca6ba-qwen3"
+ABIL = "data/embeddings/abil-cf2ca6ba-b4-qwen3"
 EMBED = "data/embeddings/cf2ca6ba-qwen3"
 
 
