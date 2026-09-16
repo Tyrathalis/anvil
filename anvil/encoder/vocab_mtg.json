@@ -1,9 +1,48 @@
 {
-  "comment": "mtg.* vocabularies for the observation transform (observation-schema-v1). Grown data-driven; unknown entries are loud errors at transform time, never silent zeros.",
-  "zones": ["battlefield", "hand", "graveyard", "exile", "command", "stack", "library"],
-  "phases": ["UNTAP", "UPKEEP", "DRAW", "MAIN1", "COMBAT_BEGIN", "COMBAT_DECLARE_ATTACKERS",
-             "COMBAT_DECLARE_BLOCKERS", "COMBAT_FIRST_STRIKE_DAMAGE", "COMBAT_DAMAGE",
-             "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"],
-  "mana": ["W", "U", "B", "R", "G", "C"],
-  "formats": ["Commander"]
+ "comment": "mtg.* vocabularies for the observation transform (observation-schema-v1). Grown data-driven; unknown entries are loud errors at transform time, never silent zeros.",
+ "zones": [
+  "battlefield",
+  "hand",
+  "graveyard",
+  "exile",
+  "command",
+  "stack",
+  "library"
+ ],
+ "phases": [
+  "UNTAP",
+  "UPKEEP",
+  "DRAW",
+  "MAIN1",
+  "COMBAT_BEGIN",
+  "COMBAT_DECLARE_ATTACKERS",
+  "COMBAT_DECLARE_BLOCKERS",
+  "COMBAT_FIRST_STRIKE_DAMAGE",
+  "COMBAT_DAMAGE",
+  "COMBAT_END",
+  "MAIN2",
+  "END_OF_TURN",
+  "CLEANUP"
+ ],
+ "mana": [
+  "W",
+  "U",
+  "B",
+  "R",
+  "G",
+  "C"
+ ],
+ "formats": [
+  "Commander"
+ ],
+ "format_features_comment": "Build 4 (ADR-0111) format-as-features (design §2): explicit scalars per format id, in FORMAT_SCALARS order — start_life, deck_size, singleton (0/1), command_zone (0/1), mulligan variant (0 = vancouver, 1 = london). A new format adds its row here (a dataset-boundary event, ADR-0018).",
+ "format_features": {
+  "Commander": {
+   "start_life": 40,
+   "deck_size": 100,
+   "singleton": 1,
+   "command_zone": 1,
+   "mull_variant": 1
+  }
+ }
 }

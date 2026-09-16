@@ -87,6 +87,7 @@ import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
 from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
+from anvil.encoder.stack_fields import STACK_FIELDS, stack_fields
 from anvil.policy.surfaces import SURF_BUILT, SURF_MAX, AbilityCache, surface_fields, surface_task
 from anvil.store.trajectories import open_store
 
@@ -517,6 +518,7 @@ class PriorityWindows(IterableDataset):
             cand_rows = [-1]
             cand_sa = [-1]
             cand_kind = [-1]
+            ak_of_cand: dict[int, int] = {}  # Build 4: candidate index -> ability-table row
             label = 0
             label_row = -1
             tgt_kind = np.full(T_MAX + 1, -1, dtype=np.int64)
@@ -553,6 +555,8 @@ class PriorityWindows(IterableDataset):
                     if key in key_of:
                         continue
                     key_of[key] = len(cand_rows)
+                    if self.abil is not None and o.get("ak"):
+                        ak_of_cand[len(cand_rows)] = self.abil.index(o.get("ak"))
                     cand_rows.append(r)
                     cand_sa.append(self.sa_vocab.id(key[1]))
                     cand_kind.append(KINDS.get(o.get("kind"), KINDS["other"]))
@@ -663,6 +667,10 @@ class PriorityWindows(IterableDataset):
             for i, h in enumerate(out["history"][-self.history_k :]):
                 hist[i] = (self.methods.id(h["m"]), h["self"], row_of.get(h["e"], -1))
 
+            cand_ak = [-1] * len(cand_rows)
+            for ci, ar in ak_of_cand.items():
+                cand_ak[ci] = ar
+            stack_ex = {k: torch.from_numpy(a) for k, a in stack_fields(out, self.abil, p).items()}
             yield {
                 "entities": torch.from_numpy(out["entities"]),
                 "ent_emb": torch.tensor(
@@ -674,6 +682,8 @@ class PriorityWindows(IterableDataset):
                 "cand_rows": torch.tensor(cand_rows, dtype=torch.int64),
                 "cand_sa": torch.tensor(cand_sa, dtype=torch.int64),
                 "cand_kind": torch.tensor(cand_kind, dtype=torch.int64),
+                "cand_ak": torch.tensor(cand_ak, dtype=torch.int64),
+                **stack_ex,
                 "label": torch.tensor(label, dtype=torch.int64),
                 "label_row": torch.tensor(label_row, dtype=torch.int64),
                 "tgt_kind": torch.from_numpy(tgt_kind),
@@ -739,6 +749,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         "cand_rows": torch.full((b, c), -1, dtype=torch.int64),
         "cand_sa": torch.full((b, c), -1, dtype=torch.int64),
         "cand_kind": torch.full((b, c), -1, dtype=torch.int64),
+        "cand_ak": torch.full((b, c), -1, dtype=torch.int64),
         "cand_paykind": torch.full((b, c), -1, dtype=torch.int64),
         "cand_mask": torch.zeros(b, c, dtype=torch.bool),
         "globals": torch.stack([x["globals"] for x in batch]),
@@ -772,6 +783,10 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             out["sched_cand_sa"][i, :ci] = x[pre + "cand_sa"]
             out["sched_cand_kind"][i, :ci] = x[pre + "cand_kind"]
             out["sched_cand_mask"][i, :ci] = True
+    if all(all(k in x for k in STACK_FIELDS) for x in batch):
+        # Build 4: the stack entries (fixed K rows per example)
+        for k in STACK_FIELDS:
+            out[k] = torch.stack([x[k] for x in batch])
     if any("cand_allow" in x for x in batch):
         # ADR-0094 binding execution: per-window answerable-candidate mask
         # (serve sets it from the schedule; the loader reconstructs it from
@@ -884,6 +899,8 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         out["cand_rows"][i, :ci] = x["cand_rows"]
         out["cand_sa"][i, :ci] = x["cand_sa"]
         out["cand_kind"][i, :ci] = x["cand_kind"]
+        if "cand_ak" in x:  # Build 4 (absent from older examples)
+            out["cand_ak"][i, :ci] = x["cand_ak"]
         if "cand_paykind" in x:  # absent from pre-M9 loader examples
             out["cand_paykind"][i, :ci] = x["cand_paykind"]
         if "cand_paymark" in x:  # M10 R5 marked candidate (serve/rl loader)

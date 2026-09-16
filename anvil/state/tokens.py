@@ -28,8 +28,30 @@ class StateAssembler(nn.Module):
         n_methods: int,
         history_k: int,
         n_sa: int = 0,
+        d_abil: int = 2560,
     ):
         super().__init__()
+        # M12 Build 4 (ADR-0111): stack entries enter ADDITIVELY — the entry's
+        # ability text (the table vector) + controller + position onto its HOST
+        # entity token; "targeted by" (the ability + controller) onto each card
+        # target's token, and onto the [STATE] token with the seat for a player
+        # target. Every projection is ZERO-init: day-zero outputs are
+        # byte-identical (a separate zero-vector token would still renormalize
+        # the attention; the additive form does not), and the re-warm moves
+        # them. Inputs: anvil.encoder.stack_fields (+ stack_abil, the raw table
+        # rows the model gathers).
+        from anvil.encoder.stack_fields import STACK_K
+
+        self.stack_k = STACK_K
+        self.stack_ctrl_emb = nn.Embedding(2, 16)
+        self.stack_pos_emb = nn.Embedding(STACK_K, 16)
+        self.stack_seat_emb = nn.Embedding(n_players, 16)
+        self.stack_host_proj = nn.Linear(d_abil + 32, d_model)
+        self.stack_tgt_proj = nn.Linear(d_abil + 16, d_model)
+        self.stack_state_proj = nn.Linear(d_abil + 32, d_model)
+        for lin in (self.stack_host_proj, self.stack_tgt_proj, self.stack_state_proj):
+            nn.init.zeros_(lin.weight)
+            nn.init.zeros_(lin.bias)
         self.ent_proj = nn.Linear(d_card + n_entity_features, d_model)
         self.state_proj = nn.Linear(n_global + n_players * n_player_features, d_model)
         # input-layout split for load_compat: global-feature growth (fmt
@@ -65,6 +87,30 @@ class StateAssembler(nn.Module):
             nn.init.zeros_(self.sched_proj.weight)
             nn.init.zeros_(self.sched_proj.bias)
 
+    def _stack_add(self, ent: torch.Tensor, state: torch.Tensor, batch: dict):
+        """Build 4: the stack entries onto the host / target entity tokens and the
+        [STATE] token (player targets). Masked entries contribute exactly zero."""
+        sm = batch["stack_mask"]  # (B, K) bool
+        abil = batch["stack_abil"].to(ent.dtype)  # (B, K, d_abil), zeros where the key is absent
+        b, k = sm.shape
+        d = ent.shape[-1]
+        ctrl = self.stack_ctrl_emb(batch["stack_ctrl"].clamp(min=0)).to(ent.dtype)
+        pos = self.stack_pos_emb.weight[:k].unsqueeze(0).expand(b, -1, -1).to(ent.dtype)
+        if ent.shape[1] > 0:
+            rows = batch["stack_rows"]
+            m = (sm & (rows >= 0)).unsqueeze(-1).to(ent.dtype)
+            host_add = self.stack_host_proj(torch.cat([abil, ctrl, pos], dim=-1)) * m
+            ent = ent.scatter_add(1, rows.clamp(min=0).unsqueeze(-1).expand(-1, -1, d), host_add)
+            trows = batch["stack_tgt_rows"]
+            mt = (sm & (trows >= 0)).unsqueeze(-1).to(ent.dtype)
+            tgt_add = self.stack_tgt_proj(torch.cat([abil, ctrl], dim=-1)) * mt
+            ent = ent.scatter_add(1, trows.clamp(min=0).unsqueeze(-1).expand(-1, -1, d), tgt_add)
+        tpi = batch["stack_tgt_pi"]
+        ms = (sm & (tpi >= 0)).unsqueeze(-1).to(ent.dtype)
+        seat = self.stack_seat_emb(tpi.clamp(min=0)).to(ent.dtype)
+        state_add = (self.stack_state_proj(torch.cat([abil, ctrl, seat], dim=-1)) * ms).sum(1, keepdim=True)
+        return ent, state + state_add
+
     def forward(self, card_vecs: torch.Tensor, batch: dict) -> tuple[torch.Tensor, torch.Tensor]:
         """-> (tokens (B, 1+N+K, d), key_padding_mask (B, 1+N+K) True=PAD)."""
         b = card_vecs.shape[0]
@@ -72,6 +118,10 @@ class StateAssembler(nn.Module):
         state = self.state_proj(
             torch.cat([batch["globals"], batch["players"].flatten(1)], dim=-1)
         ).unsqueeze(1)
+
+        sm = batch.get("stack_mask")
+        if sm is not None and "stack_abil" in batch and bool(sm.any()):
+            ent, state = self._stack_add(ent, state, batch)
 
         hist = batch["history"]  # (B, K, 3): method, self, host-row(-1 ok, unused v0)
         method = self.method_emb(
