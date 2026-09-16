@@ -173,3 +173,14 @@ alongside), then asked for the upstream patches to be read before pinning.
   in the new era (the old era's 0.5279 ± 0.0110 is not comparable across the boundary; the
   day-zero read's ref 0.538 on the pre-merge jar sat on this scale). The era-scoped Ante maps
   come from these two arms (`ante-merge-refarm-s0/s1`). `merge-heur` (the mirror) running.
+
+## Addendum 09-16 12:05 — the heuristic mirror
+
+- `merge-heur` (no seat bridged, 2 × 1,000 games on the standard pairs + seeds): the two seat
+  arms play the SAME games (nothing swaps without a bridged seat), so the read is one population
+  of 1,000 games: **980 decided / 19–20 draws / 1 crash (a `NullPointerException` class) per arm;
+  seat 0 wins 0.470 ± 0.016** (461 of 980) — a seat-0 / seat-1 asymmetry of the fixed deck-pair
+  population, not a symmetry failure (the Build 2 control read's "heur 0.500" was the two seat
+  arms' mean, 0.500 by construction). Mean game length 23.2 turns. The era's heuristic
+  population for the pool's statistics; the mirror's `arms_report` line reads 0.0000 because no
+  seat is Anvil — read the per-seat split from `games.jsonl` as above.

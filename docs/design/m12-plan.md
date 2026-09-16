@@ -1246,4 +1246,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   path = host + kind, verified; the table's extension routed). Running: `merge-heur` (the
   mirror) and `merge-gh` (the flip forkcheck → three 24 × 2 recipe cells; the recipe's rate on
   the merged jar with the views lever + the void skip in = the big-run sizing line).
+- **2026-09-16 12:05 — `merge-heur` READ**: the mirror's two seat arms play the same games (no
+  bridged seat) → one population of 1,000: 980 decided, 19–20 draws, 1 NPE crash; **seat 0 wins
+  0.470 ± 0.016** (the fixed deck-pair population's seat asymmetry; the Build 2 "0.500" was the
+  two arms' mean by construction); 23.2 turns mean. ADR-0110 addendum.
 
