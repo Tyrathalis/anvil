@@ -22,7 +22,7 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 if [[ -z "${SKIP_FC:-}" ]]; then
   log "forkcheck start jar=$JAR"
   N_GAMES=500 SEED=20260703 JAR="$JAR" bash scripts/forkcheck/run_forkcheck.sh "$FC" | tee -a "$OUT/queue.log"
-  pid=$(cat "$FC/run.pid"); until [ ! -d /proc/$pid ] || [ "$(wc -l < $FC/results.jsonl 2>/dev/null || echo 0)" -ge 500 ]; do sleep 60; done
+  pid=$(cat "$FC/run.pid"); until [ ! -d /proc/$pid ] || { [ -f "$FC/results.jsonl" ] && [ "$(wc -l < "$FC/results.jsonl")" -ge 500 ]; }; do sleep 60; done
   uv run python scripts/forkcheck/compare.py "$FC" | tee "$FC/compare.txt" | tee -a "$OUT/queue.log"
   log "forkcheck compared (read compare.txt; the bench does not wait on the verdict)"
 fi
