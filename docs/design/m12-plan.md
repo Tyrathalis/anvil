@@ -1285,3 +1285,12 @@ moves verbatim to the status archive and this section stays here as the record.*
   (fork `5dd8ab3ede` on the callback tip `23b8e36c03` + test fix `9438db1146`). The smoke +
   forkcheck queue relaunched on it 14:46 (`build4-targets-queue2`); the superseded forkcheck
   killed at 38/500.
+- **2026-09-16 15:05 — ADR-0111 (Build 4 opens) written; the evening's chain armed.** The label
+  pool `b4-tgtlab` (1,000 games, 24 × 2, the recipe with surface acting, the e3 build serving its six
+  on the b4 table, `-searchsurf 2` / rolls 2) launched 14:52; `scripts/build4_targets_chain.sh`
+  (`build4-targets-chain`) waits on it: ingest → the b4s table (the pool's side keys folded in) →
+  the six-plus-`surf_target` fit chain (5 folds, e3's recipe, distillation on entity + mode + target)
+  → `m12-build4-e1` → the served-head smoke → the three-arm read (`b4e1`: off / on / nogate, 300 per
+  seat, network alone, one jar `forge-targets-gate.jar` = tip `a36975497b`). Forkchecks: the retarget
+  tip `5dd8ab3ede` running (`run-20260916-build4-targets`), the gate tip queued behind it
+  (`run-20260916-build4-gate`). Reads land overnight.
