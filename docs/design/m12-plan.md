@@ -1173,4 +1173,32 @@ moves verbatim to the status archive and this section stays here as the record.*
   guide's finding from a maintainer → an engine-side legality surface (the block requirement
   fixed-point, the lethal-assignment rule) routed to the upstream worklist for the rebase era.
   manabrew is dropping its Rust port (the table corrected). Nothing on the M12 path changes.
-
+- **2026-09-16 (session 2: the upstream survey before the rebase; community watch)** — the user's
+  ask: read upstream's patches since the engine pin before pinning. Upstream `23c3d2a85d` →
+  `97535e047f` (09-16 10:36): 283 commits, ≈ 45 engine / AI; **the controller API unchanged**
+  (`PlayerController` + `PlayerControllerAi` diff = one storage-land hunk); the overlap 13 files,
+  two real conflicts (`ComputerUtilMana`: the memo vs the AiCardMemory refactor #11667;
+  `AiBlockController`: talor's cache vs #11790). **Pin = the tip `97535e047f`**; #11916 and #11925
+  (khaliostr's, not ours) merged 09-14 / 09-16, nothing to carry. Four changes touch our decisions:
+  **#11667 reopens the probe leak** (a new typed set `MemorySetMana.UNPAID_COSTS` written on the
+  test-mode payment path `autoPayable` runs; the probe's snapshot list is six card sets → snapshot
+  every entry of the memory map, a unit test + the divergence read); **#11780 is the views lever
+  we dropped 09-14** (`setNoGUIUser` → `DummyCardView`, copies get it free via `GameCopier`; a
+  flag on the harness games, flag-on/off forkcheck, re-profile); **CR 605.1a (#11778) is a rules
+  change** (a library-moving activated ability is no longer a mana ability; one pool card,
+  Chromatic Sphere); **#11861 rewrote the AI timeout machinery** (our bridged path overrides above
+  it; the heuristic seats move). The reference moves (blocks #11790, pump timing, any-color mana,
+  storage lands, reveal effects; 8 of 1,701 pool scripts, Hogaak + Emrakul the ones that play
+  differently) → the ability-key re-dump + diff on the new jar; three LKI NPE fixes may retire part
+  of the copy-crash class (read, don't assume). Recommendation (open): land it as a MERGE with a
+  pre-merge tag (a rebase rewrites the twelve pinned tip hashes every run header cites), the
+  archaeology ≈ a day + a box day; the probe extension and the views flag ride the same jar. The
+  full survey: the 09-16 session-2 devlog; the rebase ADR's context when the user confirms.
+  **Community watch:** Shedletsky's runner fleet at ≈ 1,000 games/min over 4 machines / 92 workers
+  (heuristic-only; noted, nothing routed); the AI-speed thread (khaliostr's unupstreamed
+  evaluation budgets → a determinism watch item on the upstream worklist, our position count-based
+  + flag-gated); **talor asks that his block-legality cache (Tyrathalis/forge#1, our fork's
+  `AiBlockController` delta) be upstreamed → queued as the first post-launch upstream patch**;
+  khaliostr's Java `forge-engine` module (the front-end / engine split) = the engine-side legality
+  surface's direction from the other end. The user stated the upstreaming schedule publicly: one
+  patch at a time while the big run runs.

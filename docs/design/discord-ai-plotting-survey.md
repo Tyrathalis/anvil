@@ -14,9 +14,9 @@
 |---|---|---|---|
 | **Austinio** (`austinio7116`, **Forge core dev**) | `forge:ai_investigation` branch — full BC→RL gameplay pipeline, built with Claude Code in days (Mar 2026), ~8K LOC | forge-ai-rl module, **PlayerControllerRL**, feature encoders, model server, trajectory recording; 1000-game heuristic corpora → value net + 7 decision heads → ONNX in-game inference; then PPO self-play (value-delta GAE rewards, terminal-anchored) | Imitation ≈ 25-35% WR vs heuristic; PPO plateaued (~33%); moving toward ExIt/search ideas; paused since mid-April (RLAI_PLAN.md / RLAI_PAPER.md / RLAI_IMPROVEMENTS.md in-branch) |
 | **Kryptic** | Independent replication of Austinio's pipeline | Same scripts; strong experimental hygiene instincts (CI-width callouts, leakage hunts, codex-driven code review) | Found the train/val game-leakage bug, the heuristic-fallback fake-win bug; built seeded twin-replay divergence tooling; PPO 200 rounds/220h → 24.5%→33.2% then flat. **09-07: ran Anvil itself** on a mono-green stompy mirror (Constructed, custom pool): BC 38.9% (n=2,000) → V-trace self-play 55.2% after 25 iterations (n=1,000, se ±1.6) — the first external replication of the loop ([devlog](../devlog/2026-09-07-session2.md)) |
-| **talor** (`Talor-A/forge`; `talor-a/tinymtg`) | Fork continuing Austinio's work; **09-15: `tinymtg`**, an own TypeScript engine (<10K LOC, deterministic, forge-script translated ahead of time, 4,500 cards, no perf work yet) | Added unit tests (found bugs), macOS MPS backend, diverse decks from cubecobra exports, cosine-similarity reward shaping for block/target heads; **Monte-Carlo rollout visualizer using GameCopier** | Active late May; `rltrain collect` = 5000 games/16 threads JSONL; ~0.5% game-failure rate (undiagnosed) |
+| **talor** (`Talor-A/forge`; `talor-a/tinymtg`) | Fork continuing Austinio's work; **09-15: `tinymtg`**, an own TypeScript engine (<10K LOC, deterministic, forge-script translated ahead of time, 4,500 cards, no perf work yet) | Added unit tests (found bugs), macOS MPS backend, diverse decks from cubecobra exports, cosine-similarity reward shaping for block/target heads; **Monte-Carlo rollout visualizer using GameCopier**; **08-10: the AI block-legality cache as a PR against our fork ([Tyrathalis/forge#1](https://github.com/Tyrathalis/forge/pull/1), merged 08-11; 09-16 he asks that it be upstreamed)** | Active late May; `rltrain collect` = 5000 games/16 threads JSONL; ~0.5% game-failure rate (undiagnosed) |
 | **LordOfThePigs** (`npiguet`) | Sealed **deck-builder** model, now **draft agent** (Tutor-adjacent, not gameplay) | Card transformer over card text + 544-dim embeddings pre-trained on per-card stats from 1M forge-vs-itself games; MLM pretraining helps; simulated-annealing deck search → distilled single-pass (3-4ms) | **Beats Forge SealedDeckBuilder 78% Bo7.** Draft agent: BC picker 85% match/top-3 99%; RL above BC failing (offline RL on fixed corpus dead; switching to online). 3-machine harness ≈ 200K games/day |
-| **manabrew** (`witchesofthehill/manabrew` — khaliostr, fedepoi, Anacleto) | **Rust/wasm GPL port of Forge** + Tauri client, self-host multiplayer | **Lockstep parity harness**: serializes java Forge gamestate, drives it via JSONL/stdin-stdout, compares snapshots every turn+priority vs the Rust engine; **patched Forge for seeded determinism** ("seed controls library order and makes sure all decisions are the same") | Public since ~June; java Forge playable through manabrew; Rust ~50% faster/lighter but "still isn't completely correct"; offered the harness for AI control use. **09-15 (itemfive): the Rust port is being dropped**; the product is Java Forge built to wasm (`@manabrew/forge-wasm`) behind their protocol |
+| **manabrew** (`witchesofthehill/manabrew` — khaliostr, fedepoi, Anacleto) | **Rust/wasm GPL port of Forge** + Tauri client, self-host multiplayer | **Lockstep parity harness**: serializes java Forge gamestate, drives it via JSONL/stdin-stdout, compares snapshots every turn+priority vs the Rust engine; **patched Forge for seeded determinism** ("seed controls library order and makes sure all decisions are the same") | Public since ~June; java Forge playable through manabrew; Rust ~50% faster/lighter but "still isn't completely correct"; offered the harness for AI control use. **09-15 (itemfive): the Rust port is being dropped**; the product is Java Forge built to wasm (`@manabrew/forge-wasm`) behind their protocol; **09-16 (khaliostr): upstreaming engine perf found by profiling forge-wasm (Card-Forge #11916 merged 09-14, #11925 merged 09-16), evaluation-loop budgets held back (they change play once exhausted), a Java `forge-engine` module that splits the front end from the engine (Java / wasm / server), Endstep's server-side patches integrated** |
 | **coda** | **Python port** of Forge (Claude-assisted) | JSON-over-Websockets protocol mirroring Forge's; Pyodide/wasm ambitions; browser TCEC-style tournament server idea | Early; engaged and thoughtful about authoritative-server/hidden-info hygiene |
 | **wingedsheep** | `mtg-llm-benchmark` + **argentum-engine** (own rules engine: Portal, Onslaught, Khans, Dominaria, Bloomburrow) | LLMs draft/deckbuild → exported to Forge (Forge AI plays); engine has an LLM AI mode | Side project cadence |
 | **marthinwurer** | AlphaZero-on-Forge ambition (since 2022 in #ai-decks) | **PR #8427 "Break out main loop step"** — mainLoopStep()/setupFirstTurn() so you can "copy the game state and step through priority by priority… important for any kind of tree-search AI"; plan: random player → MCTS | Engine-side groundwork only; low activity since Sep 2025 |
@@ -583,3 +583,71 @@ exposed and fixed the selfplay/final_read Commander hard-coding.
   *Our record:* the §1 manabrew row is out of date on the port (the Rust engine is being dropped;
   the product is now Java Forge in wasm behind their protocol) — corrected in the table. The
   Arena-look demand is the playable branch's / Chronicle's audience; nothing routed.
+
+### 09-16 follow-up: Shedletsky's runner fleet, the AI-speed thread, talor's cache PR, khaliostr's engine module (read 09-16; the user posted once, 09:15)
+
+**#ai-plotting (09-15 22:29 → 09-16 09:15):**
+
+- **Shedletsky (09-15 22:29): "finally got all of the bottlenecks out of my ersatz distributed
+  mtg compute cluster"** with a dashboard screenshot — *Simulation capacity · Runner fleet*:
+  4 recent machines, 92 maintained workers (requested target 92), 90 active games, **1,097
+  games/min over the last minute (+189 vs the previous), 1,024.80 over 5 min, 1,020.93 over 15
+  min**, workers 98% busy, 2 failures in the last minute, 3 runners online. ≈ 61K games/hour;
+  ≈ 12 games per worker-minute ≈ 5 s per game per worker (heuristic-only play, presumably the
+  Limited formats of his winnability corpus — inferred, not stated). Failures ≈ 0.2% of games,
+  the same order as talor's 0.5% (§2) and our crash census. *Our record:* the same shape as our
+  fleet supervisor (a maintained worker count, a requested target, busy %, a per-minute rate) but
+  multi-machine; our recipe is 294 g/h on one box because the search and the served network are
+  the price, not the engine. A multi-machine runner fleet is the lever if the big run's envelope
+  ever needs more than the box — noted, nothing routed.
+- **LordOfThePigs (04:36): Forge AI "several times faster"** after moving his checkout from March
+  to last week. **khaliostr (04:50):** work is happening; on some boards the AI is still really
+  slow — forge-wasm sees the AI take minutes on a choice. **Fuzz (05:05):** the AI needs to skip
+  past thinking on big board states — "a card in hand and evaluates every possible use for that
+  card against 100 board objects." **khaliostr (05:28):** the same in production; instrumenting
+  decision latency in the browser made the pathological states visible (exhaustive evaluation of
+  actions / targets); **they added budgets inside the evaluation / declaration loops** (needed on
+  wasm, no threaded timeout there; desktop stalls measured too) — **not upstreamed because, unlike
+  the cache / perf work, a budget changes AI play once it is exhausted**; offered to split them
+  out. **TRT (06:01):** many API heuristics are written poorly or check more accurately than they
+  need to; a clean effort should group helpers, give them slow / fast modes, reuse `AiCache`;
+  **"relying on nondeterminism should remain a last resort."** *Our record:* (a) the March → September
+  speedup is upstream's own cache / perf work (khaliostr's #11916 and #11925 among it; §1 corrected:
+  khaliostr is the author of both, they were never ours — we had queued #11916 for the rebase as
+  a pending upstream PR, and it merged 09-14); (b) Fuzz's class is the JFR read's — the payability
+  mask, the static checks, the replacement scans per candidate × board object — and our
+  mana-source memo (fork `1dd36f7342`) is a patch for exactly that class, an upstream candidate;
+  (c) **the budgets are a hazard for us if they land as wall-clock defaults: deterministic replay
+  is load-bearing for four systems; our position when the split-out comes is count-based budgets
+  (the search directive's budget unit is forward calls for this reason), flag-gated, off by
+  default; TRT's line is the same position** → routed to the upstream worklist as a watch item.
+- **talor (08:35, again in #contribution-questions 08:44): "this should probably get upstreamed"
+  — [Tyrathalis/forge#1](https://github.com/Tyrathalis/forge/pull/1)**, his AI block-legality
+  cache PR against OUR fork (opened 08-10, merged 08-11 as fork `8044e36366` + our follow-up
+  `6f5e1643b2`): `predictNextCombatsRemainingLife` was up to 60% of long games re-walking static
+  abilities for the same attacker / blocker pairs across assignment passes; a per-invocation cache;
+  hit rate 30–60%; **500-game read: total CPU −15.6% (3,887 → 3,282 s), median 5.25 → 4.41 s, p90
+  15.57 → 13.15 s, faster in 478/500, determinism preserved 500/500.** *Our record:* this is the
+  fork's `AiBlockController` delta (195 lines) and one of the rebase's two real conflicts (upstream
+  #11790 changed the same region 09-06) → **queued on the upstream worklist as the first post-launch
+  upstream patch**, talor as author.
+- **The user (09:15):** preparing the long Anvil run, then proposing upstream patches one at a
+  time while it runs; asked for priorities. *Our record:* the upstream worklist's schedule is now
+  stated publicly — the big run's envelope is the upstreaming window.
+
+**#contribution-questions (09-16 03:38 → 08:44), continuing the 09-15 GUI-legality thread:**
+
+- **khaliostr (03:38, 05:22):** keen to collaborate with upstream; a batch of engine perf
+  improvements from profiling forge-wasm being upstreamed; **Endstep's patches integrated for
+  server-side play** (not their wasm path — one game per browser runtime — but the hosted case);
+  **the Forge front-end / back-end boundary split as a module that lives entirely in Java and
+  keeps Forge semantics** — Manabrew's web UI sits on it through their protocol, nothing
+  Manabrew-specific in the layer; **their `forge-engine` layer runs as a Java module, compiles to
+  wasm (browser / node, callable from other languages), or runs as a server exposing Forge through
+  the Manabrew protocol**; not upstream — that would need the module upstreamed and the existing
+  UI bindings moved onto its API, "a fairly sizable undertaking," but working in their repo.
+  **Fuzz (05:11):** an engine independent of the UI is the end state. *Our record:* the engine-side
+  legality surface (the 09-15 item) and khaliostr's module are the same direction from two ends —
+  a validated engine API for any controller is what his module needs and what our controller
+  carries fork-side. The §1 manabrew row corrected (the module, the perf upstreaming, Endstep).
+  Nothing on the M12 path changes.

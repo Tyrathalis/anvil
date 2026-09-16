@@ -603,3 +603,40 @@ Consequences:
   new match UI (Sudo_Dudo's Arena-look client), every AI controller, the front-end forks
   (Manabrew, Endstep, Phase). Timing: the rebase era, after the Copier → Snapshot follow-up;
   no M12 dependency.
+
+## Queued PR — the AI block-legality cache (talor, [Tyrathalis/forge#1](https://github.com/Tyrathalis/forge/pull/1); merged into the fork 2026-08-11; asked to be upstreamed 2026-09-16)
+
+- **What:** `AiBlockController` caches `CombatUtil.canBlock` pair legality and the
+  assignment-context legality (lure, max blockers, capacity) within one `assignBlockers`
+  invocation; every combat mutation clears the context entries, the pure-pair entries survive
+  them (fork `8044e36366` talor + `6f5e1643b2` ours: pure-pair survival + the pair-false
+  short-circuit). talor's evidence: `predictNextCombatsRemainingLife` up to 60% of long games;
+  hit rate 30–60%; **500 games: total CPU −15.6% (3,887 → 3,282 s), median 5.25 → 4.41 s, p90
+  15.57 → 13.15 s, faster in 478/500, game-state determinism preserved 500/500.** Carried in
+  every forkcheck since 08-11.
+- **At the rebase:** one of the two real conflicts — upstream #11790 (liamiak, 09-06: don't block
+  with creatures that die before they deal damage) rewrote 50 lines of the same method region.
+  Reconcile at the merge; the new baseline forkcheck re-proves the flag-off path, the one-worker
+  identity gate the cache itself (standing rule: identity gates on served arms run one worker).
+- **Shape of the PR:** as reconciled, talor as author (co-author credit for the follow-up), his
+  500-game read plus our forkcheck as the evidence, framed in TRT's 09-16 direction (group the
+  helpers, slow / fast modes, reuse `AiCache`) — this cache is scoped to one invocation, the
+  conservative version of that direction. **First in the post-launch series** (the user, Discord
+  09-16 09:15: upstream patches one at a time while the big run runs).
+
+## Watch item — evaluation-loop budgets (khaliostr / Manabrew, 2026-09-16, not yet upstreamed)
+
+- Manabrew added budgets inside the AI's evaluation / declaration loops for forge-wasm (no
+  threaded timeout there; desktop stalls measured too — Fuzz's class: a card in hand evaluated
+  against 100 board objects). khaliostr holds them back because a budget changes AI play once
+  exhausted; offered to split them out for discussion.
+- **Our position when it comes up:** deterministic replay is load-bearing for four Anvil systems
+  (seed everything) — a wall-clock budget as a default would break it for every seeded consumer
+  (ours, LordOfThePigs's harness, talor's). Count-based budgets (our search directive's budget
+  unit is forward calls for this reason), flag-gated, off by default in the desktop build. TRT's
+  line in the same thread — "relying on nondeterminism should remain a last resort" — is the
+  same position from a maintainer.
+- **The same class from our side:** the JFR read's payability mask + static / replacement scans
+  per candidate × board object; the mana-source memo (fork `1dd36f7342`: the grouping built once
+  per scan, identity-gated 32,306 windows) is a behavior-identical patch for it — the second
+  candidate in the post-launch series, after talor's cache.
