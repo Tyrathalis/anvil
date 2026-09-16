@@ -581,3 +581,25 @@ Consequences:
   (the 0.5% tripline reopens repetition detection). A state-hash repetition detector at priority
   grants (model-driven no-progress cycles, bounded today by the window cap) is routed by name to
   the shakedown.
+
+## Queued idea — an engine-side combat legality surface (2026-09-15, from #contribution-questions)
+
+- **The opening:** Jetz (core) confirmed to Sudo_Dudo that combat / damage-assignment legality
+  lives in the GUI module (`PlayerControllerHuman` + the cost / target `Input`s carry the
+  validation), not `forge-game` — "not designed that way intentionally… it's just been that way
+  since before the project was split into modules. Ideally any validation and legality stuff like
+  that could be specified or checked entirely by the game module. But it's a lot of stuff to
+  relocate in an elegant way." This is the field guide's finding from a maintainer
+  ([forge-ai-field-guide.md](../forge-ai-field-guide.md): `CombatUtil.validateBlocks` runs for
+  human input only; an AI-path controller can declare illegal blocks and the engine plays on).
+- **What we already carry that fits:** the block requirement fixed-point (`mustBlockAnAttacker`,
+  [ADR-0016](../decisions/ADR-0016-d5-closeout.md)) and evening 3's modern-rule damage
+  enumerator family (the kill order realized as amounts by the lethal arithmetic,
+  [ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)),
+  both living fork-side because the engine offers no validated surface to a non-human controller.
+- **Shape of the PR:** not the relocation (the "lot of stuff" Jetz means) — a small, tested
+  `forge-game` entry point that validates a block declaration / a damage assignment for ANY
+  controller, which the GUI's inputs can later delegate to. Consumers named in the thread: a
+  new match UI (Sudo_Dudo's Arena-look client), every AI controller, the front-end forks
+  (Manabrew, Endstep, Phase). Timing: the rebase era, after the Copier → Snapshot follow-up;
+  no M12 dependency.

@@ -14,9 +14,9 @@
 |---|---|---|---|
 | **Austinio** (`austinio7116`, **Forge core dev**) | `forge:ai_investigation` branch — full BC→RL gameplay pipeline, built with Claude Code in days (Mar 2026), ~8K LOC | forge-ai-rl module, **PlayerControllerRL**, feature encoders, model server, trajectory recording; 1000-game heuristic corpora → value net + 7 decision heads → ONNX in-game inference; then PPO self-play (value-delta GAE rewards, terminal-anchored) | Imitation ≈ 25-35% WR vs heuristic; PPO plateaued (~33%); moving toward ExIt/search ideas; paused since mid-April (RLAI_PLAN.md / RLAI_PAPER.md / RLAI_IMPROVEMENTS.md in-branch) |
 | **Kryptic** | Independent replication of Austinio's pipeline | Same scripts; strong experimental hygiene instincts (CI-width callouts, leakage hunts, codex-driven code review) | Found the train/val game-leakage bug, the heuristic-fallback fake-win bug; built seeded twin-replay divergence tooling; PPO 200 rounds/220h → 24.5%→33.2% then flat. **09-07: ran Anvil itself** on a mono-green stompy mirror (Constructed, custom pool): BC 38.9% (n=2,000) → V-trace self-play 55.2% after 25 iterations (n=1,000, se ±1.6) — the first external replication of the loop ([devlog](../devlog/2026-09-07-session2.md)) |
-| **talor** (`Talor-A/forge`) | Fork continuing Austinio's work | Added unit tests (found bugs), macOS MPS backend, diverse decks from cubecobra exports, cosine-similarity reward shaping for block/target heads; **Monte-Carlo rollout visualizer using GameCopier** | Active late May; `rltrain collect` = 5000 games/16 threads JSONL; ~0.5% game-failure rate (undiagnosed) |
+| **talor** (`Talor-A/forge`; `talor-a/tinymtg`) | Fork continuing Austinio's work; **09-15: `tinymtg`**, an own TypeScript engine (<10K LOC, deterministic, forge-script translated ahead of time, 4,500 cards, no perf work yet) | Added unit tests (found bugs), macOS MPS backend, diverse decks from cubecobra exports, cosine-similarity reward shaping for block/target heads; **Monte-Carlo rollout visualizer using GameCopier** | Active late May; `rltrain collect` = 5000 games/16 threads JSONL; ~0.5% game-failure rate (undiagnosed) |
 | **LordOfThePigs** (`npiguet`) | Sealed **deck-builder** model, now **draft agent** (Tutor-adjacent, not gameplay) | Card transformer over card text + 544-dim embeddings pre-trained on per-card stats from 1M forge-vs-itself games; MLM pretraining helps; simulated-annealing deck search → distilled single-pass (3-4ms) | **Beats Forge SealedDeckBuilder 78% Bo7.** Draft agent: BC picker 85% match/top-3 99%; RL above BC failing (offline RL on fixed corpus dead; switching to online). 3-machine harness ≈ 200K games/day |
-| **manabrew** (`witchesofthehill/manabrew` — khaliostr, fedepoi, Anacleto) | **Rust/wasm GPL port of Forge** + Tauri client, self-host multiplayer | **Lockstep parity harness**: serializes java Forge gamestate, drives it via JSONL/stdin-stdout, compares snapshots every turn+priority vs the Rust engine; **patched Forge for seeded determinism** ("seed controls library order and makes sure all decisions are the same") | Public since ~June; java Forge playable through manabrew; Rust ~50% faster/lighter but "still isn't completely correct"; offered the harness for AI control use |
+| **manabrew** (`witchesofthehill/manabrew` — khaliostr, fedepoi, Anacleto) | **Rust/wasm GPL port of Forge** + Tauri client, self-host multiplayer | **Lockstep parity harness**: serializes java Forge gamestate, drives it via JSONL/stdin-stdout, compares snapshots every turn+priority vs the Rust engine; **patched Forge for seeded determinism** ("seed controls library order and makes sure all decisions are the same") | Public since ~June; java Forge playable through manabrew; Rust ~50% faster/lighter but "still isn't completely correct"; offered the harness for AI control use. **09-15 (itemfive): the Rust port is being dropped**; the product is Java Forge built to wasm (`@manabrew/forge-wasm`) behind their protocol |
 | **coda** | **Python port** of Forge (Claude-assisted) | JSON-over-Websockets protocol mirroring Forge's; Pyodide/wasm ambitions; browser TCEC-style tournament server idea | Early; engaged and thoughtful about authoritative-server/hidden-info hygiene |
 | **wingedsheep** | `mtg-llm-benchmark` + **argentum-engine** (own rules engine: Portal, Onslaught, Khans, Dominaria, Bloomburrow) | LLMs draft/deckbuild → exported to Forge (Forge AI plays); engine has an LLM AI mode | Side project cadence |
 | **marthinwurer** | AlphaZero-on-Forge ambition (since 2022 in #ai-decks) | **PR #8427 "Break out main loop step"** — mainLoopStep()/setupFirstTurn() so you can "copy the game state and step through priority by priority… important for any kind of tree-search AI"; plan: random player → MCTS | Engine-side groundwork only; low activity since Sep 2025 |
@@ -496,3 +496,90 @@ attacks, blocks; no decision context) — routed as a Mentor calibration lead; a
 a newcomer path → [quickstart-custom-pool.md](quickstart-custom-pool.md) (09-14), which also
 exposed and fixed the selfplay/final_read Commander hard-coding.
 
+### 09-14/15 follow-up: pre-release freeze proposal, tinymtg, LordOfThePigs's card win rates, the GUI-owned combat legality (read 09-15; the user posted the quickstart link 09-14)
+
+**#ai-plotting (09-14 → 09-15):**
+
+- **The user (09-14 10:48)** posted the [custom-pool quickstart](quickstart-custom-pool.md) for the
+  external users, with the position on pre-release meta prediction: no bot is human-like enough to
+  decipher a Limited meta before release; break the question into what the existing tools can
+  answer precisely; the fixed-matchup route works (Kryptic's single-deck mirror was the fastest
+  climb seen here); a specific release lets you check against the real meta afterwards, but
+  human-like play needs full replay data.
+- **chrismaghuhn (09-14 10:52) — the pre-release freeze proposal:** freeze the pre-release
+  predictions before Arena data exists, then compare against 17Lands afterwards — not just
+  archetype win rates but **where Anvil and Forge disagree and which one lands closer to human
+  play**; over a few sets that maps the simulator's and the pilot's biases instead of a one-off
+  tier list. *Our read:* a cheap, well-posed external validation that costs us nothing until a new
+  set is in the pool — the pool pipeline is set-sized by construction ([ADR-0018](../decisions/ADR-0018-ruleset-scope-clarification.md)),
+  the quickstart already builds a pool from any decklist, and Build 4's text-hash-keyed ability
+  text + format-as-features is what makes an unseen set playable by the network. The disagreement
+  read (Anvil vs the heuristic vs 17lands per card / archetype) is the same instrument as the
+  17lands skill-token corpus routed at the closeout. **Routed by name: "the pre-release freeze"
+  as a closeout-era read** (a Limited set through the pool pipeline, predictions committed before
+  release, the 17lands comparison after; a set that lands during the big run's envelope is the
+  natural first sample). Nothing to build now; the sets are not on the M12 path (no Pauper / no
+  Limited in M12).
+- **talor (09-14 18:53 → 09-15 16:13) — `tinymtg`** ([github.com/talor-a/tinymtg](https://github.com/talor-a/tinymtg),
+  public 09-15): a TypeScript rules engine under a 10K-LOC target, "a fun side project" —
+  playable state, no performance work yet, **fully deterministic**, 4,500 cards from Forge's
+  catalog playable. The card model: a `CardDef` (attributes + abilities authored in JS, a mix of
+  callbacks and structured effects); `forge/parser.ts` translates forge-script to it **ahead of
+  time** — the engine never interprets Forge's grammar, so it is not tied to Forge. Effects are an
+  array, not forge-script's `SubAbility` chain, which he already finds limiting (Rite of
+  Consumption plumbing a variable across effects; replacement effects are callbacks for the same
+  reason). chrismaghuhn's questions (language, gameplay vs throughput, card implementation,
+  determinism / snapshot / fork, the benchmark unit, open source) are the right checklist; the
+  "faster than any alternative" claim is a goal, not a measurement (no optimization done, no
+  benchmark named). itemfive: "forge-script does the same thing, we just took different routes.
+  And forge works." *Our record:* a translated-subset engine over forge-script is the shape the
+  gated Rust-subset item assumed; a 4,500-card ahead-of-time translation is a data point that the
+  translation is tractable. Throughput is still not binding for us (the JFR week: the mask memo,
+  PR 11916, the box's cores), so the item stays gated. Fidelity is the question for any such
+  engine — and the only way it enters our world is through a forkcheck-style twin against Java
+  Forge (manabrew's lockstep harness is that instrument). Not Anvil-changing; watch the benchmark
+  when it comes.
+- **itemfive — `mtgish`** ([github.com/i5jb/mtgish](https://github.com/i5jb/mtgish) + a proof-of-
+  concept card creator): a common card format so that rules-engine authors can "interpret mtgish"
+  once and have the whole library; documents the rules and provides test cases. His own TS engine
+  has 10K lines of type definitions, 2K for tokens + layer-1 copy, 5K of tests, "and it doesn't
+  even work". Adjacent to fork I (the open card vocabulary) only as a format; nothing routed.
+- **LordOfThePigs (09-15 05:17, 05:42) — the card win-rate data, shared for Shedletsky:** a
+  `cards-win-rates.7z` on Google Drive plus a folder with the **Bo1 match outcomes and the list of
+  cards played by both players per match** used to derive them (from his forge-vs-forge sealed
+  harness; the ~1M-game corpus behind the winnability pretraining, §1 09-13). *Our read:* a
+  heuristic-derived per-card played/win table across all draftable sets is a Tutor pretraining
+  asset and a pool-curation signal (the "cards the Forge AI never plays" list, §2), and a natural
+  comparison for our own pool's card statistics; it carries the heuristic's biases (§2) exactly
+  as our corpora do. **Not downloaded** (the user decides; the Drive links are in the channel).
+  Worth pulling when Tutor work opens — routed by name there.
+- Fuzz: "deck hints" as an LLM-AI input (a Forge deck-file feature); nothing for us.
+
+**#contribution-questions (09-15):**
+
+- **Sudo_Dudo (12:55) asked why the GUI module owns combat / damage-assignment legality rather
+  than forge-game. Jetz (core): not a design choice — it predates the module split; "ideally any
+  validation and legality stuff like that could be specified or checked entirely by the game
+  module. But it's a lot of stuff to relocate in an elegant way." The same holds for
+  `PlayerControllerHuman` and the cost / target `Input`s, which carry a lot of validation logic
+  (at least in the shared gui module, not duplicated across desktop and mobile).** *Our record:*
+  this is the field guide's finding stated by a maintainer — the engine never validates AI-path
+  combat ([forge-ai-field-guide.md](../forge-ai-field-guide.md): `CombatUtil.validateBlocks` runs
+  for human input only; the requirement fixed-point is ours, [ADR-0016](../decisions/ADR-0016-d5-closeout.md)),
+  and evening 3's damage surface had to carry its own modern-rule enumerator family for the same
+  reason ([ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+  A maintainer naming the relocation as desirable-but-large is the opening for an engine-side
+  legality surface as an upstream contribution (blocks: the requirement fixed-point; damage: the
+  lethal-assignment rule) — small, tested, and both a GUI rewrite (Sudo_Dudo's Arena-look client)
+  and every AI controller would consume it. **Routed by name to the upstream worklist** (the
+  rebase era; no M12 dependency).
+- Sudo_Dudo wants an Arena-look match UI; his friends won't play on Forge's. talor pointed at
+  manabrew.app as a web front end over Forge; itemfive listed the front-end landscape:
+  **Manabrew and Endstep (forge-ish forks), Phase (independent; some forge-isms), Argentum.**
+  MostCromulent: coordinate rather than reinvent, ideally something incorporable into Forge proper.
+  itemfive: **Endstep keeps a patches repository; manabrew is dropping its port-Forge-to-Rust
+  effort** and contributed the patches that build Forge to wasm for the web; the state of their
+  generic engine-to-frontend protocol and whether it would ever be incorporated is unknown.
+  *Our record:* the §1 manabrew row is out of date on the port (the Rust engine is being dropped;
+  the product is now Java Forge in wasm behind their protocol) — corrected in the table. The
+  Arena-look demand is the playable branch's / Chronicle's audience; nothing routed.

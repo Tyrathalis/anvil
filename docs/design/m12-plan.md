@@ -1105,3 +1105,17 @@ moves verbatim to the status archive and this section stays here as the record.*
   rule: outcome arms under an independent roll salt. Routed: the pay slot's 09-11 h2 result
   re-read salted. The check-in routine off (idle box). Next: the partial-expansion slot, Build 3's
   closeout ADR, the rebase.
+- **2026-09-15 (community watch, noted + routed)** — the Discord read (the survey doc's 09-14/15
+  follow-up). chrismaghuhn's **pre-release freeze** (predictions committed before Arena data, the
+  17lands comparison after; where Anvil and the heuristic disagree and which lands closer to
+  human play, over several sets = a bias map) → routed by name as a closeout-era read (set-sized
+  pool chunks, Build 4's unseen-card readiness; no M12 dependency). talor's `tinymtg` (TS, <10K
+  LOC, deterministic, forge-script translated ahead of time, 4,500 cards, no benchmark yet) → the
+  Rust-subset item stays gated; a data point that the translation is tractable, fidelity via a
+  twin harness the only entry. LordOfThePigs's per-card win-rate table + Bo1 outcomes shared on
+  Drive → routed to Tutor (not downloaded). **Jetz (core) confirmed combat / damage-assignment
+  legality lives in the GUI module, relocation to forge-game desirable but large** — the field
+  guide's finding from a maintainer → an engine-side legality surface (the block requirement
+  fixed-point, the lethal-assignment rule) routed to the upstream worklist for the rebase era.
+  manabrew is dropping its Rust port (the table corrected). Nothing on the M12 path changes.
+
