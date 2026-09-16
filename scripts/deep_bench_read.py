@@ -14,7 +14,6 @@ from __future__ import annotations
 import glob
 import json
 import re
-import statistics as st
 import sys
 from collections import Counter
 from pathlib import Path
@@ -72,7 +71,7 @@ def main() -> None:
         tot = sum(a["calls_per_game"].values())
         print(f"{a['name']}: games {a['games']}, searched windows/game {a['windows_per_game']:.1f}, "
               f"copy forward calls/game {tot:.0f} = " + " + ".join(f"{k} {v:.0f}" for k, v in a["calls_per_game"].items()))
-        print(f"  copy wall/game (s): " + ", ".join(f"{k} {v / 1000:.0f}" for k, v in a["copy_ms_per_game"].items()))
+        print("  copy wall/game (s): " + ", ".join(f"{k} {v / 1000:.0f}" for k, v in a["copy_ms_per_game"].items()))
         print(f"  deep gate {a['gate']}; option verdict {a['by']}; deep copy kinds {a['deep_kinds']}")
         print(f"  bench {a['bench']}")
     if len(arms) == 2 and all(a["bench"] for a in arms):
