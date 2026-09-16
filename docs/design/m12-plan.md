@@ -164,7 +164,12 @@ whether teaching is happening. The milestone's product is one big training run, 
    labels after Build 4** (D4-standalone cost, ~2 h) read by the Build 1 cells as its smoke.
    The **format-onboarding recipe doc** (`docs/design/format-onboarding.md`: pairs file + fixed
    population, Ante certification, ladder anchor, era-scoped calibration maps, pool `CURRENT`)
-   is written when the format block lands.
+   is written when the format block lands. **Amended 09-16 ([ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md)):
+   the void re-roll skip rides the rebase; Build 4's surface evening = TARGETS AS A SURFACE
+   (triggered-ability targets, re-targeting, the generic target choosers — the largest deferral
+   left; the mode head rides it: a three-arm paired read pre-registers the playability gate's
+   retirement); then THE ALLOCATION HEAD (fork L's first fit, fork D's allocation served as an
+   extra output on the priority ask; the uniform floor kept) before the post-Build-4 read.**
 4½. **The shakedown run = the search-budget read** (amended [ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md),
    09-14 s3; the rebase carrying PR 11916 lands between evening 5 and Build 4, so this and
    everything after it sit in one era against one fresh reference read). Two or three arms at
@@ -181,6 +186,9 @@ whether teaching is happening. The milestone's product is one big training run, 
    a brake) runs on the winning arm before the launch; the run stays the last landmine catcher
    and supplies the learning-curve slope the power statement's "games to produce" line needs.
    ≈ a week (was ≈ three days). A two-ply arm is gated on the deep arm showing gain per box-hour.
+   **Amended 09-16 (ADR-0109): an ALLOCATION arm (the head's rate with the floor vs uniform rate 1)
+   beside the three shape arms, the same equal-box-time rule; the surface round's breadth (B = 1,
+   a surface rate, or the margin gate) is a settings-pass axis.**
 4¾. **The documentation review session** (user, 09-15) — scheduled between the shakedown's verdict
    and the big run's launch, once every piece of M12 implementation is in: the architectural
    changes since ADR-0101 (search as the behavior policy, the surfaces, the acting rule, the leaf
@@ -1127,6 +1135,21 @@ moves verbatim to the status archive and this section stays here as the record.*
   `deep_bench_read.py`); **forkcheck PASS 22:15 (499/500, the standing crash) → fork pin `5e333e96930`**; **THE PRICE (23:03)**: the bench pair (24 × 2, 64 games each, jar `5e333e96930`): recipe 294 g/h peak (213 wall; 69.5 searched windows/game, 3,723 copy forward calls/game = first ply 2,208 + surfaces 1,515, copy wall 131 s/game) vs recipe + deep 3 **104 g/h peak (88 wall)** — the deep round on 20% of windows (band 653 / floor 254 of 4,475), 16,553 calls/game (deep 13,181), deep copy wall 559 s/game, deep acts 98 (2.2% of windows; 11% of its rounds), deep copies leaf 9,639 / end 1,249 / crash 9, 0 game crashes → **the deep arm = ×4.45 forward calls, ×2.83 box time per game** (one cell per arm: a draw for g/h, the call ratio the per-lever number). At equal box time the deep arm plays 35% of the recipe's games (≈ 2.5K/day at 24 × 2; a three-day shakedown arm ≈ 7.5K games). The slot is CLOSED: built, proven, priced. Routed: the pass-through next peek on deep copies; the deep bar / band /
   floor as settings-pass axes. Next: the queue's reads → the fork pin + the deep arm's multiplier;
   Build 3's closeout ADR; the rebase.
+- **2026-09-16 — THE PRE-LAUNCH COMPLETENESS AUDIT ([ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md))**:
+  the user's two questions (what still defers to the heuristic; are we using every throughput
+  lever). Coverage: 14 bridged tags; deferred = payment (withheld on purpose → the loop),
+  **targets outside a cast (not traced — the largest true gap, the mode head's mechanism)**, the
+  closed enumerations + naming (cheap, unserved), the low-weight class (piles, shield division,
+  play/draw, Leylines, confirms, concession); the search's window coverage (main-phase priority
+  only) and combat legality (GUI-owned) are boundaries, not deferrals. Throughput: Java CPU binds
+  at 24 workers; unexploited and ours = the allocation head (acts on 9.5% of windows at rate 1;
+  ≈ 1.5–2× the games), the void re-roll skip (29.6% of first-ply copies void; ≈ 7% of copy CPU,
+  exact), the surface round's breadth (41% of copy calls for 70 acts / 600 games), the mask cache
+  (small residual). **Decision (user): before the run — targets as a surface (Build 4's evening;
+  the mode head rides it, the gate's retirement pre-registered on a three-arm read), the
+  allocation head (before the post-Build-4 read; an allocation arm in the shakedown), the void
+  skip at the rebase; ≈ a week; the rest after the run by name.** Standing rule: surface coverage
+  closes before a big run. The §3d′ ledger updated.
 - **2026-09-16 — BUILD 3 CLOSED ([ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md))**: the
   record of five evenings (09-07 → 09-15) — six surfaces served from `m12-build3-e3` (entity one +
   set +2.06 ± 1.83, the gated mode + the whole set −0.17 ± 1.80, ordering + damage +0.52 ± 1.82,

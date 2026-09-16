@@ -378,6 +378,10 @@ silently delete.
   pair and the leaf judges it (the mode head: −7.3 ± 3.2 in single-mode games mode-only, gone
   behind the playability gate; mainline surface acting is the principled form)
   ([ADR-0108](decisions/ADR-0108-m12-build3-closeout.md)).
+- **Surface coverage closes before a big run, not after** — a decision family the heuristic still
+  owns at launch gets no behavior logp, no policy gradient and no lookahead for the run's whole
+  envelope; the pre-launch audit = the engine's decision API vs the bridged tags + hooks, and the
+  search's own waste on a bench cell's rows ([ADR-0109](decisions/ADR-0109-prelaunch-completeness-audit.md)).
 - **A search shape's per-copy price is MEASURED on the calibration arms before its arm is
   sized; assumed multipliers do not size arms** — an h2 copy is ≈ 10× a next copy in wall and
   ≈ 13× in forward calls (the 09-15 calibration arms + the deep smoke), not the 3× C2 assumed;
