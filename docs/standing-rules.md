@@ -372,6 +372,12 @@ silently delete.
 - **Every search cost is priced per game against generation rate**; throughput is the binding
   constraint until measured otherwise
   ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **A served surface answer is realized with everything the heuristic's answer bundles** — read
+  the engine's realization path for what the heuristic decides jointly (a mode's targets at cast)
+  before serving the callback alone; where the bundle cannot be served, the search copy plays the
+  pair and the leaf judges it (the mode head: −7.3 ± 3.2 in single-mode games mode-only, gone
+  behind the playability gate; mainline surface acting is the principled form)
+  ([ADR-0108](decisions/ADR-0108-m12-build3-closeout.md)).
 - **A search shape's per-copy price is MEASURED on the calibration arms before its arm is
   sized; assumed multipliers do not size arms** — an h2 copy is ≈ 10× a next copy in wall and
   ≈ 13× in forward calls (the 09-15 calibration arms + the deep smoke), not the 3× C2 assumed;

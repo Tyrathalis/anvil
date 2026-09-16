@@ -147,7 +147,9 @@ whether teaching is happening. The milestone's product is one big training run, 
    recorded as *the value head carries it* — not a kill; it sets the Build 5 expectation that
    network-alone must climb from below — and heuristic + lookahead vs heuristic alone is banked
    as what a masked-head lookahead buys any policy.
-3. **The decision surfaces** — one per evening, no gates: the three answer-shape heads and the
+3. **The decision surfaces** — **CLOSED 09-16 ([ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md)): six
+   surfaces served from the e3 build, the payment head withheld to the loop, the search's shape
+   priced.** One per evening, no gates: the three answer-shape heads and the
    enumerator tags (targets, discard/sac, mull tuck, modal, trigger order, library ordering,
    naming, payment classes, combat damage). Each integration: forkcheck + a one-hour smoke run +
    a 600-game paired read (a check that nothing broke — every shipped surface has landed a
@@ -1125,6 +1127,16 @@ moves verbatim to the status archive and this section stays here as the record.*
   `deep_bench_read.py`); **forkcheck PASS 22:15 (499/500, the standing crash) → fork pin `5e333e96930`**; **THE PRICE (23:03)**: the bench pair (24 × 2, 64 games each, jar `5e333e96930`): recipe 294 g/h peak (213 wall; 69.5 searched windows/game, 3,723 copy forward calls/game = first ply 2,208 + surfaces 1,515, copy wall 131 s/game) vs recipe + deep 3 **104 g/h peak (88 wall)** — the deep round on 20% of windows (band 653 / floor 254 of 4,475), 16,553 calls/game (deep 13,181), deep copy wall 559 s/game, deep acts 98 (2.2% of windows; 11% of its rounds), deep copies leaf 9,639 / end 1,249 / crash 9, 0 game crashes → **the deep arm = ×4.45 forward calls, ×2.83 box time per game** (one cell per arm: a draw for g/h, the call ratio the per-lever number). At equal box time the deep arm plays 35% of the recipe's games (≈ 2.5K/day at 24 × 2; a three-day shakedown arm ≈ 7.5K games). The slot is CLOSED: built, proven, priced. Routed: the pass-through next peek on deep copies; the deep bar / band /
   floor as settings-pass axes. Next: the queue's reads → the fork pin + the deep arm's multiplier;
   Build 3's closeout ADR; the rebase.
+- **2026-09-16 — BUILD 3 CLOSED ([ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md))**: the
+  record of five evenings (09-07 → 09-15) — six surfaces served from `m12-build3-e3` (entity one +
+  set +2.06 ± 1.83, the gated mode + the whole set −0.17 ± 1.80, ordering + damage +0.52 ± 1.82,
+  surface acting −0.69 ± 0.81 / 0.91: nothing broke), the payment head withheld to the loop after
+  five negatives, the probe fix (≈ 2.7pp recovered for every network arm), C1 (next the resolved
+  leaf, h2 a hint), the partial-expansion slot priced (×2.83 box time); the shakedown's three arms
+  pinned (shallow-wide / recipe / recipe + deep 3); the recipe's real rate 294 g/h (the ≈ 350
+  estimate was high); a standing rule born (a served answer is realized with everything the
+  heuristic's answer bundles); twelve items routed by name. Next: the rebase (ADR-0106 B), then
+  Build 4.
 - **2026-09-15 (community watch, noted + routed)** — the Discord read (the survey doc's 09-14/15
   follow-up). chrismaghuhn's **pre-release freeze** (predictions committed before Arena data, the
   17lands comparison after; where Anvil and the heuristic disagree and which lands closer to
