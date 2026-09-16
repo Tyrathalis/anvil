@@ -16,7 +16,8 @@ BASE=${BASE:-$REPO/data/forkcheck/run-20260916-merge-baseline}
 PROOF=${PROOF:-$REPO/data/forkcheck/run-20260916-merge-nogui}
 OLD=$REPO/data/forkcheck/run-20260821-m9boundary
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
-wait_fc() { local pid; pid=$(cat "$1/run.pid"); until [ ! -d /proc/$pid ] || [ "$(wc -l < "$1/results.jsonl" 2>/dev/null || echo 0)" -ge 500 ]; do sleep 60; done; }
+# the file test first: `wc -l < missing` errors past the 2>/dev/null before the first row lands (peer fix c8ad6de)
+wait_fc() { local pid; pid=$(cat "$1/run.pid"); until [ ! -d /proc/$pid ] || { [ -f "$1/results.jsonl" ] && [ "$(wc -l < "$1/results.jsonl")" -ge 500 ]; }; do sleep 60; done; }
 
 log "1/2 baseline forkcheck (flag off) jar=$JAR"
 N_GAMES=500 SEED=20260703 JAR="$JAR" FORGE_DIR="$FORGE_DIR" bash scripts/forkcheck/run_forkcheck.sh "$BASE" | tee -a "$OUT/queue.log"
