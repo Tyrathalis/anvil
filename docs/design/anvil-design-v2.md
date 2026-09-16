@@ -70,10 +70,23 @@ asks that the model cannot currently answer, so each future expansion is a
 routing decision, not a rediscovery. Traffic = DC-pool census,
 `data/census/run-20260704-dcpool`.)*
 
-**Model-decided today:** priority CastPlans (targets/X injected on the SA;
-optional costs surface in the candidate set by protocol design), mulligan
-*keep*, optional-trigger yes/no, binary/number one-fielders,
-attackers/blockers (M2 D5 constructs).
+**Model-decided today** (re-audited 2026-09-16, [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md)):
+priority CastPlans (targets/X/optional costs/card faces inside the candidate
+set), mulligan *keep* and *tuck*, optional-trigger yes/no, binary/number
+one-fielders, attackers/blockers (M2 D5 constructs), and — M12 Build 3
+([ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md)) — entity picks
+(tutor/fetch/discard/sacrifice/destroy/zone change/spell picks), modes
+(behind the playability gate), trigger ordering, library ordering
+(scry/surveil/move-to-zone), combat damage; 14 bridged tags. Payment
+composition is trained and withheld (item 1). **Search lookahead covers
+only the acting seat's quiescent main-phase windows** (a copier-fidelity
+boundary, not a deferral).
+
+**0. Targets chosen outside a cast** (`chooseTargetsFor`, `chooseNewTargetsFor`,
+`chooseTarget` — triggered-ability targets, re-targeting; not traced, no
+hook; every targeted ETB/death trigger) — **the largest deferral left after
+Build 3 and the mode head's own mechanism** (a model-chosen mode aimed by
+the heuristic at cast). Scheduled: Build 4's surface evening (ADR-0109).
 
 **Excluded families, by strategic weight:**
 
@@ -101,7 +114,8 @@ attackers/blockers (M2 D5 constructs).
    observation — the pointer decoder's native operation. Ceiling probed at
    [ADR-0080](../decisions/ADR-0080-m11-routing-probes.md) (1.41pp/g, no
    single-candidate policy beats the heuristic; residual value is
-   state-dependent selection) — RE-DEFERRED; in the M12 queue by name.
+   state-dependent selection) — RE-DEFERRED; **LANDED at M12 Build 3
+   evening 1 (entity one + set served, ADR-0105/0108).**
 3. **Attention/stops** (`autoPassCancel` ~39/g) — §3b; shelved on
    ceiling grounds at M10 ([ADR-0078](../decisions/ADR-0078-m10-ceiling-measurement.md)),
    in the M12 queue by name.
@@ -115,14 +129,16 @@ attackers/blockers (M2 D5 constructs).
    is model-side only. LANDED at M10 R6
    ([ADR-0083](../decisions/ADR-0083-cousins-touch.md), the cousins touch).
 5. **Trigger ordering** (`orderSimultaneousSa`/`orderAndPlay…` ~12.6/g,
-   100% of games) — ETB/death-trigger stacking. In the M12 queue by name (with combat
-   damage assignment).
+   100% of games) — ETB/death-trigger stacking. **LANDED at M12 Build 3
+   evening 3 (with combat damage assignment; imitation only).**
 6. **Modal choice** (`chooseModeForAbility`, both interception points) —
    spec'd in the §3 preamble, cut at M1 rung 1; its absence is already
-   measured as the `no_shape_fit` veto family. Re-entry rides any
-   CastPlan-executor revision.
+   measured as the `no_shape_fit` veto family. **LANDED at M12 Build 3
+   evening 2 behind the playability gate** (the gate's retirement rides the
+   targets surface, ADR-0109).
 7. **Library ordering** (scry/surveil, `orderMoveToZoneList`) —
-   compounding card-selection edge. Unscheduled.
+   compounding card-selection edge. **LANDED at M12 Build 3 (scry rides
+   the set head; move-to-zone at evening 3).**
 8. **Replacement/static ordering + counter type**
    (`chooseSingleReplacementEffect` 9.6/g, `chooseSingleStaticAbility`
    9.1/g, `chooseCounterType`) — occasionally pivotal. Low priority.
@@ -131,8 +147,11 @@ attackers/blockers (M2 D5 constructs).
    encoder's card-embedding table already ranks names). Unscheduled.
 10. **Mulligan bottoming** (`tuckCardsViaMulligan`) — keep is
     model-decided, tuck is not; cheap completion, needs a card-subset
-    answer. In the M12 queue by name.
+    answer. **LANDED at M12 Build 3 evening 2 (`mtg.mulligan_tuck`).**
 11. **Concession** — §3d, designed and gated, not yet built.
+12. **The low-weight untraced class** (2026-09-16 audit): card piles
+    (`chooseCardsPile`), shield division, play-or-draw, opening-hand
+    Leylines, the resolution-time confirms — after the big run.
 
 **Capability floors (representation, not decision windows):** choice-state
 obs emission ("as enters, choose" results — boundary-bundle rider,
