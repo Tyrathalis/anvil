@@ -139,3 +139,16 @@ alongside), then asked for the upstream patches to be read before pinning.
 - **Routed:** the table's extension with the 16 new keys through the encoder's ability-table
   command (the pinned LLM embedding; one short job) before the first served arm on the merged
   jar; `data/pool/abilities-<pool>.jsonl` is re-pinned to the merged jar's dump at that step.
+
+## Addendum 09-16 10:12 — the new baseline landed
+
+- `run-20260916-merge-baseline` (the merged jar `1db054ade4`, flag off, seeds 20260703+500):
+  500 rows; fork fidelity **451 clean / 48 divergence / 1 outcome mismatch** (the 08-21 baseline:
+  450 / 50) — the copier's fidelity is unchanged across the merge. **Against the 08-21 baseline
+  332 / 500 main-trace hashes identical** — the boundary's drift (168 games play differently
+  under the new heuristic, the eight changed scripts and CR 605.1a); for the record only, never a
+  proof. `compare.py`'s default baseline moves to this run (this commit); every later tip is
+  proven against it.
+- The views-flag proof `run-20260916-merge-nogui` started 10:11 (the same jar, `-Danvil.nogui=on`);
+  the reads queue started `merge-ref` at 10:11. The fork pin moves to `1db054ade4` when the proof
+  reads identical; the crash-class census on this baseline is read with it.
