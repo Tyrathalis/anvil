@@ -21,7 +21,7 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/reads.log"; }
 arms_of() { ls -dt data/runs/${1}arm-s0-* | head -1 | tr -d '\n'; echo -n ","; ls -dt data/runs/${1}arm-s1-* | head -1; }
 
 log "waiting for the baseline forkcheck ($BASE)"
-until [ "$(wc -l < "$BASE/results.jsonl" 2>/dev/null || echo 0)" -ge 500 ]; do sleep 60; done
+until [ -f "$BASE/results.jsonl" ] && [ "$(wc -l < "$BASE/results.jsonl")" -ge 500 ]; do sleep 60; done  # the file test first (peer fix c8ad6de)
 log "baseline landed; reads start on jar=$JAR"
 
 if [[ ! -f "$OUT/ref.done" ]]; then
