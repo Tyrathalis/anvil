@@ -301,6 +301,7 @@ silently delete.
   of 96K completions hit 51.6 GB and OOM-killed the desktop session 2026-09-06
   ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
 - **Every detached run launches through `uv run python -m anvil.runs launch --name <run> --dir <dir> -- <cmd>`** (ADR-0107): the launcher's supervisor detaches, records done / failed with the log tail, ticks its own stall check on the artifact dir and queues an alert on every transition; the launch message is its one coverage line and a session never claims coverage it did not arm. A chain's `fail()` is `exit 1`; nothing new registers with the watcher or notifies itself. The check-in task drains the queue to the phone and the supervising session; it is enabled at launch and named in the launch message, disabled when the last run lands (user, 09-15).
+- **A horizon calibration's outcome arm runs under an independent roll salt** (ADR-0106 addendum 09-15): under common random numbers the deeper leaf's copy and the end copy of the same roll share their first turns, so the deeper leaf's agreement with the outcome is optimistic by construction (h2's flips +0.022 ± 0.008 under CRN → +0.010 ± 0.010 salted). `-searchrollsalt <long>` on the outcome arm; the rate draw stays unsalted so the arms join per window.
 
 ## Scoping and routing
 

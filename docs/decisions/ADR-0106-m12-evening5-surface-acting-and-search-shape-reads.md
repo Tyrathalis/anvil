@@ -203,3 +203,31 @@ moves at all (the charter's kill condition, read early).
 - **Evening 5 CLOSED on components** (the leaf plumb, the acting rule, the mainline arm, the salt,
   `prio_calibration.py`, the acting smoke + read; fork pin `abec2b2982` → `e63a0cac20` on its
   forkcheck). Build 3 closes with it; next = the rebase (B), then Build 4.
+
+## Addendum (2026-09-15 evening) — C1's verdict under independent outcomes
+
+The salted end arm (`-searchrollsalt 20260915`, fork `e63a0cac20`, the same 1,341 windows joined
+identical; 814 read) as the outcome judge:
+
+| leaf | flips vs next | d_outcome on flips (CRN end) | d_outcome on flips (salted end) | acting conv. bar 0.05 | bar 0.10 |
+|---|---|---|---|---|---|
+| next | — | — | — | +0.033 ± 0.016 (147) | +0.035 ± 0.024 (78) |
+| h2 | 425/814 | +0.022 ± 0.008 (87/58) | **+0.010 ± 0.010 (79/67)** | +0.029 ± 0.020 (146) | +0.081 ± 0.030 (74) |
+| end (CRN) | 596/814 | in-sample | **−0.006 ± 0.008 (91/103)** | +0.049 ± 0.021 | +0.046 ± 0.021 |
+
+- **About half of h2's flip advantage was the shared rollouts**; what remains is within its noise.
+  The CRN end leaf as a picker is noise (four binary rolls): its flips read −0.006 by an
+  independent outcome after +0.073 in-sample. **The 09-11 pay-slot result (eot → h2 "the better
+  target", t 2.9) was read under the same shared seeds and carries the same caveat** — routed: the
+  same salted re-read on the pay slot before the loop's payment head uses the h2 pool as its warm
+  start (ADR-0105 addendum 09-11).
+- **Verdict (C1)**: **next stays the recipe's leaf** — the resolved leaf (91% of windows, roll SD
+  0.009) and its acting rule converts by an independent outcome (+0.033 ± 0.016 at bar 0.05). h2
+  is ≈ 8× noisier per roll and its picks are not better in general; its bar-0.10 positives convert
+  better (+0.081 vs +0.035, the difference +0.046 ± 0.038 — a hint, not a read) — consistent with a
+  leaf whose margin is informative only when large. **The shakedown's deep arm stays provisional**:
+  top-3 partial re-expansion at h2 with rolls ≥ 4 (to tame the noise) is the shape to price at equal
+  box time; expectations lowered. No second ply is in the running; the two-ply arm stays gated.
+- **Standing rule born**: a rollout-vs-leaf comparison under common random numbers is optimistic
+  for the deeper leaf by construction; the outcome arm of any horizon calibration runs under an
+  independent roll salt (`-searchrollsalt`).

@@ -1096,3 +1096,12 @@ moves verbatim to the status archive and this section stays here as the record.*
   provisional (next the resolved leaf; h2's flips right by the CRN outcome but optimistic by
   construction) → the salted end arm running (fork `e63a0cac20`, forkcheck ∥). Next: the salt read
   → C1's verdict + the partial-expansion slot; Build 3's closeout ADR; the rebase; Build 4.
+- **2026-09-15 (night) — C1's VERDICT: NEXT STAYS THE LEAF** ([ADR-0106
+  addendum](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)). The salted
+  end arm as the judge: h2's flips vs next +0.010 ± 0.010 (from +0.022 ± 0.008 under CRN — half was
+  the shared rollouts); the CRN end leaf's flips −0.006 ± 0.008 (noise as a picker); acting
+  conversion next +0.033 ± 0.016 at bar 0.05, h2 +0.081 ± 0.030 at bar 0.10 (a hint, +0.046 ±
+  0.038). The shakedown's deep arm provisional at top-3 × h2 × rolls ≥ 4; no second ply. Standing
+  rule: outcome arms under an independent roll salt. Routed: the pay slot's 09-11 h2 result
+  re-read salted. The check-in routine off (idle box). Next: the partial-expansion slot, Build 3's
+  closeout ADR, the rebase.
