@@ -372,6 +372,11 @@ silently delete.
 - **Every search cost is priced per game against generation rate**; throughput is the binding
   constraint until measured otherwise
   ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **A search shape's per-copy price is MEASURED on the calibration arms before its arm is
+  sized; assumed multipliers do not size arms** — an h2 copy is ≈ 10× a next copy in wall and
+  ≈ 13× in forward calls (the 09-15 calibration arms + the deep smoke), not the 3× C2 assumed;
+  the deep arm's shape (a natural-margin band gate + a floor) follows from the price
+  ([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md) C3 addendum).
 - **The mask's legality predicate is the executor's apply-time predicate** — filter and
   adjudicator agree by construction; residual veto classes are counted by name, never absorbed
   by a penalty or a guard ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).

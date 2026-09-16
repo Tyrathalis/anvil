@@ -1105,6 +1105,26 @@ moves verbatim to the status archive and this section stays here as the record.*
   rule: outcome arms under an independent roll salt. Routed: the pay slot's 09-11 h2 result
   re-read salted. The check-in routine off (idle box). Next: the partial-expansion slot, Build 3's
   closeout ADR, the rebase.
+- **2026-09-15 (night) — THE PARTIAL-EXPANSION SLOT (ADR-0106 C3): PRICED, GATED, BUILT**
+  ([devlog](../devlog/2026-09-15-session2.md); [ADR-0106 addendum](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
+  **The price**: an h2 copy is ≈ 10× a next copy in wall on the calibration arms (2,877 vs 304 ms
+  mean per valued copy) and ≈ 13× in forward calls on the network arm (≈ 65 vs ≈ 5) — C2's 2.3×
+  assumed 3×; the deep arm as drafted (top-3 × h2 × rolls 4 on every searched window) would be
+  ≈ 8–10× the recipe per window and play ⅛ the games at equal box time (unreadable). **The shape**
+  (the user took the recommendations): the deep round runs at decide time where the first ply's
+  natural margin lies in [lo 0.02, bar) — the shallow rule sees something but not enough to act on
+  (11% of heuristic windows; the natural is within 0.01 of the best on 77%) — plus a seeded floor
+  (0.1) on the rest for fork L's labels; the deep set = the top-B by lifted value + the natural; the
+  deep copies play the (option, lifted answer) pair; the option stage runs on the deep values over
+  the set only (the rest pruned) under its own bar (default the acting bar); surfaces stay at next;
+  rolls 4, CRN across the set. Fork: `-searchdeep B [-searchdeepleaf h2] [-searchdeeprolls 4]
+  [-searchdeeplo 0.02] [-searchdeepfloor 0.1] [-searchdeepbar]`, `Pending.DeepRound`, the row's
+  `deep` block (gate verdict, shallow margin + argmax, the set + values, the copies), header pins;
+  tests 24. **The smoke** (4 games, recipe + deep 3, jar `5e333e96930`): 4/4, 0 copy crashes; the deep round on 23% of windows (band 82 / floor 11 of 399), 18.8 s p50 per round, 84% of copy forward calls (≈ 6× the recipe in calls, ≈ 3× in one-worker wall), flips the first-ply argmax on 55/93 rounds, clears the bar on 9 (all acted). Standing rule: a shape's per-copy price is measured before its arm is sized.
+  Launched: the queue (forkcheck on the deep tip → the 24 × 2 bench pair recipe / recipe + deep →
+  `deep_bench_read.py`). Routed: the pass-through next peek on deep copies; the deep bar / band /
+  floor as settings-pass axes. Next: the queue's reads → the fork pin + the deep arm's multiplier;
+  Build 3's closeout ADR; the rebase.
 - **2026-09-15 (community watch, noted + routed)** — the Discord read (the survey doc's 09-14/15
   follow-up). chrismaghuhn's **pre-release freeze** (predictions committed before Arena data, the
   17lands comparison after; where Anvil and the heuristic disagree and which lands closer to

@@ -231,3 +231,64 @@ identical; 814 read) as the outcome judge:
 - **Standing rule born**: a rollout-vs-leaf comparison under common random numbers is optimistic
   for the deeper leaf by construction; the outcome arm of any horizon calibration runs under an
   independent roll salt (`-searchrollsalt`).
+
+## Addendum (2026-09-15 night) — C3, the partial-expansion slot: the shape, its gate, its price
+
+**The price first (the number the shape rests on).** The calibration arms (09-14/15, heuristic
+control, 200 games per seat) put an h2 copy at **≈ 10× a next copy** — 2,877 / 1,672 / 5,235 ms
+(mean / p50 / p90) against 304 / 146 / 507 — and the deep smoke on the network arm puts it at
+≈ 13× in forward calls (≈ 65 per h2 copy vs ≈ 5). C2's "≈ 1 + B/K × 3 ≈ 2.3×" for the deep arm
+assumed 3× per copy (the pay slot's eot → h2 step, where eot is already a turn deep). At top-3 ×
+h2 × rolls 4 on every searched window that is 12 h2 copies ≈ 35 s per window ≈ 20 minutes of
+copies per game against a 15-minute search clock, ≈ 8–10× the recipe's per-window cost: at equal
+box time the deep arm plays ≈ ⅛ the games — a few thousand in three days, which cannot move a
+network. **Standing rule born**: a search shape's per-copy price is measured on the calibration
+arms before its arm is sized; assumed multipliers do not size arms.
+
+**The shape (user took the recommendations, 09-15):**
+
+1. **A natural-margin band gates the deep round, plus a uniform floor.** The deep round runs
+   where the first ply's margin (max V − V(natural), on the lifted values) lies in
+   **[`-searchdeeplo`, bar)** — the shallow rule sees something but not enough to act on — and on
+   a seeded floor draw at `-searchdeepfloor` elsewhere (fork L's labels need every shape on
+   ungated windows, the §3d floor). Not a top-two band: 85% of heuristic windows have their top
+   two within 0.10 (56% within 0.02), while the natural margin sits **below 0.01 on 77%** of
+   them; the band [0.02, 0.10) covers 11% (the network arm's smoke: 22% incl. the floor).
+   Defaults lo 0.02 (≈ two roll σ at next), floor 0.1. This is the shape sequential halving has
+   and the shape the allocation head (fork L) learns later — a hand rule standing in for the
+   head, with the head's floor.
+2. **It runs at decide time**, after the controller's ask, so the natural pick is always in the
+   deep set and the deep margin is always defined: `Pending.decide` calls the monitor's
+   `DeepRound` between the answer stage and the option stage. The deep set = the top-B
+   candidates by lifted first-ply value plus the natural when it ranks outside them (B or B + 1).
+   The deep copies play the (option, lifted answer) pair the shallow stage proposed: a candidate
+   whose answer stage sampled a non-natural answer carries it as a `SurfaceDirective` on its
+   deep copies.
+3. **The deep values replace the shallow ones for the set; every other candidate is pruned.**
+   The option stage samples from the deep set's softmax at T under `-searchdeepbar` (default the
+   acting bar; C1's hint that h2 margins mean something only when large makes it a settings-pass
+   axis). Two horizons never share a softmax. `by` reads `deep` / `deep_nat`; a deep round whose
+   natural copies were all void falls back to the shallow rule (`deep.by: nat_unvalued`).
+4. **The surface round stays at the next leaf** (answers at h2 are ≈ 8× noisier and would
+   multiply the cost); the deep round values the pair.
+5. **Rolls `-searchdeeprolls` (default 4; C1: h2's roll σ ≈ 8× next's), leaf `-searchdeepleaf`
+   (default h2; eot | h<N> | end), CRN-paired across the set** on `rollSeedOf(turn, sw, r)` — the
+   first `rolls` share the first ply's determinizations. Requires `-searchact`; search-copy /
+   recording only, flag-off byte-identical (the forkcheck is the proof).
+6. **The row**: the search row gains `deep: {by: gate | band | floor | single | nat_unvalued,
+   shallow_margin, shallow_arg, set, v, copies: [{o, leaf, v, kind, calls, snap, ms, a_i}]}` —
+   additive (no reader breaks); with it `margin` is the deep margin and `shallow_margin` keeps the
+   first ply's verdict — the flip fact fork L's labels are built from. Header pins `deep`,
+   `deepleaf`, `deeprolls`, `deeplo`, `deepfloor`, `deepbar`. The census `chooseSpellAbilityToPlay`
+   row's `by` names the class (`deep` where the deep round acted).
+7. **The bench cell pair** on the deep tip's jar at 24 × 2, 64 games each — the recipe vs the
+   recipe + `-searchdeep 3` — is the slot's first honest price: the deep share of forward calls
+   per game from the cells' labels (the per-lever number) and the g/h ratio (one cell per arm is a
+   draw, not a read — the 09-14 rule; the ratio is what the equal-box-time split needs).
+
+Routed by name: the "continue the copy through its next leaf" optimization (an h2 copy passes
+through the next window; a pass-through peek would give the deep set's next value extra rolls
+for free) — not built; the deep bar / band / floor as settings-pass axes on the shakedown's deep
+arm; the deep arm's clock (`-searchclock` raised on deep runs; the smoke ran 3,600 s).
+
+**The smoke** (fork `5e333e96930`, 4 self-play games on the recipe + `-searchdeep 3`, clock 3,600): 4/4 won, 399 searched windows, wall 2,648 s (p50 460 s per game vs ≈ 150 s on the recipe smoke; max 1,442 s), 0 copy crashes (the one logged exception = the playable-branch prefs leak at FModel startup). Gate census: gate 172 / single 134 / band 82 / floor 11 → the deep round ran on 93 windows (23%), set size 3.0, 18.8 s p50 / 37 s p90 / 67 s max per round; deep copy kinds leaf 871 / end 253 / void 8; forward calls per game 22,265 deep vs 4,380 first ply + surfaces (deep share 84% → the deep arm ≈ 6× the recipe in forward calls, ≈ 3× in one-worker wall); the deep argmax flips the first ply's on 55/93 rounds yet clears the bar on 9 (the mainline acted on all 9: census `by: deep` 9) — at h2's noise the deep round mostly confirms the natural; elsewhere the shallow rule acted 60/306. The mechanism is clean; the price is the read. **The proof + the price**: the queue `build3-deep-queue` (21:24) — forkcheck `run-20260915-build3-deep` (the fork pin on PASS) → the bench pair → `data/runs/build3-deep/read.md`.

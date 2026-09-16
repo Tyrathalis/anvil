@@ -7,8 +7,14 @@
 # in -searchactkinds (bar 0.10, T 0.025). Reads: scripts/act_smoke_read.py —
 # the answer-stage verdicts (ans.by), the mainline arms' outcomes (the
 # surfaceAct census rows: act / miss:* / unfired), the forward-call multiplier.
+# The partial-expansion slot (ADR-0106 C3): DEEP=<B> adds -searchdeep B with
+# DEEPLEAF (h2) / DEEPROLLS (4) / DEEPLO (0.02) / DEEPFLOOR (0.1) / DEEPBAR
+# (unset = the acting bar) and CLOCK (the searched game's wall allowance,
+# default 900; a deep round at h2 plays ~10x a next copy — raise it).
+# Read: scripts/deep_smoke_read.py.
 # Usage: build3_act_smoke.sh [games=8] [rate=1] [kinds=mode] [bar=0.10]
-#   env: OUT, PORT, CKPT (the e3 build), JAR (a snapshot jar), ROLLS (2), SURF (2), CAP (8)
+#   env: OUT, PORT, CKPT (the e3 build), JAR (a snapshot jar), ROLLS (2), SURF (2), CAP (8),
+#        DEEP (0), DEEPLEAF, DEEPROLLS, DEEPLO, DEEPFLOOR, DEEPBAR, CLOCK
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil
 FORGE=/home/tyrathalis/Everything/Projects/forge
@@ -16,9 +22,16 @@ FORGE=/home/tyrathalis/Everything/Projects/forge
 # overrode the env; the run was saved only by target/ still equalling the snapshot)
 JAR=${JAR:-$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)}
 OUT=${OUT:-$REPO/data/runs/build3-act-smoke}
+case "$OUT" in /*) ;; *) OUT="$REPO/$OUT" ;; esac  # the java launch cds into forge-gui/ (the 09-15 deep smoke's relative OUT wrote nothing)
 PORT=${PORT:-50074}
 CKPT=${CKPT:-$REPO/data/training/m12-build3-e3/last.pt}
 GAMES=${1:-8}; RATE=${2:-1}; KINDS=${3:-mode}; BAR=${4:-0.10}; ROLLS=${ROLLS:-2}; SURF=${SURF:-2}; CAP=${CAP:-8}
+DEEP=${DEEP:-0}; DEEPARGS=""
+if [[ "$DEEP" != "0" ]]; then
+  DEEPARGS="-searchdeep $DEEP -searchdeepleaf ${DEEPLEAF:-h2} -searchdeeprolls ${DEEPROLLS:-4} -searchdeeplo ${DEEPLO:-0.02} -searchdeepfloor ${DEEPFLOOR:-0.1}"
+  [[ -n "${DEEPBAR:-}" ]] && DEEPARGS="$DEEPARGS -searchdeepbar $DEEPBAR"
+fi
+[[ -n "${CLOCK:-}" ]] && DEEPARGS="$DEEPARGS -searchclock $CLOCK"
 export PYTHONUNBUFFERED=1 DISPLAY=:0
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
 mkdir -p "$OUT"
@@ -37,11 +50,11 @@ t0=$(date +%s)
     -d "dc-863946.dck" "dc-864920.dck" -f Commander -n "$GAMES" -s 20260907 \
     -b grpc:localhost:$PORT -reask -pool cf2ca6ba -forkcommit "$(git -C $FORGE rev-parse HEAD)" \
     -search -searchrate "$RATE" -searchrolls "$ROLLS" -searchsurf "$SURF" -searchsurfcap "$CAP" \
-    -searchact "$BAR" -searchtemp 0.025 -searchactkinds "$KINDS" \
+    -searchact "$BAR" -searchtemp 0.025 -searchactkinds "$KINDS" $DEEPARGS \
     -labels "$OUT/search.jsonl" \
     -results "$OUT/games.jsonl" -census "$OUT/census.jsonl" -obs "$OUT/obs.zst" \
     > "$OUT/anvil.log" 2>&1 )
 rc=$?; t1=$(date +%s)
 log "anvil rc=$rc wall=$((t1-t0))s"
 kill -TERM $SERVER 2>/dev/null; sleep 3; kill -KILL $SERVER 2>/dev/null
-echo "{\"games\":$GAMES,\"rate\":$RATE,\"kinds\":\"$KINDS\",\"bar\":$BAR,\"rolls\":$ROLLS,\"surf\":$SURF,\"cap\":$CAP,\"rc\":$rc,\"wall_s\":$((t1-t0))}" > "$OUT/DONE"
+echo "{\"games\":$GAMES,\"rate\":$RATE,\"kinds\":\"$KINDS\",\"bar\":$BAR,\"rolls\":$ROLLS,\"surf\":$SURF,\"cap\":$CAP,\"deep\":\"$DEEPARGS\",\"rc\":$rc,\"wall_s\":$((t1-t0))}" > "$OUT/DONE"
