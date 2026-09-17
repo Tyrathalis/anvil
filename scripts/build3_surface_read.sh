@@ -62,6 +62,7 @@ for arm in $ARMS; do
     rescue) run_arm rescue "" "$FORGE_ARGS_RESCUE" || { log "arm rescue FAILED"; finish 1; } ;;
     autoonly) run_arm autoonly "" "" "--pay-bar 100" || { log "arm autoonly FAILED"; finish 1; } ;;  # the tag bridged, auto on every window (the probe-path arm)
     act) run_arm act "" "$FORGE_ARGS_ACT" || { log "arm act FAILED"; finish 1; } ;;
+    altoff) run_arm altoff "$TAGS_OFF" "" "" "$CKPT_ALT" || { log "arm altoff FAILED"; finish 1; } ;;  # Build 4: the CKPT_ALT build under TAGS_OFF (e.g. the priority policy alone)
     alt) run_arm alt "" "" "" "$CKPT_ALT" || { log "arm alt FAILED"; finish 1; } ;;  # Build 4: the CKPT_ALT build, every tag served
     nogate) run_arm nogate "" "-modegate off" || { log "arm nogate FAILED"; finish 1; } ;;  # Build 4 (ADR-0109): the served set + targets with the mode playability gate OFF (the third arm)
     actent) run_arm actent "" "-searchactkinds entity_one,entity_set,mode" || { log "arm actent FAILED"; finish 1; } ;;  # evening 5 pin 4: entity one + set acting, the second arm (modes stay on)  # evening 5 (ADR-0106 A6): the on arm + surface acting (FORGE_ARGS carries the search recipe on every arm)

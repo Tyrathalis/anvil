@@ -1424,3 +1424,19 @@ moves verbatim to the status archive and this section stays here as the record.*
   → 0.445, **pass mass 0.138 → 0.095, entropy 0.15 → 0.32** — the policy takes the search's
   overrides while the anchor holds the rest (train: anchor 0.16 nats, acted KL 0.35 — the two terms
   compete as designed). The read `b4rw2` (e1 vs rw2, 600 games) lands ≈ 01:30 09-17.
+- **2026-09-17 00:57 — THE ANCHORED RE-WARM STILL LOSES: alt − on −18.8 ± 2.1 pp (`b4rw2`, 32 up /
+  141 down)** with a sane held-out distribution (step 8,000: acted top-1 0.72, pass mass 0.109,
+  entropy 0.20, all-window top-1 0.43). The diagnostic on held-out windows: rw2's argmax agrees
+  with e1's on 96.4% of un-acted and 57% of acted windows (94.9% overall); zeroing the candidates'
+  ability keys changes 0.6% of rw2's picks — **the text path is not a serve mismatch**. A 5%
+  argmax change costing 19 pp points at the OTHER HEADS: the re-warm unfroze the top two trunk
+  layers with only the priority policy anchored, and the combat, trigger, binary, number,
+  mulligan and surface heads read the moved trunk unanchored (and the stack additive changes
+  every head's input on non-empty-stack windows). **Launched 01:05 (`build4-rewarm3-queue`):**
+  (1) the PRIORITY-ONLY read of rw2 vs e1 (every other head the heuristic's; tags priority +
+  mulligan keep) — isolates the re-warmed policy itself; (2) the frozen-trunk re-warm
+  (`--unfreeze 0`: the new paths + the pointer / value heads only) → `m12-build4-rw3`; (3) rw3's
+  full and priority-only reads. If the policy alone reads ≥ e1 → the fix is a full-head anchor
+  (every head matched to the teacher on its own windows) or the frozen trunk; if the policy alone
+  is worse → the offline distillation of the search's overrides itself hurts at serve and the
+  route is the loop.
