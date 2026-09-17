@@ -86,8 +86,8 @@ import numpy as np
 import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
-from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
 from anvil.encoder.stack_fields import STACK_FIELDS, stack_fields
+from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
 from anvil.policy.surfaces import SURF_BUILT, SURF_MAX, AbilityCache, surface_fields, surface_task
 from anvil.store.trajectories import open_store
 

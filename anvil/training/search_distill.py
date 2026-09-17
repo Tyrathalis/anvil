@@ -38,7 +38,7 @@ import random
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Iterator
 
 import numpy as np
 import torch
