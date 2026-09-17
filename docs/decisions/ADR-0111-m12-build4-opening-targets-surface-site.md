@@ -149,3 +149,33 @@ projects but not essential), and whether the mask cache's routed re-read is wort
 - The chain's separate 8-game smoke stage failed on a relative-path bug in the smoke script (fixed
   after the chain exited: absolute OUT; the chain now fails on a failed smoke); the served arm at
   600 games stood in for it.
+
+## Addendum 09-17 04:40 — the re-warm's finding: the search's picks are realized by the heuristic's planner, the policy's by its own
+
+- **The re-warm (option 4, the offline distillation toward the search)** went through three
+  builds overnight — the first collapsed to a pass-happy policy (no anchor on the 93% un-acted
+  windows; fixed with the frozen-teacher KL anchor), the second still lost 19 pp because the
+  trainer's join matched 12.5% of the search rows (the row's contiguous searched-option indices vs
+  the record's mask; fixed to 100%) — and the corrected builds read **−7.3 ± 2.1 (rw4, top-2 trunk
+  layers) and −9.0 ± 2.0 (rw5, the trunk frozen)**, the priority policy alone carrying the whole
+  loss (−7.35 ± 2.2 with every other head the heuristic's), with **`no_shape_fit` vetoes 5–7× the
+  served build's** on an unchanged target decoder.
+- **The mechanism, confirmed in the fork:** a search copy realizes its directed option through
+  `heuristicRealize` — the engine's AI plans the targets and X — so every leaf value the search
+  records is the option's value under the HEURISTIC's plan. The mainline realizes the policy's own
+  pick through the model's CastPlan (the target decoder's refs), which fits the options that
+  decoder learned to plan: the heuristic's usual picks. The search's overrides are exactly the
+  options the heuristic did not pick (spells and abilities where the natural line was pass or a
+  land, 260 of 311 acted windows), so the decoder has rarely planned them; a distilled policy that
+  prefers them is vetoed and re-asked into its second choices.
+- **Why it matters beyond the re-warm:** the acting rule realizes acted options the same way, so
+  part of the with-lookahead advantage every M12 read has measured is the heuristic's planning of
+  the search's picks — a component the network alone cannot reproduce by learning WHICH option.
+  A named risk for Build 5's kill criterion ("with-lookahead climbs, network-alone flat").
+- **Two routes.** (a) Serve-side: `-vetofallback heuristic` (fork `d734937c56`, flag-gated,
+  serve-only) — on a plan veto the model's pick is realized by the heuristic's planner instead of
+  re-asked; the same division of labor the payment and mode surfaces settled on (the model chooses,
+  the engine's AI fills the details it does not yet own). Read overnight as three arms: the served
+  build / rw4 + the fallback / the served build + the fallback (the control). (b) Training-side:
+  the target decoder learns the heuristic's plans for the search's picks — record the realized plan
+  on acted windows and copies, co-distill the decoder — routed to Build 4's close.
