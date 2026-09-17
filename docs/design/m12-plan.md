@@ -1442,7 +1442,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   route is the loop.
 - **2026-09-17 01:40 — the priority-only read of rw2: altoff − off −21.4 ± 2.2 pp — the re-warmed
   POLICY ITSELF, with a fivefold veto rate (27.1% vs 5.6%: the executor refusing its picks).
-  02:00 — THE ROOT CAUSE, in the trainer's join:** the search row's option indices are contiguous
+  01:30 — THE ROOT CAUSE, in the trainer's join:** the search row's option indices are contiguous
   over the SEARCHED options (the mana abilities the search skips removed) while the dec's option
   list is the mask with them in, and the row truncates labels to ≈ 25 chars while the dec renders
   120 — the join matched 12.5% of rows (the mana-free windows: a biased early-game slice) and
@@ -1450,5 +1450,20 @@ moves verbatim to the status archive and this section stays here as the record.*
   prefix, the row's contiguous index → the dec's option index): **1,018 / 1,018 rows matched on
   a worker, every option value mapped**; on the full set 11.9% of windows are acted (7.2% on the
   slice). The frozen-trunk diagnostic (rw3) was killed — its data was the same broken join.
-  **Relaunched 02:15 (`build4-rewarm4-queue`, unattended, ≈ 08:00):** rw4 (the anchored recipe,
+  **Relaunched 01:35 (`build4-rewarm4-queue`, unattended, ≈ 07:30):** rw4 (the anchored recipe,
   unfreeze 2) → its full + priority-only reads; rw5 (the trunk frozen) → its full read.
+- **2026-09-17 02:39 — rw4 (the corrected join, anchored, top-2 trunk layers unfrozen): alt − on
+  −7.3 ± 2.1 pp (55 up / 98 down)** — from −47 / −19 to −7, still negative. Final held-out (9,600
+  windows): acted top-1 0.027 → 0.452, KL 10.4 → 1.10, all-window top-1 0.358 → 0.435, pass mass
+  0.274 → 0.230, entropy 0.22 → 0.93 (the reads serve greedy, so entropy is a symptom, not a
+  cost). **The mechanism, from the served arm's census: vetoes 17.0% vs 4.9%, and the excess is
+  `no_shape_fit` — 3,935 vs 797 — the TARGET DECODER's cast plans failing to fit.** The re-warm
+  never trained that decoder but moved the two trunk layers it reads, and the distilled policy
+  now picks exactly the options that need a plan: on acted windows the search's override is a
+  spell (149) or an ability (111) of 311, where the natural line was pass (157) or a land (55).
+  On the copies those plans were realized by the same decoder on the unmoved trunk. **Prediction
+  for rw5 (the trunk frozen; queued): `no_shape_fit` back near the on arm's 797 / 600 games and a
+  read ≥ 0; if the vetoes stay high with the trunk frozen, the pointer heads alone are choosing
+  spells the decoder cannot plan, and the decoder must be co-trained (the priority task's own
+  cast-plan labels) or the acted target restricted to options whose copy plan was realized as the
+  first-fit plan.** The priority-only read `b4rw4p` runs; rw5 follows.
