@@ -1467,3 +1467,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   spells the decoder cannot plan, and the decoder must be co-trained (the priority task's own
   cast-plan labels) or the acted target restricted to options whose copy plan was realized as the
   first-fit plan.** The priority-only read `b4rw4p` runs; rw5 follows.
+- **2026-09-17 03:17 — rw4's priority-only read: altoff − off −7.35 ± 2.23 (65 up / 108 down;
+  vetoes 23.9% vs 5.3%) = the full read's −7.3** → the whole loss sits in the priority policy and
+  the cast plans of its picks; the surfaces and the other heads contribute nothing to it. rw5 (the
+  trunk frozen) decides between the decoder-on-a-moved-trunk mechanism and the picks themselves.
