@@ -945,3 +945,53 @@ To Shedletsky (the hang / anytime point):
 > for the residual hangs I run a loop guard in the fork (a bounded engine re-ask plus a
 > repetition check) and count what it kills by seed and class, so the censored set is a named
 > population rather than a silent drop. Happy to describe either if useful.
+
+**Addendum (09-17 11:41) — chrismaghuhn's reply to Kryptic:** (1) iter 30 → 40 "looks less like
+a uniform plateau and more like the shared policy shifting strength between matchups": the
+overall moves 51.1 → 50.6 but Red improves in all four cells (+4.4 / +0.2 / +3.6 / +5.8) while
+Blue / Green / White mostly regress — cross-matchup interference rather than "RL stopped
+learning"; (2) KL, veto rate, first-veto, rejected/traj and pay deviation all rise sharply
+where reward flattens — not claiming the guard causes the plateau from one run, but correlate
+per-iteration accepted / rejected updates with the matchup deltas; (3) the mono-red mirror
+(BC 16.7 → RL30 35.2 → RL40 38.8, far below 50) as a fixed **standard-candle matchup** for
+finding the missing capability; the matrices beat the aggregate.
+
+*Our read:* (1) is worth testing but is not established by the workbook. Row-pooled, the Red
+row's iter-30 → 40 change is ≈ +3.5pp on 2,000 vs 2,000 games (± 3.1 at 95%, t ≈ 2.2) and the
+Blue row's ≈ −2.9 (± 2.8, t ≈ 2.0); Green (−1.2) and White (−1.5) are null — two marginal
+row-level signals of opposite sign from four rows tested, on a fixed-subset arms read that is
+ONE observation ([standing rule](../standing-rules.md)). The reallocation hypothesis has a free
+test in his own run: **the iteration stores carry the deck pair per game and half of each
+iteration's 2,000 games are against the heuristic (`--heur-frac 0.5`), so every iteration is a
+1,000-game matchup read (≈ 62 per cell; ≈ 310 per cell pooled over five)** — a per-iteration
+matchup curve for all 40 iterations with no new games, which either shows the Red row rising as
+the Blue row falls across iterations 20–40 or shows two noise draws. That is the concrete form
+of his "correlate with the matchup deltas." **On (2), a correction to carry into the reply:
+there is no accepted / rejected update series to correlate** — Anvil's guards HALT the loop
+(the checkpoint is not accepted, a `REJECTED` marker, exit 3, a human re-runs), so a tripped
+guard would have ended the run; every one of his 40 iterations was accepted, and the trainer's
+own KL abort sits at 5× the guard (0.75). The monitor's `rejected/traj` is rejected **intents**
+(vetoed casts per trajectory), not rejected updates. The curves he names are real and
+coincident with the plateau; the instrument is the iteration-20 ckpt read and a re-run from
+iter 20 under the ×4 veto guard, not a correlation. (3) yes — a fixed matchup as a candle is
+the fixed-population read ([ADR-0096](../decisions/ADR-0096-m10-closeout.md)); in our vocabulary
+the missing-capability question is then answered per decision, not per matchup: the drill
+(Grindstone) takes real red-mirror games, finds the windows where the rollout value disagrees
+with the pick, and names the decision class (face vs creature, Eidolon, Searing Blaze timing).
+The 40,000-game heuristic mirror at 51.6% seat 0 is the candle's own calibration.
+
+Draft reply (the user posts):
+
+> Chris's reallocation read is worth testing, and Kryptic, you can test it without a single new
+> game: the iteration stores carry the deck pair, and half of each iteration's 2,000 games are
+> against the heuristic, so every iteration is already a 1,000-game matchup read (~62 per cell,
+> ~310 pooled over five). Plot the Red row and the Blue row across all 40 iterations; if Red
+> rises as Blue falls through 20–40 it's reallocation, if they wander it's two noise draws (row-
+> pooled, 30 → 40 is Red +3.5 ± 3.1 and Blue −2.9 ± 2.8, both marginal, from four rows tested).
+> One correction on the guard idea: there's no accepted/rejected update series in Anvil's loop —
+> a tripped guard halts the run and a human re-runs it, so all 40 of these iterations were
+> accepted; `rejected/traj` is rejected *intents* (vetoed casts), not updates. The curves are
+> real and coincident with the plateau, which is why I'd read the iter-20 ckpt at 8,000 games
+> and, if it matches, re-run from 20 with the ×4 veto guard. And yes on the red mirror as a
+> standard candle — that's exactly how I use fixed matchups; the next step there is per
+> decision rather than per matchup (which windows does a rollout disagree with the pick on).
