@@ -54,6 +54,7 @@ class AnvilNet(nn.Module):
             n_methods,
             history_k,
             n_sa=n_sa,
+            d_abil=d_abil,
         )
         layer = nn.TransformerEncoderLayer(
             d_model,
@@ -76,6 +77,14 @@ class AnvilNet(nn.Module):
         # (old checkpoints load and serve unchanged).
         if n_sa:
             self.sa_emb = nn.Embedding(n_sa + 1, 64)  # +1 = OOV id
+            # M12 Build 4 (ADR-0111): the ability TEXT beside the string id — the
+            # pinned table's vector (keyed by the option's `ak`) projected into the
+            # same 64-dim descriptor, zero-init (day-zero byte-identical; the
+            # re-warm moves it). An OOV string (a card the vocab never saw) keys
+            # on its text alone: a new set is an append, not a vocab rebuild.
+            self.cand_abil_proj = nn.Linear(d_abil, 64)
+            nn.init.zeros_(self.cand_abil_proj.weight)
+            nn.init.zeros_(self.cand_abil_proj.bias)
             self.kind_emb = nn.Embedding(4, 8)  # dataset.KINDS
             self.sa_proj = nn.Linear(64 + 8, d_model)
         else:
@@ -278,6 +287,8 @@ class AnvilNet(nn.Module):
     _D5_PREFIXES = (
         "surf_",
         "abil_",
+        "cand_abil_proj",  # Build 4: the text descriptor (zero-init)
+        "assemble.stack_",  # Build 4: the stack entries (zero-init)
         "atk_",
         "blk_",
         "cmb_",
@@ -351,6 +362,22 @@ class AnvilNet(nn.Module):
         loader's opt_ak / surf_ctx_ak. Row -1 (a missing key) reads as zeros
         through the clamp + mask below."""
         self.abil_vec = vectors.to(self.abil_proj.weight.device, torch.float32).contiguous()
+
+    def _cand_abil(self, idx: "torch.Tensor | None"):
+        """Build 4: (B, C) ability-key rows -> the 64-dim text descriptor; -1 -> 0;
+        0 (a scalar) when the batch carries no keys or the net is host-level."""
+        if idx is None or self.sa_emb is None:
+            return 0
+        v = self.abil_vec[idx.clamp(min=0, max=self.abil_vec.shape[0] - 1)]
+        return self.cand_abil_proj(v) * (idx >= 0).unsqueeze(-1)
+
+    def _fill_stack(self, batch: dict) -> None:
+        """Build 4: gather the raw table rows for the stack entries once per
+        forward (the assembler adds them; zeros where the key is absent)."""
+        ak = batch.get("stack_ak")
+        if ak is not None and "stack_abil" not in batch:
+            v = self.abil_vec[ak.clamp(min=0, max=self.abil_vec.shape[0] - 1)]
+            batch["stack_abil"] = v * (ak >= 0).unsqueeze(-1)
 
     def _abil(self, idx: torch.Tensor) -> torch.Tensor:
         """(…) index tensor -> (…, d_model) projected ability vectors; -1 -> 0."""
@@ -468,7 +495,7 @@ class AnvilNet(nn.Module):
             sa = self.sa_proj(
                 torch.cat(
                     [
-                        self.sa_emb(batch["cand_sa"].clamp(min=0)),
+                        self.sa_emb(batch["cand_sa"].clamp(min=0)) + self._cand_abil(batch.get("cand_ak")),
                         self.kind_emb(batch["cand_kind"].clamp(min=0)),
                     ],
                     dim=-1,
@@ -549,7 +576,7 @@ class AnvilNet(nn.Module):
         sa = self.sched_sa_proj(
             torch.cat(
                 [
-                    self.sa_emb(c_sa.clamp(min=0)),
+                    self.sa_emb(c_sa.clamp(min=0)) + self._cand_abil(batch.get(pre + "cand_ak")),
                     self.kind_emb(c_kind.clamp(min=0)),
                 ],
                 dim=-1,
@@ -686,6 +713,7 @@ class AnvilNet(nn.Module):
 
     def forward(self, batch: dict) -> dict:
         card_vecs = self.cards(batch["ent_emb"])
+        self._fill_stack(batch)
         tokens, pad = self.assemble(card_vecs, batch)
         out = self.trunk(tokens, src_key_padding_mask=pad)
         state = out[:, 0]  # [STATE] read-out
@@ -804,6 +832,7 @@ class AnvilNet(nn.Module):
         behavior policy mu the V-trace learner corrects against. noise=None
         is byte-identical to the pre-D6 greedy path."""
         card_vecs = self.cards(batch["ent_emb"])
+        self._fill_stack(batch)
         tokens, pad = self.assemble(card_vecs, batch)
         out = self.trunk(tokens, src_key_padding_mask=pad)
         state = out[:, 0]

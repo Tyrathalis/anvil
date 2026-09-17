@@ -290,6 +290,7 @@ class Featurizer:
         cand_rows = [-1]
         cand_sa = [-1]
         cand_kind = [-1]
+        ak_of_cand: dict[int, int] = {}  # Build 4: candidate index -> ability-table row
         cand_paykind = [-1]
         cand_ents: list[list[int]] = [[-1] * PAY_SET_K]  # evening 4: the goal's plan as an entity set
         cand_first_opt = [-1]  # per candidate: FIRST matching wire-option index
@@ -313,6 +314,8 @@ class Featurizer:
                 if key in key_of:
                     continue
                 key_of[key] = len(cand_rows)
+                if self.abil is not None and o.get("ak"):
+                    ak_of_cand[len(cand_rows)] = self.abil.index(o.get("ak"))
                 cand_rows.append(r)
                 cand_sa.append(self.sa_vocab.id(key[1]))
                 cand_kind.append(KINDS.get(o.get("kind"), KINDS["other"]))
@@ -393,6 +396,12 @@ class Featurizer:
                 "sched_cand_sa": torch.tensor(s_sa, dtype=torch.int64),
                 "sched_cand_kind": torch.tensor(s_kind, dtype=torch.int64),
             }
+        cand_ak = [-1] * len(cand_rows)
+        for ci, ar in ak_of_cand.items():
+            cand_ak[ci] = ar
+        from anvil.encoder.stack_fields import stack_fields
+
+        stack_ex = {k: torch.from_numpy(a) for k, a in stack_fields(out, self.abil, p).items()}
         ex = {
             "entities": torch.from_numpy(out["entities"]),
             "ent_emb": torch.tensor(
@@ -404,6 +413,8 @@ class Featurizer:
             "cand_rows": torch.tensor(cand_rows, dtype=torch.int64),
             "cand_sa": torch.tensor(cand_sa, dtype=torch.int64),
             "cand_kind": torch.tensor(cand_kind, dtype=torch.int64),
+            "cand_ak": torch.tensor(cand_ak, dtype=torch.int64),
+            **stack_ex,
             "cand_paykind": torch.tensor(cand_paykind, dtype=torch.int64),
             "cand_ents": torch.tensor(
                 cand_ents + [[-1] * PAY_SET_K] * (len(cand_rows) - len(cand_ents)), dtype=torch.int64

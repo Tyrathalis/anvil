@@ -30,7 +30,8 @@ from typing import Any
 
 import numpy as np
 
-TRANSFORM_VERSION = 4  # v4 (M3 D1): cmd_tax entity scalar — commander recast
+TRANSFORM_VERSION = 5  # v5 (M12 Build 4, ADR-0111): format scalars in the globals; the stack list passed through
+# (v4 (M3 D1): cmd_tax entity scalar — commander recast)
 # surcharge (2 x cmdcast) on command-zone commander rows; the obs stream has
 # carried cmdcast since D1-of-M1, the featurizer just never read it
 
@@ -85,7 +86,17 @@ GLOBAL_FEATURES = [
     # zero-pads state_proj), and the pre-registered transfer probe runs when
     # breadth actually opens.
     "fmt_commander",
+    # M12 Build 4 (ADR-0111, design §2 "format as features"): the explicit
+    # format scalars — from the vocab's format_features table by format id;
+    # appended after the one-hot (load_compat zero-pads state_proj at the
+    # end of the globals segment: pre-Build-4 checkpoints serve byte-identically)
+    "format_start_life",
+    "format_deck_size",
+    "format_singleton",
+    "format_command_zone",
+    "format_mull_variant",
 ]
+FORMAT_SCALARS = ["start_life", "deck_size", "singleton", "command_zone", "mull_variant"]
 # per player, self first then opponents in seat order
 PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_total", "lost"]
 
@@ -95,7 +106,7 @@ PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_
 # at-chance value head (value_diag_val: AUC 0.53 flat by turns-from-end,
 # pred std ~0.015). Binary flags stay 1.
 GLOBAL_SCALE = np.array(
-    [1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3] + [1.0] * 1,  # + fmt one-hot columns
+    [1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3] + [1.0] * 1 + [1 / 40, 1 / 100, 1, 1, 1],  # + fmt one-hot + format scalars
     dtype=np.float32,
 )
 PLAYER_SCALE = np.array([1 / 40, 1 / 8, 1 / 100, 1 / 4, 1 / 10, 1], dtype=np.float32)
@@ -121,6 +132,7 @@ class Vocab:
         self.phases: dict[str, int] = {p: i for i, p in enumerate(raw["phases"])}
         self.mana: list[str] = raw["mana"]
         self.formats: dict[str, int] = {f: i for i, f in enumerate(raw["formats"])}
+        self.format_features: dict[str, dict] = raw.get("format_features", {})
         n_fmt_cols = sum(1 for f in GLOBAL_FEATURES if f.startswith("fmt_"))
         if len(self.formats) != n_fmt_cols:
             raise ValueError(
@@ -134,6 +146,13 @@ class Vocab:
             return self.formats[f]
         except KeyError:
             raise VocabError(f"unknown format {f!r}") from None
+
+    def format_scalars(self, f: str) -> list[float]:
+        """The explicit format scalars (Build 4): loud on an unknown format."""
+        row = self.format_features.get(f)
+        if row is None:
+            raise VocabError(f"no format_features row for {f!r} (vocab_mtg.json)")
+        return [float(row[k]) for k in FORMAT_SCALARS]
 
     def zone(self, z: str) -> int:
         try:
@@ -356,7 +375,8 @@ def assemble(
                 1.0 if glob.get("day") == "night" else 0.0,
                 float(len(obs.get("stack", []))),
             ]
-            + _fmt_onehot(v, header),
+            + _fmt_onehot(v, header)
+            + v.format_scalars(header["fmt"]),
             dtype=np.float32,
         )
         * GLOBAL_SCALE
@@ -390,4 +410,10 @@ def assemble(
         "globals": globals_vec,
         "players": players,  # (n_players, len(PLAYER_FEATURES)), self first
         "history": history or [],  # history_tokens() output, oldest first
+        # M12 Build 4 (ADR-0111): the stack instances, top-first, as recorded
+        # ({e: host, c: controller, ak: ability key, tgt: [{e}|{pi}]}) — public
+        # information; the loader / featurizer turn them into the additive
+        # stack fields (anvil.encoder.stack_fields)
+        "stack": list(obs.get("stack") or []),
+        "seats": seats,  # perspective first, then seat order (players rows)
     }
