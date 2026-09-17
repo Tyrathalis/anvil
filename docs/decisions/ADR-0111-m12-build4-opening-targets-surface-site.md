@@ -113,7 +113,7 @@ projects but not essential), and whether the mask cache's routed re-read is wort
   = `7343c40d84`; every Build 4 fork tip is proven. The evening's read runs on `a36975497b` (the
   stack key is recording-only; the two jars are behavior-identical on the game path).
 
-## Addendum 09-16 18:05 — a Build 3 latent bug: the surface heads trained on a mismatched ability table
+## Addendum 09-16 17:40 — a Build 3 latent bug: the surface heads trained on a mismatched ability table
 
 - Found when the evening's fit crashed on a separate bug (the surface method embedding lacked the
   OOV row the first never-seen method name needed): `surface_fit.load_net` set the network's ability
