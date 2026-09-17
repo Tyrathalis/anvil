@@ -23,6 +23,7 @@ GAMES=${GAMES:-300}; WORKERS=${WORKERS:-8}; PORT=${PORT:-50066}; SERVERS=${SERVE
 TAGS_OFF=${TAGS_OFF:-mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.number,mtg.attack,mtg.block,mtg.pay_mana_class}
 ARMS=${ARMS:-off on}; FORGE_ARGS=${FORGE_ARGS:-}; FORGE_ARGS_RESCUE=${FORGE_ARGS_RESCUE:--payrescue}
 SERVER_ARGS=${SERVER_ARGS:-}  # evening 4: e.g. "--pay-bar 0.2" (every arm's server)
+CKPT_ALT=${CKPT_ALT:-}  # Build 4: the "alt" arm serves THIS ckpt with the same tags / args (a two-ckpt read: e.g. the re-warmed build vs the served one)
 FORGE_ARGS_ACT=${FORGE_ARGS_ACT:--searchactkinds mode}  # evening 5: the act arm's extra forge args (modes first; "all" = every kind)
 OUT=data/runs/build3-surface-read-$NAME
 mkdir -p "$OUT"
@@ -39,15 +40,15 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
 # the supervisor records done / failed (with the log tail), ticks the stall check and queues the alert — nothing here notifies.
 finish() { exit $1; }
 arms_of() { ls -dt data/runs/${1}arm-s0-* | head -1 | tr -d '\n'; echo -n ","; ls -dt data/runs/${1}arm-s1-* | head -1; }
-run_arm() { # tag [server-tags] [forge-args] [server-args override]
-  local tag=$1 stags=${2:-} fargs="${FORGE_ARGS:+$FORGE_ARGS }${3:-}" sargs="${4:-$SERVER_ARGS}"
+run_arm() { # tag [server-tags] [forge-args] [server-args override] [ckpt override]
+  local tag=$1 stags=${2:-} fargs="${FORGE_ARGS:+$FORGE_ARGS }${3:-}" sargs="${4:-$SERVER_ARGS}" ckpt="${5:-$CKPT}"
   if [[ -f "$OUT/$tag.done" ]]; then log "arm $tag done already"; return 0; fi
   local extra=()
   if [[ -n "$stags" ]]; then extra=(--server-tags "$stags"); fi
   if [[ -n "${fargs// /}" ]]; then extra+=("--forge-args=$fargs"); fi  # the = form: a value starting with '-' (e.g. -payrescue) is otherwise read as a flag
   if [[ -n "$sargs" ]]; then extra+=(--server-args "$sargs"); fi
   if [[ "$fargs" == *-search* ]]; then extra+=(--labels); fi  # the harness refuses -search without -labels (the 09-15 b3e5 launch failed on it)
-  nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "$NAME-$tag" --games "$GAMES" \
+  nice -n 19 uv run python scripts/final_read.py --ckpt "$ckpt" --name "$NAME-$tag" --games "$GAMES" \
       --workers "$WORKERS" --port "$PORT" --servers "$SERVERS" --jar "$JAR" --skip-ante "${extra[@]}" >> "$OUT/$tag.log" 2>&1 || return 1
   arms_of "$NAME-$tag" > "$OUT/$tag.done"
   log "arm $tag done: $(cat $OUT/$tag.done)"
@@ -61,6 +62,7 @@ for arm in $ARMS; do
     rescue) run_arm rescue "" "$FORGE_ARGS_RESCUE" || { log "arm rescue FAILED"; finish 1; } ;;
     autoonly) run_arm autoonly "" "" "--pay-bar 100" || { log "arm autoonly FAILED"; finish 1; } ;;  # the tag bridged, auto on every window (the probe-path arm)
     act) run_arm act "" "$FORGE_ARGS_ACT" || { log "arm act FAILED"; finish 1; } ;;
+    alt) run_arm alt "" "" "" "$CKPT_ALT" || { log "arm alt FAILED"; finish 1; } ;;  # Build 4: the CKPT_ALT build, every tag served
     nogate) run_arm nogate "" "-modegate off" || { log "arm nogate FAILED"; finish 1; } ;;  # Build 4 (ADR-0109): the served set + targets with the mode playability gate OFF (the third arm)
     actent) run_arm actent "" "-searchactkinds entity_one,entity_set,mode" || { log "arm actent FAILED"; finish 1; } ;;  # evening 5 pin 4: entity one + set acting, the second arm (modes stay on)  # evening 5 (ADR-0106 A6): the on arm + surface acting (FORGE_ARGS carries the search recipe on every arm)
     *) log "unknown arm $arm"; finish 1 ;;
