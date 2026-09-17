@@ -187,3 +187,26 @@ projects but not essential), and whether the mask cache's routed re-read is wort
   once and clean once — the identity-hash residual in the copy replay, the main trace identical every
   time → PASS. The pin = `d734937c56`; `-vetofallback heuristic` stays off (neutral on the served
   build, −0.2 ± 0.9, and no rescue for the distilled policy: the heuristic refuses 95% of its picks).
+
+## Addendum 09-17 07:00 — the re-warm CLOSED as a serve candidate (user: start the loop from where the model is)
+
+- **The dose curve, six corrected builds against the served build `m12-build4-e1` (600 games,
+  network alone, greedy):** the full-strength distillation (w_kl 1, T 0.025) −7.3 ± 2.1 (top-2
+  trunk layers) / −9.0 ± 2.0 (trunk frozen) / −9.2 ± 2.0 (+ the heuristic-plan fallback) / −8.9 ±
+  2.1 (+ the void negatives, vetoes halved); **a third of the strength (w_kl 0.3, T 0.05, the void
+  term): −0.7 ± 1.9 (63 up / 67 down), vetoes at baseline, taking 21% of the search's overrides on
+  held-out windows.** The harm scales with how hard the policy is pushed toward the search's
+  overrides; the gentle dose is harmless and buys nothing measurable.
+- **Decision (user, 09-17 morning):** no offline re-warm. The served and day-zero build stays
+  `m12-build4-e1` — the representation paths are zero-init and byte-identical at serve, so it IS
+  the warm start; they take their gradient in the loop, where a wrong cast is vetoed, re-asked and
+  lost on the policy's own trajectories and V-trace credits the outcome (realizability is part of
+  the environment there, not an invisible assumption). The post-Build-4 read stays the gate, on e1.
+- **What the line delivered:** the finding of the 04:40 addendum (the search's picks are realized
+  by the heuristic's planner; the distilled policy over-generalizes them into casts the engine's AI
+  refuses) — a named risk for Build 5's kill criterion, since the loop's behavior policy realizes
+  acted picks the same way. **Routed before the shakedown: route (b) — record the realized plan on
+  acted windows and copies, co-distill the target decoder on them**, so the policy can execute what
+  it learns to prefer. Assets: `anvil.training.search_distill` (the join, the anchor, the void term,
+  the collapse-visible eval), the two read arms (`alt` / `altoff` / `altfb` / `onfb`), the fallback
+  flag (off), the six builds' reads on file (`b4rw2`–`b4rw7`).

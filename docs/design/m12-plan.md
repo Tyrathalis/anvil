@@ -1519,3 +1519,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   search never checked.** rw7 (softer: w_kl 0.3, T 0.05) is the last data point (≈ 08:00); then the
   re-warm closes as a serve candidate with the finding as its deliverable (ADR-0111 addendum
   04:40), route (b) routed, the representation paths to the loop.
+- **2026-09-17 07:00 — rw7 (softer: w_kl 0.3, T 0.05, the void term): alt − on −0.7 ± 1.9 (63 up /
+  67 down), vetoes at baseline, 21% of the search's overrides taken on held-out windows. THE RE-WARM
+  CLOSED as a serve candidate (ADR-0111 addendum 07:00; user): the harm scales with the dose, the
+  gentle dose is neutral; no offline re-warm — `m12-build4-e1` is the day-zero build, the paths
+  train in the loop; route (b) (the target decoder on realized plans) before the shakedown.**
