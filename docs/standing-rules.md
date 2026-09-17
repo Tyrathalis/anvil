@@ -426,3 +426,9 @@ silently delete.
   flag on) that tests the training settings under the new label mix and supplies the
   learning-curve slope for the power statement's "games to produce" line
   ([ADR-0101 addendum](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **An allocation gate's ask is a server ask on the value wire, declined without a fit record** —
+  the search's allocation (`-searchalloc tau -searchfloor f`) is the head's probability against a
+  threshold plus a uniform floor drawn from its own seeded stream (the rate draw and the arms
+  still join per window); no default rate is baked into the engine, and an unfitted head never
+  allocates (the worker searches at its uniform rate, `by: unserved`)
+  ([ADR-0112](decisions/ADR-0112-m12-build4-allocation-head-served.md)).

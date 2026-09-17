@@ -1524,3 +1524,37 @@ moves verbatim to the status archive and this section stays here as the record.*
   CLOSED as a serve candidate (ADR-0111 addendum 07:00; user): the harm scales with the dose, the
   gentle dose is neutral; no offline re-warm — `m12-build4-e1` is the day-zero build, the paths
   train in the loop; route (b) (the target decoder on realized plans) before the shakedown.**
+- **2026-09-17 (session 2) — THE ALLOCATION HEAD SERVED ([ADR-0112](../decisions/ADR-0112-m12-build4-allocation-head-served.md)).**
+  The review's four decisions (user: the recommendations): (1) the head's probability enters as
+  a dedicated **`anvil.alloc` ask on the value wire** (the rate draw fires before the mainline's
+  priority ask, so the "extra output on the priority response" needed the search moved inside
+  the controller's ask; the ask costs ≈ 2% of a game's forward calls, mirrors `anvil.value` /
+  `anvil.certify`, carries a shape id later); (2) the rule = **p ≥ tau plus a seeded uniform
+  floor** (`-searchalloc tau -searchfloor 0.1`; unserved = the uniform rate); (3) the first fit =
+  the frozen-trunk logistic folded into the in-model head with a fit record (the pay-gate
+  pattern; the loop-native term rides the loop wiring); (4) the order: the head → the post-Build-4
+  read → the loop wiring → route (b) → the documentation pass → the shakedown. **The finding:
+  the loop does not run the search yet** (`selfplay.py` passes no search flags; `rl.py` has no
+  search-row / behavior-logp term; the harness's `forge_args` and the row's `logp` exist) — Build
+  4½ pre-work, routed by name. Built: fork `a37bc6a8b4` (`AnvilRun`: the ask after the rate draw,
+  the options scanned once and handed to `doSearch`, the peek under an RNG snapshot, `ev: alloc`
+  rows on skips, `alloc {p, by, ms}` on searched rows, census `searchAlloc`, header pins
+  alloc / floor; off = byte-identical) + Anvil `6d12084` (`alloc_head` on the `[STATE]` read-out,
+  base-rate init, the `alloc_` compat prefix; the server serves the tag only with `alloc_fit`;
+  `alloc_fit.py fit`; `alloc_smoke_read.py`; ALLOC on the act smoke, the `alloc` arm on the
+  surface read; `build4_alloc_chain.sh`). **The fit** (`data/runs/alloc-fit-2`: `b4-tgtlab`'s
+  69,380 windows joined 100% on the e1 trunk, 8.7% positives at 0.10): **AUC 0.800 ± 0.012 OOF**
+  (0.830 in sample; state alone); tau 0.489 / **0.369** / 0.276 at 80 / 90 / 95% recall → OOF
+  recall 0.77 / 0.87 / 0.93 at cost share 0.52 / 0.62 / 0.71 (windows 0.40 / 0.51 / 0.60; × games
+  1.91 / 1.60 / 1.42). **The pin: tau 0.369, floor 0.1 → `data/training/m12-build4-e1a/last.pt`**
+  (e1 + the head; the policy byte-identical). The wire smoke on the unfitted build: 224 asks, 224
+  declined, every window unserved + searched, 7 ms per ask, 0 crashes. Tests 320.
+  **The served smoke (4 games, e1a, tau 0.369): head 57% / floor 5.5% / skip 37% of 330 windows
+  (searched 63%); acts 34/189 on head windows, 0/18 on floor; the ask 19 ms; 4/4 clean.**
+  **LAUNCHED 15:14 through `anvil.runs`: `build4-alloc-chain`** (pid 56516, stall alarm 60 min,
+  sinks queue + desk) — forkcheck `run-20260917-build4-alloc` → the post-Build-4 read
+  `build3-surface-read-b4post` (on / act / alloc, 1,000 per seat, 24 × 2; gate act − on ≥ +1.5pp,
+  alloc − act the neutrality check) → `read.json` / `read-alloc.json` / `alloc-census.txt`;
+  ETA ≈ 04:00–05:00 09-18. Next: the read → the fork pin (on PASS) → the loop wiring (Build 4½
+  pre-work: search flags on `selfplay.py`, the search-row terms + the behavior logp + the alloc
+  BCE in `rl.py`) → route (b) → the documentation pass → the shakedown.
