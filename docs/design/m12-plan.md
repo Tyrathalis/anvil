@@ -1505,3 +1505,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   options), every window) — and the acted KL's student normalized over every legal option.** The
   serve-side fallback is retired (neutral where it fires); route (b), the decoder co-distilled on
   realized plans, stays routed.
+- **2026-09-17 05:20 — `build4-rewarm6-queue` launched (≈ 10:00):** rw6 = rw4's recipe + the void
+  term; rw7 = the same, softer (w_kl 0.3, T 0.05); each read against the served build. Note the
+  served build's own void mass is already 0.012 on held-out windows — the term is a guard for the
+  distilled policy's new states more than a correction of the old one; the expectation is modest.
