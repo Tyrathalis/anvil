@@ -89,39 +89,62 @@ def rows_by_seed(w: Path) -> dict[int, list[dict]]:
     return out
 
 
-def match(decs: list[dict], rows: list[dict], counts: Counter) -> list[tuple[dict, int]]:
-    """(row, dec index) pairs: rows in sw order, decs in seq order, one pointer
-    per seat; a row takes the first later priority dec of its seat at its
-    (t, ph) whose non-pass option renders match the row's labels."""
+def align(labels: list[str], opts: list[dict]) -> list[int] | None:
+    """The row's non-pass options (the SEARCHED list: contiguous, the mana
+    abilities the search skips removed) aligned in order against the dec's
+    option list (the mask: mana abilities included) by render prefix; None
+    when a label finds no later option."""
+    out: list[int] = []
+    j = 0
+    for lab in labels:
+        found = -1
+        while j < len(opts):
+            sa = opts[j].get("sa") or ""
+            j += 1
+            n = min(len(str(lab)), len(sa))  # the row truncates labels (~25 chars), the dec renders up to 120
+            if n > 0 and str(lab)[:n] == sa[:n]:
+                found = j - 1
+                break
+        if found < 0:
+            return None
+        out.append(found)
+    return out
+
+
+def match(decs: list[dict], rows: list[dict], counts: Counter) -> list[tuple[dict, int, dict]]:
+    """(row, dec index, row option index -> dec option index): rows in sw
+    order, decs in seq order, one pointer per seat; a row takes the first
+    later priority dec of its seat at its (t, ph) whose option list aligns
+    with the row's labels (a label-less row = the first such dec)."""
     out = []
     ptr: dict[int, int] = defaultdict(int)
     for r in rows:
         seat = int(r["seat"])
-        labels = [o["label"] for o in r["opts"] if o.get("o", 0) != 0]
+        row_opts = [o for o in r["opts"] if o.get("o", 0) != 0]
+        labels = [o["label"] for o in row_opts]
         j = ptr[seat]
         found = -1
+        o_to_dec: dict[int, int] = {}
         while j < len(decs):
             d = decs[j]
             j += 1
             if d.get("m") != PRIORITY or d.get("p") != seat:
                 continue
-            if d.get("t") != r["t"] or d.get("ph") != r["ph"]:
-                # a later phase than the row's: the row's window is gone
-                if (d.get("t", 0), d.get("ph")) > (r["t"], r["ph"]) and d.get("t", 0) > r["t"]:
-                    break
-                continue
-            opts = d.get("opts") or []
-            if len(opts) != len(labels):
-                continue
-            ok = all(str(lab)[: len(o.get("sa") or "")] == (o.get("sa") or "") for lab, o in zip(labels, opts))
-            if ok:
-                found = j - 1
+            if d.get("t", 0) > r["t"]:
                 break
+            if d.get("t") != r["t"] or d.get("ph") != r["ph"]:
+                continue
+            al = align(labels, d.get("opts") or [])
+            if al is None:
+                continue
+            found = j - 1
+            o_to_dec = {int(o["o"]): di for o, di in zip(row_opts, al)}
+            break
         if found < 0:
             counts["row_unmatched"] += 1
             continue
         ptr[seat] = found + 1
-        out.append((r, found))
+        out.append((r, found, o_to_dec))
     return out
 
 
@@ -190,7 +213,7 @@ class SearchWindows(IterableDataset):
             except Exception as ex:  # noqa: BLE001
                 self.counts[f"undecodable_{type(ex).__name__}"] += 1
                 continue
-            for r, di in match(decs, rows, self.counts):
+            for r, di, o_to_dec in match(decs, rows, self.counts):
                 d = decs[di]
                 if d.get("obs") is None:
                     self.counts["no_obs"] += 1
@@ -222,7 +245,7 @@ class SearchWindows(IterableDataset):
                     if o_idx == 0:
                         cand_v[0].append(v)
                         continue
-                    wo = o_idx - 1
+                    wo = o_to_dec.get(o_idx, -1)  # the row's contiguous index -> the dec's option index
                     j = key_of.get(wo)
                     if j is None and 0 <= wo < len(opts):
                         # a collapsed duplicate: find the candidate with the same normalized render + host

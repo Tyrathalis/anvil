@@ -1440,3 +1440,15 @@ moves verbatim to the status archive and this section stays here as the record.*
   (every head matched to the teacher on its own windows) or the frozen trunk; if the policy alone
   is worse → the offline distillation of the search's overrides itself hurts at serve and the
   route is the loop.
+- **2026-09-17 01:40 — the priority-only read of rw2: altoff − off −21.4 ± 2.2 pp — the re-warmed
+  POLICY ITSELF, with a fivefold veto rate (27.1% vs 5.6%: the executor refusing its picks).
+  02:00 — THE ROOT CAUSE, in the trainer's join:** the search row's option indices are contiguous
+  over the SEARCHED options (the mana abilities the search skips removed) while the dec's option
+  list is the mask with them in, and the row truncates labels to ≈ 25 chars while the dec renders
+  120 — the join matched 12.5% of rows (the mana-free windows: a biased early-game slice) and
+  both re-warms trained on that slice. Fixed (`align`: in-order label alignment on the shorter
+  prefix, the row's contiguous index → the dec's option index): **1,018 / 1,018 rows matched on
+  a worker, every option value mapped**; on the full set 11.9% of windows are acted (7.2% on the
+  slice). The frozen-trunk diagnostic (rw3) was killed — its data was the same broken join.
+  **Relaunched 02:15 (`build4-rewarm4-queue`, unattended, ≈ 08:00):** rw4 (the anchored recipe,
+  unfreeze 2) → its full + priority-only reads; rw5 (the trunk frozen) → its full read.
