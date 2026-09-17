@@ -179,3 +179,11 @@ projects but not essential), and whether the mask cache's routed re-read is wort
   build / rw4 + the fallback / the served build + the fallback (the control). (b) Training-side:
   the target decoder learns the heuristic's plans for the search's picks — record the realized plan
   on acted windows and copies, co-distill the decoder — routed to Build 4's close.
+
+## Addendum 09-17 05:45 — the veto-fallback tip proven → the fork pin `d734937c56`; the fallback stays OFF
+
+- `run-20260917-build4-vetofb`: 499 / 500 identical, 20260969 the standing seed; the one fork-status
+  flip (20260739, clean on the baseline and every Build 4 tip) replayed on the same jar as divergence
+  once and clean once — the identity-hash residual in the copy replay, the main trace identical every
+  time → PASS. The pin = `d734937c56`; `-vetofallback heuristic` stays off (neutral on the served
+  build, −0.2 ± 0.9, and no rescue for the distilled policy: the heuristic refuses 95% of its picks).
