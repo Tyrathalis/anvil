@@ -205,6 +205,19 @@ class AnvilNet(nn.Module):
         nn.init.zeros_(self.pay_gate.weight)
         with torch.no_grad():
             self.pay_gate.bias.fill_(-2.05)
+        # M12 Build 4 (ADR-0109 item 2, 09-17): THE ALLOCATION HEAD — P(the
+        # search would act at this priority window: its margin >= the acting
+        # bar) from the [STATE] read-out, the pivotality head generalized
+        # (fork D served, fork L's first output). Trained by BCE on the
+        # search's own rows (scripts/alloc_fit.py fit; the loop regenerates
+        # them per cycle); served on the "anvil.alloc" ask, where the worker
+        # searches at p >= tau plus a uniform floor. Init = the era's base
+        # rate (logit -2.29 ~ 9.2%), weights zero; the server serves the tag
+        # only with an alloc_fit record (an unfitted head never allocates).
+        self.alloc_head = nn.Linear(d_model, 1)
+        nn.init.zeros_(self.alloc_head.weight)
+        with torch.no_grad():
+            self.alloc_head.bias.fill_(-2.29)
         # D6 plan-latent aux heads (m9-d6-plan-latent-spec §2, ADR-0074 joint
         # selection): emission supervision on out[:, 1] at turn-first windows.
         # plan_act_head = multi-hot over the SA vocab (+OOV) + 3 summary bits
@@ -288,6 +301,7 @@ class AnvilNet(nn.Module):
         "surf_",
         "abil_",
         "cand_abil_proj",  # Build 4: the text descriptor (zero-init)
+        "alloc_",  # Build 4: the allocation head (base-rate init; fitted by alloc_fit)
         "assemble.stack_",  # Build 4: the stack entries (zero-init)
         "atk_",
         "blk_",
@@ -792,6 +806,7 @@ class AnvilNet(nn.Module):
             "plan": plan,
             "value_logit": self.value_head(state).squeeze(-1),
             "pay_gate": self.pay_gate(state).squeeze(-1),
+            "alloc": self.alloc_head(state).squeeze(-1),
             **self._combat_outputs(state, ent_out, batch),
         }
         # M12 Build 3 (ADR-0105): surface windows carry an option set; the
@@ -962,6 +977,8 @@ class AnvilNet(nn.Module):
             # the payment deviation gate (P(positive window)); the server's
             # --pay-gate reads it on pay windows
             "pay_gate": torch.sigmoid(self.pay_gate(state).squeeze(-1)),
+            # Build 4: the allocation head's P(act) — the anvil.alloc ask
+            "alloc": torch.sigmoid(self.alloc_head(state).squeeze(-1)),
             "plan": out[:, 1],  # D6 serve carry: the emitted plan vector
             **sched,
             "tgt_picks": torch.stack(picks, dim=1),

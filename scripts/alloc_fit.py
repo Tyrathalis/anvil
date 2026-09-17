@@ -16,9 +16,19 @@ probe: game-grouped K folds (seed hash); a logistic head on standardized
   bar), >= 0.02 (the deep band's lo); AUC per fold; the allocation curve at a
   uniform floor f: box-time share searched (forward calls) vs acts captured;
   the games multiplier at 80 / 90 / 95% recall.
+fit (Build 4, 09-17 — the SERVED head): the same logistic on the frozen
+  [STATE] alone (the in-model head is Linear(d_model, 1) on the read-out the
+  value head uses), standardization folded back into raw weights, written
+  into the checkpoint's `alloc_head` with an `alloc_fit` record (the fit-
+  record rule: the server serves anvil.alloc only with one) — n, AUC (OOF by
+  game-grouped folds; in-sample), and the threshold table: tau at 80 / 90 /
+  95% recall of the acts (in-sample), each with its OOF recall / cost share /
+  windows share under the uniform floor. The worker searches at p >= tau
+  (-searchalloc) plus the floor (-searchfloor).
 Usage:
   uv run python scripts/alloc_fit.py build --runs <dir,dir,...> --out data/runs/alloc-fit-1
   uv run python scripts/alloc_fit.py probe --out data/runs/alloc-fit-1 [--folds 5 --floor 0.1]
+  uv run python scripts/alloc_fit.py fit --out data/runs/alloc-fit-2 --ckpt <init> --ckpt-out <path>
 """
 from __future__ import annotations
 
@@ -286,6 +296,97 @@ def probe(a) -> None:
     print(f"[probe] -> {out / 'probe.json'}")
 
 
+# ---------------------------------------------------------------- fit (the served head)
+
+def _fit_full(X, y, l2: float, seed: int):
+    """The full-data logistic fit; returns (w, b) on the given (standardized) X."""
+    import torch
+    torch.manual_seed(seed)
+    Xt = torch.tensor(X, dtype=torch.float32)
+    Y = torch.tensor(y, dtype=torch.float32)
+    w = torch.zeros(Xt.shape[1], requires_grad=True)
+    b = torch.zeros(1, requires_grad=True)
+    pos_w = float((len(Y) - Y.sum()) / max(1.0, Y.sum()))
+    opt = torch.optim.LBFGS([w, b], lr=0.5, max_iter=200, line_search_fn="strong_wolfe")
+
+    def closure():
+        opt.zero_grad()
+        loss = torch.nn.functional.binary_cross_entropy_with_logits(
+            Xt @ w + b, Y, pos_weight=torch.tensor(pos_w)) + l2 * (w * w).sum()
+        loss.backward()
+        return loss
+
+    opt.step(closure)
+    return w.detach().numpy().astype(np.float64), float(b.detach()[0])
+
+
+def _at_tau(p, y, cost, floor_hit, tau: float) -> dict:
+    sel = (p >= tau) | floor_hit
+    return {"recall": float(y[sel].sum() / max(1, y.sum())), "cost_share": float(cost[sel].sum() / cost.sum()),
+            "windows_share": float(sel.mean()), "games_mult": float(cost.sum() / max(1e-9, cost[sel].sum()))}
+
+
+def fit(a) -> None:
+    import torch
+
+    out = Path(a.out)
+    S = np.load(out / "features.npz")["state"].astype(np.float64)
+    meta = [json.loads(l) for l in open(out / "meta.jsonl")]
+    n = len(meta)
+    assert S.shape[0] == n, (S.shape, n)
+    margin = np.array([m["margin"] for m in meta])
+    calls = np.array([max(1, m["calls"]) for m in meta], float)
+    y = (margin >= a.bar).astype(int)
+    folds = np.array([_fold(m["seed"], a.folds) for m in meta])
+    mu, sd = S.mean(0), S.std(0) + 1e-6
+    Z = (S - mu) / sd
+    # OOF scores (the honest AUC + the honest curve under the chosen taus)
+    oof = np.zeros(n)
+    aucs = []
+    for f in range(a.folds):
+        tr, te = folds != f, folds == f
+        w_f, b_f = _fit_full(Z[tr], y[tr], a.l2, f)
+        oof[te] = Z[te] @ w_f + b_f
+        aucs.append(_auc(oof[te], y[te]))
+    # the full fit -> raw-space weights (standardization folded back)
+    w, b = _fit_full(Z, y, a.l2, 0)
+    w_raw = w / sd
+    b_raw = b - float((w * mu / sd).sum())
+    logit_in = S @ w_raw + b_raw
+    p_in = 1.0 / (1.0 + np.exp(-logit_in))
+    p_oof = 1.0 / (1.0 + np.exp(-oof))
+    rng = np.random.default_rng(0)
+    floor_hit = rng.random(n) < a.floor
+    pos_p = np.sort(p_in[y == 1])
+    taus = {}
+    for rec in (0.8, 0.9, 0.95):
+        tau = float(pos_p[int((1.0 - rec) * len(pos_p))]) if len(pos_p) else 1.0
+        taus[str(rec)] = {"tau": round(tau, 5), "in": _at_tau(p_in, y, calls, floor_hit, tau),
+                          "oof": _at_tau(p_oof, y, calls, floor_hit, tau)}
+    record = {
+        "bar": a.bar, "floor": a.floor, "n": n, "n_pos": int(y.sum()), "pos_rate": float(y.mean()),
+        "runs": sorted(set(m["src"] for m in meta)), "features": str(out), "init": a.ckpt, "l2": a.l2,
+        "folds": a.folds, "auc_oof": round(float(np.nanmean(aucs)), 4), "auc_oof_sd": round(float(np.nanstd(aucs)), 4),
+        "auc_in": round(_auc(logit_in, y), 4), "taus": taus, "recall_pin": a.recall,
+        "tau": taus[str(a.recall)]["tau"], "fitted_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+    ck = torch.load(REPO / a.ckpt, map_location="cpu", weights_only=False)
+    ck["model"]["alloc_head.weight"] = torch.tensor(w_raw[None, :], dtype=torch.float32)
+    ck["model"]["alloc_head.bias"] = torch.tensor([b_raw], dtype=torch.float32)
+    ck["config"]["alloc_fit"] = record
+    dst = REPO / a.ckpt_out
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(ck, dst)
+    (out / "fit.json").write_text(json.dumps(record, indent=1))
+    print(f"[fit] {n} windows, {int(y.sum())} positives at bar {a.bar} ({y.mean():.1%}); AUC OOF "
+          f"{record['auc_oof']:.3f} ± {record['auc_oof_sd']:.3f}, in-sample {record['auc_in']:.3f}")
+    for k, v in taus.items():
+        print(f"[fit] recall {k}: tau {v['tau']:.4f}  in: recall {v['in']['recall']:.2f} cost {v['in']['cost_share']:.2f} "
+              f"windows {v['in']['windows_share']:.2f} x{v['in']['games_mult']:.2f} | oof: recall {v['oof']['recall']:.2f} "
+              f"cost {v['oof']['cost_share']:.2f} windows {v['oof']['windows_share']:.2f} x{v['oof']['games_mult']:.2f}")
+    print(f"[fit] tau pinned at recall {a.recall}: {record['tau']} -> {dst} (+ {out / 'fit.json'})")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="verb", required=True)
@@ -299,8 +400,17 @@ def main() -> None:
     p.add_argument("--folds", type=int, default=5)
     p.add_argument("--floor", type=float, default=0.1)
     p.add_argument("--l2", type=float, default=1e-3)
+    f = sub.add_parser("fit")
+    f.add_argument("--out", required=True, help="the build dir (features.npz + meta.jsonl); fit.json lands here")
+    f.add_argument("--ckpt", required=True, help="the init checkpoint (its trunk built the features)")
+    f.add_argument("--ckpt-out", required=True)
+    f.add_argument("--bar", type=float, default=0.10, help="the label: margin >= bar (the recipe's acting bar)")
+    f.add_argument("--floor", type=float, default=0.1)
+    f.add_argument("--folds", type=int, default=5)
+    f.add_argument("--l2", type=float, default=1e-3)
+    f.add_argument("--recall", default="0.9", choices=["0.8", "0.9", "0.95"], help="the pinned tau's recall")
     a = ap.parse_args()
-    build(a) if a.verb == "build" else probe(a)
+    {"build": build, "probe": probe, "fit": fit}[a.verb](a)
 
 
 if __name__ == "__main__":

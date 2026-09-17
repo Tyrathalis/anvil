@@ -52,6 +52,11 @@ from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 # served GREEDY (argmax, no noise, no mu) whatever the server's sampling mode
 # — fork A's "intermediate decisions played greedily by both seats".
 VALUE_TAG = "anvil.value"
+# Build 4 (ADR-0109 item 2): the allocation ask — the worker's search directive
+# asks P(the search acts here) at every candidate window; served only from a
+# checkpoint carrying an alloc_fit record (else declined: the worker searches
+# at its uniform rate, by=unserved)
+ALLOC_TAG = "anvil.alloc"
 
 
 def is_search_session(game_id: str) -> bool:
@@ -349,6 +354,13 @@ class ModelBackend:
         # only where the fitted gate's P(positive window) clears p*; requires a
         # checkpoint whose pay_fit record fitted the gate (an unfitted gate
         # sits at the base rate and would silence every deviation)
+        # Build 4: the allocation head serves only with its fit record
+        self.alloc_fit = ckpt.get("config", {}).get("alloc_fit")
+        if self.alloc_fit:
+            print(f"[server] alloc head: fitted ({self.alloc_fit.get('n')} windows, "
+                  f"AUC {self.alloc_fit.get('auc_oof')}) — anvil.alloc served")
+        else:
+            print("[server] alloc head: no alloc_fit record — anvil.alloc declined (uniform rate)")
         self.pay_gate = pay_gate
         if pay_gate is not None and not ckpt.get("config", {}).get("pay_fit", {}).get("gate"):
             raise ValueError("--pay-gate needs a checkpoint whose pay_fit record fitted the gate")
@@ -461,6 +473,22 @@ class ModelBackend:
         self.counts["value"] += 1
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
         resp.value = int(round(max(0.0, min(1.0, win)) * 1_000_000))
+        return resp
+
+    def alloc(self, req: pb.DecisionRequest, header: dict | None) -> pb.DecisionResponse | None:
+        """anvil.alloc (Build 4): the allocation head's P(the search acts at
+        this window) for the peek's seat, micro-units on the INT_IN_RANGE
+        answer. None = decline (no fit record / no observation): the worker
+        searches at its uniform rate and tags the window unserved."""
+        if not self.alloc_fit or not req.observation or header is None:
+            return None
+        dec = json.loads(req.observation)
+        ex, _aux = self.feat.example(dec, header, "priority")
+        out = self.batcher.submit(ex, 0.0, None)
+        p = float(out["alloc"][0])
+        self.counts["alloc"] += 1
+        resp = pb.DecisionResponse(decision_seq=req.decision_seq)
+        resp.value = int(round(max(0.0, min(1.0, p)) * 1_000_000))
         return resp
 
     def answer(
@@ -905,6 +933,8 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                     yield pb.ServerMsg(response=self._certify_answer(msg.request, game_seed))
                 elif msg.request.decision_tag == VALUE_TAG:
                     yield pb.ServerMsg(response=self._value_answer(msg.request, header))
+                elif msg.request.decision_tag == ALLOC_TAG:
+                    yield pb.ServerMsg(response=self._value_answer(msg.request, header, "alloc"))
                 elif self.mode == "model":
                     yield pb.ServerMsg(
                         response=self._model_answer(
@@ -943,13 +973,20 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             resp.index_lists.add().indices.extend(arm)
         return resp
 
-    def _value_answer(self, req: pb.DecisionRequest, header: dict | None) -> pb.DecisionResponse:
+    def _value_answer(self, req: pb.DecisionRequest, header: dict | None,
+                      kind: str = "value") -> pb.DecisionResponse:
         """anvil.value (M12 Build 0): the masked head at a search leaf; any
-        error is a loud decline (the worker counts the leaf unserved)."""
+        error is a loud decline (the worker counts the leaf unserved).
+        kind="alloc" (Build 4): the allocation head on the same wire."""
         try:
-            resp = self.backend.value(req, header) if self.mode == "model" else None
+            if self.mode != "model":
+                resp = None
+            elif kind == "alloc":
+                resp = self.backend.alloc(req, header)
+            else:
+                resp = self.backend.value(req, header)
         except Exception as e:  # noqa: BLE001
-            print(f"[server] VALUE ERROR seq={req.decision_seq}: {e!r}")
+            print(f"[server] {kind.upper()} ERROR seq={req.decision_seq}: {e!r}")
             resp = None
         if resp is None:
             self.fallbacks[req.decision_tag] += 1
@@ -1248,6 +1285,7 @@ def main() -> None:
     )
     if args.mode == "model":
         tags = tags + "," + VALUE_TAG  # M12 Build 0: the search-leaf value ask
+        tags = tags + "," + ALLOC_TAG  # Build 4: the allocation ask (declined without a fit record)
     certifier = None
     if args.certify_rate > 0:
         certifier = Certifier(args.certify_rate, arm_cap=args.certify_arm_cap, salt=args.certify_salt)

@@ -14,7 +14,7 @@
 # Read: scripts/deep_smoke_read.py.
 # Usage: build3_act_smoke.sh [games=8] [rate=1] [kinds=mode] [bar=0.10]
 #   env: OUT, PORT, CKPT (the e3 build), JAR (a snapshot jar), ROLLS (2), SURF (2), CAP (8),
-#        DEEP (0), DEEPLEAF, DEEPROLLS, DEEPLO, DEEPFLOOR, DEEPBAR, CLOCK
+#        DEEP (0), DEEPLEAF, DEEPROLLS, DEEPLO, DEEPFLOOR, DEEPBAR, CLOCK, ALLOC (tau; off), FLOOR (0.1)
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil
 FORGE=/home/tyrathalis/Everything/Projects/forge
@@ -32,6 +32,10 @@ if [[ "$DEEP" != "0" ]]; then
   [[ -n "${DEEPBAR:-}" ]] && DEEPARGS="$DEEPARGS -searchdeepbar $DEEPBAR"
 fi
 [[ -n "${CLOCK:-}" ]] && DEEPARGS="$DEEPARGS -searchclock $CLOCK"
+# Build 4 (ADR-0109 item 2): ALLOC=<tau> adds the allocation head's ask (-searchalloc tau
+# -searchfloor FLOOR, default 0.1); the served ckpt needs an alloc_fit record or every
+# window reads by=unserved (the uniform rate). Read: scripts/alloc_smoke_read.py.
+[[ -n "${ALLOC:-}" ]] && DEEPARGS="$DEEPARGS -searchalloc $ALLOC -searchfloor ${FLOOR:-0.1}"
 export PYTHONUNBUFFERED=1 DISPLAY=:0
 export XAUTHORITY=$(ls /run/user/1000/xauth_* | head -1)
 mkdir -p "$OUT"
@@ -57,4 +61,4 @@ t0=$(date +%s)
 rc=$?; t1=$(date +%s)
 log "anvil rc=$rc wall=$((t1-t0))s"
 kill -TERM $SERVER 2>/dev/null; sleep 3; kill -KILL $SERVER 2>/dev/null
-echo "{\"games\":$GAMES,\"rate\":$RATE,\"kinds\":\"$KINDS\",\"bar\":$BAR,\"rolls\":$ROLLS,\"surf\":$SURF,\"cap\":$CAP,\"deep\":\"$DEEPARGS\",\"rc\":$rc,\"wall_s\":$((t1-t0))}" > "$OUT/DONE"
+echo "{\"games\":$GAMES,\"rate\":$RATE,\"kinds\":\"$KINDS\",\"bar\":$BAR,\"rolls\":$ROLLS,\"surf\":$SURF,\"cap\":$CAP,\"deep\":\"$DEEPARGS\",\"alloc\":\"${ALLOC:-}\",\"rc\":$rc,\"wall_s\":$((t1-t0))}" > "$OUT/DONE"

@@ -24,7 +24,8 @@ TAGS_OFF=${TAGS_OFF:-mtg.priority,mtg.mulligan_keep,mtg.trigger,mtg.binary,mtg.n
 ARMS=${ARMS:-off on}; FORGE_ARGS=${FORGE_ARGS:-}; FORGE_ARGS_RESCUE=${FORGE_ARGS_RESCUE:--payrescue}
 SERVER_ARGS=${SERVER_ARGS:-}  # evening 4: e.g. "--pay-bar 0.2" (every arm's server)
 CKPT_ALT=${CKPT_ALT:-}  # Build 4: the "alt" arm serves THIS ckpt with the same tags / args (a two-ckpt read: e.g. the re-warmed build vs the served one)
-FORGE_ARGS_ACT=${FORGE_ARGS_ACT:--searchactkinds mode}  # evening 5: the act arm's extra forge args (modes first; "all" = every kind)
+FORGE_ARGS_ACT=${FORGE_ARGS_ACT:--searchactkinds mode}
+FORGE_ARGS_ALLOC=${FORGE_ARGS_ALLOC:-}  # Build 4: the alloc arm's forge args (the recipe + -searchalloc tau -searchfloor f)  # evening 5: the act arm's extra forge args (modes first; "all" = every kind)
 OUT=data/runs/build3-surface-read-$NAME
 mkdir -p "$OUT"
 SRC_JAR=${JAR:-$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)}
@@ -67,6 +68,7 @@ for arm in $ARMS; do
     altoff) run_arm altoff "$TAGS_OFF" "" "" "$CKPT_ALT" || { log "arm altoff FAILED"; finish 1; } ;;  # Build 4: the CKPT_ALT build under TAGS_OFF (e.g. the priority policy alone)
     alt) run_arm alt "" "" "" "$CKPT_ALT" || { log "arm alt FAILED"; finish 1; } ;;  # Build 4: the CKPT_ALT build, every tag served
     nogate) run_arm nogate "" "-modegate off" || { log "arm nogate FAILED"; finish 1; } ;;  # Build 4 (ADR-0109): the served set + targets with the mode playability gate OFF (the third arm)
+    alloc) run_arm alloc "" "$FORGE_ARGS_ALLOC" || { log "arm alloc FAILED"; finish 1; } ;;  # Build 4 (ADR-0109 item 2): the recipe under the allocation head (FORGE_ARGS_ALLOC = the act arm's args + -searchalloc tau -searchfloor f; the served ckpt carries the alloc_fit record)
     actent) run_arm actent "" "-searchactkinds entity_one,entity_set,mode" || { log "arm actent FAILED"; finish 1; } ;;  # evening 5 pin 4: entity one + set acting, the second arm (modes stay on)  # evening 5 (ADR-0106 A6): the on arm + surface acting (FORGE_ARGS carries the search recipe on every arm)
     *) log "unknown arm $arm"; finish 1 ;;
   esac
