@@ -1343,3 +1343,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   side table 18,530 entries, 765 keys outside b4 → folded into **`abil-cf2ca6ba-b4s-qwen3` (17,431
   keys, the b4 rows byte-identical)**. The fit chain started 17:32 (six tasks + `surf_target`, 5
   folds; distillation on entity + mode + target).
+- **2026-09-16 17:40 — the pool's `StackOverflowError` is NOT a Build 4 class:** the same status
+  appears in the 09-07 Build 2 arm `b2-dzla05arm-s1` and in three pre-M12 runs (d3pilot, d6ext,
+  d6-run12) — a rare pre-existing engine recursion class (1 / 1,000 here). The one-worker replay of
+  game 500 with the crash trace played a different game (53 turns, a draw): a 24-worker pool game
+  is not replayable at one worker (the bf16 micro-batch rule), so the trace is not obtainable that
+  way; routed with the standing crash class to the upstream worklist. The chain proceeds.
