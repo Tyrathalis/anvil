@@ -14,6 +14,7 @@ FORGE=/home/tyrathalis/Everything/Projects/forge
 # overrode the env; the run was saved only by target/ still equalling the snapshot)
 JAR=${JAR:-$(ls -t $FORGE/forge-gui-desktop/target/*jar-with-dependencies.jar | head -1)}
 OUT=${OUT:-$REPO/data/runs/build3-surface-smoke}
+case "$OUT" in /*) ;; *) OUT="$REPO/$OUT" ;; esac  # a relative OUT from a caller breaks the redirects after the cd (09-16)
 PORT=${PORT:-50073}
 CKPT=${CKPT:-$REPO/data/training/d6-run11/iter-019/train/last.pt}
 GAMES=${1:-12}; RATE=${2:-0.2}; SURF=${3:-2}; CAP=${4:-8}

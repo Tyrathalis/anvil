@@ -1362,3 +1362,16 @@ moves verbatim to the status archive and this section stays here as the record.*
   loaders'.** Tonight's refit (six tasks + target) runs on the corrected path; its paired read's
   arms share the build, so the fix is common-mode there; the ladder vs e3 is a separate read. The
   chain relaunched 17:40 (`build4-targets-chain2`; resumable — straight to the fit).
+- **2026-09-16 20:10 — THE TARGETS EVENING READ (ADR-0111 addendum 20:10): on − off +0.00 ± 1.19
+  (n 593) — nothing broke, the target head serves (1,249 bridged answers, 0 invalid, 0 crashes);
+  nogate − off −1.19 ± 1.29 (t −0.9) → within one SE of on → the playability gate RETIRES on the
+  pre-registered rule (at the noise floor, sign negative; re-measured by the post-Build-4 read).**
+  The build `m12-build4-e1` (pooled target 0.512, the six surfaces at or above e3 on the corrected
+  table path) = the served set: seven surfaces + tuck. **The re-warm's recipe DECIDED (user, 20:00):
+  option 4 — the offline distillation toward the search** (the policy KL toward the search's
+  leaf-value softmax + the value head toward the leaf values, on the pools' searched windows, the
+  new representation paths + the top layers unfrozen; read by a held-out KL / top-1 agreement, the
+  value head's Spearman vs leaf values, and a 600-game paired read vs the un-re-warmed build) —
+  "a stronger sense of whether things are working, and a head start for the shakedown". Data on
+  hand: the b2 arms (6 × ~38K searched windows), b3-surflab / surflab2 (~70K each), the pay pools,
+  the target pool (69K) — ≈ 600K searched priority windows with per-option leaf values.

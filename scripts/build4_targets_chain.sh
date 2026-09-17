@@ -60,6 +60,7 @@ fi
 if [[ ! -f "$OUT/smoke/DONE" ]]; then
   state smoke
   OUT="$OUT/smoke" CKPT="$REPO/$CKPT_OUT/last.pt" JAR="$JAR" PORT=50079 bash scripts/build3_surface_smoke.sh 8 0.2 2 8 > "$OUT/smoke.log" 2>&1 || { log "smoke FAILED (see $OUT/smoke.log)"; exit 1; }
+  grep -q "anvil rc=0" "$OUT/smoke.log" || { log "smoke FAILED: the harness did not exit 0 (see $OUT/smoke.log)"; exit 1; }
   log "smoke done: $(tail -1 $OUT/smoke.log | cut -c1-200)"
 fi
 # ---- 5. the three-arm paired read

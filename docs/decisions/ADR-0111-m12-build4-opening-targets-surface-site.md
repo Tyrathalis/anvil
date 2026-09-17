@@ -125,3 +125,27 @@ projects but not essential), and whether the mask cache's routed re-read is wort
   all six surfaces + target runs on the corrected path. The evening's three arms share the build, so
   the fix is common-mode in the read; how much of Build 3's served quality it cost is a separate read
   (the ladder vs e3), routed to the post-Build-4 read.
+
+## Addendum 09-16 20:10 — the targets evening's read: nothing broke, the target head serves; the playability gate retires on the pre-registered rule (at the noise floor, sign negative)
+
+- **The fit** (`data/runs/build4-e1`, the six surfaces + `surf_target` on the b2 arms + the b3 keyed
+  pool + the target pool, distillation on entity / mode / target, the corrected ability-table path):
+  pooled cross-fit exact — **target 0.512** (n 3,173; first-option 0.271; 0.75 on the callback
+  windows, 0.51 on the trigger-preparation windows), entity set 0.461 (e3 0.450), mode 0.405
+  (0.393), entity one 0.360 (0.338), order 0.734 (0.732), damage 0.61 slot-0 → the build
+  **`data/training/m12-build4-e1/last.pt`** (serves seven surfaces + tuck; table b4s).
+- **The three-arm read** (`b3-surface-read-b4e1`, 300 games per seat, network alone, jar
+  `a36975497b`, the build shared by every arm): **on − off (+ targets, gated mode) +0.00 ± 1.19 pp
+  (n 593, 25 up / 25 down) — nothing broke;** the served build answered 1,249 bridged target
+  windows with 0 invalid answers and 0 crashes in 600 games; **nogate − off (+ targets, gate off)
+  −1.19 ± 1.29 (t −0.9; 2 NPE crashes of the standing class)**; the gate on the on arm: pass 176 /
+  defer 86 / free 54. **Verdict on the pre-registered rule (ADR-0109 / decision 6): nogate is within
+  one SE of on → the playability gate RETIRES;** the read sits at its noise floor with a negative
+  sign, so the retirement is provisional in the honest sense — the post-Build-4 read, which
+  carries the mode head under search, re-measures it, and the ladder vs e3 (the corrected-table
+  refit) is the separate read routed there. The served set from here: entity one + set + mode
+  (ungated) + order + damage + **target** + tuck, from the b4e1 build; the recipe arm carries
+  `-modegate off`.
+- The chain's separate 8-game smoke stage failed on a relative-path bug in the smoke script (fixed
+  after the chain exited: absolute OUT; the chain now fails on a failed smoke); the served arm at
+  600 games stood in for it.
