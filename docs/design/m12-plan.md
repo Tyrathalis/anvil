@@ -1419,3 +1419,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   reports pass mass + entropy so a collapse is visible without a serve. The re-warm relaunched
   (`build4-rewarm2` → `m12-build4-rw2`) with the read queued (`b4rw2`). Standing rule candidate: a
   distillation that touches a subset of windows anchors the rest to the teacher.
+- **2026-09-16 23:00 — the anchored re-warm's step-1,000 held-out read (`build4-rewarm2`):**
+  acted-window top-1 with the search 0.045 → 0.759 (KL 14.1 → 0.62), top-1 over all windows 0.366
+  → 0.445, **pass mass 0.138 → 0.095, entropy 0.15 → 0.32** — the policy takes the search's
+  overrides while the anchor holds the rest (train: anchor 0.16 nats, acted KL 0.35 — the two terms
+  compete as designed). The read `b4rw2` (e1 vs rw2, 600 games) lands ≈ 01:30 09-17.
