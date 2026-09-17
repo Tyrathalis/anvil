@@ -1,6 +1,7 @@
 """M12 Build 4 (ADR-0111): the re-warm as OFFLINE DISTILLATION TOWARD THE SEARCH
 (the user's option 4, 09-16). The representation completions are additive and
-zero-init, so nothing needs recovering; the re-warm's one job is to give the
+zero-init, so nothing needs recovering
+the re-warm's one job is to give the
 new paths (the stack-entry projections, the ability-text descriptor) a gradient
 that carries information the old inputs lacked — and the only banked signal
 that does without pulling the RL policy back toward the heuristic is the
@@ -12,12 +13,15 @@ Loss per searched window, over the model's candidates: KL(softmax(v / T) ||
 policy) — the policy toward the search's leaf-value softmax (the acting rule's
 distribution, ADR-0104) — plus BCE(value_logit, Σ p v) — the value head toward
 the search's estimate of the state. Options without a leaf value (void / skip
-rolls) leave the target; the pass option is candidate 0; wire options that the
+rolls) leave the target
+the pass option is candidate 0
+wire options that the
 loader collapses onto one candidate average their values.
 
 Join: a search row (game seed, t, ph, seat, option labels, `sw` ordinal) to
 its `chooseSpellAbilityToPlay` dec record in the run's obs frames, walked in
-order per game; featurized on the WIRE path (Featurizer.example, the serve
+order per game
+featurized on the WIRE path (Featurizer.example, the serve
 featurizer — the same tensors the server builds, incl. the Build 4 fields).
 
 Reads (held-out games by hash, before and after): mean KL, top-1 agreement
@@ -92,7 +96,8 @@ def rows_by_seed(w: Path) -> dict[int, list[dict]]:
 def align(labels: list[str], opts: list[dict]) -> list[int] | None:
     """The row's non-pass options (the SEARCHED list: contiguous, the mana
     abilities the search skips removed) aligned in order against the dec's
-    option list (the mask: mana abilities included) by render prefix; None
+    option list (the mask: mana abilities included) by render prefix
+    None
     when a label finds no later option."""
     out: list[int] = []
     j = 0
@@ -113,7 +118,8 @@ def align(labels: list[str], opts: list[dict]) -> list[int] | None:
 
 def match(decs: list[dict], rows: list[dict], counts: Counter) -> list[tuple[dict, int, dict]]:
     """(row, dec index, row option index -> dec option index): rows in sw
-    order, decs in seq order, one pointer per seat; a row takes the first
+    order, decs in seq order, one pointer per seat
+    a row takes the first
     later priority dec of its seat at its (t, ph) whose option list aligns
     with the row's labels (a label-less row = the first such dec)."""
     out = []
@@ -162,7 +168,8 @@ def option_voids(r: dict) -> set[int]:
     """row option indices whose every roll voided (the copy could not realize
     the option: the heuristic would not / could not play it here) — the
     playability negatives (09-17: the distilled policy over-generalized the
-    acted windows' casts into unplayable ones; these teach it not to)."""
+    acted windows' casts into unplayable ones
+    these teach it not to)."""
     out: set[int] = set()
     for o in r["opts"]:
         ks = o.get("kind") or []
@@ -255,7 +262,6 @@ class SearchWindows(IterableDataset):
                 # every wire option that collapsed onto a candidate: same (row, normalized sa) key
                 from anvil.training.dataset import norm_sa
 
-                cand_key = {j: (aux.get("cand_rows_list") or [None] * len(first))[j] for j in range(len(first))}
                 for o_idx, v in vals.items():
                     if o_idx == 0:
                         cand_v[0].append(v)
@@ -407,10 +413,21 @@ def evaluate(net, loader, device: str, temp: float, bar: float, max_batches: int
         b = _to(b, device)
         with torch.autocast(device, dtype=torch.bfloat16, enabled=device == "cuda"):
             kl, vb, st = losses(net, b, temp, bar)
-        kls.append(kl.float().cpu()); top1.append(st["top1"].cpu()); vp.append(st["v_pred"].cpu()); vt.append(st["v_t"].cpu()); acted.append(st["acted"].cpu()); pm.append(st["pass_mass"].cpu()); en.append(st["entropy"].cpu()); vm.append(st["void_mass"].cpu())
+        kls.append(kl.float().cpu())
+        top1.append(st["top1"].cpu())
+        vp.append(st["v_pred"].cpu())
+        vt.append(st["v_t"].cpu())
+        acted.append(st["acted"].cpu())
+        pm.append(st["pass_mass"].cpu())
+        en.append(st["entropy"].cpu())
+        vm.append(st["void_mass"].cpu())
     if not kls:
         return {"n": 0}
-    kl = torch.cat(kls); t1 = torch.cat(top1); vp_ = torch.cat(vp).numpy(); vt_ = torch.cat(vt).numpy(); ac = torch.cat(acted).bool()
+    kl = torch.cat(kls)
+    t1 = torch.cat(top1)
+    vp_ = torch.cat(vp).numpy()
+    vt_ = torch.cat(vt).numpy()
+    ac = torch.cat(acted).bool()
     from scipy.stats import spearmanr
 
     rho = float(spearmanr(vp_, vt_).correlation) if len(vp_) > 3 else float("nan")
@@ -498,15 +515,24 @@ def main() -> None:
             loss.backward()
             if a.clip:
                 torch.nn.utils.clip_grad_norm_([p for p in net.parameters() if p.requires_grad], a.clip)
-            opt.step(); sched.step(); step += 1
-            acc["kl_acted"].append(float(kl.sum() / n_ac)); acc["anchor"].append(float(st["anchor"].sum() / n_un)); acc["void_mass"].append(float(st["void_mass"].mean())); acc["acted"].append(float(st["acted"].mean())); acc["value_bce"].append(float(vb.mean())); acc["top1"].append(float(st["top1"].mean()))
+            opt.step()
+            sched.step()
+            step += 1
+            acc["kl_acted"].append(float(kl.sum() / n_ac))
+            acc["anchor"].append(float(st["anchor"].sum() / n_un))
+            acc["void_mass"].append(float(st["void_mass"].mean()))
+            acc["acted"].append(float(st["acted"].mean()))
+            acc["value_bce"].append(float(vb.mean()))
+            acc["top1"].append(float(st["top1"].mean()))
             if step % 100 == 0:
                 rec = {"step": step, **{k: float(np.mean(v)) for k, v in acc.items()}, "wall_s": round(time.time() - t0)}
-                log["train"].append(rec); acc.clear()
+                log["train"].append(rec)
+                acc.clear()
                 print(f"[search_distill] {rec}", flush=True)
             if step % a.eval_every == 0 or step >= a.steps:
                 ev = evaluate(net, te, device, a.temp, a.bar, a.eval_batches)
-                ev["step"] = step; log["evals"].append(ev)
+                ev["step"] = step
+                log["evals"].append(ev)
                 print(f"[search_distill] eval: {ev}", flush=True)
                 (out_dir / "log.json").write_text(json.dumps(log, indent=1) + "\n")
             if step >= a.steps:
