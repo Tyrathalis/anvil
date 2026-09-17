@@ -132,7 +132,10 @@ class AnvilNet(nn.Module):
         self.surf_slot_emb = nn.Parameter(torch.zeros(SURF_MAX + 1, d_model))
         self.surf_task_emb = nn.Embedding(len(TASKS), d_model)
         nn.init.zeros_(self.surf_task_emb.weight)
-        self.surf_method_emb = nn.Embedding(n_methods + 1, d_model)
+        # +2 = the OOV id (n_methods: a method the pinned vocab never saw — Build 4's
+        # playTriggerTargets was the first) and the pad (-1 -> 0); (n_methods + 1)
+        # rows indexed one past the end on the OOV id (the 09-16 fit crash)
+        self.surf_method_emb = nn.Embedding(n_methods + 2, d_model)
         nn.init.zeros_(self.surf_method_emb.weight)
         self.register_buffer("abil_vec", torch.zeros(1, d_abil), persistent=False)
         self.bool_head = nn.Sequential(
@@ -316,7 +319,7 @@ class AnvilNet(nn.Module):
         # M12 Build 3: TASKS grew 9 -> 16 (the surface shapes); the per-task
         # pay bias and the surface shape embedding grow the same way (saved
         # rows exact, new rows keep their init — zero for both).
-        for name in ("pay_bias", "surf_task_emb.weight"):
+        for name in ("pay_bias", "surf_task_emb.weight", "surf_method_emb.weight"):
             cur_t = dict(self.named_parameters()).get(name)
             saved_t = state.get(name)
             if cur_t is not None and saved_t is not None and saved_t.shape[0] < cur_t.shape[0]:

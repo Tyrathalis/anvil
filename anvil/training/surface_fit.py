@@ -170,7 +170,8 @@ def evaluate(net, loader, device: str, methods: list[str], max_batches: int | No
             # the answer as a SET (order-free) for set shapes
             for i in range(lab.shape[0]):
                 task = inv_task[int(b["task"][i])]
-                m = methods[int(b["surf_method"][i])] if int(b["surf_method"][i]) >= 0 else "?"
+                mi = int(b["surf_method"][i])
+                m = methods[mi] if 0 <= mi < len(methods) else ("<oov>" if mi >= 0 else "?")  # OOV = a method the pinned vocab never saw
                 li = [int(x) for x in lab[i] if 0 <= int(x) < O]
                 pi = [int(x) for x in top[i][: len(li) + 1] if 0 <= int(x) < O]
                 for key in (task, f"{task}/{m}"):
