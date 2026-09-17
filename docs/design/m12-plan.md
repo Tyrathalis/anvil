@@ -1332,3 +1332,14 @@ moves verbatim to the status archive and this section stays here as the record.*
 - **2026-09-16 17:20 — forkcheck PASS on the stack-key tip `7343c40d84`** (499/500; 20260853's fork
   status flip = the identity-hash residual, its same-jar replay clean + identical) **→ THE FORK PIN
   `7343c40d84`.** Every Build 4 fork tip is proven; the pool at 987/1,000 (the tail games).
+- **2026-09-16 17:30 — the target label pool LANDED** (`b4-tgtlab-20260916-145238`: 1,000 games in
+  2.6 h ≈ 385 g/h at 24 × 2 with the recipe's surface acting; 986 won / 13 draws / **1 crash of a
+  NEW class, `StackOverflowError`** (the prior pools' standing crash is an NPE) — game 500 replayed
+  with the crash trace to classify it before the build serves); 69,380 windows, act rate 8.6%,
+  27,932 sub rows (27.9/game); **target: 3,251 sub rows (3.3/game), 14,292 answers, mean n 5.3,
+  spread ≥ 0.02 on 11.9%** (entity_set 17.8%, mode 14.4%, order 2.0%) — the search sees headroom on
+  targets at the entity-set scale; misses `target:unfired` 619 / `target:idx` 39 (no `legal`
+  misses: every directed answer applied). Key coverage: 570K ability options all keyed; the pool's
+  side table 18,530 entries, 765 keys outside b4 → folded into **`abil-cf2ca6ba-b4s-qwen3` (17,431
+  keys, the b4 rows byte-identical)**. The fit chain started 17:32 (six tasks + `surf_target`, 5
+  folds; distillation on entity + mode + target).
