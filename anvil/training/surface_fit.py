@@ -63,7 +63,7 @@ class FoldFilter:
         return (f == self.fold) if self.split == "test" else (f != self.fold)
 
 
-def load_net(ckpt: str, device: str):
+def load_net(ckpt: str, device: str, abilities: "str | None" = None):
     import torch
 
     from anvil.policy.surfaces import AbilityCache
@@ -76,7 +76,12 @@ def load_net(ckpt: str, device: str):
         cfg["embed"], cfg["pool_manifest"], len(default_methods()), n_sa=cfg.get("sa_vocab_size", 0)
     ).to(device)
     net.load_compat(ck["model"])
-    abil = AbilityCache(REPO / cfg.get("abilities", ABIL))
+    # Build 4 (ADR-0111 addendum): the net's table = the LOADERS' table (the --abilities
+    # stem), never the ckpt config's or the module default — Build 3's fits keyed the
+    # loaders on the folded table and set the net's from the day-zero ckpt's default
+    # (5,148 rows): every store-only key trained on the clamped last row and served
+    # on its real vector.
+    abil = AbilityCache(REPO / (abilities or cfg.get("abilities", ABIL)))
     net.set_ability_table(abil.vectors)
     return net, ck
 
@@ -170,7 +175,8 @@ def evaluate(net, loader, device: str, methods: list[str], max_batches: int | No
             # the answer as a SET (order-free) for set shapes
             for i in range(lab.shape[0]):
                 task = inv_task[int(b["task"][i])]
-                m = methods[int(b["surf_method"][i])] if int(b["surf_method"][i]) >= 0 else "?"
+                mi = int(b["surf_method"][i])
+                m = methods[mi] if 0 <= mi < len(methods) else ("<oov>" if mi >= 0 else "?")  # OOV = a method the pinned vocab never saw
                 li = [int(x) for x in lab[i] if 0 <= int(x) < O]
                 pi = [int(x) for x in top[i][: len(li) + 1] if 0 <= int(x) < O]
                 for key in (task, f"{task}/{m}"):
@@ -213,7 +219,7 @@ def fit(a) -> None:
     tag = "build" if a.build else f"fold{a.fold}"
     log = (out_dir / f"fit-{tag}.jsonl").open("w")
     methods = default_methods()
-    net, ck = load_net(a.ckpt, device)
+    net, ck = load_net(a.ckpt, device, a.abilities)
     n_tr = set_trainable(net, a.unfreeze)
     print(f"[surface_fit {tag}] trainable {n_tr:,} (unfreeze={a.unfreeze})", flush=True)
     opt = torch.optim.AdamW([p for p in net.parameters() if p.requires_grad], lr=a.lr, weight_decay=0.01)

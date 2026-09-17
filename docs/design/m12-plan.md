@@ -1349,3 +1349,16 @@ moves verbatim to the status archive and this section stays here as the record.*
   game 500 with the crash trace played a different game (53 turns, a draw): a 24-worker pool game
   is not replayable at one worker (the bf16 micro-batch rule), so the trace is not obtainable that
   way; routed with the standing crash class to the upstream worklist. The chain proceeds.
+- **2026-09-16 18:05 — the fit chain FAILED at fold 0 (a CUDA gather assert, 16 s in) — TWO BUGS,
+  one of them Build 3's:** (1) `surf_method_emb` had `n_methods + 1` rows while the method vocab's
+  OOV id is `n_methods` (+1 for the pad) → the first surface method the pinned vocab never saw
+  (`playTriggerTargets`) indexed one past the end; fixed (+2 rows, the compat pad) and the
+  evaluate's method-name lookup guarded (`<oov>`). (2) **`surface_fit.load_net` set the NET's
+  ability table from the ckpt config or the module default while the loaders keyed the options on
+  the `--abilities` stem — in Build 3 the day-zero ckpt has no stem, so e1–e3 trained the surface
+  heads with the 5,148-row pool table against loaders keyed on the 15,473-row folded table: every
+  store-only key (two thirds of the table) trained on the clamped LAST row and served on its real
+  vector (a train / serve mismatch on the in-play abilities). Fixed: the net's table = the
+  loaders'.** Tonight's refit (six tasks + target) runs on the corrected path; its paired read's
+  arms share the build, so the fix is common-mode there; the ladder vs e3 is a separate read. The
+  chain relaunched 18:05 (`build4-targets-chain2`; resumable — straight to the fit).
