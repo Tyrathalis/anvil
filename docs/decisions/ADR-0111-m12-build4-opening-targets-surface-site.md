@@ -112,3 +112,16 @@ projects but not essential), and whether the mask cache's routed re-read is wort
   (`run-20260916-build4-stackak-replay853`, 1/1) → PASS** (the standing replay rule). The fork pin
   = `7343c40d84`; every Build 4 fork tip is proven. The evening's read runs on `a36975497b` (the
   stack key is recording-only; the two jars are behavior-identical on the game path).
+
+## Addendum 09-16 18:05 — a Build 3 latent bug: the surface heads trained on a mismatched ability table
+
+- Found when the evening's fit crashed on a separate bug (the surface method embedding lacked the
+  OOV row the first never-seen method name needed): `surface_fit.load_net` set the network's ability
+  table from the checkpoint config or the module default, while the loaders keyed the options on the
+  `--abilities` stem. The Build 3 fits started from the day-zero checkpoint (no stem in its config),
+  so e1–e3 trained with the 5,148-row pool table under loaders keyed on the 15,473-row folded table:
+  **every store-only key — two thirds of the table, the in-play abilities — trained on the clamped
+  last row and served on its real vector.** Fixed (the net's table = the loaders'); tonight's refit of
+  all six surfaces + target runs on the corrected path. The evening's three arms share the build, so
+  the fix is common-mode in the read; how much of Build 3's served quality it cost is a separate read
+  (the ladder vs e3), routed to the post-Build-4 read.
