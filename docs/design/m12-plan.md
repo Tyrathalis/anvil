@@ -1471,3 +1471,23 @@ moves verbatim to the status archive and this section stays here as the record.*
   vetoes 23.9% vs 5.3%) = the full read's −7.3** → the whole loss sits in the priority policy and
   the cast plans of its picks; the surfaces and the other heads contribute nothing to it. rw5 (the
   trunk frozen) decides between the decoder-on-a-moved-trunk mechanism and the picks themselves.
+- **2026-09-17 04:09 — rw5 (the trunk FROZEN): alt − on −9.0 ± 2.0 (48 up / 101 down); vetoes 22.2%
+  vs 4.9%, `no_shape_fit` 5,758 vs 787 — MORE than rw4's, on an unchanged trunk and an unchanged
+  target decoder → the prediction FAILED: the plans are not degraded; the distilled policy picks
+  options the model's own planner cannot plan.** The mechanism, confirmed in the fork: a search copy
+  realizes its directed option through `heuristicRealize` (the AI plans the targets / X), so every
+  leaf value the search records is the value of the option under the HEURISTIC's plan; the mainline
+  realizes the policy's pick through the model's CastPlan (the target decoder's refs), which fits
+  only the options that decoder was trained to plan — the heuristic's usual picks. The search's
+  overrides are, by construction, options the heuristic did not choose (spells / abilities where the
+  natural line was pass / a land), so the decoder has rarely planned them: no_shape_fit → the re-ask
+  → second choices. **The finding generalizes beyond the re-warm: the acting rule realizes acted
+  options the same heuristic way, so part of the with-lookahead advantage is the heuristic's planning
+  of the search's picks — a component the network alone cannot reproduce by learning WHICH option,
+  and a named risk for Build 5's kill criterion ("with-lookahead climbs, network-alone flat").**
+  Two routes: (a) serve-side — on a plan veto, realize the model's pick through `heuristicRealize`
+  instead of re-asking (the model chooses the option, the engine's AI plans its details: the same
+  division the payment and mode surfaces settled on; a flag-gated serve change, read as rw4's alt arm
+  with the fallback on); (b) the target decoder learns the heuristic's plans for the search's picks
+  (record the realized plan on acted windows and copies; co-distill the decoder). (a) is the cheap
+  decisive read and is built next; (b) is the training-side completion routed to Build 4's close.
