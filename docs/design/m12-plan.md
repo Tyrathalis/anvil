@@ -1329,3 +1329,6 @@ moves verbatim to the status archive and this section stays here as the record.*
 - **2026-09-16 16:27 — forkcheck PASS on the gate tip `a36975497b` (499/500, the standing seed) →
   THE FORK PIN = `a36975497b`** (the target surface's two tips + `-modegate off`; the evening's read
   jar). The stack-key tip's forkcheck starts now; the pool at 705/1,000.
+- **2026-09-16 17:20 — forkcheck PASS on the stack-key tip `7343c40d84`** (499/500; 20260853's fork
+  status flip = the identity-hash residual, its same-jar replay clean + identical) **→ THE FORK PIN
+  `7343c40d84`.** Every Build 4 fork tip is proven; the pool at 987/1,000 (the tail games).

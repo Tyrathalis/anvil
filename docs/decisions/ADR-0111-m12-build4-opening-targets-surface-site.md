@@ -102,3 +102,13 @@ projects but not essential), and whether the mask cache's routed re-read is wort
   **499 / 500 identical, 20260969 the standing seed; fidelity 451 / 48 / 1 = the baseline's → PASS.**
   The fork pin moves to `a36975497b` (the target surface + `-modegate`). The stack-key tip
   `7343c40d84` follows (`run-20260916-build4-stackak`).
+
+## Addendum 09-16 17:20 — the stack-key tip proven → the fork pin `7343c40d84`
+
+- `run-20260916-build4-stackak` (jar `7343c40d84`): 499 / 500 identical, 20260969 the standing
+  seed; fork fidelity 450 / 49 / 1 vs 451 / 48 / 1 — the one status flip is 20260853, the
+  identity-hash residual seed (its main trace identical; its fork replay flips between runs of one
+  jar), and **its replay on the same jar is clean and hash-identical to the baseline
+  (`run-20260916-build4-stackak-replay853`, 1/1) → PASS** (the standing replay rule). The fork pin
+  = `7343c40d84`; every Build 4 fork tip is proven. The evening's read runs on `a36975497b` (the
+  stack key is recording-only; the two jars are behavior-identical on the game path).
