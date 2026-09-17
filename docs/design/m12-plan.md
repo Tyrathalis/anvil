@@ -1375,3 +1375,19 @@ moves verbatim to the status archive and this section stays here as the record.*
   "a stronger sense of whether things are working, and a head start for the shakedown". Data on
   hand: the b2 arms (6 × ~38K searched windows), b3-surflab / surflab2 (~70K each), the pay pools,
   the target pool (69K) — ≈ 600K searched priority windows with per-option leaf values.
+- **2026-09-16 21:00 — THE RE-WARM LAUNCHED (`build4-rewarm`, from the worktree; ≈ 1 h):**
+  `anvil.training.search_distill` (worktree commit) — the policy KL toward the search's
+  leaf-value softmax at the recipe's T 0.025 on the windows whose recorded margin clears the
+  recipe's bar 0.10 (**the acting rule's own distribution**: below the bar the search played the
+  policy's line, so those windows carry no policy term), the value head toward Σ p v on every
+  window (a consistency term — the leaf values are the value head's own estimates one window on,
+  Spearman 0.97 before training — weight 0.25); the join = search row → its priority dec in the
+  run's obs frames, featurized on the wire path (the serve featurizer, the Build 4 fields
+  included); trainable = the new paths + the pointer / value heads + the top 2 trunk layers;
+  init = tonight's `m12-build4-e1`; data = the dz / dzla Build 2 arms + the four Build 3 pools +
+  the target pool (≈ 460K searched windows; the heuristic-control arms excluded — their margins
+  are against the heuristic's line, not ours); 8,000 steps × 64; held-out fold 1/10 by game hash.
+  **The smoke's baseline: on acted windows the policy's top-1 agreement with the search is 0.00 by
+  construction and its KL ≈ 11 nats — the policy puts ~e⁻¹¹ on the search's pick where the search
+  overrides it; the read after = how far that closes.** Output `data/training/m12-build4-rw`;
+  then the 600-game paired read vs `m12-build4-e1` (network alone) = the strength read.
