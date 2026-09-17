@@ -130,3 +130,13 @@ settings"). It is Build 4½ pre-work and is routed below by name.
   the post-Build-4 read `data/runs/build3-surface-read-b4post/` (on / act / alloc, 1,000 per seat,
   24 × 2) → `read.json` (on the reference) + `read-alloc.json` (act the reference) +
   `alloc-census.txt`. ETA ≈ 04:00–05:00 09-18 (forkcheck ≈ 1 h, on ≈ 1.5 h, act ≈ 6 h, alloc ≈ 4.5 h).
+
+## Addendum 09-17 16:55 — the alloc tip proven → the fork pin `a37bc6a8b4`; the read's pace
+
+- `run-20260917-build4-alloc`: **499 / 500 main-trace hashes identical**, 20260969 the standing
+  launch-unstable seed (turns 29 vs 29), fork fidelity 451 / 48 / 1 = the merge baseline's →
+  PASS 15:45. **The fork pin = `a37bc6a8b4`.**
+- The `on` arm closed 16:27 (2,000 games, 0 crashes, 3 clock draws, veto rate 4.5%, model wins
+  1,043 / 1,981 decisive); the `act` arm runs at ≈ 750 g/h — twice the self-play bench's 347
+  because the read searches ONE bridged seat against the heuristic (the bench searched both).
+  The ETA moves to ≈ 21:30 09-17.
