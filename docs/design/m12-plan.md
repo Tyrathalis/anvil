@@ -1391,3 +1391,10 @@ moves verbatim to the status archive and this section stays here as the record.*
   construction and its KL ≈ 11 nats — the policy puts ~e⁻¹¹ on the search's pick where the search
   overrides it; the read after = how far that closes.** Output `data/training/m12-build4-rw`;
   then the 600-game paired read vs `m12-build4-e1` (network alone) = the strength read.
+- **2026-09-16 21:10 — `b4-representation` MERGED into main (`8949d58`; 315 tests pass):** the
+  representation completions (format scalars, the additive stack-entry fields, `cand_ak` +
+  `cand_abil_proj`), `TRANSFORM_VERSION` 5, the search-distillation trainer. Every served build
+  serves byte-identically until the re-warmed checkpoint (the new paths are zero-init). The
+  strength read queued behind the re-warm (`build4-rewarm-read-queue`): `m12-build4-e1` (arm on)
+  vs `m12-build4-rw` (arm alt), 300 per seat, network alone, `-modegate off` on both, jar
+  `a36975497b`; `build3_surface_read.sh` gained `CKPT_ALT` / the alt arm.
