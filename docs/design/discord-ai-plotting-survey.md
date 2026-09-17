@@ -13,7 +13,7 @@
 | Person (GitHub) | Project | Approach | Status (as of Jul 2026) |
 |---|---|---|---|
 | **Austinio** (`austinio7116`, **Forge core dev**) | `forge:ai_investigation` branch — full BC→RL gameplay pipeline, built with Claude Code in days (Mar 2026), ~8K LOC | forge-ai-rl module, **PlayerControllerRL**, feature encoders, model server, trajectory recording; 1000-game heuristic corpora → value net + 7 decision heads → ONNX in-game inference; then PPO self-play (value-delta GAE rewards, terminal-anchored) | Imitation ≈ 25-35% WR vs heuristic; PPO plateaued (~33%); moving toward ExIt/search ideas; paused since mid-April (RLAI_PLAN.md / RLAI_PAPER.md / RLAI_IMPROVEMENTS.md in-branch) |
-| **Kryptic** | Independent replication of Austinio's pipeline | Same scripts; strong experimental hygiene instincts (CI-width callouts, leakage hunts, codex-driven code review) | Found the train/val game-leakage bug, the heuristic-fallback fake-win bug; built seeded twin-replay divergence tooling; PPO 200 rounds/220h → 24.5%→33.2% then flat. **09-07: ran Anvil itself** on a mono-green stompy mirror (Constructed, custom pool): BC 38.9% (n=2,000) → V-trace self-play 55.2% after 25 iterations (n=1,000, se ±1.6) — the first external replication of the loop ([devlog](../devlog/2026-09-07-session2.md)) |
+| **Kryptic** | Independent replication of Austinio's pipeline | Same scripts; strong experimental hygiene instincts (CI-width callouts, leakage hunts, codex-driven code review) | Found the train/val game-leakage bug, the heuristic-fallback fake-win bug; built seeded twin-replay divergence tooling; PPO 200 rounds/220h → 24.5%→33.2% then flat. **09-07: ran Anvil itself** on a mono-green stompy mirror (Constructed, custom pool): BC 38.9% (n=2,000) → V-trace self-play 55.2% after 25 iterations (n=1,000, se ±1.6) — the first external replication of the loop ([devlog](../devlog/2026-09-07-session2.md)). **09-17: a second run on four mono-coloured decks** (`constructed-four-rl-4000`, 8,000-game BC 40.6% → 40 iterations × 2,000 games → **51.1% at iter 30 / 50.6% at iter 40**, n 8,000 each, a plateau from iter 20; a 40,000-game heuristic reference matrix; the red mirror 35–39% the one structural deficit, Blue Tempo +5 to +11 where the heuristic plays it at 15–27%) — the §5 09-17 follow-up; decks + workbook at [community/constructed-four/](community/constructed-four/) |
 | **talor** (`Talor-A/forge`; `talor-a/tinymtg`) | Fork continuing Austinio's work; **09-15: `tinymtg`**, an own TypeScript engine (<10K LOC, deterministic, forge-script translated ahead of time, 4,500 cards, no perf work yet) | Added unit tests (found bugs), macOS MPS backend, diverse decks from cubecobra exports, cosine-similarity reward shaping for block/target heads; **Monte-Carlo rollout visualizer using GameCopier**; **08-10: the AI block-legality cache as a PR against our fork ([Tyrathalis/forge#1](https://github.com/Tyrathalis/forge/pull/1), merged 08-11; 09-16 he asks that it be upstreamed)** | Active late May; `rltrain collect` = 5000 games/16 threads JSONL; ~0.5% game-failure rate (undiagnosed) |
 | **LordOfThePigs** (`npiguet`) | Sealed **deck-builder** model, now **draft agent** (Tutor-adjacent, not gameplay) | Card transformer over card text + 544-dim embeddings pre-trained on per-card stats from 1M forge-vs-itself games; MLM pretraining helps; simulated-annealing deck search → distilled single-pass (3-4ms) | **Beats Forge SealedDeckBuilder 78% Bo7.** Draft agent: BC picker 85% match/top-3 99%; RL above BC failing (offline RL on fixed corpus dead; switching to online). 3-machine harness ≈ 200K games/day |
 | **manabrew** (`witchesofthehill/manabrew` — khaliostr, fedepoi, Anacleto) | **Rust/wasm GPL port of Forge** + Tauri client, self-host multiplayer | **Lockstep parity harness**: serializes java Forge gamestate, drives it via JSONL/stdin-stdout, compares snapshots every turn+priority vs the Rust engine; **patched Forge for seeded determinism** ("seed controls library order and makes sure all decisions are the same") | Public since ~June; java Forge playable through manabrew; Rust ~50% faster/lighter but "still isn't completely correct"; offered the harness for AI control use. **09-15 (itemfive): the Rust port is being dropped**; the product is Java Forge built to wasm (`@manabrew/forge-wasm`) behind their protocol; **09-16 (khaliostr): upstreaming engine perf found by profiling forge-wasm (Card-Forge #11916 merged 09-14, #11925 merged 09-16), evaluation-loop budgets held back (they change play once exhausted), a Java `forge-engine` module that splits the front end from the engine (Java / wasm / server), Endstep's server-side patches integrated** |
@@ -651,3 +651,297 @@ exposed and fixed the selfplay/final_read Commander hard-coding.
   a validated engine API for any controller is what his module needs and what our controller
   carries fork-side. The §1 manabrew row corrected (the module, the perf upstreaming, Endstep).
   Nothing on the M12 path changes.
+
+### 09-17 follow-up: TRT's AiCache condition on the cache PR, the anytime-search / metrics thread, Kryptic's four-deck matchup read (read 09-17; the user posted twice on Jev, nothing else)
+
+**#contribution-questions (09-16 05:11 → 14:14), the tail of the engine-module thread:**
+
+- **TRT (10:46), replying to talor's cache PR post ([Tyrathalis/forge#1](https://github.com/Tyrathalis/forge/pull/1)):
+  "thanks, though existing systems need to be reused for less technical debt — in this case
+  AiCache."** *Our record:* a maintainer's condition on the first post-launch upstream patch,
+  recorded on the worklist item. `AiCache` (forge-ai) is a global static string-keyed multimap of
+  (result, args) rows with per-arg comparator functions, linearly scanned, cleared once per
+  `AiController.chooseSpellAbilityToPlay` (its own TODO: "add different scopes + staleness
+  indicator"); today `AiDeckStatistics`, `ComputerUtil` and `ComputerUtilCombat` use it. talor's
+  cache is scoped to one `assignBlockers` invocation with the context entries cleared on every
+  combat mutation — a scope `AiCache` does not have, and its once-per-priority clear is coarser
+  than the mutation clears the block cache needs. So "reuse AiCache" means either (a) the pair
+  entries move into `AiCache` under a key that names the combat mutation epoch, or (b) `AiCache`
+  gains the scope its TODO names, and the block cache is the first user. (b) is the smaller
+  diff for the maintainers and the one that answers TRT's "group the helpers, slow / fast
+  modes" direction from the same day. The fork keeps talor's version until the PR is written
+  (identity-gated in every forkcheck since 08-11; the PR is a rewrite of the storage, not of
+  what is cached) — routed to the worklist item.
+- Fuzz on Java → JavaScript: a few methods unsupported, a `returnSelf()` workaround, TypeScript
+  might have fared better. Colour; nothing for us.
+
+**#ai-plotting (09-16 09:32 → 09-17 08:49):**
+
+- **khaliostr (09:32) on talor's cache:** anything that cuts AI thinking time and the cost of
+  statics / effects is welcome for their use case. Confirms the cache PR's audience beyond us
+  (Manabrew's wasm build has no threaded timeout — every AI millisecond is a UI stall there).
+- **Shedletsky (13:05): with the exhaustive search the AI sometimes has "infinite options and
+  will hang forever"**; two PRs for the cases he found; the better fix is up the tree — chess's
+  standing "winning line": keep the current best answer, improve it while there is time, return
+  it when time runs out, so a move is always ready within the budget. **~1% of games between
+  random decks of unlimited cards hang past his 3–10 minute cutoff, and the hangs correlate with
+  specific cards, not an independent draw, so they bias his statistics.** TRT (13:13): the AI is
+  greedy — "first thing playable" is already the shape; reusing an earlier phase's answer would
+  obviously misplay. Shedletsky (13:46): "i don't think it matters what the AI does if it takes
+  10 minutes to figure it out." *Our record:* (a) the anytime shape is exactly the search
+  directive's contract — a budget in forward calls, the natural line always in the option set,
+  so an answer exists at any cutoff ([ADR-0101](../decisions/ADR-0101-architecture-review-m12-recharter.md)
+  Build 0) — the count-based budget is the point (the 09-16 watch item: a wall-clock cutoff
+  breaks seeded replay); (b) the hang class is ours too: Build 0's game-time / repetition caps,
+  then the Build 2 loop game → the loop guard (fork `b4825285529`: a bounded engine re-ask,
+  `Census.loopCheck`, the 900 s clock allowance), and the crash census counts the residual by
+  seed and class; (c) **his statistics point is right and worth restating to the channel: a hang
+  cap is a card-correlated censor, so a fleet that drops hung games biases every per-card rate
+  toward the cards that never hang** — our census records the seed and the kill reason so the
+  censored set is a named population, not a silent drop. His two PRs are the upstream shape;
+  the loop guard is a candidate to describe when the budget conversation resumes. Nothing routed
+  beyond the existing watch item.
+- **Dan B (19:33 → 20:36): an AlphaZero-style agent for a limited format** — MageZero as the
+  agent, distributed CPU training on AWS (Ray), games between random 17lands decklists; asked
+  Forge vs XMage, MageZero vs LordOfThePigs's baseline. **chrismaghuhn (19:51):** XMage for
+  MageZero — the state extraction and MCTS / self-play plumbing exist there, Forge would mean
+  building the ML interface; **MageZero is deck-local, and random 17lands decks want a policy over
+  arbitrary pools — the bigger architectural problem than the distributed training**; prototype
+  one format + a small fixed deck pool, validate legal-action completeness / hidden information
+  / throughput, then Ray / AWS. Dan B settled on deck 1 vs deck 2 first, then any-vs-any. *Our
+  record:* the deck-local warning is the §1 MageZero note (a fixed-deck agent searching with
+  `see_opponent_hand: true`) said by someone else; "one format + a fixed pool, then widen" is the
+  pool-scaling rule ([ADR-0018](../decisions/ADR-0018-ruleset-scope-clarification.md)) restated for
+  limited. Anvil already plays arbitrary decks from a pool (the card-text embedding path is the
+  answer to "deck-local"); if he asks, the quickstart is the reply. Nothing routed.
+- **The metrics sub-thread (talor 20:04, chrismaghuhn 20:09 / 20:16):** talor — spells cast and
+  game length are cheap and track learning ("more spells cast seems to correlate with better
+  performing, since at the start the ai needs to learn to do anything at all"); the harder ones
+  are target sanity (own creature targeted with a good effect, opponent's with a bad one).
+  chrismaghuhn — two families: **behavioral sanity** (spells cast, mana spent, passing with a
+  playable action, bad targeting) and **strength on a fixed evaluation set** against frozen
+  checkpoints / scripted baselines; keep matchups separate, not an aggregate; deck 1 vs 2 for a
+  clean curve, then a cross-play matrix; **checkpoint × opponent × archetype separates genuine
+  improvement from getting stuck from cycling between strategies**; his four rows — environment
+  health (spells cast, game length, illegal actions, hangs), behavior health (bad targets,
+  wasted mana, idle turns, pass-with-play), learning (value error, policy entropy, BC agreement,
+  training curves), actual strength (large fixed eval sets, per-matchup win rates, frozen
+  opponents / checkpoints, held-out decks). *Our record:* this is the monitor's panel set named
+  from outside — environment health = the crash census + veto rate; behavior health = casts /
+  game, first-veto rate, the pay directed-fail / salvage rows, the drills; learning = kl_mu,
+  entropy, v0, BC agreement; actual strength = the arms read vs the frozen heuristic and
+  `final_read.py`'s 2,000-game paired protocol on a fixed population ([ADR-0096](../decisions/ADR-0096-m10-closeout.md)).
+  His "cycling between strategies" is the mirror-population hazard of the fixed-population rule.
+  Kryptic's workbook below is the checkpoint × opponent × archetype matrix built the same day.
+  Nothing new to route; the four-row framing is a good structure for the quickstart's "what to
+  watch" paragraph — noted for the documentation pass.
+- **talor (20:23, 21:43): TypeSafe's Jev** (a "System One" decision model, no chat) — can it play
+  MTG? Their chess post: Jev V13 vs frontier LLMs at 5+0 blitz, one API call per move — Fable
+  outplayed it, Astra was quick. **The user (20:31, 21:53) posted:** it likely plays passably
+  and fast, and would lose to Fable or Astra at their own speeds. Colour; nothing for us.
+- **Shedletsky (09-17 00:42): the fitness metrics of his deck-evolution population**
+  ([mtgbattles.com/Lab](https://mtgbattles.com/Lab)): (1) the 25th / 50th / 75th / 100th
+  percentile decks (clusters of five) against a fixed set of **standard-candle decks** that never
+  change — the win rate should rise if learning is happening; (2) **periodically resurrect decks
+  cut from the population as unfit and count how many are re-eliminated after X generations** —
+  most should be if fitness is increasing. *Our record:* (1) is the frozen-reference rule (the
+  heuristic + `iter-019` as our candles); (2) is a held-out re-test of the selector against its
+  own past verdicts — a curation-audit shape we do not have and Tutor could use (a resurrected
+  deck's re-elimination rate is a selector consistency read that needs no new opponents).
+  **Routed by name to Tutor's scoping** (the deck-search fitness audit); nothing on M12.
+
+**Kryptic (09-17 08:49): a second Anvil run — gen / clone / RL on the four mono-coloured decks**
+(the same four he and Austinio used months ago; the `.dck` files and the workbook are kept at
+[community/constructed-four/](community/constructed-four/)). Blue Tempo (Delver, Augur, Snapcaster,
+Counterspell, Mana Leak, Spell Pierce, Opt, Ponder, Thought Scour, Vapor Snag), Green Stompy
+(Elves, Mystic, Tusker, Baloth, Strangleroot, Experiment One, Rancor, Aspect of Hydra, Vines,
+Giant Growth), Red Aggro (Bolt, Shock, Swiftspear, Goblin Guide, Eidolon, Lava Spike, Searing
+Blaze, Rift Bolt, Shard Volley, Skullcrack), White Weenie (Lions, Vanguard, Dryad Militant,
+Soldier of the Pantheon, Precinct Captain, Thalia's Lieutenant, Honor of the Pure, Path, Brave
+the Elements, Raise the Alarm); 20 basics each. His command line (the second reference
+Constructed recipe, after the 09-07 mirror):
+
+```
+python -m anvil.training.selfplay --name constructed-four-rl-4000 \
+  --ckpt data/training/constructed-four-auto-20260909-211341/last.pt \
+  --pairs-file data/pool/custom/constructed-four-rl-pairs-40k.txt \
+  --format Constructed --pool-version constructed-four-v1 \
+  --iterations 40 --games 2000 --games-per-pair 2 --heur-frac 0.5 --workers 4 \
+  --reask --penalty 0.01 --penalty-grouping first --chunk 10 --port 50076 \
+  --seed-base 20260904 --rl-workers 0 --rl-seg 64 --guard-kl 0.15 --guard-veto-mult 20.0 \
+  --traj-per-step 4 --epochs 1 --lr 1e-5 \
+  --arms-every 10 --arms-games 4000 --arms-pairs data/pool/custom/constructed-four-arms-pairs-800.txt \
+  --no-inhibit
+```
+
+(For the first ~25 iterations the arms read was 2,000 games every 5; from there 4,000 every
+10. The workbook's Wilson CIs; crashes / non-won games count as non-model wins, as
+`arms_report.json` does. Every off-diagonal cell pools both seat assignments; his mirror cells
+compare against 50%.)
+
+*The reads, verbatim from the workbook:*
+
+| Arm | Games | Model wins | Overall (95% CI) |
+|---|---|---|---|
+| Heuristic vs heuristic (`HvH_40000`) | 40,000 | — | the reference matrix |
+| BC (`constructed-four-auto`, 8,000 imitation games) | 8,000 | 3,248 | **40.6% [39.5, 41.7]** |
+| RL iter 5 / 10 / 15 / 20 | 4,000 each | 1,749 / 1,805 / 1,968 / 2,025 | 43.7 / 45.1 / 49.2 / 50.6 |
+| RL iter 30 | 8,000 | 4,091 | **51.1% [50.0, 52.2]** |
+| RL iter 40 | 8,000 | 4,051 | **50.6% [49.5, 51.7]** |
+
+The heuristic-vs-heuristic matrix (row deck's win rate, 40,000 games, seat 0 on the diagonal):
+Blue Tempo 51.3 / **15.1** / **26.5** / **16.3**; Green Stompy 84.9 / 50.9 / 66.2 / 51.0; Red
+Aggro 73.5 / 33.8 / 51.6 / 32.2; White Weenie 83.7 / 49.0 / 67.8 / 52.8 (columns Blue / Green /
+Red / White). Under the heuristic the deck order is Green ≈ White > Red ≫ Blue; the seat-0
+edge in the mirrors is 1–3pp.
+
+The model-vs-heuristic matrices (model deck = row, 500 games per cell, each cell's 95% CI
+≈ ±4.4pp, a cell-vs-cell difference ≈ ±6.2pp), as the change vs the heuristic's own rate in the
+same matchup (mirror cells vs 50%):
+
+| Model deck → heuristic deck | vs Blue | vs Green | vs Red | vs White |
+|---|---|---|---|---|
+| Blue Tempo (iter 30 / 40) | +5.8 / +2.6 | **+10.7 / +5.1** | +2.1 / −1.7 | +5.1 / +6.1 |
+| Green Stompy | −0.1 / −0.9 | −0.6 / −1.4 | +4.4 / +3.6 | −3.2 / −5.4 |
+| Red Aggro | +2.9 / +7.3 | **−7.6 / −7.4** | **−14.8 / −11.2** | +2.2 / +8.0 |
+| White Weenie | +6.7 / +5.1 | −0.4 / −5.8 | +4.4 / +6.0 | +0.6 / +0.2 |
+
+vs the BC every cell is up (+0.9 to +27.2); the BC's Red row was the catastrophe (BC Red Aggro
+14.9–18.1% off-diagonal, 16.7% in the mirror, 53.6% vs the heuristic's Blue where the heuristic
+itself takes 73.5) — imitation on 8,000 games could not play burn at all, and the loop recovered
+most of it (Red vs Blue 53.6 → 80.8, Red vs White 14.9 → 40.2) but not to the heuristic's level
+against Green or in the mirror.
+
+*His monitor (40 iterations, the screenshot):* reward 0.459 → 0.495 and v0 0.45 → 0.48–0.50
+(peaking at iters 32–35); **entropy RISING 0.25 → 0.34 (iter 32) → 0.29** — the opposite of
+his 09-07 mirror's decline; kl_mu 0.005 → 0.12 (iter 35) → 0.075, against his 0.15 guard;
+veto rate 0.025 → 0.12–0.25 (×5–10; his guard sits at ×20, never tripped); first-veto rate
+0.025 → 0.16–0.22; rejected / traj 0.35 → 2.2–3.6 (×7–10); casts / game 20 → 21–25 with a
+spike at iters 30–36 coincident with the entropy / kl / veto excursion; turns median 12–13;
+**pay deviation (sampled) 0.32 → 0.10 (iter 10) → 0.85–0.97 (iters 30–40)** with directed_fail
+and salvage exactly 0 throughout (every deviation executed clean); pay_bias 1.481 → 1.486 →
+1.476 and pay_kind_emb rms 0.0001 → 0.003 (the head's own parameters barely moved — the
+deviation rate rode the shared trunk); gen_s ≈ 6,200–7,300 for 2,000 games on 4 workers
+(≈ 1,100 g/h), train_s ≈ 1,450 → ≈ 2.2 h per iteration, ≈ 88 h for the run.
+
+*Our read (for the record; a draft reply below):*
+
+1. **The aggregate is a plateau from iter 20** (50.6 → 51.1 → 50.6; iter 40 − iter 30 = −0.5pp
+   ± 1.55 at n 8,000 + 8,000 — a null, not a decline). His "gains slowed" is the right reading;
+   "went down" is not supported. Per-cell iter-30-vs-40 differences are ±6pp reads on 500 games
+   each, so the "some matchups better, some worse" pattern between 30 and 40 is noise except
+   possibly the Blue row (−3 to −6) and the Red row (+3.6 to +5.8), both marginal. The rule he
+   already applied on 09-07 (small-N per-round evals never carry a claim) applies to cells.
+2. **The plateau's onset coincides with the guard curves' climb** (iters 20–35: vetoes ×5–10,
+   rejected intents ×7–10, entropy +0.09, kl_mu to 0.12). Under the standing veto account the
+   veto channel is the model's affordability probe and its rise is not by itself the strength
+   mechanism ([ADR-0072](../decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)) — but
+   this run's entropy RISES while the vetoes climb, which is the policy broadening onto casts it
+   cannot afford rather than collapsing; his 09-07 run had the opposite entropy slope under a
+   ×4 veto guard. The `--guard-veto-mult 20` he chose never binds; the ×4 of the first run
+   would have paused the run near iter 20, roughly where the strength stopped moving. Not a
+   claim of cause; the one cheap test is an arms read of the iter-20 ckpt at 8,000 games against
+   iter 30 / 40 (if 50.6 at n 4,000 holds at n 8,000, twenty iterations bought nothing, and the
+   guard question is live).
+3. **The red mirror is the one structural deficit:** 35.2 [31.1, 39.5] / 38.8 [34.6, 43.1]
+   against 50 — −11 to −15pp, real at 500 games — plus Red vs Green at −7.5. Burn is the deck
+   whose decisions are the ones imitation learns worst and the loop reaches slowest: face vs
+   creature for every burn spell (the target choice, coupled with the cast in our CastPlan but
+   trained only from the heuristic's targets), Eidolon's symmetric trigger, Searing Blaze's
+   landfall timing, Rift Bolt's suspend line and Shard Volley's land sacrifice as sequencing
+   choices. The BC's Red row (15–18%) says the imitation had almost nothing to start from; the
+   loop's +20pp on it is the largest single-row gain in the run and it still sits below the
+   heuristic. A trace-level read of Red-mirror games (face-vs-creature target rate, burn spells
+   cast per turn, Eidolon kept or traded) against the heuristic's would locate it — talor's
+   "bad targeting" metric class; our instrument for it is the drill (Grindstone), which he does
+   not have to build.
+4. **Blue Tempo's gains are the interesting positive:** the heuristic plays the deck at 15–27%
+   against the other three; the model as Blue gains +5 to +11 vs Green and White (the
+   counterspell / bounce decisions the heuristic is known to play badly — a spell-focused deck
+   is where a learned policy beats a scripted one first), and the model AGAINST the heuristic's
+   Blue gains +3 to +7 (Red, White) — exploiting the heuristic's Blue, a different thing from
+   playing Blue well. His question "is mono-blue just bad, or is the heuristic bad at it?" has
+   a bounded answer: at least +5 to +11pp of the heuristic's deficit is play, not deck; the
+   deck's ceiling under good play is not identifiable from this data.
+5. **The pay panel is a watch item for him:** the sampled deviation rate at 0.9 with zero
+   directed failures means the head directs nine of ten payments and the engine executes
+   every one — but our five served pay heads each read within one SE of zero-to-negative
+   ([ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)
+   addenda: −0.3 to −1.7pp), and the headroom under perfect payment is ≈ +3pp/game in ≈ 3% of
+   windows ([ADR-0075](../decisions/ADR-0075-window-rate-sweep.md)) — a 90% deviation rate
+   is far past where auto was already right. On the M12 recipe the tag is withheld
+   (`final_read.py --server-tags` without the pay tag reads the same ckpt with auto payment);
+   an ablation arm of that shape would price it on his run in one 8,000-game read. **And the
+   probe cost: if his fork jar predates 09-09 (`15863de0b4a`, `quietProbe`), every bridged
+   payment window draws RNG and writes AI memory — the ≈ 2.7pp every M12 network arm carried
+   ([ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)
+   evening 4)**; his BC dir is dated 09-09 21:13, five hours after the fix landed, so it is a
+   question, not a diagnosis.
+6. **Design notes we take from it:** (a) the per-matchup matrix at equal cell weights is the
+   right shape (chrismaghuhn's checkpoint × opponent × archetype, built), and the cell CI is
+   the reason our reads pair seeds and fix the population — 500 games per cell reads a ±6pp
+   change, the aggregate ±1.5; (b) the second external run on a different pool again lands
+   the loop at parity with the heuristic from a BC well below it (40.6 → 50.6–51.1 over 20
+   iterations) — the 09-07 mirror reached 55.2 by iter 25 on one deck, this one plateaus at
+   parity across four; a four-deck population is the harder and more honest read; (c) his
+   40,000-game heuristic matrix is a free calibration set for the format-as-features work
+   (the deck-strength prior the value head has to learn is right there). Nothing on M12
+   changes; the four `.dck` files are the natural second smoke pool for the quickstart.
+
+### Draft replies (09-17; the user posts; nothing posted from here)
+
+To Kryptic:
+
+> This is a great read — the matrix is exactly the checkpoint × opponent × archetype shape
+> Chris was describing last night, and 40,000 heuristic games as the reference is more than
+> most papers manage. A few thoughts:
+>
+> 1. On "went down from 30 to 40": at 8,000 games each, 51.1 → 50.6 is −0.5 ± 1.5, so it's a
+> plateau since ~iter 20, not a decline. And each cell is 500 games (±4.4pp), so a cell-to-cell
+> change needs ~±6pp before it means anything — the mixed per-matchup picture between 30 and
+> 40 is mostly noise. Your own round-112 lesson from the PPO days, applied to cells.
+>
+> 2. The plateau starts right where the guard curves take off (iters 20–35: veto rate ×5–10,
+> rejected/traj ×7–10, entropy rising, kl_mu brushing your 0.15 guard). With `--guard-veto-mult
+> 20` the veto guard never binds; the ×4 you used in the stompy run would have paused it near
+> iter 20. I can't claim cause from here, but the cheap test is an 8,000-game arms read of the
+> iter-20 ckpt next to 30 and 40: if it's the same 50.6, the last twenty iterations bought
+> nothing and the guard setting is the first suspect.
+>
+> 3. The red mirror at 35–39% vs 50 is the one real structural deficit (Red vs Green −7.5 is
+> the other). Burn is the deck imitation learned worst (your BC Red row was 15–18%!) and the
+> loop recovered +20pp of it, but every burn spell is a face-vs-creature target decision plus
+> Eidolon / Searing Blaze / Rift Bolt sequencing, and those are trained only from the
+> heuristic's choices. If you want to locate it: face-vs-creature rate and burn-per-turn in the
+> red-mirror traces vs the heuristic's — talor's "bad targeting" class.
+>
+> 4. The blue result is the interesting positive: the heuristic plays the deck at 15–27%, and
+> as Blue the model gains +5 to +11 vs Green / White (counterspells and bounce are where a
+> learned policy beats a script first). Note it also gains +3 to +7 *against* the heuristic's
+> Blue — that's exploiting the heuristic's blue play, a different thing. So at least +5–11pp of
+> mono-blue's deficit is play, not deck; the deck's ceiling isn't identifiable from this.
+>
+> 5. One thing from your monitor I'd look at: pay deviation (sampled) at ~0.9 by iter 30. That
+> is the payment head directing nine of ten payments (all executing clean, good), but my reads
+> on five served payment heads were each zero to slightly negative, and the headroom over auto
+> payment is only ~3pp in ~3% of windows. On the M12 recipe the tag is withheld. An 8,000-game
+> arm of iter-40 with the pay tag off (`final_read.py --server-tags` minus the pay tag) would
+> price it. Also: which fork commit is your jar? If it predates 09-09 (`15863de0b4a`), the
+> bridged payment probe drew RNG and wrote AI memory on every window and cost every network
+> arm ~2.7pp on my pool — your BC directory is timestamped five hours after that fix, so this
+> is a question, not a diagnosis.
+>
+> And the 40,000-game heuristic matrix by itself is useful to me — thanks for the .dck files;
+> they'll be the second smoke pool in the quickstart.
+
+To Shedletsky (the hang / anytime point):
+
+> Your statistics point deserves restating: a hang cap is a card-correlated censor, so a fleet
+> that drops hung games biases every per-card rate toward the cards that never hang. Two
+> things from my side, for what they're worth: Anvil's search runs on a count budget (network
+> forward calls) with the natural line always in the option set, so an answer exists at any
+> cutoff and seeded replay still works — a wall-clock cutoff would break replay for every
+> seeded consumer, which is why I'd argue for count-based budgets if the split-out lands. And
+> for the residual hangs I run a loop guard in the fork (a bounded engine re-ask plus a
+> repetition check) and count what it kills by seed and class, so the censored set is a named
+> population rather than a silent drop. Happy to describe either if useful.

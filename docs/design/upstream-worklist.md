@@ -623,6 +623,19 @@ Consequences:
   helpers, slow / fast modes, reuse `AiCache`) — this cache is scoped to one invocation, the
   conservative version of that direction. **First in the post-launch series** (the user, Discord
   09-16 09:15: upstream patches one at a time while the big run runs).
+- **TRT's condition (Discord #contribution-questions 09-16 10:46, replying to talor's post):
+  "existing systems need to be reused for less technical debt — in this case AiCache."** The
+  fork's cache is scoped to one `assignBlockers` invocation with the context entries cleared on
+  every combat mutation; `AiCache` (forge-ai) is a global static string-keyed multimap of
+  (result, args) rows with per-arg comparators, linearly scanned, cleared once per
+  `AiController.chooseSpellAbilityToPlay`, its own TODO reading "add different scopes +
+  staleness indicator" (users today: `AiDeckStatistics`, `ComputerUtil`, `ComputerUtilCombat`).
+  So the PR is a rewrite of the storage, not of what is cached: either the pair entries live in
+  `AiCache` under a key that names the combat-mutation epoch, or `AiCache` gains the scope its
+  TODO names and the block cache is its first user — the latter is the smaller maintainers'
+  diff and answers TRT's "group the helpers, slow / fast modes" direction from the same day.
+  The behavior-identity proof (the one-worker identity gate + forkcheck) re-runs on the
+  rewritten version before it is proposed; the fork keeps talor's version until then.
 
 ## Watch item — evaluation-loop budgets (khaliostr / Manabrew, 2026-09-16, not yet upstreamed)
 
