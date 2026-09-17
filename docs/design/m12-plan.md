@@ -1509,3 +1509,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   term; rw7 = the same, softer (w_kl 0.3, T 0.05); each read against the served build. Note the
   served build's own void mass is already 0.012 on held-out windows — the term is a guard for the
   distilled policy's new states more than a correction of the old one; the expectation is modest.
+- **2026-09-17 06:03 — rw6 (the void term): alt − on −8.9 ± 2.1 (49 up / 101 down); vetoes 8.9% vs
+  5.1% (halved from rw4's 17%) — the loss unchanged.** The vetoes were a symptom: the distilled
+  policy plays worse even when its picks realize. Held-out: acted top-1 0.40, all-window 0.39,
+  void mass 0.044 (up from 0.012 — on its new preferences the policy lands on options that void
+  in new states). Six builds of option 4, every one negative once the join and the anchor were
+  right (−7.3 / −9.0 / −9.2 / −8.9): **the search's overrides do not distill into a stronger
+  network-alone policy — the policy generalizes them into casts that are wrong in states the
+  search never checked.** rw7 (softer: w_kl 0.3, T 0.05) is the last data point (≈ 08:00); then the
+  re-warm closes as a serve candidate with the finding as its deliverable (ADR-0111 addendum
+  04:40), route (b) routed, the representation paths to the loop.
