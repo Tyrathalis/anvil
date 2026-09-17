@@ -1398,3 +1398,11 @@ moves verbatim to the status archive and this section stays here as the record.*
   strength read queued behind the re-warm (`build4-rewarm-read-queue`): `m12-build4-e1` (arm on)
   vs `m12-build4-rw` (arm alt), 300 per seat, network alone, `-modegate off` on both, jar
   `a36975497b`; `build3_surface_read.sh` gained `CKPT_ALT` / the alt arm.
+- **2026-09-16 20:30 — the re-warm's first held-out read (step 1,000 of 8,000; 0.7 s/step):** on
+  1,843 held-out windows of unseen games, 133 acted (7.2%): **top-1 agreement with the search on
+  acted windows 0.045 → 0.970, KL 14.1 → 0.08 nats**; top-1 over all windows 0.366 → 0.391; the
+  value head's Spearman vs the leaf values 0.980 → 0.983 (a consistency term). The policy learns
+  to reproduce the search's override where the margin is large — the one-ply lookahead the trunk
+  can approximate from its own value knowledge (M11's asset, now inside the policy). The strength
+  read (queued: e1 vs rw, 600 games) is the arbiter of whether that transfers to outcomes and of
+  any cost on the un-acted windows the term never touched.
