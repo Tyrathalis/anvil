@@ -149,12 +149,25 @@ def match(decs: list[dict], rows: list[dict], counts: Counter) -> list[tuple[dic
 
 
 def option_values(r: dict) -> dict[int, float]:
-    """wire option index -> mean leaf value over valid rolls (absent = no value)."""
+    """row option index -> mean leaf value over valid rolls (absent = no value)."""
     out: dict[int, float] = {}
     for o in r["opts"]:
         vs = [float(v) for v, k in zip(o.get("v") or [], o.get("kind") or []) if v is not None and k in VALID_KINDS]
         if vs:
             out[int(o["o"])] = sum(vs) / len(vs)
+    return out
+
+
+def option_voids(r: dict) -> set[int]:
+    """row option indices whose every roll voided (the copy could not realize
+    the option: the heuristic would not / could not play it here) — the
+    playability negatives (09-17: the distilled policy over-generalized the
+    acted windows' casts into unplayable ones; these teach it not to)."""
+    out: set[int] = set()
+    for o in r["opts"]:
+        ks = o.get("kind") or []
+        if ks and all(k in ("void", "skip") for k in ks):
+            out.add(int(o["o"]))
     return out
 
 
@@ -219,6 +232,7 @@ class SearchWindows(IterableDataset):
                     self.counts["no_obs"] += 1
                     continue
                 vals = option_values(r)
+                voids = option_voids(r)
                 if len(vals) < 2:
                     self.counts["lt2_values"] += 1
                     continue
@@ -232,6 +246,7 @@ class SearchWindows(IterableDataset):
                 first = aux["cand_first_opt"]
                 # candidate j <- wire option index; the row's o = wire index + 1 (pass = 0)
                 cand_v: list[list[float]] = [[] for _ in first]
+                cand_void = [False] * len(first)
                 opts = d.get("opts") or []
                 key_of = {}
                 for j, fo in enumerate(first):
@@ -258,6 +273,11 @@ class SearchWindows(IterableDataset):
                         self.counts["opt_unmapped"] += 1
                         continue
                     cand_v[j].append(v)
+                for o_idx in voids:
+                    wo = o_to_dec.get(o_idx, -1)
+                    j = key_of.get(wo)
+                    if j is not None and not cand_v[j]:
+                        cand_void[j] = True
                 sd_v = torch.tensor([sum(x) / len(x) if x else 0.0 for x in cand_v], dtype=torch.float32)
                 sd_has = torch.tensor([bool(x) for x in cand_v], dtype=torch.bool)
                 if int(sd_has.sum()) < 2:
@@ -265,6 +285,7 @@ class SearchWindows(IterableDataset):
                     continue
                 ex["sd_v"] = sd_v
                 ex["sd_has"] = sd_has
+                ex["sd_void"] = torch.tensor(cand_void, dtype=torch.bool)
                 ex["sd_nat"] = torch.tensor(float(vals.get(0, float("nan"))))
                 ex["sd_margin"] = torch.tensor(float(r.get("margin", float("nan"))))
                 self.counts["windows"] += 1
@@ -276,15 +297,18 @@ def collate_sd(batch: list[dict]) -> dict:
 
     sd_v = [x.pop("sd_v") for x in batch]
     sd_has = [x.pop("sd_has") for x in batch]
+    sd_void = [x.pop("sd_void") for x in batch]
     nat = [x.pop("sd_nat") for x in batch]
     mg = [x.pop("sd_margin") for x in batch]
     out = collate(batch)
     c = out["cand_rows"].shape[1]
     out["sd_v"] = torch.zeros(len(batch), c)
     out["sd_has"] = torch.zeros(len(batch), c, dtype=torch.bool)
-    for i, (v, h) in enumerate(zip(sd_v, sd_has)):
+    out["sd_void"] = torch.zeros(len(batch), c, dtype=torch.bool)
+    for i, (v, h, vd) in enumerate(zip(sd_v, sd_has, sd_void)):
         out["sd_v"][i, : v.shape[0]] = v
         out["sd_has"][i, : h.shape[0]] = h
+        out["sd_void"][i, : vd.shape[0]] = vd
     out["sd_nat"] = torch.stack(nat)
     out["sd_margin"] = torch.stack(mg)
     return out
@@ -328,9 +352,16 @@ def losses(net, batch: dict, temp: float, bar: float = 0.0, teacher=None) -> tup
     mask = batch["cand_mask"] & batch["sd_has"]
     v = batch["sd_v"]
     neg = torch.finfo(logits.dtype).min
+    cm = batch["cand_mask"]
     p_t = torch.softmax((v / temp).masked_fill(~mask, neg), dim=-1)
-    lp_s = torch.log_softmax(logits.masked_fill(~mask, neg), dim=-1)
+    # the student normalized over EVERY legal option (09-17): mass the policy puts on options the
+    # search never valued (the voids among them) is a cost here, not invisible
+    lp_s = torch.log_softmax(logits.masked_fill(~cm, neg), dim=-1)
     kl = (p_t * (torch.log(p_t.clamp_min(1e-12)) - lp_s)).masked_fill(~mask, 0).sum(-1)
+    # the playability term: the policy's mass on the void options -> 0, on every window
+    p_s = lp_s.exp()
+    void_mass = (p_s * batch["sd_void"].float()).sum(-1)
+    void_loss = -torch.log((1.0 - void_mass).clamp_min(1e-6))
     v_t = (p_t * v).sum(-1)
     vb = F.binary_cross_entropy_with_logits(out["value_logit"].float().squeeze(-1), v_t, reduction="none")
     acted = (batch["sd_margin"] >= bar) & torch.isfinite(batch["sd_margin"])
@@ -344,12 +375,13 @@ def losses(net, batch: dict, temp: float, bar: float = 0.0, teacher=None) -> tup
     if teacher is not None:
         with torch.no_grad():
             tl = teacher(batch)["policy_logits"].float()
-        cm = batch["cand_mask"]
         lp_t = torch.log_softmax(tl.masked_fill(~cm, neg), dim=-1)
-        lp_s_full = torch.log_softmax(logits.masked_fill(~cm, neg), dim=-1)
-        anchor = (lp_t.exp() * (lp_t - lp_s_full)).masked_fill(~cm, 0).sum(-1) * (~acted).float()
-    p_full = torch.softmax(logits.masked_fill(~batch["cand_mask"], neg), dim=-1)
+        anchor = (lp_t.exp() * (lp_t - lp_s)).masked_fill(~cm, 0).sum(-1) * (~acted).float()
+    p_full = p_s
     stats = {
+        "void_loss": void_loss,
+        "void_mass": void_mass,
+        "has_void": batch["sd_void"].any(-1).float(),
         "pass_mass": p_full[:, 0],
         "entropy": -(p_full * torch.log(p_full.clamp_min(1e-12))).sum(-1),
         "anchor": anchor,
@@ -368,14 +400,14 @@ def _to(b: dict, device: str) -> dict:
 @torch.no_grad()
 def evaluate(net, loader, device: str, temp: float, bar: float, max_batches: int | None) -> dict:
     net.eval()
-    kls, top1, vp, vt, acted, pm, en = [], [], [], [], [], [], []
+    kls, top1, vp, vt, acted, pm, en, vm = [], [], [], [], [], [], [], []
     for i, b in enumerate(loader):
         if max_batches and i >= max_batches:
             break
         b = _to(b, device)
         with torch.autocast(device, dtype=torch.bfloat16, enabled=device == "cuda"):
             kl, vb, st = losses(net, b, temp, bar)
-        kls.append(kl.float().cpu()); top1.append(st["top1"].cpu()); vp.append(st["v_pred"].cpu()); vt.append(st["v_t"].cpu()); acted.append(st["acted"].cpu()); pm.append(st["pass_mass"].cpu()); en.append(st["entropy"].cpu())
+        kls.append(kl.float().cpu()); top1.append(st["top1"].cpu()); vp.append(st["v_pred"].cpu()); vt.append(st["v_t"].cpu()); acted.append(st["acted"].cpu()); pm.append(st["pass_mass"].cpu()); en.append(st["entropy"].cpu()); vm.append(st["void_mass"].cpu())
     if not kls:
         return {"n": 0}
     kl = torch.cat(kls); t1 = torch.cat(top1); vp_ = torch.cat(vp).numpy(); vt_ = torch.cat(vt).numpy(); ac = torch.cat(acted).bool()
@@ -385,7 +417,7 @@ def evaluate(net, loader, device: str, temp: float, bar: float, max_batches: int
     n_ac = int(ac.sum())
     return {"n": int(kl.numel()), "n_acted": n_ac, "acted_frac": float(ac.float().mean()),
             "kl_acted": float(kl[ac].mean()) if n_ac else float("nan"), "top1_acted": float(t1[ac].mean()) if n_ac else float("nan"),
-            "top1_all": float(t1.mean()), "pass_mass": float(torch.cat(pm).mean()), "entropy": float(torch.cat(en).mean()), "value_spearman": rho, "value_mae": float(np.abs(vp_ - vt_).mean())}
+            "top1_all": float(t1.mean()), "pass_mass": float(torch.cat(pm).mean()), "entropy": float(torch.cat(en).mean()), "void_mass": float(torch.cat(vm).mean()), "value_spearman": rho, "value_mae": float(np.abs(vp_ - vt_).mean())}
 
 
 def main() -> None:
@@ -406,6 +438,7 @@ def main() -> None:
     ap.add_argument("--w-kl", type=float, default=1.0)
     ap.add_argument("--w-value", type=float, default=0.5)
     ap.add_argument("--w-anchor", type=float, default=1.0, help="KL(teacher || student) on the un-acted windows (the frozen init)")
+    ap.add_argument("--w-void", type=float, default=1.0, help="the playability term: -log(1 - policy mass on the options that voided on the copies), every window")
     ap.add_argument("--unfreeze", type=int, default=2, help="top-N trunk layers (the new paths + the pointer / value heads always)")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--max-games", type=int, default=None)
@@ -460,13 +493,13 @@ def main() -> None:
                 kl, vb, st = losses(net, b, a.temp, a.bar, teacher)
             n_ac = st["acted"].sum().clamp_min(1.0)
             n_un = (1 - st["acted"]).sum().clamp_min(1.0)
-            loss = a.w_kl * kl.sum() / n_ac + a.w_value * vb.mean() + a.w_anchor * st["anchor"].sum() / n_un
+            loss = a.w_kl * kl.sum() / n_ac + a.w_value * vb.mean() + a.w_anchor * st["anchor"].sum() / n_un + a.w_void * st["void_loss"].mean()
             opt.zero_grad(set_to_none=True)
             loss.backward()
             if a.clip:
                 torch.nn.utils.clip_grad_norm_([p for p in net.parameters() if p.requires_grad], a.clip)
             opt.step(); sched.step(); step += 1
-            acc["kl_acted"].append(float(kl.sum() / n_ac)); acc["anchor"].append(float(st["anchor"].sum() / n_un)); acc["acted"].append(float(st["acted"].mean())); acc["value_bce"].append(float(vb.mean())); acc["top1"].append(float(st["top1"].mean()))
+            acc["kl_acted"].append(float(kl.sum() / n_ac)); acc["anchor"].append(float(st["anchor"].sum() / n_un)); acc["void_mass"].append(float(st["void_mass"].mean())); acc["acted"].append(float(st["acted"].mean())); acc["value_bce"].append(float(vb.mean())); acc["top1"].append(float(st["top1"].mean()))
             if step % 100 == 0:
                 rec = {"step": step, **{k: float(np.mean(v)) for k, v in acc.items()}, "wall_s": round(time.time() - t0)}
                 log["train"].append(rec); acc.clear()
@@ -487,7 +520,7 @@ def main() -> None:
     if a.ckpt_out:
         cfg = dict(ck["config"])
         cfg["abilities"] = a.abilities
-        cfg["search_distill"] = {"init": a.init, "steps": step, "temp": a.temp, "bar": a.bar, "w_kl": a.w_kl, "w_value": a.w_value, "w_anchor": a.w_anchor,
+        cfg["search_distill"] = {"init": a.init, "steps": step, "temp": a.temp, "bar": a.bar, "w_kl": a.w_kl, "w_value": a.w_value, "w_anchor": a.w_anchor, "w_void": a.w_void,
                                  "unfreeze": a.unfreeze, "runs": [str(r) for r in runs], "before": before, "after": log["evals"][-1]}
         from anvil.encoder.transform import TRANSFORM_VERSION
 

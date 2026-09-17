@@ -1491,3 +1491,17 @@ moves verbatim to the status archive and this section stays here as the record.*
   with the fallback on); (b) the target decoder learns the heuristic's plans for the search's picks
   (record the realized plan on acted windows and copies; co-distill the decoder). (a) is the cheap
   decisive read and is built next; (b) is the training-side completion routed to Build 4's close.
+- **2026-09-17 05:10 — the fallback read (`b4rw4f`, jar `d734937c56`): rw4 + the heuristic-plan
+  fallback −9.2 ± 2.0 vs the served build; the served build + the fallback −0.2 ± 0.9 (neutral).
+  The decisive number: of 4,767 fallback attempts on the rw4 arm, 237 realized — the heuristic's
+  own evaluation refuses 95% of the distilled policy's vetoed picks.** So the picks are not merely
+  un-plannable by the decoder; they are casts the engine's AI would not make in those states. The
+  distilled policy learned "cast instead of pass" from the acted windows and over-generalizes it
+  into unplayable casts — and the loss never taught playability: the options that VOIDED on the
+  copies (the heuristic could not / would not realize them there; 30% of first-ply copies) were
+  excluded from the target rather than pushed to zero, and the acted KL was normalized over the
+  valued options only, so mass on un-valued options was invisible. **rw6 (launched next): the
+  void options as explicit negatives — a playability term (−log(1 − the policy's mass on void
+  options), every window) — and the acted KL's student normalized over every legal option.** The
+  serve-side fallback is retired (neutral where it fires); route (b), the decoder co-distilled on
+  realized plans, stays routed.
