@@ -295,7 +295,7 @@ def set_trainable(net, unfreeze: int) -> int:
     return sum(p.numel() for p in net.parameters() if p.requires_grad)
 
 
-def losses(net, batch: dict, temp: float, bar: float = 0.0) -> tuple[torch.Tensor, torch.Tensor, dict]:
+def losses(net, batch: dict, temp: float, bar: float = 0.0, teacher=None) -> tuple[torch.Tensor, torch.Tensor, dict]:
     """Per window: the policy KL toward the search's softmax (the acting rule's
     distribution, ADR-0104) — applied where the search's recorded margin clears
     the bar (below it the search played the policy's own line: no information
@@ -312,7 +312,24 @@ def losses(net, batch: dict, temp: float, bar: float = 0.0) -> tuple[torch.Tenso
     vb = F.binary_cross_entropy_with_logits(out["value_logit"].float().squeeze(-1), v_t, reduction="none")
     acted = (batch["sd_margin"] >= bar) & torch.isfinite(batch["sd_margin"])
     kl = kl * acted.float()
+    # the anchor (09-16 22:45, after the first re-warm collapsed to a pass-happy policy: −46.7 pp,
+    # pass mass 0.09 → 0.55): below the bar the acting rule plays the CURRENT policy's line, so the
+    # target there is the frozen teacher's distribution — KL(teacher || student) over the legal
+    # candidates on every un-acted window; without it the shared layers generalized the acted
+    # windows' "pass" onto the 93% the policy term never touched
+    anchor = torch.zeros_like(kl)
+    if teacher is not None:
+        with torch.no_grad():
+            tl = teacher(batch)["policy_logits"].float()
+        cm = batch["cand_mask"]
+        lp_t = torch.log_softmax(tl.masked_fill(~cm, neg), dim=-1)
+        lp_s_full = torch.log_softmax(logits.masked_fill(~cm, neg), dim=-1)
+        anchor = (lp_t.exp() * (lp_t - lp_s_full)).masked_fill(~cm, 0).sum(-1) * (~acted).float()
+    p_full = torch.softmax(logits.masked_fill(~batch["cand_mask"], neg), dim=-1)
     stats = {
+        "pass_mass": p_full[:, 0],
+        "entropy": -(p_full * torch.log(p_full.clamp_min(1e-12))).sum(-1),
+        "anchor": anchor,
         "acted": acted.float(),
         "top1": (lp_s.argmax(-1) == (v.masked_fill(~mask, -1.0)).argmax(-1)).float(),
         "v_pred": torch.sigmoid(out["value_logit"].float().squeeze(-1)),
@@ -328,14 +345,14 @@ def _to(b: dict, device: str) -> dict:
 @torch.no_grad()
 def evaluate(net, loader, device: str, temp: float, bar: float, max_batches: int | None) -> dict:
     net.eval()
-    kls, top1, vp, vt, acted = [], [], [], [], []
+    kls, top1, vp, vt, acted, pm, en = [], [], [], [], [], [], []
     for i, b in enumerate(loader):
         if max_batches and i >= max_batches:
             break
         b = _to(b, device)
         with torch.autocast(device, dtype=torch.bfloat16, enabled=device == "cuda"):
             kl, vb, st = losses(net, b, temp, bar)
-        kls.append(kl.float().cpu()); top1.append(st["top1"].cpu()); vp.append(st["v_pred"].cpu()); vt.append(st["v_t"].cpu()); acted.append(st["acted"].cpu())
+        kls.append(kl.float().cpu()); top1.append(st["top1"].cpu()); vp.append(st["v_pred"].cpu()); vt.append(st["v_t"].cpu()); acted.append(st["acted"].cpu()); pm.append(st["pass_mass"].cpu()); en.append(st["entropy"].cpu())
     if not kls:
         return {"n": 0}
     kl = torch.cat(kls); t1 = torch.cat(top1); vp_ = torch.cat(vp).numpy(); vt_ = torch.cat(vt).numpy(); ac = torch.cat(acted).bool()
@@ -345,7 +362,7 @@ def evaluate(net, loader, device: str, temp: float, bar: float, max_batches: int
     n_ac = int(ac.sum())
     return {"n": int(kl.numel()), "n_acted": n_ac, "acted_frac": float(ac.float().mean()),
             "kl_acted": float(kl[ac].mean()) if n_ac else float("nan"), "top1_acted": float(t1[ac].mean()) if n_ac else float("nan"),
-            "top1_all": float(t1.mean()), "value_spearman": rho, "value_mae": float(np.abs(vp_ - vt_).mean())}
+            "top1_all": float(t1.mean()), "pass_mass": float(torch.cat(pm).mean()), "entropy": float(torch.cat(en).mean()), "value_spearman": rho, "value_mae": float(np.abs(vp_ - vt_).mean())}
 
 
 def main() -> None:
@@ -365,6 +382,7 @@ def main() -> None:
     ap.add_argument("--bar", type=float, default=0.10, help="the policy term applies where the row's margin >= bar (the recipe's acting bar)")
     ap.add_argument("--w-kl", type=float, default=1.0)
     ap.add_argument("--w-value", type=float, default=0.5)
+    ap.add_argument("--w-anchor", type=float, default=1.0, help="KL(teacher || student) on the un-acted windows (the frozen init)")
     ap.add_argument("--unfreeze", type=int, default=2, help="top-N trunk layers (the new paths + the pointer / value heads always)")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--max-games", type=int, default=None)
@@ -383,6 +401,13 @@ def main() -> None:
         raise SystemExit(f"no runs match {a.runs}")
     net, ck = load_net(a.init, device, a.abilities)
     embed = ck["config"]["embed"]
+    teacher = None
+    if a.w_anchor > 0:
+        import copy
+
+        teacher = copy.deepcopy(net).eval()
+        for p_ in teacher.parameters():
+            p_.requires_grad = False
     n_train = set_trainable(net, a.unfreeze)
     print(f"[search_distill] runs {len(runs)} init {a.init} trainable {n_train:,} temp {a.temp} device {device}", flush=True)
 
@@ -409,15 +434,16 @@ def main() -> None:
             net.train()
             b = _to(b, device)
             with torch.autocast(device, dtype=torch.bfloat16, enabled=device == "cuda"):
-                kl, vb, st = losses(net, b, a.temp, a.bar)
+                kl, vb, st = losses(net, b, a.temp, a.bar, teacher)
             n_ac = st["acted"].sum().clamp_min(1.0)
-            loss = a.w_kl * kl.sum() / n_ac + a.w_value * vb.mean()
+            n_un = (1 - st["acted"]).sum().clamp_min(1.0)
+            loss = a.w_kl * kl.sum() / n_ac + a.w_value * vb.mean() + a.w_anchor * st["anchor"].sum() / n_un
             opt.zero_grad(set_to_none=True)
             loss.backward()
             if a.clip:
                 torch.nn.utils.clip_grad_norm_([p for p in net.parameters() if p.requires_grad], a.clip)
             opt.step(); sched.step(); step += 1
-            acc["kl_acted"].append(float(kl.sum() / n_ac)); acc["acted"].append(float(st["acted"].mean())); acc["value_bce"].append(float(vb.mean())); acc["top1"].append(float(st["top1"].mean()))
+            acc["kl_acted"].append(float(kl.sum() / n_ac)); acc["anchor"].append(float(st["anchor"].sum() / n_un)); acc["acted"].append(float(st["acted"].mean())); acc["value_bce"].append(float(vb.mean())); acc["top1"].append(float(st["top1"].mean()))
             if step % 100 == 0:
                 rec = {"step": step, **{k: float(np.mean(v)) for k, v in acc.items()}, "wall_s": round(time.time() - t0)}
                 log["train"].append(rec); acc.clear()
@@ -438,7 +464,7 @@ def main() -> None:
     if a.ckpt_out:
         cfg = dict(ck["config"])
         cfg["abilities"] = a.abilities
-        cfg["search_distill"] = {"init": a.init, "steps": step, "temp": a.temp, "bar": a.bar, "w_kl": a.w_kl, "w_value": a.w_value,
+        cfg["search_distill"] = {"init": a.init, "steps": step, "temp": a.temp, "bar": a.bar, "w_kl": a.w_kl, "w_value": a.w_value, "w_anchor": a.w_anchor,
                                  "unfreeze": a.unfreeze, "runs": [str(r) for r in runs], "before": before, "after": log["evals"][-1]}
         from anvil.encoder.transform import TRANSFORM_VERSION
 

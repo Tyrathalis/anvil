@@ -1406,3 +1406,16 @@ moves verbatim to the status archive and this section stays here as the record.*
   can approximate from its own value knowledge (M11's asset, now inside the policy). The strength
   read (queued: e1 vs rw, 600 games) is the arbiter of whether that transfers to outcomes and of
   any cost on the un-acted windows the term never touched.
+- **2026-09-16 22:40 — THE FIRST RE-WARM COLLAPSED AT SERVE: alt − on −46.7 ± 2.1 pp (4 up / 275
+  down; `b4rw`).** Not a serve bug: on the same held-out windows the re-warmed policy's pass mass is
+  0.55 vs 0.09 for e1, it argmaxes pass on 60% of windows (e1 9%), its entropy 0.61 vs 0.17, argmax
+  agreement with e1 17% — a PASS-HAPPY policy, while every held-out number the trainer reported
+  (acted-window top-1 0.97, KL 0.06) was true. **The design flaw:** the policy term shaped the 7%
+  acted windows and nothing anchored the other 93% (the search's best is pass on only 12% of acted
+  windows — the pass-happiness is drift, not the target), so the shared pointer heads + top layers
+  generalized freely. **The fix = the acting rule's own semantics:** below the bar the rule plays the
+  CURRENT policy's line, so the target there is the frozen teacher's distribution — KL(teacher ||
+  student) on every un-acted window (`--w-anchor 1.0`, a frozen copy of the init); the eval now
+  reports pass mass + entropy so a collapse is visible without a serve. The re-warm relaunched
+  (`build4-rewarm2` → `m12-build4-rw2`) with the read queued (`b4rw2`). Standing rule candidate: a
+  distillation that touches a subset of windows anchors the rest to the teacher.

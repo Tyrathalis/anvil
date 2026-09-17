@@ -510,7 +510,7 @@ def eval_read(name: str, arm_dirs: list[str], report_json: str | None, out_dir: 
     for rows in rows_by_arm:
         seats = Counter()
         for r in rows:
-            if r.get("winner", "").startswith("Anvil("):
+            if (r.get("winner") or "").startswith("Anvil("):  # a draw has winner null
                 seats[int(r["winner"][6]) - 1] += 1
         model_seat = seats.most_common(1)[0][0] if seats else 0
         for r in rows:
