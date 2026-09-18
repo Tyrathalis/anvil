@@ -53,7 +53,8 @@ def main() -> None:
                 acts[b] += 1
     n = sum(by.values())
     if not n:
-        print("no alloc rows"); return
+        print("no alloc rows")
+        return
     print(f"windows {n} in {len(games)} games: " + ", ".join(f"{k} {v} ({v / n:.1%})" for k, v in by.most_common()))
     for k, v in p_by.items():
         v = np.array(v)
@@ -66,7 +67,7 @@ def main() -> None:
         rec = acts["head"] / max(1e-9, acts["head"] + est_skipped_acts)
         print(f"  estimated recall of acts by the head (floor act rate {floor_rate:.1%} on the {by['skip']} skipped): {rec:.2f}")
     tot_calls = sum(calls.values())
-    print(f"copy forward calls: " + ", ".join(f"{k} {calls[k]}" for k in calls) + f" (total {tot_calls}; per game {tot_calls / max(1, len(games)):.0f})")
+    print("copy forward calls: " + ", ".join(f"{k} {calls[k]}" for k in calls) + f" (total {tot_calls}; per game {tot_calls / max(1, len(games)):.0f})")
     if ms:
         m = np.array(ms)
         print(f"alloc ask wall ms: mean {m.mean():.1f} p50 {np.percentile(m, 50):.0f} p90 {np.percentile(m, 90):.0f} max {m.max()}")

@@ -192,7 +192,6 @@ def test_watch_roots_keep_a_chain_from_false_stalling(state):
     `running` when --watch names those roots; without it the same run stalls."""
     arms = state / "arms"
     arms.mkdir()
-    d = state / "wc"
     cmd = ["sh", "-c", f"sleep 0.6; touch {arms}/x-s0; sleep 0.6; touch {arms}/x-s1; sleep 0.6; exit 0"]
     rc = _launch(state, "wc", cmd, stall_sec=1, watch=str(arms / "x-*"))
     assert rc == 0
