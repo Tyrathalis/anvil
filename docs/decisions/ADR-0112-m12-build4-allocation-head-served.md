@@ -140,3 +140,17 @@ settings"). It is Build 4½ pre-work and is routed below by name.
   1,043 / 1,981 decisive); the `act` arm runs at ≈ 750 g/h — twice the self-play bench's 347
   because the read searches ONE bridged seat against the heuristic (the bench searched both).
   The ETA moves to ≈ 21:30 09-17.
+
+## Addendum 09-17 22:35 — THE POST-BUILD-4 READ CLEARS THE LAUNCH CONDITION: act − on +2.29pp ± 1.02
+
+- The `on` and `act` arms closed (2,000 games each, 0 crashes, the standing draw class only):
+  **on 0.5265 ± 0.0112** (e1 alone, greedy, raw — the era's reference `iter-019` reads 0.5300 raw
+  / 0.5348 corrected, so the day-zero build alone sits at the reference within noise; the
+  Build 2 "dz − ref" question is closed neutral on this era's jar) / **act 0.5494 ± 0.0112**
+  (+ the recipe). **Paired act − on = +2.29pp ± 1.02 (t 2.24, n 1,964; 225 up / 180 down) ≥ the
+  +1.5pp bar → GO: the big run's launch condition (ADR-0104's "a post-Build-4 read ≥ +1.5pp")
+  is CLEARED.** Acting telemetry on the act arm: 72,275 searched windows, act rate 8.96%
+  (natural 89.7%, nat_unvalued 1.4%), ms p50 69 s vs 19.5 s alone (×3.5 wall on one searched
+  seat vs the heuristic).
+- The `alloc` arm runs (seat 0 at 22:20; ≈ 1,070 g/h vs the act arm's ≈ 750 at the same fleet:
+  the head's saving in the read's own wall) — `read.json` + `read-alloc.json` land at its close.

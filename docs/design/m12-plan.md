@@ -1558,3 +1558,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   ETA ≈ 04:00–05:00 09-18. Next: the read → the fork pin (on PASS) → the loop wiring (Build 4½
   pre-work: search flags on `selfplay.py`, the search-row terms + the behavior logp + the alloc
   BCE in `rl.py`) → route (b) → the documentation pass → the shakedown.
+  **THE POST-BUILD-4 READ (22:35 09-17): act − on +2.29pp ± 1.02 (t 2.24, n 1,964) → THE LAUNCH
+  CONDITION CLEARED** (on = e1 alone 0.5265 ± 0.0112 raw = the reference within noise; act =
+  + the recipe 0.5494; act rate 9.0% over 72,275 searched windows; ×3.5 wall on the searched
+  seat). The `alloc` arm runs ≈ 1,070 g/h vs act's ≈ 750 (the head's saving, in flight).
