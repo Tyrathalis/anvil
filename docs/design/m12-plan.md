@@ -1562,3 +1562,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   CONDITION CLEARED** (on = e1 alone 0.5265 ± 0.0112 raw = the reference within noise; act =
   + the recipe 0.5494; act rate 9.0% over 72,275 searched windows; ×3.5 wall on the searched
   seat). The `alloc` arm runs ≈ 1,070 g/h vs act's ≈ 750 (the head's saving, in flight).
+- **2026-09-18 — THE POST-BUILD-4 READ CLOSED ([ADR-0112](../decisions/ADR-0112-m12-build4-allocation-head-served.md)
+  addendum 09:30): on 0.5265 / act 0.5494 / alloc 0.5528 (± 0.0112 each, 2,000 games, 0 crashes);
+  act − on +2.29 ± 1.02 (t 2.24) → THE LAUNCH CONDITION CLEARED; alloc − on +2.70 ± 1.00;
+  alloc − act +0.25 ± 0.61 (t 0.41) at 51.3% of the windows searched → THE HEAD ALLOCATES FREELY.**
+  The census over 73,266 candidate windows: head 46% / floor 5.3% / skip 48.7%; acts 16.6% on
+  head windows vs 2.6% on floor windows → recall 0.86 (the fit's OOF 0.87 — the offline table
+  held exactly, windows 0.51); the search's wall overhead −40% (wall × 2.53 vs 3.54); 477 copy
+  calls/game. Served build of record → `m12-build4-e1a`. Banked: the searched arms' 14% mainline
+  veto rate vs 4.5% alone (first look at the loop wiring). Next: the loop wiring (Build 4½
+  pre-work) → route (b) → the documentation pass → the shakedown (the allocation arm included).

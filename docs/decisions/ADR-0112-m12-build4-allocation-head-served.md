@@ -154,3 +154,40 @@ settings"). It is Build 4½ pre-work and is routed below by name.
   seat vs the heuristic).
 - The `alloc` arm runs (seat 0 at 22:20; ≈ 1,070 g/h vs the act arm's ≈ 750 at the same fleet:
   the head's saving in the read's own wall) — `read.json` + `read-alloc.json` land at its close.
+
+## Addendum 09-18 09:30 — THE READ CLOSED: the head allocates freely (alloc − act +0.25 ± 0.61 at 51% of the windows); the chain done 00:39
+
+- **Three arms, 2,000 games each, 24 × 2, jar `a37bc6a8b4`, build `m12-build4-e1a`, 0 crashes:**
+
+  | arm | winrate ± se | vs on | vs act | ms p50 | wall × on |
+  |---|---|---|---|---|---|
+  | on (alone) | 0.5265 ± 0.0112 | — | — | 19.5 s | 1.00 |
+  | act (the recipe) | 0.5494 ± 0.0112 | **+2.29 ± 1.02 (t 2.24)** | — | 69.1 s | 3.54 |
+  | alloc (the recipe under the head) | 0.5528 ± 0.0112 | **+2.70 ± 1.00 (t 2.68)** | **+0.25 ± 0.61 (t 0.41; 76 up / 71 down, n 1,978)** | 49.3 s | 2.53 |
+
+  **The neutrality check passes with room: alloc − act sits inside one SE at 51.3% of the
+  candidate windows searched.** The search's wall overhead on the searched seat fell 40%
+  (49.5 s → 29.8 s per game over the alone arm); the arm ran ≈ 1,070 g/h vs act's ≈ 750 on the
+  same fleet.
+- **The allocation census (`alloc-census.txt`; 73,266 candidate windows over the 2,000 games,
+  keyed as 1,000 seed pairs):** head 46.0% / floor 5.3% / skip 48.7% → searched 51.3% (the
+  offline table's 0.51 exactly); the head's p on searched windows mean 0.62 (p10 0.41), on
+  skipped 0.16 (p90 0.32); **acts 5,600 / 33,692 on head windows (16.6%) vs 102 / 3,899 on
+  floor windows (2.6%) → the floor's estimate of the skipped windows' act rate gives the head
+  a recall of 0.86 (the fit's OOF 0.87)**; the act rate over searched windows 15.2% vs the
+  uniform arm's 9.0%. Copy forward calls 477 per game on the alloc arm. The ask 44 ms mean /
+  59 p90 / 1.3 s max under the fleet's batching (7–19 ms on the one-worker smokes).
+- **Verdicts (pre-registered, item 4):** (1) **act − on +2.29 ≥ +1.5 → the big run's launch
+  condition is cleared** on the day-zero build; (2) **alloc − act within one SE → the head is
+  free to allocate** in the recipe from here (tau 0.369, floor 0.1; the shakedown's settings
+  pass owns the pin and the equal-box-time allocation arm reads the games multiplier as
+  strength). The served build of record moves to `m12-build4-e1a` (e1 + the head; the policy
+  and the served set unchanged).
+- Banked, not a verdict: both searched arms carry a mainline veto rate of 14% against the alone
+  arm's 4.5% (the acting rule's forced picks re-asked by the executor) — a first look belongs to
+  the loop-wiring session, where the search's behavior log-probability meets the mu record.
+- Run hygiene: the launcher's stall tick watched the chain's own dir while the arms wrote
+  elsewhere (two false STALLED alerts; a heartbeat file patched it live) → `anvil.runs launch
+  --watch <dir>` routed; the GPU yield gate paused the act arm ≈ 3 h for a game on the GPU (by
+  design, resumed clean); the read's pace on one searched seat vs the heuristic is ≈ 2× the
+  self-play bench (both seats searched) — a sizing note for read ETAs.
