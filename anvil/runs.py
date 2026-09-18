@@ -26,6 +26,22 @@ construction, what the checklist used to ask each script to remember:
   coverage    the launcher prints ONE line naming the state file, the stall
               threshold and the sinks armed — the launch message's coverage
               list is that line
+  check-in    (ADR-0107 addendum 09-18) the supervisor itself invokes a
+              headless Claude Code session (`claude -p`, read-only tools) on
+              the events that need a human: failed, stalled, gone, and done
+              after > 1 h — it pushes to the phone, messages the supervising
+              desktop session, acks the alert. Event-driven: no polling task
+              to remember to enable. `--checkin auto|claude|none` (auto =
+              claude when the CLI is on PATH; $ANVIL_CHECKIN overrides); the
+              launch runs a self-test so a missing consumer (no CLI, an
+              expired login) shows in the coverage line, not the next morning
+  watch       --watch <glob> (repeatable) adds artifact roots to the stall
+              tick beside --dir: a read chain launched from its own dir writes
+              its arms under data/runs/<name>-* and raised two false stalls
+              on 09-17 — name those roots and the tick sees them
+  sweep       `anvil.runs sweep` marks runs whose supervisor died (reboot,
+              OOM, kill -9) as gone, alerts, checks in; `install-sweep` puts
+              it on a systemd user timer (10 min) where systemd exists
 
 No registry, no timer, no per-run waiter: one supervisor per run is its own
 watchdog. Stdlib only, zero repo imports — it must keep working while the
@@ -40,6 +56,8 @@ Verbs:
   alerts  [--unacked] [--json]     the queue
   ack     --all | --id ID...       mark alerts read
   prune   [--days 30]              drop terminal run records older than N days
+  sweep                            mark gone runs (dead supervisor), alert, check in
+  install-sweep                    a systemd user timer for sweep (Linux); a cron line elsewhere
 State dir: $ANVIL_STATE_DIR, else ~/.local/state/anvil.
 """
 
@@ -52,6 +70,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -91,9 +110,11 @@ def read_run(name: str) -> dict | None:
 # ---------------------------------------------------------------- alerts
 
 
-def alert(run: str, kind: str, msg: str, run_dir: str | None = None, tag: str = "anvil") -> dict:
+def alert(run: str, kind: str, msg: str, run_dir: str | None = None, tag: str = "anvil",
+          sinks: bool = True) -> dict:
     """Append one alert to the queue and fan out to the best-effort sinks.
-    Never raises: no notification path may kill the job it reports on."""
+    Never raises: no notification path may kill the job it reports on.
+    sinks=False = the queue only (the check-in's own record)."""
     rec = {
         "id": uuid.uuid4().hex[:12],
         "ts": _now(),
@@ -110,7 +131,7 @@ def alert(run: str, kind: str, msg: str, run_dir: str | None = None, tag: str = 
         print(f"[runs] alert queue write failed: {e}", file=sys.stderr, flush=True)
     title = f"{tag} {run} {kind.upper()}"
     print(f"[runs] {title}: {msg}", flush=True)
-    if os.environ.get("ANVIL_NOTIFY_SILENT"):
+    if os.environ.get("ANVIL_NOTIFY_SILENT") or not sinks:
         return rec
     cmd = os.environ.get("ANVIL_NOTIFY_CMD")
     if cmd:
@@ -175,6 +196,8 @@ def newest_mtime(root: Path) -> float:
     project-wide tree); 0 when nothing is there yet."""
     newest = 0.0
     try:
+        if os.path.isfile(root):  # a --watch glob may name files
+            return os.stat(root).st_mtime
         for dirpath, _dirs, files in os.walk(root):
             for fn in files:
                 try:
@@ -194,6 +217,92 @@ def _tail(path: Path, lines: int = 15, width: int = 200) -> str:
     except OSError:
         return ""
     return "\n".join(ln[:width] for ln in data.splitlines()[-lines:])
+
+
+# ------------------------------------------------------------ the LLM check-in
+
+CHECKIN_TOOLS = ("ToolSearch,ListAgents,SendMessage,PushNotification,Read,"
+                 "Bash(uv run python -m anvil.runs ack:*),Bash(python -m anvil.runs ack:*),Bash(tail:*)")
+CHECKIN_MIN_GAP_S = 20 * 60   # a flapping stall raises at most one check-in per 20 min
+CHECKIN_DONE_MIN_S = 3600     # a done under an hour is not worth a phone push
+CHECKIN_TIMEOUT_S = 600
+
+
+def checkin_mode(requested: str | None) -> str:
+    """auto -> claude when the CLI is on PATH, else none; $ANVIL_CHECKIN overrides."""
+    m = os.environ.get("ANVIL_CHECKIN") or requested or "auto"
+    if m == "auto":
+        return "claude" if shutil.which("claude") else "none"
+    return m
+
+
+def checkin_prompt(rec: dict, st: dict, tail: str) -> str:
+    run, kind = rec["run"], rec["kind"].upper()
+    first = (rec.get("msg") or "").splitlines()[0][:200] if rec.get("msg") else ""
+    return (
+        "You are the Anvil run check-in (ADR-0107). You are read-only: never edit files, never kill, launch "
+        "or fix anything — diagnosis belongs to the supervising session.\n"
+        f"Event: run \"{run}\" is {kind}: {first}\n"
+        f"State file: {_run_file(run)}\nLog: {st.get('log')}\nRun dir: {st.get('dir')}\n"
+        f"Started: {st.get('started')}  Alert id: {rec['id']}\n"
+        f"Last log lines:\n{tail}\n\n"
+        "Do exactly this:\n"
+        "1. If PushNotification, SendMessage or ListAgents are deferred in your tool list, load them with "
+        "ToolSearch (query \"select:PushNotification,SendMessage,ListAgents\").\n"
+        "2. Send ONE push notification with PushNotification, under 200 characters, leading with what to act on, "
+        f"e.g. \"{run} {kind}: <the first error line / the minutes stalled / the hours run>\".\n"
+        "3. Call ListAgents. With SendMessage, send one message to every peer session on this machine marked "
+        "interactive whose name or title contains \"anvil\" (case-insensitive); if there is none, to the most "
+        "recently started interactive session. The message: the event kind, the run name, the state file, the "
+        "log path and the error lines. Do not ask them questions.\n"
+        f"4. Ack this alert with one shell command: `uv run python -m anvil.runs ack --id {rec['id']}` "
+        f"(if uv is missing: `python -m anvil.runs ack --id {rec['id']}`).\n"
+        "5. Reply with ONE line: what you pushed and which sessions you messaged. Nothing else."
+    )
+
+
+def llm_checkin(rec: dict, st: dict, timeout: int = CHECKIN_TIMEOUT_S) -> dict:
+    """Invoke a headless Claude Code session on one alert. Never raises; the
+    outcome lands in the queue as a `checkin` record (sinks off) so whoever
+    looks next can see whether the consumer ran."""
+    t0 = time.time()
+    try:
+        log = Path(st["log"]) if st.get("log") else None
+        tail = _tail(log, 40) if log and log.exists() else "(no log)"
+        # the prompt on stdin: --allowedTools is variadic and would swallow a
+        # positional prompt ("Input must be provided..." on the first e2e run)
+        cmd = ["claude", "-p", "--output-format", "text", "--allowedTools", CHECKIN_TOOLS]
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                             cwd=st.get("launch_cwd") or None, input=checkin_prompt(rec, st, tail))
+        last = (out.stdout.strip().splitlines() or [""])[-1][:300]
+        if out.returncode == 0:
+            msg = f"ok ({int(time.time() - t0)} s): {last}"
+        else:
+            err = (out.stderr.strip().splitlines() or [last or "?"])[0][:300]
+            msg = f"claude -p rc={out.returncode} ({int(time.time() - t0)} s): {err}"
+    except subprocess.TimeoutExpired:
+        msg = f"claude -p timed out after {timeout} s"
+    except Exception as e:  # noqa: BLE001
+        msg = f"claude -p failed to start: {e!r}"
+    return alert(rec["run"], "checkin", f"for {rec['kind']} {rec['id']}: {msg}", st.get("dir"),
+                 st.get("tag", "anvil"), sinks=False)
+
+
+def claude_selftest(timeout: int = 120) -> tuple[bool, str, int]:
+    """One tiny headless call at launch: is the consumer really there?"""
+    t0 = time.time()
+    try:
+        out = subprocess.run(["claude", "-p", "--output-format", "text", "Reply with exactly the word OK."],
+                             capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL)
+        secs = int(time.time() - t0)
+        if out.returncode == 0 and "OK" in out.stdout:
+            return True, "OK", secs
+        err = ((out.stderr.strip() or out.stdout.strip()).splitlines() or ["?"])[0][:160]
+        return False, f"rc={out.returncode}: {err}", secs
+    except subprocess.TimeoutExpired:
+        return False, f"timed out after {timeout} s", timeout
+    except Exception as e:  # noqa: BLE001
+        return False, repr(e)[:160], int(time.time() - t0)
 
 
 def _child_cmd(cmd: list[str], nice: int, memory_max: str | None, name: str) -> tuple[list[str], str | None]:
@@ -220,6 +329,15 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     env = dict(os.environ, PYTHONUNBUFFERED="1", ANVIL_RUN_NAME=a.name)
     real_cmd, note = _child_cmd(cmd, a.nice, a.memory_max, a.name)
     stall_s = a.stall_sec if a.stall_sec is not None else a.stall_min * 60
+    watch = [str(w) for w in (getattr(a, "watch", None) or [])]
+
+    def newest_artifact() -> float:
+        roots = [run_dir]
+        for pat in watch:
+            pp = Path(pat)
+            roots += list(pp.parent.glob(pp.name)) if any(c in pp.name for c in "*?[") else [pp]
+        return max(newest_mtime(r) for r in roots)
+
     logf = open(log, "ab")
     logf.write(f"[runs] {_now()} launch {a.name}: {' '.join(cmd)}\n".encode())
     if note:
@@ -246,12 +364,30 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         _write_json(_run_file(a.name), st)
         alert(a.name, "failed", f"spawn failed: {e}", str(run_dir), a.tag)
         return 1
+    mode = getattr(a, "checkin_resolved", None) or checkin_mode(getattr(a, "checkin", None))
     st = {
         "name": a.name, "state": "running", "pid": child.pid, "supervisor_pid": os.getpid(),
         "started": _now(), "cmd": cmd, "dir": str(run_dir), "log": str(log),
-        "stall_sec": stall_s, "tick_sec": a.tick_sec, "note": note,
+        "stall_sec": stall_s, "tick_sec": a.tick_sec, "note": note, "tag": a.tag,
+        "checkin": mode, "launch_cwd": os.getcwd(), "watch": watch,
     }
     _write_json(_run_file(a.name), st)
+    threads: list[threading.Thread] = []
+    last_checkin = [0.0]
+
+    def checkin(rec: dict) -> None:
+        """failed / stalled / long done -> the headless check-in, off-thread."""
+        kind = rec["kind"]
+        if mode != "claude" or kind == "recovered":
+            return
+        if kind == "done" and st.get("wall_s", 0) < CHECKIN_DONE_MIN_S:
+            return
+        if kind == "stalled" and time.time() - last_checkin[0] < CHECKIN_MIN_GAP_S:
+            return
+        last_checkin[0] = time.time()
+        th = threading.Thread(target=llm_checkin, args=(rec, dict(st)), daemon=True)
+        th.start()
+        threads.append(th)
 
     def forward(signum, _frame):  # noqa: ANN001
         try:
@@ -274,13 +410,13 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         if time.time() - last_tick < a.tick_sec:
             continue
         last_tick = time.time()
-        newest = max(newest_mtime(run_dir), t0)
+        newest = max(newest_artifact(), t0)
         age = time.time() - newest
         if not stalled and age > stall_s:
             stalled = True
             st.update(state="stalled", stalled_since=_now())
             _write_json(_run_file(a.name), st)
-            alert(a.name, "stalled", f"no artifact under {run_dir} for {int(age // 60)} min", str(run_dir), a.tag)
+            checkin(alert(a.name, "stalled", f"no artifact under {run_dir} for {int(age // 60)} min", str(run_dir), a.tag))
         elif stalled and age <= stall_s:
             stalled = False
             st.update(state="running")
@@ -295,7 +431,9 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     _write_json(_run_file(a.name), st)
     tail = _tail(log)
     msg = f"rc={rc} after {st['wall_s']} s; log {log}" + ("" if rc == 0 else f"\n{tail}")
-    alert(a.name, kind, msg, str(run_dir), a.tag)
+    checkin(alert(a.name, kind, msg, str(run_dir), a.tag))
+    for th in threads:  # the terminal event's check-in finishes before the supervisor exits
+        th.join(CHECKIN_TIMEOUT_S + 30)
     return 0 if rc == 0 else 1
 
 
@@ -310,6 +448,20 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
         return 3
     run_dir = Path(a.dir).resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
+    # the check-in consumer, resolved + self-tested BEFORE the fork so the
+    # coverage line can say whether anyone will answer the alerts
+    mode = checkin_mode(a.checkin)
+    checkin_note = mode
+    if mode == "claude" and not a.no_selftest:
+        ok, detail, secs = claude_selftest()
+        if ok:
+            checkin_note = f"claude (self-test OK, {secs} s)"
+        else:
+            mode = "none"
+            checkin_note = f"NONE — claude -p failed the self-test: {detail}"
+            alert(a.name, "checkin_unavailable", f"claude -p self-test failed: {detail} — no LLM check-in "
+                  f"will run for this launch; the queue + sinks are the coverage", str(run_dir), a.tag)
+    a.checkin_resolved = mode
     if a.foreground:
         return supervise(a, cmd)
     # double fork: the supervisor outlives the launching shell / app
@@ -343,7 +495,9 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
     stall_s = a.stall_sec if a.stall_sec is not None else a.stall_min * 60
     print(
         f"[runs] LAUNCHED {a.name}: state {_run_file(a.name)} ({st.get('state', '?')}, pid {st.get('pid')}), "
-        f"log {st.get('log')}, stall alarm {stall_s // 60} min on {run_dir}, sinks {'+'.join(sinks)}"
+        f"log {st.get('log')}, stall alarm {stall_s // 60} min on {run_dir}"
+        + (f" + {' '.join(a.watch)}" if a.watch else "") + f", sinks {'+'.join(sinks)}, "
+        f"check-in {checkin_note}"
         + (f"; note: {st['note']}" if st.get("note") else ""),
         flush=True,
     )
@@ -418,6 +572,73 @@ def ack(a: argparse.Namespace) -> int:
     return 0
 
 
+def sweep(a: argparse.Namespace) -> int:
+    """Runs whose supervisor died (reboot, OOM, kill -9) never alert
+    themselves: mark them gone, alert, check in. Idempotent; a timer's job."""
+    n = 0
+    for p in (state_dir() / "runs").glob("*.json"):
+        try:
+            r = json.loads(p.read_text())
+        except json.JSONDecodeError:
+            continue
+        if r.get("state") not in ("running", "stalled") or _alive(r.get("supervisor_pid")):
+            continue
+        r.update(state="gone", ended=_now())
+        _write_json(p, r)
+        log = Path(r["log"]) if r.get("log") else None
+        tail = _tail(log) if log and log.exists() else "(no log)"
+        rec = alert(r["name"], "gone", f"supervisor pid {r.get('supervisor_pid')} is dead (reboot / OOM / kill); "
+                    f"the run's last log lines:\n{tail}", r.get("dir"), r.get("tag", "anvil"))
+        if (r.get("checkin") or checkin_mode(None)) == "claude":
+            llm_checkin(rec, r)
+        n += 1
+    print(f"swept {n} gone run(s)")
+    return 0
+
+
+SWEEP_SERVICE = """[Unit]
+Description=anvil.runs sweep — mark runs whose supervisor died, alert, check in (ADR-0107)
+
+[Service]
+Type=oneshot
+WorkingDirectory={cwd}
+{env}ExecStart={python} -m anvil.runs sweep
+"""
+SWEEP_TIMER = """[Unit]
+Description=anvil.runs sweep every 10 min
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+"""
+
+
+def install_sweep(a: argparse.Namespace) -> int:
+    """A systemd user timer for `sweep` (Linux); elsewhere print the cron line.
+    Survives what the supervisor cannot: its own OOM kill, a reboot (with
+    `loginctl enable-linger $USER` it runs before anyone logs in)."""
+    py = sys.executable
+    cwd = os.getcwd()
+    if not shutil.which("systemctl") or sys.platform != "linux":
+        print(f"no systemd here; add to crontab: */10 * * * * cd {cwd} && {py} -m anvil.runs sweep")
+        return 0
+    unit_dir = Path.home() / ".config/systemd/user"
+    unit_dir.mkdir(parents=True, exist_ok=True)
+    env = f"Environment=ANVIL_STATE_DIR={os.environ['ANVIL_STATE_DIR']}\n" if os.environ.get("ANVIL_STATE_DIR") else ""
+    (unit_dir / "anvil-runs-sweep.service").write_text(SWEEP_SERVICE.format(cwd=cwd, python=py, env=env))
+    (unit_dir / "anvil-runs-sweep.timer").write_text(SWEEP_TIMER)
+    for c in (["systemctl", "--user", "daemon-reload"],
+              ["systemctl", "--user", "enable", "--now", "anvil-runs-sweep.timer"]):
+        subprocess.run(c, check=False)
+    print(f"installed {unit_dir / 'anvil-runs-sweep.timer'} (every 10 min; WorkingDirectory {cwd}); "
+          f"for runs across a reboot without a login: loginctl enable-linger {os.environ.get('USER', '$USER')}")
+    return 0
+
+
 def prune(a: argparse.Namespace) -> int:
     cutoff = time.time() - a.days * 86400
     n = 0
@@ -454,6 +675,12 @@ def main(argv: list[str] | None = None) -> int:
     la.add_argument("--memory-max", default=None, help="e.g. 20G: a systemd-run --user scope where available")
     la.add_argument("--tag", default="anvil")
     la.add_argument("--foreground", action="store_true", help="supervise in this process (tests, chains)")
+    la.add_argument("--checkin", default=None, choices=["auto", "claude", "none"],
+                    help="the LLM check-in on failed / stalled / gone / long done (auto = claude when the CLI "
+                         "is on PATH; $ANVIL_CHECKIN overrides)")
+    la.add_argument("--no-selftest", action="store_true", help="skip the launch-time claude -p self-test")
+    la.add_argument("--watch", action="append", default=None, metavar="GLOB",
+                    help="extra artifact roots for the stall tick (a glob; repeatable), e.g. 'data/runs/b4post-*'")
     st = sub.add_parser("status")
     st.add_argument("--json", action="store_true")
     wa = sub.add_parser("wait")
@@ -468,9 +695,12 @@ def main(argv: list[str] | None = None) -> int:
     ac.add_argument("--id", nargs="*")
     pr = sub.add_parser("prune")
     pr.add_argument("--days", type=int, default=30)
+    sub.add_parser("sweep")
+    sub.add_parser("install-sweep")
     a = ap.parse_args(argv)
     return {"launch": lambda: launch(a, cmd), "status": lambda: status(a), "wait": lambda: wait(a),
-            "alerts": lambda: alerts(a), "ack": lambda: ack(a), "prune": lambda: prune(a)}[a.verb]()
+            "alerts": lambda: alerts(a), "ack": lambda: ack(a), "prune": lambda: prune(a),
+            "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a)}[a.verb]()
 
 
 if __name__ == "__main__":

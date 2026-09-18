@@ -1572,3 +1572,9 @@ moves verbatim to the status archive and this section stays here as the record.*
   calls/game. Served build of record → `m12-build4-e1a`. Banked: the searched arms' 14% mainline
   veto rate vs 4.5% alone (first look at the loop wiring). Next: the loop wiring (Build 4½
   pre-work) → route (b) → the documentation pass → the shakedown (the allocation arm included).
+- **2026-09-18 — run hygiene ([ADR-0107](../decisions/ADR-0107-run-launcher-and-checkin.md) addendum):
+  the overnight read went unread 8.5 h (the check-in task off since 09-16, no session wait, the
+  CLI's login silently expired) → the supervisor now runs its own event-driven `claude -p`
+  check-in (failed / stalled / gone / long done), a launch self-test in the coverage line,
+  `--watch` roots for chains whose arms write elsewhere, `sweep` for dead supervisors; verified
+  end to end (15 s: push + the supervising session messaged + acked). The scheduled task retired.

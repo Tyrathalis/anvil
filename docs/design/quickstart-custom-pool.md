@@ -192,7 +192,7 @@ into `<dir>/run.log`, runs it at low priority, records the run's state as it goe
 line naming what it armed:
 
 ```
-[runs] LAUNCHED pauper-loop: state ~/.local/state/anvil/runs/pauper-loop.json (running, pid 41213), log .../run.log, stall alarm 60 min on data/training/pauper-loop, sinks queue+desk
+[runs] LAUNCHED pauper-loop: state ~/.local/state/anvil/runs/pauper-loop.json (running, pid 41213), log .../run.log, stall alarm 60 min on data/training/pauper-loop, sinks queue+desk, check-in claude (self-test OK, 3 s)
 ```
 
 While it runs, the launcher's supervisor watches the run's own directory: no new file for
@@ -216,10 +216,23 @@ executable that takes `<title> <message>`; with [ntfy](https://ntfy.sh) that is 
 curl -s -H "Title: $1" -d "$2" https://ntfy.sh/<your-topic> > /dev/null
 ```
 
-If you drive Anvil from Claude Code, [docs/ops/run-checkin.md](../ops/run-checkin.md) is a
-read-only scheduled-task prompt that drains the queue to your phone and to the session doing the
-work. `--memory-max 20G` caps the child through `systemd-run` on Linux and is ignored with a
-note elsewhere. `STOP` files still work: the driver exits cleanly and the launcher records `done`.
+**The LLM check-in.** With the Claude Code CLI installed and logged in (`claude login`), the
+launcher's supervisor answers its own alerts: on `failed`, `stalled`, `gone` and a `done` after
+more than an hour it runs a short headless `claude -p` session (read-only tools) that pushes one
+notification to your phone, messages any Claude Code session on the machine whose title mentions
+Anvil, and acks the alert. The launch runs a three-second self-test first and says so in the
+coverage line (`check-in claude (self-test OK, 3 s)`); if the CLI is missing or its login has
+expired the line says `check-in NONE — ...` and an alert records it, so you know at launch that
+nobody will answer. `--checkin none` turns it off; `--watch 'data/runs/<name>-*'` adds artifact
+roots to the stall check for a chain whose arms write outside its own dir.
+
+If the machine reboots or the supervisor itself is killed, the run's state says `running` with a
+dead pid; `uv run python -m anvil.runs sweep` marks it `gone`, alerts and checks in, and
+`uv run python -m anvil.runs install-sweep` puts that on a systemd user timer every ten minutes
+(a cron line elsewhere). [docs/ops/run-checkin.md](../ops/run-checkin.md) keeps the read-only
+prompt as a fallback for a machine with the desktop app but no CLI. `--memory-max 20G` caps the
+child through `systemd-run` on Linux and is ignored with a note elsewhere. `STOP` files still
+work: the driver exits cleanly and the launcher records `done`.
 
 ## 8. Read the result
 

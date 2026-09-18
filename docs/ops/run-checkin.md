@@ -1,7 +1,11 @@
 # The run check-in (ADR-0107) — the scheduled task's prompt
 
-**Doc status:** operational — the prompt installed as the desktop app's scheduled task
-`anvil-run-checkin` (every 30 min while the app is open). Read-only by design: it reports, it
+**Doc status:** FALLBACK since 09-18 (ADR-0107 addendum) — the launcher's supervisor now runs this
+check-in itself as an event-driven headless `claude -p` session on failed / stalled / gone / long
+done (`anvil.runs launch --checkin auto`, a self-test at launch, `anvil.runs sweep` on a timer for
+dead supervisors). The scheduled task `anvil-run-checkin` is retired (left disabled); this prompt
+stays for a machine with the desktop app but no authenticated CLI. Originally: the prompt installed
+as the desktop app's scheduled task `anvil-run-checkin` (every 30 min while the app is open). Read-only by design: it reports, it
 never fixes. **Enabled only while runs are in flight** (user, 09-15): the session that launches a
 run enables the routine and names its state in the launch message next to the launcher's coverage
 line; the session that sees the last run land disables it. The app owns that switch (the sidebar,
