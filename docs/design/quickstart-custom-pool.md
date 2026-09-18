@@ -29,6 +29,11 @@ what you use).
 | ~30 GB of disk | the fork, the Qwen3 embedding model (~8 GB), stores and checkpoints |
 | A display, or `Xvfb` (Linux) | Forge initialises AWT before the CLI dispatches; with no `DISPLAY` the JVM exits 1 silently. The harness defaults `DISPLAY=:0`; on a headless Linux box run `Xvfb :0 &` first. macOS has a display; leave `DISPLAY` unset there |
 
+Optional, for unattended runs: the [Claude Code CLI](https://claude.com/claude-code) installed and
+logged in (`claude login`). With it on the path, the run launcher (§7½) answers its own alerts by
+running a short read-only headless session that pushes to your phone and messages the Claude Code
+session doing the work. Without it, the alert queue and a desktop toast are the coverage.
+
 ## 1. Build the Forge fork
 
 Anvil runs on a fork of Forge with the bridge, the observation recorder and the search
