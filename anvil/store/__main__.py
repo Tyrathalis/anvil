@@ -3,6 +3,7 @@
 ingest <run-dir> [--dest DIR] [--pool-version V] [--verify]
 status <store-dir>
 validate <store-dir> [--limit N]   # CastPlan label sanity gate (M1 D2)
+search-rows <run-dir> [--dest DIR]  # backfill search.jsonl into an existing store (M12 Build 4½)
 """
 
 from __future__ import annotations
@@ -10,7 +11,13 @@ from __future__ import annotations
 import argparse
 import sys
 
-from anvil.store.trajectories import TrajectoryStore, ingest, status
+from anvil.store.trajectories import (
+    TRAJECTORIES_DIR,
+    TrajectoryStore,
+    ingest,
+    ingest_search_rows,
+    status,
+)
 
 
 def main() -> None:
@@ -37,8 +44,18 @@ def main() -> None:
     p_val.add_argument("store_dir")
     p_val.add_argument("--limit", type=int, default=None, help="only the first N games")
 
+    p_sr = sub.add_parser("search-rows", help="backfill the search directive's rows into an ingested store")
+    p_sr.add_argument("run_dir")
+    p_sr.add_argument("--dest", default=None, help="the store dir (default data/trajectories/<run name>)")
+
     a = ap.parse_args()
-    if a.verb == "ingest":
+    if a.verb == "search-rows":
+        from pathlib import Path
+
+        dest = a.dest or (TRAJECTORIES_DIR / Path(a.run_dir).name)
+        n = ingest_search_rows(a.run_dir, dest)
+        print(f"[search-rows] {n} rows -> {dest}/search.jsonl")
+    elif a.verb == "ingest":
         ingest(a.run_dir, a.dest, a.pool_version, a.verify, forks=a.forks)
     elif a.verb == "validate":
         from anvil.store.castplan import validate

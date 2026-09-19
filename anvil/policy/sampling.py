@@ -35,6 +35,15 @@ _TASK_HEADS = {
 }
 
 
+def sampled_tasks() -> frozenset:
+    """The tasks the behavior policy samples (a mu record per answer). Every
+    other served task — the mulligan tuck, the Build 3 surfaces — is served
+    greedy even on a sampled server and writes no record: they are not
+    factors of the composite action (M12 Build 4½, ADR-0113: the sampled
+    server had not run since those tags landed and raised on them)."""
+    return frozenset(_TASK_HEADS)
+
+
 def noise_seed(game_seed: int, dec_seq: int) -> int:
     """Per-decision noise key, same keyed-stream shape as game_seed()."""
     return splitmix64((game_seed + (dec_seq + 1) * GOLDEN) & MASK)

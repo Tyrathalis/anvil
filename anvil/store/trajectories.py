@@ -157,6 +157,32 @@ class TrajectoryStore:
                     self._mu.setdefault(r["g"], {})[r["s"]] = r
         return None if self._mu is None else self._mu.get(g, {})
 
+    def search_rows_for_game(self, g: int) -> list[dict]:
+        """The search directive's rows for game g (M12 Build 4½, the loop
+        wiring): `ev: search` rows in `sw` order plus the `ev: alloc` skip
+        rows, keyed by the game's seed (the harness's game index `i` is
+        chunk-relative on re-issue; the seed is the game). Empty when the
+        store carries no search.jsonl (a run without the search directive
+        or one ingested before the loop wiring — `anvil.store search-rows`
+        backfills). Lazy whole-file load, like mu."""
+        if not hasattr(self, "_search"):
+            self._search: dict[int, list[dict]] | None = None
+            path = self.root / "search.jsonl"
+            if path.exists():
+                self._search = {}
+                with open(path) as fh:
+                    for line in fh:
+                        if not line.strip():
+                            continue
+                        r = json.loads(line)
+                        self._search.setdefault(int(r["seed"]), []).append(r)
+                for rows in self._search.values():
+                    rows.sort(key=lambda r: (int(r.get("sw", 0)), int(r.get("seat", 0))))
+        if not self._search:
+            return []
+        seed = self._by_game.get(g, {}).get("seed")
+        return list(self._search.get(int(seed), [])) if seed is not None else []
+
     def __len__(self) -> int:
         return len(self.index)
 
@@ -240,6 +266,9 @@ class MultiStore:
 
     def mu_for_game(self, g: int) -> dict[int, dict] | None:
         return self._store_of[g].mu_for_game(g)
+
+    def search_rows_for_game(self, g: int) -> list[dict]:
+        return self._store_of[g].search_rows_for_game(g)
 
     def games(self, skip_undecodable: bool = False) -> Iterator[GameTrajectory]:
         for g in self.game_indices():
@@ -436,6 +465,7 @@ def ingest(
             for key in sorted(label_rows):
                 f.write(json.dumps(label_rows[key]) + "\n")
         print(f"[ingest] {len(label_rows)} rollout-label records -> labels.jsonl")
+    ingest_search_rows(run_dir, dest)
 
     labels_check = None
     if forks and label_rows:
@@ -588,6 +618,39 @@ def ingest(
         f"({ratio:.1f}x, {total_clen / max(len(index_entries), 1) / 1e3:.0f} KB/game)"
     )
     return dest
+
+
+def ingest_search_rows(run_dir: Path | str, dest: Path | str) -> int:
+    """M12 Build 4½ (the loop wiring): the search directive's per-window rows
+    (`ev: search`, and the allocation head's `ev: alloc` skip rows) from the
+    run's workers/*/labels.jsonl into the store's search.jsonl, keyed
+    (seed, seat, sw, ev), first record wins on chunk re-issue (the frame
+    rule). The rows carry no fork point, so the rollout-label merge above
+    skips them; the RL loader joins them to the priority decs by seed +
+    (t, ph, seat) + option labels. Returns the row count (0 = no file)."""
+    run_dir, dest = Path(run_dir), Path(dest)
+    rows: dict[tuple, dict] = {}
+    for f_ in sorted(run_dir.glob("workers/inv-*/labels.jsonl")):
+        with open(f_) as fh:
+            for line in fh:
+                if '"ev":"search"' not in line and '"ev":"alloc"' not in line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if r.get("ev") not in ("search", "alloc") or "seed" not in r:
+                    continue
+                rows.setdefault((int(r["seed"]), int(r.get("seat", 0)), int(r.get("sw", 0)), r["ev"]), r)
+    if not rows:
+        return 0
+    dest.mkdir(parents=True, exist_ok=True)
+    with open(dest / "search.jsonl", "w") as f:
+        for key in sorted(rows):
+            f.write(json.dumps(rows[key]) + "\n")
+    n_s = sum(1 for k in rows if k[3] == "search")
+    print(f"[ingest] {n_s} search rows + {len(rows) - n_s} alloc rows -> search.jsonl")
+    return len(rows)
 
 
 def status(root: Path | str) -> None:

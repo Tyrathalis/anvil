@@ -249,8 +249,14 @@ def history_tokens(
                 d.get("_retpos") is not None and d["_retpos"] < now_pos
             )
             ret = d.get("ret") if ret_arrived else None
-            if isinstance(ret, list) and ret and isinstance(ret[0], dict):
-                host = ret[0].get("e", -1)
+            # Obs.retHostId, mirrored (09-18): the answer, or a list's first
+            # element, is a card {"e": id} or an ability {"e": host, ...};
+            # a SINGLE-entity answer is a bare dict (the served entity
+            # surfaces), which the list-only rule read as -1 against the
+            # engine's back-filled host
+            first = ret[0] if isinstance(ret, list) and ret else ret
+            if isinstance(first, dict):
+                host = first.get("e", -1)
         out.append({"m": d.get("m", "?"), "self": 1 if actor == perspective else 0, "e": host})
     return out
 

@@ -363,8 +363,91 @@ def batch_chunk(games: int, workers: int, chunk: int) -> int:
     return max(1, min(chunk, games // (4 * workers)))
 
 
+def search_bar(a) -> float:
+    """The recipe's acting bar (-searchact) — the trainer's allocation label
+    threshold; --search-bar overrides, 0.10 when the recipe names none."""
+    if getattr(a, "search_bar", None):
+        return float(a.search_bar)
+    toks = (getattr(a, "search_recipe", "") or "").split()
+    for i, t in enumerate(toks):
+        if t == "-searchact" and i + 1 < len(toks):
+            try:
+                return float(toks[i + 1])
+            except ValueError:
+                break
+    return 0.10
+
+
+def alloc_tau_of(ckpt: str) -> "float | None":
+    """The serving ckpt's allocation tau (its alloc_fit record; the loop
+    re-derives it per iteration in rl.py) — None = no record = the head is
+    unserved and the worker searches at the uniform rate."""
+    try:
+        import torch
+
+        rec = torch.load(ckpt, map_location="cpu", weights_only=False).get("config", {}).get("alloc_fit") or {}
+    except Exception as e:  # noqa: BLE001
+        print(f"[selfplay] alloc_fit read failed on {ckpt}: {e}")
+        return None
+    tau = rec.get("tau")
+    return float(tau) if tau is not None else None
+
+
+def ckpt_carries(ckpt: str) -> dict:
+    """Which serve-side carries the server will ACTIVATE for this checkpoint
+    (its own rule: the params' presence — server.ModelBackend carry_plan /
+    carry_sched). The loader must reconstruct every carry the server
+    injects, or the recorded behavior log-probabilities are not the
+    network's (09-18: the M10 schedule carry on an M12 build, 2.3% of
+    priority windows off > 0.2 nats, the tripwire dropping trajectories)."""
+    try:
+        import torch
+
+        keys = torch.load(ckpt, map_location="cpu", weights_only=False)["model"].keys()
+    except Exception as e:  # noqa: BLE001
+        print(f"[selfplay] carry probe failed on {ckpt}: {e}")
+        return {"sched": False, "plan": False}
+    return {
+        "sched": any(k.startswith(("sched_", "assemble.sched_")) for k in keys),
+        "plan": any(k.startswith(("plan_", "assemble.plan_proj")) for k in keys),
+    }
+
+
+def sched_carry_flags(a, ckpt: str) -> list[str]:
+    """The trainer flags that reconstruct the schedule carry WITHOUT training
+    the M10 surface: --sched-carry auto (the default) probes the serving
+    ckpt; on forces it; off = nothing. Carry only: the aux term at frac 0,
+    the surface's params frozen (lr 0), no PG pay mask. A run with --sched
+    (the M10 recipe) already reconstructs it and needs none of this."""
+    mode = getattr(a, "sched_carry", "auto")
+    if getattr(a, "sched", False) or mode == "off":
+        return []
+    if mode == "on" or ckpt_carries(ckpt)["sched"]:
+        return ["--sched", "--sched-frac", "0", "--sched-lr", "0", "--sched-proj-lr", "0"]
+    return []
+
+
+def search_forge_args(a, ckpt: "str | None" = None) -> list[str]:
+    """M12 Build 4½ (ADR-0113): the generation workers' verbatim AnvilRun
+    flags — the recipe (--search-recipe) plus, under --search-alloc head,
+    the allocation head's tau from the SERVING ckpt's record with the
+    floor. [] = the pre-wiring loop (no search directive). One derivation
+    for generation and the with-lookahead arms, so both play the run's
+    behavior policy."""
+    recipe = (getattr(a, "search_recipe", "") or "").split()
+    if not recipe:
+        return []
+    out = list(recipe)
+    if getattr(a, "search_alloc", "head") == "head" and ckpt:
+        tau = alloc_tau_of(ckpt)
+        if tau is not None:
+            out += ["-searchalloc", f"{tau:.5f}", "-searchfloor", str(getattr(a, "search_floor", 0.1))]
+    return out
+
+
 def _launch_games(
-    purpose: str, games: int, start_index: int, a, bridge_seats: "int | None" = None
+    purpose: str, games: int, start_index: int, a, bridge_seats: "int | None" = None,
+    forge_args: "list[str] | None" = None,
 ) -> Path:
     before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
     cmd = [
@@ -402,6 +485,13 @@ def _launch_games(
         cmd += ["--bridge-seats", str(bridge_seats)]
     if getattr(a, "reask", False):
         cmd.append("--reask")
+    if forge_args:
+        # M12 Build 4½: the search directive on the generation workers — the
+        # rows the trainer joins (--labels: per-worker labels.jsonl, the
+        # store's search.jsonl at ingest)
+        cmd += ["--forge-args", " ".join(forge_args), "--labels"]
+    if getattr(a, "jar", None):
+        cmd += ["--jar", str(a.jar)]
     _run(cmd)
     new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
     if len(new) != 1:
@@ -807,6 +897,8 @@ def guard_flags(
     paylab_calib_raw: float | None = None,
     follow_share_max: float | None = None,
     follow_calib_raw: float | None = None,
+    distill_share_max: float | None = None,
+    alloc_share_max: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -825,6 +917,11 @@ def guard_flags(
     kl = m.get("kl_mu")
     if kl is not None and kl > kl_max:
         flags.append(f"guard: kl_mu {kl} > {kl_max}")
+    # M12 Build 4½: the search-row terms' shares (the plan-share twin)
+    for name, mx in (("distill", distill_share_max), ("alloc", alloc_share_max)):
+        v = med.get(f"{name}_share", m.get(f"{name}_share"))
+        if mx is not None and v is not None and v > mx:
+            flags.append(f"guard: {name}_share {v} > {mx}")
     ss = med.get("seq_share", m.get("seq_share"))
     if seq_share_max is not None and ss is not None and ss > seq_share_max:
         # d6-run14: the seq term's share of PG mass is the ADR-0054
@@ -965,6 +1062,15 @@ def _rl_summary(train_dir: Path) -> dict:
         "follow_raw",
         "follow_share",
         "follow_raw_step",
+        # M12 Build 4½: the search-row terms + the acted-window series
+        "acted_frac",
+        "acted_rho",
+        "acted_kl",
+        "distill_raw",
+        "distill_share",
+        "alloc_raw",
+        "alloc_pos",
+        "alloc_share",
     ):
         vals = [r[k] for r in rows if k in r]
         if vals:
@@ -999,6 +1105,8 @@ def _rl_summary(train_dir: Path) -> dict:
         "seedlab_share",
         "sched_ce",
         "seedlab_raw",
+        "distill_share",
+        "alloc_share",
     ):
         vals = sorted(r[k] for r in rows if k in r)
         if vals:
@@ -1295,6 +1403,54 @@ def main() -> None:
     ap.add_argument("--guard-follow-share", type=float, default=0.15,
                     help="halt if the iteration-MEDIAN follow_share exceeds "
                     "this (3x the 0.05 target)")
+    # ---- M12 Build 4½ (ADR-0113): the loop runs the search — the recipe
+    # on the generation workers, the trainer's search-row terms, the
+    # allocation head regenerated per cycle, a with-lookahead arm ----
+    ap.add_argument("--search-recipe", default="",
+                    help="verbatim AnvilRun flags for the generation workers (the search "
+                    "directive's recipe, e.g. '-search -searchrate 1 -searchrolls 2 -searchsurf 2 "
+                    "-searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds "
+                    "entity_one,entity_set,mode'); '' = the pre-wiring loop")
+    ap.add_argument("--search-alloc", choices=["off", "head"], default="head",
+                    help="with a recipe: append -searchalloc <the serving ckpt's tau> -searchfloor "
+                    "<--search-floor> (a ckpt without an alloc_fit record searches at the uniform "
+                    "rate); off = the uniform rate")
+    ap.add_argument("--search-floor", type=float, default=0.1,
+                    help="the uniform floor under the allocation head (the worker's -searchfloor; "
+                    "its windows are the tau re-derivation's unbiased sample)")
+    ap.add_argument("--search-bar", type=float, default=None,
+                    help="the acting bar for the trainer's allocation label (default: the recipe's "
+                    "-searchact, else 0.10)")
+    ap.add_argument("--distill-frac", type=float, default=0.05,
+                    help="target share of PG mass for the pick-distillation CE on the acted "
+                    "windows (rl.py --distill-frac; 0 = off)")
+    ap.add_argument("--distill-carry-w", action="store_true",
+                    help="carry iteration-0's w_distill for the whole run (the --plan-carry-w twin)")
+    ap.add_argument("--guard-distill-share", type=float, default=0.15,
+                    help="halt if the iteration-MEDIAN distill_share exceeds this (3x the 0.05 target)")
+    ap.add_argument("--alloc-frac", type=float, default=0.02,
+                    help="target share of PG mass for the allocation head's BCE on the searched "
+                    "windows (rl.py --alloc-frac; 0 = the head does not train)")
+    ap.add_argument("--alloc-carry-w", action="store_true",
+                    help="carry iteration-0's w_alloc for the whole run")
+    ap.add_argument("--guard-alloc-share", type=float, default=0.06,
+                    help="halt if the iteration-MEDIAN alloc_share exceeds this (3x the 0.02 target)")
+    ap.add_argument("--alloc-recall", type=float, default=0.9,
+                    help="the tau re-derivation's recall target (rl.py --alloc-recall)")
+    ap.add_argument("--search-calib-steps", type=int, default=50,
+                    help="optimizer steps over which w_distill / w_alloc calibrate (rl.py "
+                    "--distill-calib-steps / --alloc-calib-steps); a smoke below 50 steps "
+                    "never applies the terms at the default")
+    ap.add_argument("--arms-lookahead", choices=["on", "off"], default="on",
+                    help="with a recipe: a second mid-run arm under the recipe (the network-alone "
+                    "vs with-lookahead gap, the plateau-together tripline) beside the argmax arm")
+    ap.add_argument("--jar", default=None,
+                    help="the run's pinned Forge jar for every harness launch (default: the "
+                    "newest under the fork's target/)")
+    ap.add_argument("--sched-carry", choices=["auto", "on", "off"], default="auto",
+                    help="reconstruct the serve-side M10 schedule carry in the trainer when the "
+                    "serving ckpt carries its params (the server injects it on every window); "
+                    "carry only — no aux term, the surface's params frozen. auto = probe the ckpt")
     ap.add_argument(
         "--lab-k", type=int, default=0,
         help="ADR-0088: apply the fixed pay/seed label batches one k-window "
@@ -1694,10 +1850,14 @@ def main() -> None:
                     servers=fleet_size(args),
                 )
                 try:
+                    fa = search_forge_args(args, state["ckpt"])
+                    if fa:
+                        print(f"[selfplay] iteration {k}: search forge args {' '.join(fa)}")
                     for j, (bp, n, off, seats) in enumerate(batches):
                         if run_dirs[j] is None:
                             run_dirs[j] = _launch_games(
-                                bp, n, state["start_index"] + off, args, bridge_seats=seats
+                                bp, n, state["start_index"] + off, args, bridge_seats=seats,
+                                forge_args=fa,
                             )
                 finally:
                     _stop_server(server)
@@ -1900,7 +2060,7 @@ def main() -> None:
                             ),
                         ]
                         if args.sched
-                        else []
+                        else sched_carry_flags(args, state["ckpt"])
                     ),
                     # M10 R5: the supervised conditional pay labels (the pay
                     # head's only signal under the PG mask)
@@ -1943,6 +2103,24 @@ def main() -> None:
                             ),
                         ]
                         if args.seed_labels
+                        else []
+                    ),
+                    # M12 Build 4½ (ADR-0113): the search-row terms — only
+                    # when the generation ran the search directive
+                    *(
+                        [
+                            "--search",
+                            "--search-bar", str(search_bar(args)),
+                            "--alloc-recall", str(args.alloc_recall),
+                            "--alloc-floor", str(args.search_floor),
+                            "--distill-calib-steps", str(args.search_calib_steps),
+                            "--alloc-calib-steps", str(args.search_calib_steps),
+                            *(["--distill-w", str(state["distill_w"])] if state.get("distill_w")
+                              else ["--distill-frac", str(args.distill_frac)]),
+                            *(["--alloc-w", str(state["alloc_w"])] if state.get("alloc_w")
+                              else ["--alloc-frac", str(args.alloc_frac)]),
+                        ]
+                        if args.search_recipe
                         else []
                     ),
                     # ADR-0088 fixed-batch mechanics (subsample + warmup)
@@ -2071,12 +2249,24 @@ def main() -> None:
             follow_calib_raw=(
                 _calib_raw("follow", "follow_raw_at_calib") if args.follow_frac > 0 else None
             ),
+            distill_share_max=args.guard_distill_share if args.search_recipe and args.distill_frac else None,
+            alloc_share_max=args.guard_alloc_share if args.search_recipe and args.alloc_frac else None,
         )
+        search_row = None
+        if args.search_recipe:
+            sj = train_dir / "search_join.json"
+            search_row = {
+                "forge_args": search_forge_args(args, state["ckpt"]),
+                "carry": sched_carry_flags(args, state["ckpt"]),
+                **(json.loads(sj.read_text()) if sj.exists() else {}),
+                "served_tau": alloc_tau_of(str(new_ckpt)),
+            }
         row = {
             "iteration": k,
             "ckpt": state["ckpt"],
             "run": [str(rd) for rd in run_dirs],
             "store": group,
+            **({"search": search_row} if search_row else {}),
             "gen_s": round(t_gen),
             "campaign_s": round(walls["campaign"]),
             "train_s": round(t_train),
@@ -2202,6 +2392,11 @@ def main() -> None:
         if args.seq_carry_w and seq_runs and "seq_w" not in state and cal_path.exists():
             state["seq_w"] = json.loads(cal_path.read_text())["w_seq"]
             print(f"[selfplay] w_seq calibrated at run start: {state['seq_w']:.6g} (carried)")
+        for name, carry in (("distill", args.distill_carry_w), ("alloc", args.alloc_carry_w)):
+            cal = train_dir / f"{name}_calibration.json"
+            if carry and args.search_recipe and f"{name}_w" not in state and cal.exists():
+                state[f"{name}_w"] = json.loads(cal.read_text())[f"w_{name}"]
+                print(f"[selfplay] w_{name} calibrated at run start: {state[f'{name}_w']:.6g} (carried)")
         pcal_path = train_dir / "plan_calibration.json"
         if args.plan_carry_w and args.plan and "plan_w" not in state and pcal_path.exists():
             state["plan_w"] = json.loads(pcal_path.read_text())["w_plan"]
@@ -2273,9 +2468,13 @@ def main() -> None:
                 sched_flags=sched_flags(args), device=args.device, autocast=not args.no_autocast,
                 servers=fleet_size(args),
             )
+            la_dirs = []
+            arm_fa = search_forge_args(args, state["ckpt"]) if args.arms_lookahead == "on" else []
             try:
-                for seat in (0, 1):
-                    ap_purpose = f"{args.name}-arm-i{k:03d}-s{seat}"
+                for seat, la in ((0, False), (1, False), (0, True), (1, True)):
+                    if la and not arm_fa:
+                        continue
+                    ap_purpose = f"{args.name}-arm{'la' if la else ''}-i{k:03d}-s{seat}"
                     before = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*")))
                     arm_cmd = [
                         sys.executable,
@@ -2303,9 +2502,16 @@ def main() -> None:
                     ]
                     if args.reask:
                         arm_cmd.append("--reask")
+                    if la:
+                        # M12 Build 4½: the with-lookahead arm — the same
+                        # ckpt under the run's search recipe (the network-
+                        # alone vs with-lookahead gap, read mid-run)
+                        arm_cmd += ["--forge-args", " ".join(arm_fa), "--labels"]
+                    if args.jar:
+                        arm_cmd += ["--jar", str(args.jar)]
                     _run(arm_cmd)
                     new = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*"))) - before
-                    arm_dirs.append(new.pop())
+                    (la_dirs if la else arm_dirs).append(new.pop())
             finally:
                 _stop_server(server)
             _run(
@@ -2314,6 +2520,7 @@ def main() -> None:
                     "scripts/arms_report.py",
                     "--arm",
                     f"iter{k:03d}={','.join(arm_dirs)}",
+                    *(["--arm", f"iter{k:03d}la={','.join(la_dirs)}"] if la_dirs else []),
                     "--out",
                     str(it_dir / "arms-report.json"),
                 ]

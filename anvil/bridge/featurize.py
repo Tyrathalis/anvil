@@ -97,14 +97,20 @@ def store_wire_hist(prior: list[dict], now_pos: int, k: int = HISTORY_K) -> list
     for d in prior[-k:]:
         ret = d.get("ret")
         host = -1
+        # Obs.retHostId, mirrored: the answer (a list's first element) is a
+        # card or a spell ability -> its (host) id, anything else -1. In the
+        # store a card is {"e": id} and an ability {"e": host, "sa": ...}; a
+        # SINGLE-entity answer is a bare dict (chooseSingleCardForZoneChange,
+        # chooseSingleEntityForEffect — the served entity surfaces), which
+        # the list-only rule read as -1 (09-18: 5.9% of priority windows
+        # rebuilt with a wrong history, 2.3% recomputing > 0.2 nats off)
+        first = ret[0] if isinstance(ret, list) and ret else ret
         if (
-            isinstance(ret, list)
-            and ret
-            and isinstance(ret[0], dict)
+            isinstance(first, dict)
             and d.get("_retpos") is not None
             and d["_retpos"] < now_pos
         ):
-            host = ret[0].get("e", -1)
+            host = first.get("e", -1)
         out.append({"m": d.get("m", "?"), "p": d.get("p", -1), "e": host})
     return out
 

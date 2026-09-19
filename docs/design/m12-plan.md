@@ -1578,3 +1578,25 @@ moves verbatim to the status archive and this section stays here as the record.*
   check-in (failed / stalled / gone / long done), a launch self-test in the coverage line,
   `--watch` roots for chains whose arms write elsewhere, `sweep` for dead supervisors; verified
   end to end (15 s: push + the supervising session messaged + acked). The scheduled task retired.
+- **2026-09-18 (session 2) — THE LOOP WIRING ([ADR-0113](../decisions/ADR-0113-m12-loop-wiring.md);
+  Build 4½ pre-work).** The review's four facts (an acted window writes two records — the natural
+  ask marked realized though never played, the forced re-ask with the pass masked; the row carries
+  the pick, its logp, the distribution, the margin, the class; V-trace's clipped ratio scales an
+  acted window's PG down by ≈ the policy's own probability of the pick; the store dropped the rows)
+  → six decisions (user: the recommendations): MERGE for the acted-window record; the pick-
+  distillation CE on acted windows only; the alloc head's BCE on every searched window with tau
+  re-derived per cycle (weighted to the population — the floor's windows alone are not unbiased);
+  the guards + tripwire on un-acted windows; the recipe + the serving ckpt's tau + a with-lookahead
+  mid-run arm; a two-iteration smoke. Built: `search_join.py`, the loader + learner in `rl.py`, the
+  store's `search.jsonl`, the driver's `--search-recipe` family, `--jar`, `--arms-lookahead`,
+  `--sched-carry`. The join on `b4-tgtlab`: 20,304 rows 100%, 1,511/1,511 acted rows paired.
+  **Two pre-existing breaks of the SAMPLED serve path** (unrun since Build 3): the fleet batcher's
+  all-or-none noise (every acted pick voided, a third of alloc asks unserved) → one forward per
+  noise group + greedy serving of tag tasks without a sampled head; the M10 schedule carry the
+  server injects for every M12 build, never reconstructed by a loop launched without `--sched`
+  (2.3% of priority windows > 0.2 nats off, 0/4,096 with the carry) → the driver probes the ckpt;
+  the wire history's single-entity host (5.9% of windows) → mirrored on `Obs.retHostId`.
+  **`loopwire-smoke3` clean:** join 100% (2,690 rows; 376 act + 47 pass merged), tripwire 0, the
+  terms at shares 0.046 / 0.020, tau 0.369 → 0.217 → 0.068 at weighted recall 0.90 across the two cycles (the searched share
+  stable 0.61 → 0.56), both arms 48/48 with 0 crashes (lookahead veto 12.4% vs 5.4%), 0 server errors. Tests 348.
+  Next: route (b) → the documentation pass (4¾) → the shakedown through `selfplay.py`.

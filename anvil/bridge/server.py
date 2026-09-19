@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
 import signal
@@ -57,6 +58,9 @@ VALUE_TAG = "anvil.value"
 # checkpoint carrying an alloc_fit record (else declined: the worker searches
 # at its uniform rate, by=unserved)
 ALLOC_TAG = "anvil.alloc"
+# a parity diagnostic (09-18): ANVIL_WIRE_DUMP=<path> appends every ask's raw
+# wire observation + header as one JSON line (off unless set)
+_WIRE_DUMP = open(os.environ["ANVIL_WIRE_DUMP"], "a", buffering=1) if os.environ.get("ANVIL_WIRE_DUMP") else None
 
 
 def is_search_session(game_id: str) -> bool:
@@ -166,6 +170,44 @@ class _Batcher:
             raise slot["err"]
         return slot["out"]
 
+    def _forward_group(self, slots: list, collate, pad_noise) -> None:
+        """One act() over `slots` (all sampled or all greedy); each slot gets
+        its per-item view. An exception marks every slot of the group."""
+        import contextlib
+
+        try:
+            batch = {k: v.to(self.device) for k, v in collate([s["ex"] for s in slots]).items()}
+            pd = self.torch.tensor(
+                [[s["pd"]] for s in slots], device=self.device, dtype=self.torch.float32
+            )
+            nz = (
+                pad_noise([s["nz"] for s in slots], batch, self.device)
+                if slots[0]["nz"] is not None
+                else None
+            )
+            amp = (
+                self.torch.autocast(self.device, dtype=self.torch.bfloat16)
+                if self.autocast
+                else contextlib.nullcontext()
+            )
+            with amp:
+                out = self.net.act(
+                    batch,
+                    pass_delta=pd,
+                    noise=nz,
+                    temperature=self.temperature,
+                    sched_decode=self.sched_decode,
+                )
+            for i, s in enumerate(slots):
+                # per-item views keep the batch dim; scalars are shared
+                # (n_ent/stop_idx are batch-padded dims by construction)
+                s["out"] = {
+                    k: (v[i : i + 1] if self.torch.is_tensor(v) else v) for k, v in out.items()
+                }
+        except Exception as e:
+            for s in slots:
+                s["err"] = e
+
     def _loop(self) -> None:
         from anvil.policy.sampling import pad_noise
         from anvil.training.dataset import collate
@@ -190,40 +232,24 @@ class _Batcher:
                 self._batches += 1
                 self._depth_max = max(self._depth_max, self.q.qsize())
             try:
-                batch = {k: v.to(self.device) for k, v in collate([s["ex"] for s in slots]).items()}
-                pd = self.torch.tensor(
-                    [[s["pd"]] for s in slots], device=self.device, dtype=self.torch.float32
-                )
-                # sampling is server-wide: slots carry noise all-or-none
-                nz = (
-                    pad_noise([s["nz"] for s in slots], batch, self.device)
-                    if slots[0]["nz"] is not None
-                    else None
-                )
-                import contextlib
-
-                amp = (
-                    self.torch.autocast(self.device, dtype=self.torch.bfloat16)
-                    if self.autocast
-                    else contextlib.nullcontext()
-                )
-                with amp:
-                    out = self.net.act(
-                        batch,
-                        pass_delta=pd,
-                        noise=nz,
-                        temperature=self.temperature,
-                        sched_decode=self.sched_decode,
-                    )
-                for i, s in enumerate(slots):
-                    # per-item views keep the batch dim; scalars are shared
-                    # (n_ent/stop_idx are batch-padded dims by construction)
-                    s["out"] = {
-                        k: (v[i : i + 1] if self.torch.is_tensor(v) else v) for k, v in out.items()
-                    }
+                # M12 Build 4½ (ADR-0113): a sampled server's queue MIXES
+                # sampled mainline asks with greedy ones (the search copies,
+                # the value / allocation wire, the tuck and surface tags), so
+                # noise is per group, not per batch — one forward per group
+                # (the old all-or-none rule ran a whole batch greedy off its
+                # first slot, or padded over a None, and every sampled answer
+                # in it declined: the loop-wiring smoke's act_void class)
+                groups = [
+                    [s for s in slots if s["nz"] is not None],
+                    [s for s in slots if s["nz"] is None],
+                ]
+                for group in groups:
+                    if group:
+                        self._forward_group(group, collate, pad_noise)
             except Exception as e:
                 for s in slots:
-                    s["err"] = e
+                    if "out" not in s:
+                        s["err"] = e
             finally:
                 with self._stat_lock:
                     self._forward_s += time.monotonic() - now
@@ -347,6 +373,9 @@ class ModelBackend:
         # sampling mode (M2 D6): Gumbel-max instead of argmax, behavior-policy
         # record per answered decision -> mu.jsonl, joined at ingest on (g, s)
         self.sample = sample
+        from anvil.policy.sampling import sampled_tasks
+
+        self.sampled_tasks = sampled_tasks()
         self.temperature = temperature
         # evening 4 (ADR-0105): the payment margin bar (log-prob units; None = off)
         self.pay_bar = pay_bar
@@ -506,6 +535,11 @@ class ModelBackend:
         if task is None or not req.observation or header is None:
             return None
         dec = json.loads(req.observation)
+        if _WIRE_DUMP is not None:
+            # ANVIL_WIRE_DUMP=<path>: the raw wire observation + header per
+            # ask (a parity diagnostic: diff against the store's dec)
+            _WIRE_DUMP.write(json.dumps({"tag": req.decision_tag, "seq": req.decision_seq, "g": header.get("g"),
+                                         "dec": dec, "header": header}) + "\n")
         if req.retry_of:
             # Re-ask after a realizer veto (d6-vtrace-loop §6b). Telemetry
             # only: the re-asked dec carries a fresh s and reduced opts, so
@@ -534,7 +568,13 @@ class ModelBackend:
         noise = None
         if greedy:
             self.counts["greedy"] += 1
-        if self.sample and not greedy:
+        # M12 Build 4½ (ADR-0113): a task without a sampled head (the tuck,
+        # the surfaces) is served greedy on a sampled server and writes no
+        # mu record — it is not a factor of the composite action
+        sampled = self.sample and not greedy and task in self.sampled_tasks
+        if self.sample and not greedy and not sampled:
+            self.counts["greedy_task"] += 1
+        if sampled:
             if wire_fork and not self.instrument:
                 # A wire-only fork header (g=-1): every completion would share
                 # (g, s) mu keys AND the parent's noise seed. Sampled drill
@@ -600,7 +640,7 @@ class ModelBackend:
                             "choice": int(out["choice"][0]),
                             "n_cands": len(aux["cand_first_opt"]),
                         }) + "\n")
-        if self.sample and not wire_fork and not greedy:
+        if sampled and not wire_fork:
             self._write_mu(header["g"], dec, task, ex, aux, out, sched=sched_row)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
         if task == "priority":
@@ -863,6 +903,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         self.drill_requests = 0
         self.requests_by_tag: Counter[str] = Counter()
         self.fallbacks: Counter[str] = Counter()
+        self._err_traces: dict[str, int] = {}
         self.games = 0
         self.t0 = time.monotonic()
 
@@ -1007,6 +1048,15 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             resp = backend.answer(req, header, game_seed, greedy=greedy)
         except Exception as e:  # loud decline; a silent wrong answer poisons the arm
             print(f"[server] MODEL ERROR on {req.decision_tag} seq={req.decision_seq}: {e!r}")
+            n_tr = self._err_traces.get(req.decision_tag, 0)
+            if n_tr < 3:
+                # the first few per tag carry their traceback (09-18: the
+                # loop-wiring smoke's declines were undiagnosable from the
+                # one-line record)
+                import traceback
+
+                self._err_traces[req.decision_tag] = n_tr + 1
+                traceback.print_exc()
             resp = None
         if resp is None:
             self.fallbacks[req.decision_tag] += 1

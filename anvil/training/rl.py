@@ -19,11 +19,26 @@ composite_logp(fwd, batch) therefore serves three jobs with one body:
 from __future__ import annotations
 
 import contextlib
+import json
+import time
+from collections import Counter
+from pathlib import Path
 
 import torch
 import torch.nn.functional as F
 
 from anvil.training.dataset import TASKS, collate, default_methods
+from anvil.training.search_join import (
+    FORCED_BY,
+    acted_override,
+    alloc_fields,
+    cand_of_options,
+    chain_between,
+    derive_tau,
+    forced_after,
+    match_rows,
+    natural_before,
+)
 
 # bf16 autocast around every forward; --no-autocast clears it (a device
 # without a bf16 path — the Mac users' mps / cpu train step, community
@@ -425,7 +440,8 @@ def _plan_annotate(traj, by_seat: dict, feat) -> None:
 
 def game_trajectories(
     store, feat, g: int, full_vis: bool = False, penalty_grouping: str = "first",
-    plan: bool = False, sched: bool = False,
+    plan: bool = False, sched: bool = False, search: dict | None = None,
+    counts: Counter | None = None,
 ):
     """Per-seat mu-covered trajectories of one stored game, serve-identical
     windows via the featurizer path (store_wire_hist -> Featurizer.example ->
@@ -451,10 +467,50 @@ def game_trajectories(
         return [], f"status:{status}"
     winner = store.winner_seat(g)
     traj = store.game(g)
+    # M12 Build 4½ (the loop wiring, search_join): the search directive's
+    # rows joined to this game's priority decs. An acted window's TWO decs
+    # (the natural ask + the forced re-ask) merge into one training window
+    # under the search's behavior distribution; the forced dec is never a
+    # window of its own. `counts` (caller-owned) takes the join census.
+    row_at: dict[int, tuple[dict, dict]] = {}
+    forced_of: dict[int, int] = {}
+    skip_idx: set[int] = set()
+    sc = counts if counts is not None else Counter()
+    if search:
+        srows = store.search_rows_for_game(g) if hasattr(store, "search_rows_for_game") else []
+        if srows:
+            matched, mc = match_rows(traj.decisions, srows)
+            sc.update(mc)
+            for i, r, o2d in matched:
+                row_at[i] = (r, o2d)
+                if r.get("applied") not in ("act", "act_void"):
+                    continue
+                f = forced_after(traj.decisions, i, r.get("act"))
+                if f is not None:
+                    forced_of[i] = f
+                    skip_idx.add(f)
+                    ch = chain_between(traj.decisions, i, f)
+                    skip_idx.update(ch)  # the natural line's re-ask attempts
+                    sc["acted_chain_dropped"] += len(ch)
+        for i, d in enumerate(traj.decisions):
+            if d.get("by") == FORCED_BY and i not in skip_idx:
+                skip_idx.add(i)  # a forced re-ask without its natural: never a window
+                sc["forced_orphan"] += 1
+                # its natural ask was ACTED (the forced dec proves it) and has
+                # no row to rewrite its mu — never train it under the policy's
+                # own record; drop it too
+                nb = natural_before(traj.decisions, i)
+                if nb is not None and nb not in row_at:
+                    ch = [nb] + chain_between(traj.decisions, nb, i)
+                    skip_idx.update(ch)
+                    sc["acted_unrowed_dropped"] += len(ch)
     by_seat: dict[int, list] = {}
     prior = []
-    for dec in traj.decisions:
+    for idx, dec in enumerate(traj.decisions):
         rec = mu.get(dec["s"])
+        if search and idx in skip_idx:
+            prior.append(dec)  # stays in the wire history (serve parity)
+            continue
         if rec is not None and dec.get("obs") is not None:
             wire = dict(dec)
             if "hist" not in dec:
@@ -463,6 +519,23 @@ def game_trajectories(
             # verbatim — the first windows' history includes parent-game
             # entries a reconstruction from this frame could never see
             ex, aux = feat.example(wire, traj.header, rec["task"])
+            srow = None
+            if search and idx in row_at and rec.get("task") == "priority":
+                srow, o2d = row_at[idx]
+                fi = forced_of.get(idx)
+                frec = mu.get(traj.decisions[fi]["s"]) if fi is not None else None
+                if frec is not None and (traj.decisions[fi].get("obs") or {}).get("ents") != dec["obs"].get("ents"):
+                    # the forced ask's entity rows must be the natural
+                    # ask's for its target indices to transfer
+                    frec = None
+                    sc["act_ents_mismatch"] += 1
+                rec2, cls = acted_override(srow, rec, o2d, cand_of_options(dec, aux), frec)
+                sc[f"class_{cls}"] += 1
+                if rec2 is None:
+                    sc["window_dropped"] += 1
+                    prior.append(dec)
+                    continue
+                rec = rec2
             if not mu_matches(ex, rec):
                 return [], "mu_mismatch"
             rej = rejected_events(
@@ -472,6 +545,19 @@ def game_trajectories(
             ex_fv = (
                 feat.example(wire, traj.header, rec["task"], full_vis=True)[0] if full_vis else None
             )
+            if search:
+                # loader-private marks -> the segs' side tensors: the acted
+                # windows (mu = the search's; the tripwire / KL guard skip
+                # them, the pick-distillation CE reads their label), the
+                # allocation label + the unbiased-sample flag on every
+                # searched window
+                ex["_acted"] = bool(rec.get("acted"))
+                ex["_search_mu"] = bool(rec.get("search_mu"))  # the mu is the search's (incl. act_void / natural_sampled)
+                if srow is not None:
+                    lab, wgt = alloc_fields(srow, float(search.get("bar", 0.10)), float(search.get("floor", 0.1)))
+                    ex["_alloc_valid"], ex["_alloc_label"], ex["_alloc_weight"] = True, lab, wgt
+                else:
+                    ex["_alloc_valid"], ex["_alloc_label"], ex["_alloc_weight"] = False, 0, 0.0
             if plan:
                 ex["_plan_turn"] = dec.get("t", 0)
                 ex["_plan_axes"] = _plan_axes(dec["obs"], dec["p"])
@@ -609,6 +695,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         penalty_grouping: str = "first",
         plan: bool = False,
         sched: bool = False,
+        search: dict | None = None,
     ):
         self.stores = stores
         self.weights = weights
@@ -620,6 +707,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         self.penalty_grouping = penalty_grouping
         self.plan = plan
         self.sched = sched
+        self.search = search  # M12 Build 4½: {"bar": the acting bar} or None
         # Collate WORKER-SIDE at exactly the learner's seg size (2026-07-26).
         # Yielding per-window example dicts shipped ~20 tensors x hundreds of
         # windows x2 (masked + fv) through the DataLoader's shm+pickle path for
@@ -657,6 +745,7 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                 # deltas (found at the R2 integration smoke: --workers > 0
                 # left the learner-side dict empty)
                 snap = dict(SCHED_COUNTERS) if self.sched else None
+                search_counts: Counter | None = Counter() if self.search else None
                 trajs, skip = game_trajectories(
                     opened[si],
                     feat,
@@ -665,9 +754,11 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                     penalty_grouping=self.penalty_grouping,
                     plan=self.plan,
                     sched=self.sched,
+                    search=self.search,
+                    counts=search_counts,
                 )
                 if skip is not None:
-                    yield {"skip": skip, "g": g}
+                    yield {"skip": skip, "g": g, **({"search_counts": dict(search_counts)} if search_counts else {})}
                     continue
                 st = opened[si]
                 if hasattr(st, "_store_of"):
@@ -753,11 +844,36 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                             s["sched_e_valid"] = e_valid
                             s["sched_r_tgt"] = r_tgt
                             s["sched_r_valid"] = r_valid
+                    alloc_exs: list = []
+                    if self.search:
+                        # side tensors per seg (the sched pattern); the
+                        # unbiased searched windows ride beside as plain
+                        # examples for the post-epoch tau derivation
+                        for s, i in zip(segs, range(0, len(plain), n)):
+                            chunk = plain[i : i + n]
+                            s["acted"] = torch.tensor([bool(e.get("_acted")) for e in chunk])
+                            s["search_mu"] = torch.tensor([bool(e.get("_search_mu")) for e in chunk])
+                            s["alloc_valid"] = torch.tensor([bool(e.get("_alloc_valid")) for e in chunk])
+                            s["alloc_label"] = torch.tensor(
+                                [float(e.get("_alloc_label", 0)) for e in chunk], dtype=torch.float32
+                            )
+                        for e in plain:
+                            if e.get("_alloc_valid"):
+                                alloc_exs.append(
+                                    ({k: v for k, v in e.items() if torch.is_tensor(v)},
+                                     int(e.get("_alloc_label", 0)), float(e.get("_alloc_weight", 1.0)))
+                                )
                     yield {
                         "g": g,
                         "seat": seat,
                         "reward": reward,
                         "t_len": len(plain),
+                        **(
+                            {"search_counts": dict(search_counts)}
+                            if search_counts is not None and seat == min(s for s, *_ in trajs)
+                            else {}
+                        ),
+                        **({"alloc_exs": alloc_exs} if self.search else {}),
                         # per-game accounting delta rides the FIRST seat's
                         # item only (two seats per game — no double count)
                         **(
@@ -776,6 +892,69 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                         "rej": torch.tensor(rej, dtype=torch.float32),
                         "mu_logp": torch.tensor([r["logp"] for _, r in exs], dtype=torch.float32),
                     }
+
+
+class AuxShare:
+    """ADR-0057 discipline for a per-trajectory aux term, in one object (the
+    w_seq / w_plan / w_sched pattern): measured over the first `calib_steps`
+    optimizer steps, then w = frac * mean|PG per trajectory| / mean raw,
+    frozen and written to <name>_calibration.json; an explicit `w` skips
+    calibration (the driver carries iteration-0's value). The live share
+    w * raw / |PG| is the calibration identity, measured per log window."""
+
+    def __init__(self, name: str, frac: float, w: float, calib_steps: int, out_dir: Path):
+        self.name, self.frac, self.calib_steps, self.out_dir = name, frac, calib_steps, out_dir
+        self.w: float | None = w if w else (None if frac else 0.0)
+        self.calib_raw = self.calib_pg = 0.0
+        self.calib_traj = self.calib_steps_seen = 0
+        self.share_raw = self.share_pg = 0.0
+        self.share_traj = 0
+
+    @property
+    def active(self) -> bool:
+        return bool(self.w)
+
+    def observe(self, raw: float, pg: float) -> None:
+        if self.w is None:
+            self.calib_raw += abs(raw)
+            self.calib_pg += abs(pg)
+            self.calib_traj += 1
+        else:
+            self.share_raw += abs(raw)
+            self.share_pg += abs(pg)
+            self.share_traj += 1
+
+    def on_step(self) -> None:
+        if self.w is not None or not self.calib_traj:
+            return
+        self.calib_steps_seen += 1
+        if self.calib_steps_seen < self.calib_steps:
+            return
+        mean_pg = self.calib_pg / max(self.calib_traj, 1)
+        raw = self.calib_raw / max(self.calib_traj, 1)
+        self.w = self.frac * mean_pg / max(raw, 1e-4)
+        cal = {
+            f"w_{self.name}": self.w,
+            f"{self.name}_frac": self.frac,
+            "mean_abs_pg_per_traj": mean_pg,
+            f"{self.name}_raw_at_calib": raw,
+            "calib_steps": self.calib_steps_seen,
+            "calib_traj": self.calib_traj,
+        }
+        (self.out_dir / f"{self.name}_calibration.json").write_text(json.dumps(cal, indent=1) + "\n")
+        print(f"[rl] w_{self.name} calibrated: {cal}")
+
+    def window(self) -> dict:
+        row = {}
+        if self.w is not None:
+            row[f"w_{self.name}"] = round(self.w, 6)
+        if self.w and self.share_traj and self.share_pg > 0:
+            row[f"{self.name}_share"] = round(
+                self.w * (self.share_raw / self.share_traj) / (self.share_pg / self.share_traj), 5
+            )
+        self.share_raw = self.share_pg = 0.0
+        self.share_traj = 0
+        return row
 
 
 @torch.no_grad()
@@ -889,9 +1068,6 @@ def make_forward_segments(dev: str, seg: int):
 
 def main() -> None:
     import argparse
-    import json
-    import time
-    from pathlib import Path
 
     from anvil.training.train import build_net
 
@@ -1190,6 +1366,44 @@ def main() -> None:
         "guard still rejects the ckpt — this just stops wasting steps "
         "and leaves a cleaner state.",
     )
+    # ---- M12 Build 4½ (ADR-0113): the loop wiring — the search's rows in
+    # the trainer. --search turns on the acted-window merge (the loader),
+    # the un-acted KL / tripwire basis, the pick-distillation CE on the
+    # acted windows, the allocation head's BCE on the searched windows and
+    # the post-epoch tau derivation on the unbiased sample ----
+    ap.add_argument(
+        "--search",
+        action="store_true",
+        help="M12 Build 4½: the stores carry the search directive's rows "
+        "(search.jsonl, ingested from the run's labels) — join them, merge "
+        "the acted windows under the search's behavior distribution, train "
+        "the search-row terms. Off = byte-identical to the pre-wiring loop.",
+    )
+    ap.add_argument("--search-bar", type=float, default=0.10,
+                    help="the recipe's acting bar (the allocation label = margin >= bar)")
+    ap.add_argument("--search-join-min", type=float, default=0.99,
+                    help="abort the phase when the search rows' match rate falls below this "
+                    "(the join-reports-its-match-rate rule, ADR-0111)")
+    ap.add_argument("--distill-frac", type=float, default=0.0,
+                    help="target share of PG loss magnitude for the pick-distillation CE on "
+                    "the acted (realized) windows (w_distill calibrated over "
+                    "--distill-calib-steps; 0 = off)")
+    ap.add_argument("--distill-w", type=float, default=0.0, help="explicit w_distill (skips calibration)")
+    ap.add_argument("--distill-calib-steps", type=int, default=50)
+    ap.add_argument("--alloc-frac", type=float, default=0.0,
+                    help="target share of PG loss magnitude for the allocation head's BCE on "
+                    "every searched window (0 = the head does not train)")
+    ap.add_argument("--alloc-w", type=float, default=0.0, help="explicit w_alloc (skips calibration)")
+    ap.add_argument("--alloc-calib-steps", type=int, default=50)
+    ap.add_argument("--alloc-recall", type=float, default=0.9,
+                    help="the tau re-derivation's recall target on the unbiased sample "
+                    "(the floor's windows; every searched window under the uniform rate)")
+    ap.add_argument("--alloc-floor", type=float, default=0.1,
+                    help="the serve-side floor recorded with the tau (the worker's -searchfloor)")
+    ap.add_argument("--alloc-min-pos", type=int, default=20,
+                    help="fewer positives than this in the unbiased sample keeps the previous tau")
+    ap.add_argument("--alloc-sample-cap", type=int, default=4000,
+                    help="reservoir cap on the unbiased windows kept for the tau pass")
     ap.add_argument(
         "--seq-aux-weight",
         type=float,
@@ -1357,6 +1571,14 @@ def main() -> None:
                 "seq_margin",
                 "seq_aux_weight",
                 "kl_abort",
+                "search",
+                "search_bar",
+                "distill_frac",
+                "distill_w",
+                "alloc_frac",
+                "alloc_w",
+                "alloc_recall",
+                "alloc_floor",
             )
         },
         "init_step": ckpt.get("step"),
@@ -1376,6 +1598,7 @@ def main() -> None:
         penalty_grouping=args.penalty_grouping,
         plan=args.plan,
         sched=args.sched,
+        search={"bar": args.search_bar, "floor": args.alloc_floor} if args.search else None,
     )
     loader = torch.utils.data.DataLoader(
         ds,
@@ -1593,6 +1816,14 @@ def main() -> None:
     sched_share_raw = sched_share_pg = 0.0
     sched_share_traj = 0
     kl_aborted = False
+    # M12 Build 4½: the search-row terms + the join census + the unbiased
+    # windows for the tau pass (a seeded reservoir)
+    distill = AuxShare("distill", args.distill_frac, args.distill_w, args.distill_calib_steps, out_dir) if args.search else None
+    alloc = AuxShare("alloc", args.alloc_frac, args.alloc_w, args.alloc_calib_steps, out_dir) if args.search else None
+    search_counts: Counter = Counter()
+    alloc_pool: list = []
+    alloc_seen = 0
+    alloc_rng = __import__("random").Random(args.seed)
 
     # step continues from the init checkpoint: monotonic across the whole
     # BC->RL chain, so mu meta "step" uniquely names the generating ckpt
@@ -1636,6 +1867,16 @@ def main() -> None:
 
     opt.zero_grad(set_to_none=True)
     for item in timed_loader(loader):
+        if item.get("search_counts"):
+            search_counts.update(item["search_counts"])
+        for ex_a, lab_a, w_a in item.get("alloc_exs") or []:
+            alloc_seen += 1
+            if len(alloc_pool) < args.alloc_sample_cap:
+                alloc_pool.append((ex_a, lab_a, w_a))
+            else:
+                j = alloc_rng.randrange(alloc_seen)
+                if j < args.alloc_sample_cap:
+                    alloc_pool[j] = (ex_a, lab_a, w_a)
         if "skip" in item:
             skips[item["skip"]] = skips.get(item["skip"], 0) + 1
             continue
@@ -1683,6 +1924,19 @@ def main() -> None:
                 f"{len(values)} != masked {len(logp_pi)} — loader misalignment"
             )
 
+        # M12 Build 4½: the acted windows' mu is the search's, not the
+        # network's — the tripwire and the KL guard read the un-acted rest
+        acted = (
+            torch.cat([seg["acted"] for seg in segs]) if args.search
+            else torch.zeros(len(logp_pi), dtype=torch.bool)
+        )
+        # any window whose mu is the search's (acted, an acted pass, an
+        # act_void, a sampled natural) leaves the tripwire / KL basis
+        search_mu = (
+            torch.cat([seg["search_mu"] for seg in segs]) if args.search
+            else torch.zeros(len(logp_pi), dtype=torch.bool)
+        )
+
         # ---- mu recompute tripwire (sampled): serve/loader drift detector ----
         if n_traj % args.tripwire_every == 1 and item.get("mu_step") == ref_ckpt.get("step"):
             head = segs[:1]  # the first pre-collated segment
@@ -1698,7 +1952,7 @@ def main() -> None:
             lp_ref = composite_logp(fwd, seg, temperature=float(item.get("mu_tau", 1.0)))[
                 "logp"
             ].cpu()
-            bad = (lp_ref - mu_logp[:n_head]).abs() > args.tripwire_tol
+            bad = ((lp_ref - mu_logp[:n_head]).abs() > args.tripwire_tol) & ~search_mu[:n_head]
             if bad.any():
                 tripwire_viol += int(bad.sum())
                 print(
@@ -1727,11 +1981,14 @@ def main() -> None:
         traj_pg = 0.0
         traj_plan = 0.0
         traj_sched = 0.0
+        traj_distill = 0.0
+        traj_alloc = 0.0
         for seg, fwd in forward_segments(net, segs, grad=True):
             b = seg["label"].shape[0]
             adv = pg_adv[off : off + b].to(dev)
             tgt = vs[off : off + b].clamp(0.0, 1.0).to(dev)
-            lp = composite_logp(fwd, seg)["logp"]
+            comp = composite_logp(fwd, seg)
+            lp = comp["logp"]
             ent = composite_entropy(fwd, seg)
             if args.pay_pg_mask:
                 # M10 PG staged mask (m10-build-spec §4, route 1): payment
@@ -1824,6 +2081,29 @@ def main() -> None:
                     traj_sched += float(sched_term.detach())
                     acc["sched_e"] = acc.get("sched_e", 0.0) + float(e_l.detach())
                     acc["sched_r"] = acc.get("sched_r", 0.0) + float(r_l.detach())
+            # ---- M12 Build 4½ search-row terms (ADR-0113): the pick-
+            # distillation CE on the acted windows (their label IS the
+            # search's realized pick after the merge — realized through the
+            # model's own CastPlan, so the ADR-0111 over-generalization
+            # class is excluded by construction) and the allocation head's
+            # BCE on every searched window (label: margin >= the bar).
+            # Both measured during calibration, applied after. ----
+            distill_term = None
+            alloc_term = None
+            if args.search:
+                dmask = seg["acted"]
+                if dmask.any():
+                    distill_term = -(comp["choice"][dmask]).mean()
+                    traj_distill += float(distill_term.detach())
+                    acc["distill_raw"] = acc.get("distill_raw", 0.0) + float(distill_term.detach())
+                amask = seg["alloc_valid"]
+                if amask.any():
+                    alloc_term = F.binary_cross_entropy_with_logits(
+                        fwd["alloc"][amask].float(), seg["alloc_label"][amask], reduction="mean"
+                    )
+                    traj_alloc += float(alloc_term.detach())
+                    acc["alloc_raw"] = acc.get("alloc_raw", 0.0) + float(alloc_term.detach())
+                    acc["alloc_pos"] = acc.get("alloc_pos", 0.0) + float(seg["alloc_label"][amask].mean())
             loss = (
                 pg_loss + args.value_weight * v_loss + args.ent_weight * ent_pen
             ) / args.traj_per_step
@@ -1831,6 +2111,10 @@ def main() -> None:
                 loss = loss + w_plan * plan_term / args.traj_per_step
             if sched_term is not None and w_sched:
                 loss = loss + w_sched * sched_term / args.traj_per_step
+            if distill_term is not None and distill is not None and distill.active:
+                loss = loss + distill.w * distill_term / args.traj_per_step
+            if alloc_term is not None and alloc is not None and alloc.active:
+                loss = loss + alloc.w * alloc_term / args.traj_per_step
             loss.backward()
             acc["pg"] = acc.get("pg", 0.0) + float(pg_loss)
             traj_pg += float(pg_loss)
@@ -1841,7 +2125,19 @@ def main() -> None:
         tphase = tick("fwd_bwd", tphase)
         acc["rho_mean"] = acc.get("rho_mean", 0.0) + float(rho.mean())
         acc["rho_clip"] = acc.get("rho_clip", 0.0) + float((rho >= args.rho_bar).float().mean())
-        acc["kl_mu"] = acc.get("kl_mu", 0.0) + float((mu_logp - logp_pi).mean())
+        if args.search:
+            un = ~search_mu
+            acc["kl_mu"] = acc.get("kl_mu", 0.0) + (
+                float((mu_logp - logp_pi)[un].mean()) if un.any() else 0.0
+            )
+            acc["acted_frac"] = acc.get("acted_frac", 0.0) + float(acted.float().mean())
+            if acted.any():
+                acc["acted_rho"] = acc.get("acted_rho", 0.0) + float(rho[acted].mean())
+                acc["acted_kl"] = acc.get("acted_kl", 0.0) + float((mu_logp - logp_pi)[acted].mean())
+            distill.observe(traj_distill, traj_pg)
+            alloc.observe(traj_alloc, traj_pg)
+        else:
+            acc["kl_mu"] = acc.get("kl_mu", 0.0) + float((mu_logp - logp_pi).mean())
         acc["reward"] = acc.get("reward", 0.0) + reward
         acc["v0"] = acc.get("v0", 0.0) + float(values[0])
         if v0_masked is not None:
@@ -1946,6 +2242,9 @@ def main() -> None:
                     acc["seq_aux"] = acc.get("seq_aux", 0.0) + aux_raw
                     share_seq += raw
                     share_steps += 1
+            if args.search:
+                distill.on_step()
+                alloc.on_step()
             if args.plan and w_plan is None and plan_calib_traj:
                 plan_calib_steps += 1
                 if plan_calib_steps >= args.plan_calib_steps:
@@ -2237,6 +2536,9 @@ def main() -> None:
                         if args.plan
                         else {}
                     ),
+                    **(distill.window() if distill is not None else {}),
+                    **(alloc.window() if alloc is not None else {}),
+                    **({"search_join": dict(search_counts)} if args.search else {}),
                     "skips": dict(skips),
                     "tripwire_viol": tripwire_viol,
                     "win_per_s": round(win_count / wall, 1),
@@ -2247,6 +2549,13 @@ def main() -> None:
                 }
                 metrics.write(json.dumps(row) + "\n")
                 print(f"[rl] {row}")
+                if args.search and search_counts.get("rows", 0) >= 500:
+                    rate = search_counts.get("row_matched", 0) / max(1, search_counts["rows"])
+                    if rate < args.search_join_min:
+                        raise RuntimeError(
+                            f"search join match rate {rate:.4f} < {args.search_join_min} "
+                            f"({dict(search_counts)}) — the join-reports-its-match-rate rule"
+                        )
                 if args.kl_abort > 0 and row.get("kl_mu", 0.0) > args.kl_abort:
                     kl_aborted = True
                     print(
@@ -2259,6 +2568,69 @@ def main() -> None:
                 save()
         if kl_aborted:
             break
+
+    if args.search:
+        # ---- the allocation head's tau, re-derived on the unbiased sample
+        # under the TRAINED head (a fixed tau on a moving head has no
+        # meaning); written into the ckpt's alloc_fit record = the server's
+        # serve condition. Too few positives keeps the previous record. ----
+        rows_n = search_counts.get("rows", 0)
+        rate = search_counts.get("row_matched", 0) / max(1, rows_n)
+        if rows_n == 0:
+            print("[rl] WARNING: --search set but no search rows joined (stores without search.jsonl?)")
+        elif rate < args.search_join_min:
+            raise RuntimeError(f"search join match rate {rate:.4f} < {args.search_join_min} ({dict(search_counts)})")
+        prev = rl_cfg.get("alloc_fit") or {}
+        ps, ys, ws = [], [], []
+        if alloc_pool:
+            net.eval()
+            for i in range(0, len(alloc_pool), 64):
+                chunk = alloc_pool[i : i + 64]
+                bt = collate([e for e, _, _ in chunk])
+                ((_, fwd),) = forward_segments(net, [bt], grad=False)
+                ps += torch.sigmoid(fwd["alloc"].float()).cpu().tolist()
+                ys += [y for _, y, _ in chunk]
+                ws += [w_ for _, _, w_ in chunk]
+            net.train()
+        tau_rec = derive_tau(ps, ys, args.alloc_recall, ws) if ps else {"n": 0, "n_pos": 0, "tau": None}
+        rec = {
+            "source": "loop",
+            "step": step,
+            "bar": args.search_bar,
+            "floor": args.alloc_floor,
+            "recall_pin": args.alloc_recall,
+            "searched_seen": alloc_seen,
+            "floor_weight": round(1.0 / args.alloc_floor, 3) if args.alloc_floor > 0 else None,
+            **{k: v for k, v in tau_rec.items() if k != "recall_pin"},
+            "prev_tau": prev.get("tau"),
+            "fitted_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        if ps and prev.get("tau") is not None:
+            sel = [pi >= prev["tau"] for pi in ps]
+            wpos = sum(w_ for y, w_ in zip(ys, ws) if y)
+            rec["recall_at_prev_tau"] = (
+                round(sum(w_ for s_, y, w_ in zip(sel, ys, ws) if s_ and y) / wpos, 4) if wpos else None
+            )
+        if tau_rec.get("n_pos", 0) < args.alloc_min_pos or tau_rec.get("tau") is None:
+            rec["kept"] = True
+            rec["tau"] = prev.get("tau")
+            if prev.get("tau") is None:
+                print(f"[rl] alloc tau: {tau_rec.get('n_pos', 0)} positives < {args.alloc_min_pos} and no previous "
+                      "record — the head stays unserved")
+                rl_cfg.pop("alloc_fit", None)
+            else:
+                print(f"[rl] alloc tau: {tau_rec.get('n_pos', 0)} positives < {args.alloc_min_pos} — "
+                      f"previous tau {prev['tau']} kept")
+                rl_cfg["alloc_fit"] = {**prev, "kept_at_step": step, "kept_reason": "min_pos",
+                                       "recall_at_prev_tau": rec.get("recall_at_prev_tau")}
+        else:
+            rec["kept"] = False
+            rl_cfg["alloc_fit"] = rec
+            print(f"[rl] alloc tau re-derived: {rec['tau']} at recall {args.alloc_recall} on {rec['n']} searched (weighted) "
+                  f"windows ({rec['n_pos']} positives; AUC {rec.get('auc')}; prev {prev.get('tau')} "
+                  f"-> recall {rec.get('recall_at_prev_tau')})")
+        (out_dir / "search_join.json").write_text(json.dumps(
+            {"counts": dict(search_counts), "match_rate": round(rate, 5), "alloc": rec}, indent=1) + "\n")
 
     save()
     _labs_early_dump(force=True)  # short runs: dump whatever was captured

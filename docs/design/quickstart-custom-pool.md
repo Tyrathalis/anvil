@@ -181,6 +181,21 @@ Checkpoints land in `data/training/<name>-loop/iter-NNN/train/last.pt`; the moni
 `monitor.jsonl` in the loop dir (reward, entropy, KL, veto rate per iteration). `STOP` in the loop
 dir exits cleanly after the current iteration.
 
+**Search as the behavior policy (M12, ADR-0113).** Add `--search-recipe "<AnvilRun flags>"` to
+run the search directive on the generation workers, e.g.
+`--search-recipe "-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"`.
+The driver then passes `--labels` to the harness, ingests the search rows into each store
+(`search.jsonl`), and the trainer joins them: an acted window trains under the search's
+distribution, the pick-distillation term (`--distill-frac`, 0.05) and the allocation head's term
+(`--alloc-frac`, 0.02) switch on, and the head's `-searchalloc` threshold is re-derived every
+iteration from the serving checkpoint (`--search-alloc head`, `--search-floor 0.1`; a checkpoint
+without a fit record searches at the uniform rate). `--arms-lookahead on` (the default with a
+recipe) adds a second mid-run arm under the recipe beside the argmax arm. `--jar <path>` pins one
+Forge jar for the whole run. Expect roughly 2.5× the wall per game of the plain loop at the recipe
+above with the head; `search_join.json` beside each iteration's checkpoint carries the join census
+and the re-derived threshold. `uv run python -m anvil.store search-rows <run-dir>` backfills the
+rows into a store ingested before this landed.
+
 ## 7½. Running the long steps unattended
 
 Steps 4, 7 and 8 take hours. Do not run them as foreground commands in a terminal you might

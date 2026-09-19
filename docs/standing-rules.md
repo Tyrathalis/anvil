@@ -432,3 +432,26 @@ silently delete.
   still join per window); no default rate is baked into the engine, and an unfitted head never
   allocates (the worker searches at its uniform rate, `by: unserved`)
   ([ADR-0112](decisions/ADR-0112-m12-build4-allocation-head-served.md)).
+- **An acted window's training record is the search's, merged from the engine's two records** —
+  the natural ask (the policy's sample, `ret` set though never played) and the forced re-ask
+  (`by: search`, the pass masked) become ONE window: the full option set, the choice = the acted
+  candidate, its behavior probability = the search's mass on it, the plan factors from the forced
+  record; the forced dec and the re-ask chain are dropped, and a window whose record cannot be
+  built is dropped, never trained under the policy's own mu (the pre-wiring loader mislabeled
+  every acted window) ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
+- **Drift guards and the mu tripwire read un-acted windows only** on a searched store — on acted
+  windows the policy and the behavior differ by design; the acted windows' fraction, ratio and KL
+  are their own telemetry series ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
+- **The allocation head's tau is re-derived every cycle on the searched windows weighted to
+  the population** (a floor window stands for 1 / floor rejected windows, a head window for
+  itself) under the trained head at the recall target, and written into the checkpoint's fit
+  record — a fixed tau on a moving head has no meaning; the floor's windows alone are NOT an
+  unbiased sample (the floor draws only among head-rejected windows, so the old tau's recall
+  reads 0 on them by construction) ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
+- **The trainer reconstructs every serve-side carry the server activates for the serving
+  checkpoint** — the server switches a carry on by the params' presence (the M10 schedule carry,
+  the D6 plan carry); a loop launched without the matching loader flag rebuilds different windows
+  than were served and the recorded behavior log-probabilities stop being the network's (09-18:
+  2.3% of priority windows > 0.2 nats off, the tripwire dropping trajectories). The driver probes
+  the checkpoint (`--sched-carry auto`); the sampled serve path is smoked whenever a serve tag or
+  carry lands ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md) addendum).
