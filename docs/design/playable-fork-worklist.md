@@ -1609,6 +1609,42 @@ shipping builds to other people's machines.
 > phone's 22:30:07) → install → "updated resource files … only changed
 > files will be fetched: N file(s) … plus a refreshed card archive" →
 > delta applied → restart.
+>
+> **Upstream sync PUBLISHED as v25 2026-09-19 (`a268560c22`, version
+> `2.0.15-SNAPSHOT-09.19`, desktop + Android together): `playable` merged
+> onto upstream master `db4304cc40` — 207 upstream commits since the v23
+> sync point `89806371a4d`; versionCode still 2.0.15.** Five conflict
+> files, every one an adjacent-addition pair (both sides kept):
+> `CSubmenuPreferences` (our tap-angle combo beside upstream's new
+> card-language combo — the two methods shared a closing brace, so the
+> mechanical both-sides resolution left ours unclosed; checkstyle caught it
+> because the mobile-dev jar build never compiles the desktop module),
+> `SettingsPage` (our peer-sleeve toggle beside upstream's card-language
+> settings), `ImageView` (our collection-browsing tints beside upstream's
+> pre-sized selection list), `FServerManager` (our reconnect-token method,
+> upstream's `volatile isHosting`), `zh-CN.properties` (upstream
+> retranslated shared keys; our fork-only keys kept). One compile
+> follow-up: upstream's foil-shader refactor (#11929) added a `drawFoil`
+> parameter to `Graphics.drawCardImage` on `Texture`; the unowned-card
+> placeholder path passes `false`. Desktop suite **875 green, 11 skipped**
+> — up from v23's 528 because upstream's #11830 fixed the powermock
+> configuration that silently skipped tests. Fork delta vs upstream is the
+> same 204 files before and after. Post-publish routine in full: published
+> jar sha256 = local and appears in the manifest; stamps match (`build.txt`
+> = the desktop jar's 15:05:24 UTC, Android uploaded first); the published
+> manifest parses through the shipped jar's own `DeltaManifest.parse` via
+> jshell (55,284 entries, version + commit correct, a space path and the
+> `wastetown..tmx` entry present); raw fetches at the manifest commit
+> hash-match for a new upstream card, a space-path adventure file and
+> `res/chronicle/rivals.txt`; `commits/playable.atom` 200s; the 09.05 APK
+> asset deleted, the 09.19 APK staged to Syncthing. Upstream surfaces new
+> in this build worth a look in play: the shader foil effect, the targeting
+> overlay rewrite, the "Play Mode / Game Format" home + lobby relabel with
+> the consolidated deck editors, CDN multi-language card images (a new
+> settings entry on both frontends), the online-lobby second-seat sleeve
+> fix (#11942, which our custom-sleeve path sits beside), and the server
+> URL dialog on mobile. **Still owed from v24:** the phone's first real
+> mobile-delta run — this is the build it happens on.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
