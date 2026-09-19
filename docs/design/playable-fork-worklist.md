@@ -1645,6 +1645,44 @@ shipping builds to other people's machines.
 > fix (#11942, which our custom-sleeve path sits beside), and the server
 > URL dialog on mobile. **Still owed from v24:** the phone's first real
 > mobile-delta run — this is the build it happens on.
+>
+> **v26 PUBLISHED 2026-09-19 same day (`8b8d7f95d6`, same version stamp
+> `2.0.15-SNAPSHOT-09.19`, desktop + Android): two fixes.** (1) **The v25
+> APK install loop (user report):** the two channels share one release and
+> one `build.txt`, and the publish routine deliberately leaves the desktop
+> jar's stamp there (uploaded last). The Android gate is strictly-newer on
+> the APK's *own* internal `build.txt` against the published one, so an APK
+> built minutes before the jar read as older on every boot and re-offered
+> itself after it was installed. (The v24 data-pack delta the user saw
+> worked because the res refresh keys on the APK's stamp against the
+> installed res stamp, not the published one.) Fix: **per-channel stamps** —
+> `build-android.sh` publishes the APK's stamp as `build-android.txt` and no
+> longer stages `build.txt` at all, and the Android gate reads
+> `build-android.txt` with `build.txt` as the fallback for a release without
+> one. Transition for a v25 phone: it still reads the shared stamp, sees v26
+> as newer, installs once, and the v26 code then compares against its own
+> channel — stable. (2) **The CI failure on v25's push (Java 21 job):**
+> `CardDbCardMockTestCase.testCardsAlwaysReturnedEvenIfCardArtPreferenceIs
+> TooStrict…` "expected [ATQ] but found [3ED]"; upstream's CI passes on the
+> same commit and the suite passed locally on Java 17 and 26, clean or not.
+> Order-dependent: `StaticData.instance()` is whichever database was
+> constructed last, `PaperCard` caches `ImageKeys.hasImage` per card, and
+> CardDb's edition pick prefers the first printing *with an image*. When an
+> AITest class had initialised FModel, a mock-based class built the shared
+> `CardDatabaseHelper` database, and a Chronicle test then walked the 1994
+> sets through `StaticData.instance()` = the helper's, Antiquities' Atog got
+> a real (false) image answer cached on the helper's cards; the CardDb
+> test's stub then said true only for the untouched Revised printing.
+> Reproduced with a `preserve-order` TestNG suite in that class order (107
+> tests, 1 failure), green after the fix (107/107): **Chronicle resolves
+> through `FModel.getMagicDb()`** in its five gui classes and two tests.
+> Upstream's #11830 unmasked it — the CardDb mock tests were silently
+> skipped in every earlier run of this fork's CI. Reproduction recipe (the
+> one that works): surefire cannot order classes and `-Dsurefire.suiteXmlFiles`
+> breaks the `-am` reactor, so `install -DskipTests`, `dependency:build-classpath`,
+> then run `org.testng.TestNG` directly on that classpath from the desktop
+> module with the root pom's `--add-opens`. Full desktop suite 875 green;
+> post-publish routine in full.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
