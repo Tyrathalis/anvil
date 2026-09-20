@@ -186,6 +186,8 @@ settings"). It is Build 4½ pre-work and is routed below by name.
 - Banked, not a verdict: both searched arms carry a mainline veto rate of 14% against the alone
   arm's 4.5% (the acting rule's forced picks re-asked by the executor) — a first look belongs to
   the loop-wiring session, where the search's behavior log-probability meets the mu record.
+  **Closed 09-19 ([ADR-0114](../decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md)): the 14% is the COPIES' forced asks in the arm's census (622K single-rung
+  asks on the act arm vs 58K on the on arm) — the void class, not a mainline number.**
 - Run hygiene: the launcher's stall tick watched the chain's own dir while the arms wrote
   elsewhere (two false STALLED alerts; a heartbeat file patched it live) → `anvil.runs launch
   --watch <dir>` routed; the GPU yield gate paused the act arm ≈ 3 h for a game on the GPU (by

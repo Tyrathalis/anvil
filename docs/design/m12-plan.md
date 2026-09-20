@@ -1600,3 +1600,28 @@ moves verbatim to the status archive and this section stays here as the record.*
   terms at shares 0.046 / 0.020, tau 0.369 → 0.217 → 0.068 at weighted recall 0.90 across the two cycles (the searched share
   stable 0.61 → 0.56), both arms 48/48 with 0 crashes (lookahead veto 12.4% vs 5.4%), 0 server errors. Tests 348.
   Next: route (b) → the documentation pass (4¾) → the shakedown through `selfplay.py`.
+- **2026-09-19 — ROUTE (b) RE-SCOPED ([ADR-0114](../decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md); user: the recommendations).**
+  The pre-build review found route (b)'s premise false on a network arm: a copy's seats inherit the
+  mainline's bridged tags, so the forced option on a copy is a single-option ask to the MODEL realized
+  by `CastPlanRealizer` — `heuristicRealize` fires only on the unbridged control arm and behind the off
+  veto fallback; on `b4-tgtlab` 88,395 of 90,955 void copies made exactly one forward call (the forced
+  ask). The leaf values ARE under the model's plan, the acted window's label is that plan (ADR-0113
+  decision 2 already relies on it), and there is no train/serve plan gap to distill across; the
+  re-warm's harm stands on the fallback read. ADR-0112's banked 14% "mainline" veto rate = the copies'
+  forced asks in the census (622K single-rung asks vs 58K). **The Build 5 risk re-signs: the search's
+  ceiling is the decoder's coverage** — 35.8% of first-ply copies void (43.8% of spells, 98%
+  `no_shape_fit`), never valued, never actable. Route (b) as written closed; its replacement measured
+  first: **the void-rescue instrument** (fork `57337a7e38`, `-searchvoidrescue`: a voided candidate
+  gets one more copy on roll 0's seed with the forced option realized by the heuristic's planner on the
+  bridged seat; `vr` + `h {kind, v, calls, ms, plan (Obs.planJson), refuse}` on the row, outside the
+  acting rule; census `searchRescue`; header pin). Smoke (4 games, the recipe): 117 void / 117
+  instrumented, 33 rescued to a leaf, 84 refused (`CantPlayAi`), every plan targeted, +3.9% calls;
+  `void_rescue_read.py` reads. **Launched 20:31 through `anvil.runs` (`build4-voidrescue-chain`,
+  `data/runs/build4-voidrescue/`): forkcheck `run-20260919-build4-voidrescue` ∥ the arm `b4vr`
+  (150 / seat, the recipe without the allocation head + the instrument, 24 × 2) → the read.**
+  Pre-registered: the acting extension (the rescued values as candidates, the mainline playing the
+  heuristic's plan on acted rescues, the pick-distillation CE extended to the plan factors) is built
+  if rescues clear the bar on ≥ 2% of searched windows at ≤ +30% calls; else route (b) closes on the
+  number. Also noted (Discord, Kryptic's four-deck run): the cross-deck over-generalization hypothesis
+  (one tactic applied to every deck) — a per-deck decision census on our arm stores is the instrument;
+  kept in mind for our own reads, not scheduled.

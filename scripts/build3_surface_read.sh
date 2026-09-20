@@ -69,6 +69,7 @@ for arm in $ARMS; do
     alt) run_arm alt "" "" "" "$CKPT_ALT" || { log "arm alt FAILED"; finish 1; } ;;  # Build 4: the CKPT_ALT build, every tag served
     nogate) run_arm nogate "" "-modegate off" || { log "arm nogate FAILED"; finish 1; } ;;  # Build 4 (ADR-0109): the served set + targets with the mode playability gate OFF (the third arm)
     alloc) run_arm alloc "" "$FORGE_ARGS_ALLOC" || { log "arm alloc FAILED"; finish 1; } ;;  # Build 4 (ADR-0109 item 2): the recipe under the allocation head (FORGE_ARGS_ALLOC = the act arm's args + -searchalloc tau -searchfloor f; the served ckpt carries the alloc_fit record)
+    vrescue) run_arm vrescue "" "$FORGE_ARGS_ACT -searchvoidrescue" || { log "arm vrescue FAILED"; finish 1; } ;;  # ADR-0114: the recipe (FORGE_ARGS_ACT) + the void-rescue instrument (read-only: the rescued values never enter the acting rule)
     actent) run_arm actent "" "-searchactkinds entity_one,entity_set,mode" || { log "arm actent FAILED"; finish 1; } ;;  # evening 5 pin 4: entity one + set acting, the second arm (modes stay on)  # evening 5 (ADR-0106 A6): the on arm + surface acting (FORGE_ARGS carries the search recipe on every arm)
     *) log "unknown arm $arm"; finish 1 ;;
   esac
