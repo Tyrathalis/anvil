@@ -109,3 +109,43 @@ the decoder's.)
   `act_void` row — recording only; rides the next fork commit); the mainline veto rate on
   searched arms read from the mainline decs alone (the census field `by` distinguishes them)
   at the post-shakedown read.
+
+## Addendum 09-19 21:25 — the read: ROUTE (b) CLOSES ON THE NUMBER
+
+`build3-surface-read-b4vr` (the served build `m12-build4-e1a` under the recipe without the
+allocation head + `-searchvoidrescue`, 150 games per seat vs the heuristic, 24 × 2; 298
+decisive / 300, the arm's strength 0.534 ± 0.029 = the recipe's; `void-rescue-read.txt`):
+
+- **The void class:** 14,523 of 49,338 first-ply candidate copies (29.4%) voided — 93.4%
+  `no_shape_fit`, 4.1% `restrictions`, 0.7% `unpayable`, 0.2% `dangling_ref` (1.7% unrecorded:
+  the copy ended before its window). 87.5% spells, 12.0% abilities, 0.4% lands. 60.7% of
+  searched windows carry at least one.
+- **The rescue rate is 8.9%:** the heuristic's own planner refuses 91.0% of the void options
+  (`CantPlayAi` 12,574 of 13,222 refusals, `AnotherTime` 214, `BadEtbEffects` 176) — 9.6% of the
+  void spells and 1.4% of the void abilities reach a leaf (lands 80%). So the coverage bound is
+  mostly options the engine's AI would not play in those states either; the decoder's `no_shape_fit`
+  and the AI's `CantPlayAi` overlap on ≈ 9 of 10 void options.
+- **The rescued values are below the best valued candidate on average:** mean −0.015 (p50
+  −0.004, p90 +0.063) against the window's best valued option on the same roll seed; ≥ the bar
+  0.10 on 6.4% of rescued leaves; vs the natural line mean +0.016 (60.6% ≥ 0, 13.1% ≥ 0.10).
+  Abilities never clear the bar (n 25), spells 6.4%, lands 8.2%. 86.7% of the rescued plans
+  carry targets — the shape the decoder could not fit.
+- **The pre-registered question: a rescue clears the bar over the best valued candidate on
+  80 of 10,597 searched windows = 0.8%** (76 on windows the mainline played naturally, 4 on
+  acted windows) — below the 2% rule → **the acting extension is NOT built; route (b) closes
+  on the number.** The price would have been small (+1.5% forward calls, +4.1% copy wall:
+  refused rescues cost no call), but the gain is bounded at ≈ 0.8% of windows × a margin whose
+  tail is the leaf's noise.
+- **What it says about the search's ceiling:** the decoder's coverage bound is ≈ 29% of first-ply
+  options by count but ≈ 3% by playability (the options the engine's AI would realize), and the
+  playable remainder is worth less than the valued set on average. The bound is real and small.
+  It stays a standing census (`vr` on every recipe arm) and the loop's PG on the decoder's own
+  casts is the route that closes it; no offline machinery. The Build 5 risk named at ADR-0111
+  is retired in both signs.
+- Assets: the instrument (flag-gated, off in the recipe), `void_rescue_read.py`, the `vr` reason
+  on every void copy (recorded only under the flag — routed: record `vr` unconditionally on the
+  next fork commit, recording-only, so the census rides every recipe arm), the b4vr pool (10,597
+  rows with the heuristic's plans on 1,299 rescued options — a plan-label set if ever needed).
+- **Forkcheck `run-20260919-build4-voidrescue` PASS 21:16 (499/500, 20260969 the standing crash
+  seed; fidelity 451/48/1 = the baseline's) → the fork pin `57337a7e38`** (the flag off in the
+  recipe; ADR-0025-exempt as a search-copy / recording-only change).

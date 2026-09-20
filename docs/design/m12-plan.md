@@ -1625,3 +1625,17 @@ moves verbatim to the status archive and this section stays here as the record.*
   number. Also noted (Discord, Kryptic's four-deck run): the cross-deck over-generalization hypothesis
   (one tactic applied to every deck) — a per-deck decision census on our arm stores is the instrument;
   kept in mind for our own reads, not scheduled.
+- **2026-09-19 21:16 — THE READ: ROUTE (b) CLOSED ON THE NUMBER ([ADR-0114](../decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md) addendum).**
+  `build3-surface-read-b4vr` (300 games, 298 decisive, the arm 0.534 ± 0.029 = the recipe's): the
+  void class 14,523 / 49,338 first-ply copies (29.4%; 93.4% `no_shape_fit`, 4.1% `restrictions`;
+  87.5% spells) on 60.7% of searched windows; **the heuristic's planner refuses 91.0% of it**
+  (`CantPlayAi` 12,574) — 9.6% of void spells / 1.4% of void abilities / 80% of the 61 void lands
+  reach a leaf; the rescued leaves read **−0.015 mean vs the best valued candidate** on the same
+  roll seed (p90 +0.063; 6.4% ≥ the bar), +0.016 vs the natural; 86.7% of the rescued plans carry
+  targets; price +1.5% calls. **A rescue clears the bar on 80 / 10,597 searched windows = 0.8%**
+  (76 natural, 4 acted) — below the pre-registered 2% → the acting extension is not built. The
+  coverage bound is ≈ 29% of first-ply options by count and ≈ 3% by playability, worth less than
+  the valued set on average; the loop's PG on the decoder's own casts is the route; `vr` stays a
+  standing census (routed: recorded unconditionally on the next fork commit). **Forkcheck PASS
+  21:16 (499/500, 20260969 the standing seed, fidelity 451/48/1) → the fork pin `57337a7e38`.**
+  Next: the documentation pass (4¾) → the shakedown through `selfplay.py` (the allocation arm).
