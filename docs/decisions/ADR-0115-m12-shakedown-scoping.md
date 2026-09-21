@@ -41,7 +41,7 @@ auto-resume, the heartbeat, the headless fallback, `--wall-hours`) and the fork'
    | `recipe` | `-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode` | off | 1.0 (347 g/h) |
    | `alloc` | the recipe | head (tau from the ckpt's fit record, floor 0.1; re-derived per cycle) | ≈ 0.6 search cost, wall −40% (ADR-0112) |
    | `shallow` | `-search -searchrate 1 -searchrolls 1 -searchact 0.10 -searchtemp 0.025` | off | **587 g/h peak / 478 wall** (the 09-21 cell, 24 × 2, 64 games, 0 crashes: ≈ 1.7× the recipe's rate → ≈ 15–17K games in 30 h) |
-   | `deep` | the recipe + `-searchdeep 3 -searchdeepleaf h2 -searchdeeprolls 4` | off | ×2.83 box time (≈ 35% of the recipe's games) |
+   | `deep` | the recipe + `-searchdeep 3 -searchdeepleaf h2 -searchdeeprolls 4 -searchdeeplo 0.02 -searchdeepfloor 0.1 -searchclock 3600` (the priced bench arm) | off | ×2.83 box time (≈ 35% of the recipe's games) |
 
 2. **Equal box time by the driver's `--wall-hours`** (the 09-21 addition: accumulated across pauses):
    **W = 30 h per arm** of generation + training, which the recipe converts to ≈ 10K games (21 iterations),

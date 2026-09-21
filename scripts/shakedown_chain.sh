@@ -18,7 +18,7 @@ CKPT=${CKPT:-data/training/m12-build4-e1a/last.pt}
 WALL_HOURS=${WALL_HOURS:-30}; ARMS=${ARMS:-recipe alloc shallow deep}; WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}
 RECIPE="-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"
 SHALLOW="-search -searchrate 1 -searchrolls 1 -searchact 0.10 -searchtemp 0.025"
-DEEP="$RECIPE -searchdeep 3 -searchdeepleaf h2 -searchdeeprolls 4"
+DEEP="$RECIPE -searchdeep 3 -searchdeepleaf h2 -searchdeeprolls 4 -searchdeeplo 0.02 -searchdeepfloor 0.1 -searchclock 3600"  # = the priced bench arm (build3_deep_queue.sh DEEPARGS)
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 [[ -f "$OUT/read.md" ]] || printf '# The shakedown (ADR-0115) — per-arm reads\n\n| arm | wall h | iterations | games | final ckpt | 2,000-game read (network alone) | last lookahead arm |\n|---|---|---|---|---|---|---|\n' > "$OUT/read.md"
 log "shakedown chain start jar=$JAR ckpt=$CKPT wall=${WALL_HOURS}h/arm arms='$ARMS'"
