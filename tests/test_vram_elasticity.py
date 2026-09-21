@@ -57,7 +57,13 @@ def test_forward_segments_halves_on_oom_and_sticks():
     assert all(b <= 8 for b in net2.served)
 
 
-def test_forward_segments_raises_at_floor():
+def test_forward_segments_raises_at_floor(monkeypatch):
+    # The floor OOM is a STUB: on a box whose GPU a cotenant fills (ComfyUI at
+    # 17.5 GB, 09-20) park_for_cotenant reads it as real scarcity and parks the
+    # learner forever ("vram starved" mid-push). The park is not under test here.
+    import anvil.training.vram as v
+
+    monkeypatch.setattr(v, "park_for_cotenant", lambda *a, **k: False)
     fs = rl_mod.make_forward_segments("cpu", seg=16)
     net = _CountingNet(fits=0)  # nothing ever fits
     try:
@@ -121,7 +127,10 @@ def test_train_batch_split_matches_whole_batch_gradient():
         assert torch.allclose(pw.grad, ps.grad, atol=2e-2, rtol=5e-2)
 
 
-def test_train_batch_raises_at_single_example():
+def test_train_batch_raises_at_single_example(monkeypatch):
+    import anvil.training.finetune_value as fv
+
+    monkeypatch.setattr(fv, "park_for_cotenant", lambda *a, **k: False)  # the stub OOM, not scarcity
     net = _ValueNet(fits=0)
     batch = _value_batch(n=2)
     try:

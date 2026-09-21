@@ -11,6 +11,6 @@ fi
 cd "$(git rev-parse --show-toplevel)"
 echo "[pre-push] ruff check..."
 uv run ruff check anvil scripts tests
-echo "[pre-push] pytest..."
-uv run pytest -q
+echo "[pre-push] pytest (CPU, as CI runs it — a GPU cotenant must never park the gate)..."
+CUDA_VISIBLE_DEVICES="" uv run pytest -q
 echo "[pre-push] green — pushing"
