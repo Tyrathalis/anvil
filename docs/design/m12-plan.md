@@ -1665,3 +1665,13 @@ moves verbatim to the status archive and this section stays here as the record.*
   settings, no per-arm day-zero read, each closing with the 2,000-game read + the last lookahead arm;
   `scripts/shakedown_chain.sh` ready. Next: the launch (the user's go on WALL_HOURS) → the certifier
   merge + the documentation pass while it runs.
+- **2026-09-21 (community watch, noted + routed)** — Kryptic's iter-50 read: the aggregate flat within
+  noise since iter 30 (51.1 / 50.6 / 52.5 ± 1.1), the monitor's veto rate / KL / rejected-per-trajectory
+  all turning up at iter ≈ 22–30 (a regime our guards halt), the sampled pay head deviating on 95% of
+  windows (our evening-4 untrained-head cost), the Red mirror 34% the one hard matrix fact (3.5 SE);
+  chrismaghuhn's interference tests (gradient cosine between deck batches the cheapest direct one);
+  khaliostr's wasm question — inference yes (the fork H export: ≈ 45M inference params, ≈ 45 MB int8,
+  50–150 ms per forward in ORT-web), training no (the games are the bottleneck, not the net; the
+  Leela-Zero volunteer-generation shape is his option because manabrew is wasm-native, not ours).
+  Survey doc 09-21 section + draft replies. Routed by name: **fork H's export doubles as the wasm
+  export** (one ONNX graph, two runtimes) — noted on fork H, no new item.

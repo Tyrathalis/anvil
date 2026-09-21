@@ -995,3 +995,95 @@ Draft reply (the user posts):
 > and, if it matches, re-run from 20 with the ×4 veto guard. And yes on the red mirror as a
 > standard candle — that's exactly how I use fixed matchups; the next step there is per
 > decision rather than per matchup (which windows does a rollout disagree with the pick on).
+
+### 09-18 → 09-21 follow-up: Kryptic's iter-50 read, chrismaghuhn's interference tests, khaliostr's wasm question (read 09-21; nothing posted from here)
+
+**Kryptic (09-18 17:06, 17:24) — iter 50 of the four-deck run** (8,000-game overall reads, the
+16-cell matrix at 500 games per cell, the 50-iteration monitor):
+
+- **Overall:** BC 40.6 → iter30 51.1 → iter40 50.6 → iter50 52.5, each ± 1.1pp. iter50 − iter30 =
+  +1.4 ± 1.5, iter50 − iter40 = +1.9 ± 1.5: **flat within noise since iter 30**, not "slowed".
+- **The matrix (model deck × reference deck):** the diagonal (mirrors) 53.2 / 55.8 / **34.2** / 56.8.
+  The reference columns say the heuristic's Blue Tempo is a weak deck (the model wins 53–89% against
+  it; HvH Blue vs Green ≈ 15%), so deck strength dominates the off-diagonal. iter50 − iter40 by row,
+  pooled over the four cells (2,000 games, ± 2.2pp): Blue +1.4, Green +3.3, Red −1.2, White +4.0 —
+  1.5–1.8 SE at best; **the "redistribution between strategies" is not established at this N**. The
+  one hard fact is the **Red mirror: 34.2% at 500 games is 3.5 SE below 50%**, and its path is
+  BC ≈ 17 → iter30 ≈ 35 → iter40 ≈ 39 → iter50 34 — the model's Red is the deck that never reached
+  the heuristic's.
+- **The monitor is the more useful read:** veto rate 3% → 15–34%, first-veto 3% → 13–31%, kl_mu
+  0.02 → 0.10–0.23, rejected/traj 0.5 → 3–5, entropy rising 0.26 → 0.30–0.40 — every one turns at
+  iter ≈ 22–30, the iteration the aggregate stopped moving. Our loop's guards halt at KL 0.06 and 1.5×
+  the starting veto rate; **his last twenty iterations ran in a regime ours would have stopped.**
+  Separately, **pay deviation (sampled) 0.1 → 0.95 with `pay_bias` drifting down**: the M9 pay head
+  served sampled with no fitted target — our evening-4 finding (ADR-0105) was that a served untrained
+  pay head cost 2.6pp, and its climb (iter 15–30) coincides with his plateau. The cheap test is an arm
+  with the pay tag withheld (auto payment) on the same checkpoint.
+
+**chrismaghuhn (09-18 21:51)** reads the iter40 → iter50 matrix as shared-policy interference (Red
+regressing while Green/White improve) and proposes: per-deck validation loss, per-deck action
+frequencies over generations, **cosine similarity between gradients from the four decks' batches**,
+and an ablation with a learned deck embedding; the Red mirror as the fixed diagnostic case. *Our
+record:* the same hypothesis as our 09-19 note (cross-deck over-generalization). The gradient cosine is
+the cheapest direct test and worth doing; the per-deck action frequencies are what our per-deck
+decision census would show (with Kryptic's own "what would the heuristic do here" column, the
+observer-purity idea from July). The caution stands: at ±4.4pp per cell the matrix cannot carry the
+claim yet; the Red mirror can. Anvil has no explicit deck embedding either (the deck is visible only
+through its cards); ADR-0110's format-as-features is the nearest thing and is zero-init until the loop.
+
+**khaliostr (09-21 14:32)** has been "toying with a very silly model that could run inside WASM"
+(trained against the Forge bot and on his human games; "so far it's not great") and asks whether
+Anvil's model could ever be small enough to run in wasm, given the compute it takes to train and run.
+*Our answer (the user's view, 09-21, recorded here):*
+
+- **Inference: yes, and it is the same export the phone ship needs (fork H).** The served build is
+  71.9M parameters, but 17.3M is the retired M10 planner head and ~2M the inert schedule heads; the
+  pilot's inference set is the 31.5M trunk + the card/ability tables (≈ 8M, precomputable per pool) +
+  the pointer / surface / target heads (< 1M each) ≈ 45M → ≈ 45 MB at int8. One forward per
+  decision, a few hundred tokens: ORT-web with SIMD + threads ≈ 50–150 ms on a laptop CPU, WebGPU
+  ≈ 10 ms — fine for network-alone play at a human's pace. Not the search: a searched window is
+  hundreds of forwards plus a game copy per candidate, and the copies are the engine's, not the
+  net's. The real port cost is the featurizer (Python → JS), which is the same port fork H owes in
+  Java. For manabrew the engine is already wasm-native (Rust), so the browser blocker Forge has
+  (a JVM) does not apply to him.
+- **Training in wasm: not the net, the games.** The bottleneck is not GPU and never was — our
+  generation is 24 engine workers on CPU at ≈ 350 games/hour under search (the GPU is 60% busy at a
+  mean batch of two); a wasm engine runs ≈ 1.5–2× slower than native with SIMD, worse without
+  threads, background tabs are throttled, and no browser training framework is mature enough to run
+  the learner. The one shape where browsers help is the Leela-Zero one: **volunteer tabs generate
+  games with a frozen quantized net and upload trajectories; the learner stays on a box.** That is
+  plausible for manabrew precisely because its engine is wasm-native; for Anvil it is not on the
+  table until Forge is (it is not).
+
+### Draft replies (09-21; the user posts; nothing posted from here)
+
+To khaliostr:
+
+> Inference in wasm: yes, I think so, and it's the same work as the Android ship I have queued.
+> Today's checkpoint is ~72M params but ~20M of that is retired heads; the pilot's inference set is
+> a ~32M trunk plus per-pool card tables and small pointer heads, ~45 MB at int8. One forward per
+> decision at a few hundred tokens is 50–150 ms in ORT-web on CPU, ~10 ms on WebGPU — fine for
+> network-alone play. The search is another story (hundreds of forwards and a game copy per
+> candidate), but that's a server-side luxury, not the pilot. The real port cost is the featurizer.
+> Since manabrew's engine is already wasm-native you don't have the blocker Forge has.
+>
+> Training in the browser I'd not try, but not because of the GPU — the GPU was never the
+> bottleneck for us (60% busy at a mean batch of 2). The games are: 24 engine workers on CPU is
+> what buys our ~350 games/hour, and a wasm engine in a throttled tab is a fraction of a core.
+> The one shape that works is Leela Zero's: volunteer tabs generate games with a frozen quantized
+> net and upload trajectories, the learner stays on one box. That's a real option for you because
+> the engine is wasm; for me it isn't until Forge is.
+
+To Kryptic / Chris:
+
+> Two things I'd look at before the interference tests. (1) The monitor: veto rate, first-veto,
+> KL and rejected/traj all turn up at iter ~22–30, which is also where the aggregate stops moving
+> (51.1 / 50.6 / 52.5 at ±1.1 is flat within noise since iter 30). Our loop halts at KL 0.06 and
+> 1.5× the starting veto rate; your last twenty iterations ran past both. A KL brake or a guard
+> would tell you whether the drift is buying anything. (2) The pay head: sampled deviation went
+> 0.1 → 0.95 with the bias drifting down, i.e. an untrained pay head increasingly overriding auto
+> payment. We measured a served untrained pay head at −2.6pp; an arm with the pay tag withheld on
+> the same checkpoint is a cheap read. On the matrix: at 500 games a cell is ±4.4pp, and the rows
+> pooled (±2.2) move 1.5–1.8 SE at most, so I'd not read redistribution from it yet — but the Red
+> mirror at 34% is 3.5 SE below 50% and real. Chris's gradient-cosine test between deck batches is
+> the cheapest direct check of the interference idea and I'd run it on that mirror first.
