@@ -360,6 +360,14 @@ silently delete.
 
 ## Search, budgets, and run sizing
 
+- **An arm's box time is the driver's accumulated wall (`selfplay.py --wall-hours`), never its game
+  count; a paused arm resumes its budget** — the shakedown's equal-box-time arms are sized in hours, the
+  arm's games are what the shape bought ([ADR-0115](decisions/ADR-0115-m12-shakedown-scoping.md)).
+- **A deliberate stop is `anvil.runs pause`, a return `relaunch`; a long run launches with
+  `--resume-on-gone`**; a job idle on purpose (a GPU yield, a VRAM park) heartbeats the run dir — the
+  stall alarm and the FAILED push are for what went wrong, not for what was asked
+  ([ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md) addendum 09-21).
+
 - **Size every run to its effect**: a power statement (games needed to detect the target,
   games needed to produce it) precedes every launch; a gate that cannot resolve the effect it
   seeks is a null generator, not a measurement

@@ -107,3 +107,43 @@ must not assume systemd, `/proc`, or the desktop app.
   false-stalling). The test fixture pins `ANVIL_CHECKIN=none` so no test reaches the real CLI.
 - Standing rule (amended): the launch's coverage line names the check-in consumer; a session
   still arms its own background wait (the belt under the belt).
+
+## Addendum 2026-09-21 — pause / relaunch, the sweep's auto-resume, the heartbeat, headless workers
+
+The pre-shakedown review asked what a long run needs from the launcher across the box's maintenance
+reboots (four in the eight days before; all manual) and across an unattended one (the whole system is
+LUKS behind a GRUB passphrase — see the 09-21 devlog — so software only shortens the human step to the
+passphrase). Landed, tests +4 (`tests/test_runs.py` 16):
+
+- **`pause --name N [--now] [--wait]`**: STOP written in the run's dir and in every `--watch` root that is
+  a directory (selfplay's `<out>/STOP`, the harness dirs of a chain), `pause_requested` on the state;
+  when the command exits the supervisor records **`paused`** — no FAILED push, no check-in (a deliberate
+  kill used to page the phone). `--now` also SIGTERMs the command's process group (the harness drains,
+  ADR-0092). **`relaunch --name N`**: the recorded command again, in place — the same dir / log / watch /
+  check-in / nice, the STOP files `pause` wrote removed; the command resumes from its own state
+  (`loop_state.json`, the harness's completed games). The maintenance sequence is `pause --wait`,
+  update, reboot, `relaunch`.
+- **`--resume-on-gone` / `--resume-max N`** (launch): the sweep timer, finding the supervisor dead
+  (reboot, OOM kill), relaunches the recorded command itself, alert kind `relaunched (k/N)`, capped so a
+  crash loop stops at `gone`. With linger on, this runs before anyone logs in.
+- **`anvil.runs.heartbeat(note)`**: a job that is idle on purpose writes `<run dir>/heartbeat.json`
+  (throttled to a minute) so the stall tick sees a fresh artifact — called by the harness while the GPU
+  yield is on and by the learner's VRAM park loop (the 09-17 chain raised two false stalls during a real
+  3 h yield; the live heartbeat patch that day is now the code).
+- **Headless workers when no display exists**: the orchestrator adds `-Djava.awt.headless=true` to the
+  worker JVM only when `DISPLAY` is unset and no Xwayland auth file exists (a relaunch after a reboot,
+  before a login). Proven 09-21: one heuristic game from the jar with no display, launched from
+  `forge-gui/` (the language bundle resolves relative to it — the first attempt from elsewhere failed on
+  `Localizer`, not on AWT). The normal path is unchanged, so no forkcheck is owed; a served run under the
+  headless flag is a separate proof if one is ever launched that way on purpose.
+- **The sweep unit carries `ANVIL_NOTIFY_CMD` / `ANVIL_CHECKIN`** when set at `install-sweep` time (a
+  unit has no login shell; the sinks it knows are the ones written into it). Unset on this box: the phone
+  push depends on the `claude -p` check-in's own credentials; an ntfy/Pushover command is the belt if the
+  CLI ever needs an interactive re-login.
+- **Remote Control at boot (trial)**: a user unit `anvil-remote-control.service` starts
+  `claude --remote-control anvil-box` in a tmux session `anvil-rc` under linger (WorkingDirectory the
+  repo); the phone attaches after a reboot + passphrase without a desktop login. Permission prompts go
+  to the phone (the session's own mode); the trial question is whether the session's auth holds across
+  weeks.
+- Companion: `selfplay.py --wall-hours H` (the shakedown's equal-box-time arms, ADR-0115) stops between
+  iterations on the loop's accumulated box time, carried across pauses in `loop_state.wall_used_s`.
