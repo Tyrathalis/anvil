@@ -188,7 +188,12 @@ whether teaching is happening. The milestone's product is one big training run, 
    ≈ a week (was ≈ three days). A two-ply arm is gated on the deep arm showing gain per box-hour.
    **Amended 09-16 (ADR-0109): an ALLOCATION arm (the head's rate with the floor vs uniform rate 1)
    beside the three shape arms, the same equal-box-time rule; the surface round's breadth (B = 1,
-   a surface rate, or the margin gate) is a settings-pass axis.**
+   a surface rate, or the margin gate) is a settings-pass axis.** **SCOPED 09-21
+   ([ADR-0115](../decisions/ADR-0115-m12-shakedown-scoping.md)): four arms (recipe / alloc / shallow /
+   deep) at equal box time by `selfplay.py --wall-hours` (30 h each, accumulated across pauses), the
+   run of record's loop settings from the e1a build on the census jar, drills OFF, no per-arm day-zero
+   read, each closing with the 2,000-game read + the last lookahead arm; arm order recipe → alloc →
+   shallow → deep; `scripts/shakedown_chain.sh` through `anvil.runs` with `--resume-on-gone`.**
 4¾. **The documentation review session** (user, 09-15) — scheduled between the shakedown's verdict
    and the big run's launch, once every piece of M12 implementation is in: the architectural
    changes since ADR-0101 (search as the behavior policy, the surfaces, the acting rule, the leaf
@@ -198,7 +203,9 @@ whether teaching is happening. The milestone's product is one big training run, 
    line in CLAUDE.md (the field guide, standing-rules prune, the design doc's §3d′ ledger and §13,
    the canonical register, the quickstart, the ops docs, the map) **plus the Now block trimmed to
    what is running, what is next and the pins** — the narrative already lives here. Its output is
-   one commit and a devlog; no design decisions are taken in it (those go to ADRs before it).
+   one commit and a devlog; no design decisions are taken in it (those go to ADRs before it). **Amended 09-21 (ADR-0115, user): the pass runs BESIDE the shakedown, not after its
+   verdict — it needs no box, the shakedown needs no docs; the verdict lands in the docs as an
+   addendum. The certifier merge lands in the same week for the big run's jar.**
 5. **The big run.** **Envelope: four to six weeks of unattended box time**; games × per-game
    budget derived from it with Build 0's measured search multiplier (300K games at today's
    800–1,600 g/h is 8–16 days flag-off; ×3 is 3–7 weeks; ×10 is 2.5–5 months). Power statement
@@ -1639,3 +1646,22 @@ moves verbatim to the status archive and this section stays here as the record.*
   standing census (routed: recorded unconditionally on the next fork commit). **Forkcheck PASS
   21:16 (499/500, 20260969 the standing seed, fidelity 451/48/1) → the fork pin `57337a7e38`.**
   Next: the documentation pass (4¾) → the shakedown through `selfplay.py` (the allocation arm).
+- **2026-09-21 — THE PRE-SHAKEDOWN REVIEW ([ADR-0115](../decisions/ADR-0115-m12-shakedown-scoping.md); user).**
+  Decisions: the shakedown launches first and the documentation pass (4¾) runs beside it; the 09-19 census
+  items land first; drills OFF in the shakedown, the certifier merge during its week for the big run's jar
+  (under item 7 the big run's drill-finding is the search; its offline re-search needs the merge). The box
+  across reboots: the whole system is LUKS behind a GRUB passphrase (an unattended reboot stops there; a
+  power outage is a UPS question), all recent reboots manual → `anvil.runs pause` / `relaunch` +
+  `--resume-on-gone` + the heartbeat + headless workers when no display exists (ADR-0107 addendum 09-21);
+  the pacman pin (kernel + `linux-cachyos-nvidia-open` + `nvidia-utils` + JDK, hard-dependent; the user's
+  edit) with the unpin on the run-close checklist; the Remote Control trial unit at boot. **The fork's
+  census bundle `cbe386d2c6`** (`vr` unconditional, `act_vr` on the mainline's forced ask, `copy:true`
+  on search-copy census rows; the smoke: 120/120 void candidates keyed, the copies 3× the mainline's
+  priority rows) — **forkcheck PASS 11:53 (499/500, the standing seed) → THE FORK PIN**. `selfplay.py
+  --wall-hours` (accumulated box time). **The shallow-wide bench cell: 587 g/h peak (24 × 2)**, ≈ 1.7×
+  the recipe. **The contention smoke: a foreign job at 88% SM trips the yield, 4/4 games finish, 0
+  deadline poisons, per-game wall 2.7×.** The shakedown scoped: four arms (recipe / alloc / shallow /
+  deep) at equal box time (30 h each), sequential from e1a on the census jar, the run of record's loop
+  settings, no per-arm day-zero read, each closing with the 2,000-game read + the last lookahead arm;
+  `scripts/shakedown_chain.sh` ready. Next: the launch (the user's go on WALL_HOURS) → the certifier
+  merge + the documentation pass while it runs.

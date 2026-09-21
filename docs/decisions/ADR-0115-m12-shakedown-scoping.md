@@ -1,7 +1,7 @@
 # ADR-0115: M12 Build 4½ — the shakedown scoped: four arms at equal box time through `selfplay.py`
 
 - **Date:** 2026-09-21
-- **Status:** accepted (user, 09-21: the shakedown launches first, the documentation pass runs beside it); the arm sizes filled from the 09-21 bench cell
+- **Status:** accepted (user, 09-21: the shakedown launches first, the documentation pass runs beside it); the census jar `cbe386d2c6` proven 11:53 (499/500), the shallow-wide rate measured 12:03 (587 g/h peak); the contention smoke clean (below)
 - **Design-doc anchor:** §6 (training pipeline), §9 (engine & infrastructure); m12-plan Build order 4½ / 4¾
 
 ## Context
@@ -40,7 +40,7 @@ auto-resume, the heartbeat, the headless fallback, `--wall-hours`) and the fork'
    |---|---|---|---|
    | `recipe` | `-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode` | off | 1.0 (347 g/h) |
    | `alloc` | the recipe | head (tau from the ckpt's fit record, floor 0.1; re-derived per cycle) | ≈ 0.6 search cost, wall −40% (ADR-0112) |
-   | `shallow` | `-search -searchrate 1 -searchrolls 1 -searchact 0.10 -searchtemp 0.025` | off | the 09-21 bench cell: **TBD g/h** |
+   | `shallow` | `-search -searchrate 1 -searchrolls 1 -searchact 0.10 -searchtemp 0.025` | off | **587 g/h peak / 478 wall** (the 09-21 cell, 24 × 2, 64 games, 0 crashes: ≈ 1.7× the recipe's rate → ≈ 15–17K games in 30 h) |
    | `deep` | the recipe + `-searchdeep 3 -searchdeepleaf h2 -searchdeeprolls 4` | off | ×2.83 box time (≈ 35% of the recipe's games) |
 
 2. **Equal box time by the driver's `--wall-hours`** (the 09-21 addition: accumulated across pauses):
@@ -71,6 +71,13 @@ auto-resume, the heartbeat, the headless fallback, `--wall-hours`) and the fork'
    arm roots; each arm's loop is pausable (`anvil.runs pause`) for a maintenance reboot and resumes its
    own state; the GPU yield and the VRAM park heartbeat; the chain's `read.md` accumulates the per-arm
    numbers as they land.
+
+**The contention smoke (12:03–12:09):** a synthetic foreign GPU job (`scripts/gpu_burner.py` under `setsid`:
+4.9 GB resident, 88% SM for 360 s) beside a 4-game recipe smoke at 4 × 1 — the yield fired on it
+(`gpu-yield.json`: "python3 4968 MB sm 88%"), the in-flight games finished 4/4 won, **0 deadline or poison
+lines** at the 20 s bridge deadline; per-game wall median 86 s vs 32 s on the same jar and recipe without
+the job (max 326 vs 60 s). Ordinary desktop and ComfyUI use costs the run wall, nothing else; a foreign
+job that saturates the card slows in-flight games ≈ 2.7× and gates new chunks until it leaves.
 
 ## Consequences
 
