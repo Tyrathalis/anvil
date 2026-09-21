@@ -1672,6 +1672,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   chrismaghuhn's interference tests (gradient cosine between deck batches the cheapest direct one);
   khaliostr's wasm question — inference yes (the fork H export: ≈ 45M inference params, ≈ 45 MB int8,
   50–150 ms per forward in ORT-web), training no (the games are the bottleneck, not the net; the
-  Leela-Zero volunteer-generation shape is his option because manabrew is wasm-native, not ours).
+  Leela-Zero volunteer-generation shape is the one browser story — and with the experimental
+  forge-wasm fork (the user, 09-21) it is on the table for Forge too, decided by the per-tab game rate).
   Survey doc 09-21 section + draft replies. Routed by name: **fork H's export doubles as the wasm
   export** (one ONNX graph, two runtimes) — noted on fork H, no new item.

@@ -1044,16 +1044,18 @@ Anvil's model could ever be small enough to run in wasm, given the compute it ta
   ≈ 10 ms — fine for network-alone play at a human's pace. Not the search: a searched window is
   hundreds of forwards plus a game copy per candidate, and the copies are the engine's, not the
   net's. The real port cost is the featurizer (Python → JS), which is the same port fork H owes in
-  Java. For manabrew the engine is already wasm-native (Rust), so the browser blocker Forge has
-  (a JVM) does not apply to him.
+  Java. For manabrew the engine is already wasm-native (Rust); and per the user (09-21) an
+  experimental **forge-wasm** fork now runs Forge itself in a browser, which is what the thread is
+  about — so the engine is not the blocker on either side.
 - **Training in wasm: not the net, the games.** The bottleneck is not GPU and never was — our
   generation is 24 engine workers on CPU at ≈ 350 games/hour under search (the GPU is 60% busy at a
   mean batch of two); a wasm engine runs ≈ 1.5–2× slower than native with SIMD, worse without
   threads, background tabs are throttled, and no browser training framework is mature enough to run
   the learner. The one shape where browsers help is the Leela-Zero one: **volunteer tabs generate
   games with a frozen quantized net and upload trajectories; the learner stays on a box.** That is
-  plausible for manabrew precisely because its engine is wasm-native; for Anvil it is not on the
-  table until Forge is (it is not).
+  the shape to consider on either engine now that both run in a browser — the learner stays native,
+  the tabs are game generators; the per-tab game rate is the number that decides whether it is worth
+  wiring (a throttled tab's wasm engine vs a native core).
 
 ### Draft replies (09-21; the user posts; nothing posted from here)
 
@@ -1071,8 +1073,8 @@ To khaliostr:
 > bottleneck for us (60% busy at a mean batch of 2). The games are: 24 engine workers on CPU is
 > what buys our ~350 games/hour, and a wasm engine in a throttled tab is a fraction of a core.
 > The one shape that works is Leela Zero's: volunteer tabs generate games with a frozen quantized
-> net and upload trajectories, the learner stays on one box. That's a real option for you because
-> the engine is wasm; for me it isn't until Forge is.
+> net and upload trajectories, the learner stays on one box. With forge-wasm that's on the table
+> for both of us; the per-tab game rate is what decides whether it's worth wiring.
 
 To Kryptic / Chris:
 
