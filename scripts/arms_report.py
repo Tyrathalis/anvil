@@ -35,6 +35,7 @@ def aggregate(run_dirs: list[Path]) -> dict:
     reask_rescued = 0  # casts realized on a re-ask attempt (would've passed)
     turns = []
     prio = Counter()
+    copy_prio = Counter()
     rungs = Counter()
     vetoes = Counter()
     mull = Counter()
@@ -71,6 +72,17 @@ def aggregate(run_dirs: list[Path]) -> dict:
                 except json.JSONDecodeError:
                     continue
                 m = r.get("m")
+                if m == PRIORITY and r.get("copy"):
+                    # 09-21 (ADR-0114 routed): a search copy's rows (the copies'
+                    # forced asks) are marked by the census; the mainline
+                    # veto rate below reads the mainline decs alone
+                    if r.get("veto"):
+                        copy_prio["veto"] += 1
+                    elif r.get("pick") == "pass":
+                        copy_prio["pass"] += 1
+                    else:
+                        copy_prio["cast"] += 1
+                    continue
                 if m == PRIORITY and r.get("by") == "bridge":
                     if r.get("veto"):
                         vetoes[
@@ -105,6 +117,8 @@ def aggregate(run_dirs: list[Path]) -> dict:
     }
     n_veto = sum(vetoes.values())
     out["veto_rate"] = n_veto / max(prio["cast"] + n_veto, 1)
+    out["copy_priority"] = dict(copy_prio)
+    out["copy_veto_rate"] = copy_prio["veto"] / max(copy_prio["cast"] + copy_prio["veto"], 1)
     # M3 D1: chain-independent basis (one first attempt per window; census
     # "reask" marks attempts > 0 only) — comparable across reask on/off envs
     out["first_veto_rate"] = prio["first_veto"] / max(prio["first_veto"] + prio["first_cast"], 1)

@@ -225,7 +225,17 @@ uv run python -m anvil.runs status            # every run: running / stalled / d
 uv run python -m anvil.runs alerts --unacked  # what you have not seen yet
 uv run python -m anvil.runs wait --name pauper-loop   # block a script until it ends (exit 0 = done)
 uv run python -m anvil.runs ack --all
+uv run python -m anvil.runs pause --name pauper-loop --wait   # STOP for the loop; records `paused`, no FAILED push
+uv run python -m anvil.runs relaunch --name pauper-loop       # the same command again, in place; the loop resumes its state
 ```
+
+For a maintenance reboot: `pause --wait`, update, reboot, `relaunch`. A run launched with
+`--resume-on-gone` is relaunched by the sweep timer itself when its supervisor is found dead
+(a reboot, an OOM kill), up to `--resume-max` times, so after the reboot your only step is the
+login. A job that is idle on purpose (the harness yielding the GPU to another job, the learner
+parked on a VRAM cotenant) writes `heartbeat.json` in the run dir so the stall alarm stays quiet.
+`selfplay.py --wall-hours H` stops a loop between iterations once its accumulated box time
+(summed across pauses) reaches H and runs the closing reads.
 
 Alerts land in `~/.local/state/anvil/alerts.jsonl` and, as side effects, on a desktop toast
 (`notify-send` on Linux, `osascript` on macOS). To reach your phone set `ANVIL_NOTIFY_CMD` to any

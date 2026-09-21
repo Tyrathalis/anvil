@@ -197,3 +197,83 @@ def test_watch_roots_keep_a_chain_from_false_stalling(state):
     assert rc == 0
     assert [a["kind"] for a in runs.read_alerts()] == ["done"]
     assert runs.read_run("wc")["watch"] == [str(arms / "x-*")]
+
+
+# ---- 09-21: pause / relaunch / the sweep's auto-resume / the heartbeat
+
+
+def test_pause_records_paused_not_failed_and_relaunch_resumes(state):
+    d = state / "pz"
+    d.mkdir()
+    # the command honours STOP in its dir (selfplay's contract), else runs 30 s
+    cmd = ["sh", "-c", f"for i in $(seq 1 60); do [ -f {d}/STOP ] && exit 0; sleep 0.5; done; exit 7"]
+    rc = runs.main(["launch", "--name", "pz", "--dir", str(d), "--tick-sec", "0.2", "--", *cmd])
+    assert rc == 0
+    time.sleep(0.5)
+    assert runs.main(["pause", "--name", "pz", "--wait"]) == 0
+    st = runs.read_run("pz")
+    assert st["state"] == "paused" and st["stop_files"] == [str(d / "STOP")]
+    kinds = [a["kind"] for a in runs.read_alerts()]
+    assert "failed" not in kinds and kinds[-1] == "paused"
+    assert (d / "STOP").exists()
+    # relaunch: the STOP file goes, the same command runs again and finishes
+    (d / "again").write_text("")
+    cmd2_marker = d / "STOP"
+    assert runs.main(["relaunch", "--name", "pz", "--no-selftest"]) == 0
+    assert not cmd2_marker.exists()
+    deadline = time.time() + 40
+    while time.time() < deadline and (runs.read_run("pz") or {}).get("state") in ("running", "stalled"):
+        (d / "STOP").write_text("")  # let the second incarnation exit cleanly
+        time.sleep(0.5)
+    st = runs.read_run("pz")
+    assert st["state"] == "done", st
+    assert st["cmd"] == cmd
+
+
+def test_pause_on_a_finished_run_is_refused(state):
+    assert _launch(state, "fin", ["true"]) == 0
+    assert runs.main(["pause", "--name", "fin"]) == 3
+    assert runs.main(["pause", "--name", "nope"]) == 2
+
+
+def test_sweep_relaunches_a_gone_run_under_the_cap(state):
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    os.waitpid(pid, 0)
+    d = state / "res"
+    d.mkdir()
+    (d / "run.log").write_text("working...\n")
+    base = {
+        "name": "res", "state": "running", "pid": 1, "supervisor_pid": pid, "started": runs._now(),
+        "cmd": ["sh", "-c", "exit 0"], "dir": str(d), "log": str(d / "run.log"), "checkin": "none",
+        "tag": "anvil", "launch_cwd": os.getcwd(), "watch": [], "resume": True, "resume_max": 2,
+        "resume_count": 0, "tick_sec": 0.2, "stall_sec": 60,
+    }
+    runs._write_json(runs._run_file("res"), dict(base))
+    assert runs.main(["sweep"]) == 0
+    kinds = [a["kind"] for a in runs.read_alerts()]
+    assert kinds[0] == "relaunched"
+    deadline = time.time() + 20
+    while time.time() < deadline and runs.read_run("res")["state"] != "done":
+        time.sleep(0.2)
+    st = runs.read_run("res")
+    assert st["state"] == "done" and st["resume_count"] == 1 and st["resume"] is True
+    # over the cap: gone, not relaunched
+    runs._write_json(runs._run_file("res"), dict(base, resume_count=2))
+    assert runs.main(["sweep"]) == 0
+    assert runs.read_run("res")["state"] == "gone"
+    assert [a["kind"] for a in runs.read_alerts()][-1] == "gone"
+
+
+def test_heartbeat_touches_the_run_dir_only_inside_a_launch(state, monkeypatch):
+    monkeypatch.delenv("ANVIL_RUN_NAME", raising=False)
+    runs._HEARTBEAT_LAST[0] = 0.0
+    assert runs.heartbeat("x") is False
+    d = state / "hb"
+    d.mkdir()
+    runs._write_json(runs._run_file("hb"), {"name": "hb", "state": "running", "dir": str(d)})
+    monkeypatch.setenv("ANVIL_RUN_NAME", "hb")
+    assert runs.heartbeat("gpu yield") is True
+    assert json.loads((d / "heartbeat.json").read_text())["note"] == "gpu yield"
+    assert runs.heartbeat("again") is False  # throttled

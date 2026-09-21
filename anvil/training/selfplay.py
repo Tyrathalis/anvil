@@ -14,6 +14,11 @@ released between the serve and train phases.
 Stop file: touch <out>/STOP to finish the current iteration and exit; resume
 by re-running the same command (loop_state.json carries the chain).
 
+Wall budget (09-21, the shakedown's equal-box-time arms): --wall-hours H stops
+BETWEEN iterations once the run's accumulated box time (loop_state
+wall_used_s, summed across pauses and resumes) reaches H, then runs the
+closing reads like a completed loop; WALL-STOP in <out> records it. 0 = off.
+
 M10 reset (ADR-0094): --sched-binding/--sched-basis/--sched-empty-rev pin
 the serve regime every driver-started server plays under (sched_flags), and
 --paired-read wires the stratified paired strength read (the PRIMARY read)
@@ -1141,6 +1146,9 @@ def main() -> None:
         help="iteration-0 init (delta=0 by design)",
     )
     ap.add_argument("--iterations", type=int, required=True)
+    ap.add_argument("--wall-hours", type=float, default=0.0,
+                    help="stop between iterations once the run's accumulated box time reaches this "
+                         "(loop_state wall_used_s carries across pauses); 0 = off. The closing reads still run.")
     ap.add_argument("--games", type=int, default=480, help="games per iteration")
     ap.add_argument("--games-per-pair", type=int, default=2)
     ap.add_argument("--workers", type=int, default=8)
@@ -1801,11 +1809,25 @@ def main() -> None:
                 f"dwr {rec['mean']} +/- {rec['se']} (n {rec['n']}; context {rec['context_mean']}); "
                 f"proceeding to iteration 0")
 
+    wall_base = float(state.get("wall_used_s", 0.0))
+    session_t0 = time.time()
+
+    def wall_used() -> float:
+        return wall_base + (time.time() - session_t0)
+
     while state["iteration"] < args.iterations:
         if (out / "STOP").exists():
             print("[selfplay] STOP file present — exiting between iterations")
+            state["wall_used_s"] = wall_used()
+            state_path.write_text(json.dumps(state, indent=2))
             _watch_unregister(args.name)
             return
+        if args.wall_hours and wall_used() >= args.wall_hours * 3600:
+            msg = (f"wall budget reached: {wall_used() / 3600:.2f} h >= {args.wall_hours} h after "
+                   f"{state['iteration']} iterations — closing like a completed loop")
+            print(f"[selfplay] {msg}")
+            (out / "WALL-STOP").write_text(msg + "\n")
+            break
         k = state["iteration"]
         it_dir = out / f"iter-{k:03d}"
         it_dir.mkdir(exist_ok=True)
@@ -2375,7 +2397,8 @@ def main() -> None:
                 "pay_deviation_rate": census.get("pay_deviation_rate"),
             }
         state.update(
-            iteration=k + 1, ckpt=str(new_ckpt), start_index=state["start_index"] + args.games
+            iteration=k + 1, ckpt=str(new_ckpt), start_index=state["start_index"] + args.games,
+            wall_used_s=wall_used(),
         )
         if critic_ckpt is not None:
             state["critic"] = str(critic_ckpt)

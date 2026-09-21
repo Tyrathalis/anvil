@@ -34,6 +34,7 @@ import time
 from pathlib import Path
 
 from anvil.bridge.harness.gpu_yield import GpuYield
+from anvil.runs import heartbeat
 from anvil.bridge.harness.seeds import game_seed
 from anvil.store.trajectories import OBS_SCHEMA_VERSION
 
@@ -298,6 +299,13 @@ class Run:
             if xauth:
                 env["DISPLAY"] = ":0"
                 env["XAUTHORITY"] = str(xauth[0])
+            else:
+                # 09-21: no graphical session at all (a relaunch after a reboot,
+                # before anyone logs in) — the jar plays headless with AWT told
+                # so (proven: one game, no DISPLAY, from forge-gui/). Only taken
+                # when no display exists, so the normal path is unchanged.
+                cmd.insert(cmd.index("-jar"), "-Djava.awt.headless=true")
+                print("[harness] no display: workers launched with -Djava.awt.headless=true", flush=True)
 
         def _die_with_parent() -> None:
             # ADR-0092 teardown cascade: the harness process already dies
@@ -352,6 +360,10 @@ class Run:
                     json.dumps({"yielding": on, "manual": manual, "foreign": why,
                                 "at": _dt.datetime.now().isoformat(timespec='seconds')}) + "\n"
                 )
+            if on:
+                # 09-21: a yield is idle on purpose — tell the launcher's stall
+                # tick so a long foreign GPU job does not raise a false stall
+                heartbeat("gpu yield")
             return on
 
         while pending or active:

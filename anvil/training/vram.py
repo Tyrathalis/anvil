@@ -83,6 +83,12 @@ def wait_for_vram(
         n += 1
         torch.cuda.empty_cache()
         cur = f()
+        try:  # 09-21: parked on purpose — no false stall at the launcher
+            from anvil.runs import heartbeat
+
+            heartbeat(f"vram park: {who}")
+        except Exception:  # noqa: BLE001
+            pass
         print(
             f"[vram] {who} parked ({cur:.0f} MB free, want {min_free_mb:.0f}) — poll {n}",
             flush=True,

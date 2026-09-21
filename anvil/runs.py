@@ -39,6 +39,12 @@ construction, what the checklist used to ask each script to remember:
               tick beside --dir: a read chain launched from its own dir writes
               its arms under data/runs/<name>-* and raised two false stalls
               on 09-17 — name those roots and the tick sees them
+  pause       `anvil.runs pause --name N [--now] [--wait]` (09-21): STOP in every
+              root the command watches + `pause_requested` on the state; the
+              supervisor records PAUSED at exit (no FAILED push, no check-in).
+  relaunch    `anvil.runs relaunch --name N`: the recorded command again, in
+              place (STOP files removed); `--resume-on-gone` at launch lets
+              the sweep do this itself after a reboot, capped by --resume-max.
   sweep       `anvil.runs sweep` marks runs whose supervisor died (reboot,
               OOM, kill -9) as gone, alerts, checks in; `install-sweep` puts
               it on a systemd user timer (10 min) where systemd exists
@@ -108,6 +114,30 @@ def read_run(name: str) -> dict | None:
 
 
 # ---------------------------------------------------------------- alerts
+
+
+_HEARTBEAT_LAST = [0.0]
+
+
+def heartbeat(note: str, every_s: float = 60.0) -> bool:
+    """A paused-but-alive signal for the stall tick (09-21): a job that is
+    deliberately idle (the harness yielding the GPU, the learner parked on a
+    VRAM cotenant) writes <run dir>/heartbeat.json so the supervisor sees a
+    fresh artifact instead of raising the false-stall class (the 09-17 chain
+    raised two during a real 3 h yield). Resolved through $ANVIL_RUN_NAME
+    (the supervisor exports it); a no-op outside a launched run. Throttled."""
+    name = os.environ.get("ANVIL_RUN_NAME")
+    if not name or time.time() - _HEARTBEAT_LAST[0] < every_s:
+        return False
+    st = read_run(name)
+    if not st or not st.get("dir"):
+        return False
+    try:
+        _write_json(Path(st["dir"]) / "heartbeat.json", {"ts": _now(), "note": note})
+    except OSError:
+        return False
+    _HEARTBEAT_LAST[0] = time.time()
+    return True
 
 
 def alert(run: str, kind: str, msg: str, run_dir: str | None = None, tag: str = "anvil",
@@ -370,6 +400,9 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         "started": _now(), "cmd": cmd, "dir": str(run_dir), "log": str(log),
         "stall_sec": stall_s, "tick_sec": a.tick_sec, "note": note, "tag": a.tag,
         "checkin": mode, "launch_cwd": os.getcwd(), "watch": watch,
+        "nice": a.nice, "memory_max": a.memory_max, "cwd": a.cwd,
+        "resume": bool(getattr(a, "resume_on_gone", False)), "resume_max": getattr(a, "resume_max", 3),
+        "resume_count": getattr(a, "resume_count", 0),
     }
     _write_json(_run_file(a.name), st)
     threads: list[threading.Thread] = []
@@ -426,12 +459,22 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     logf.write(f"[runs] {_now()} exit rc={rc}\n".encode())
     logf.close()
     kind = "done" if rc == 0 else "failed"
+    # a `pause` marks the state file while the child drains; the exit is
+    # then PAUSED (no failure push, no check-in), whatever the rc
+    cur = read_run(a.name) or {}
+    if cur.get("pause_requested"):
+        kind = "paused"
+        st["pause_requested"] = cur["pause_requested"]
+        st["stop_files"] = cur.get("stop_files", [])
     st.update(state=kind, rc=rc, ended=_now(), wall_s=int(time.time() - t0))
     st.pop("stalled_since", None)
     _write_json(_run_file(a.name), st)
     tail = _tail(log)
-    msg = f"rc={rc} after {st['wall_s']} s; log {log}" + ("" if rc == 0 else f"\n{tail}")
-    checkin(alert(a.name, kind, msg, str(run_dir), a.tag))
+    msg = f"rc={rc} after {st['wall_s']} s; log {log}" + ("" if kind != "failed" else f"\n{tail}")
+    if kind == "paused":
+        alert(a.name, "paused", msg + "; `anvil.runs relaunch --name " + a.name + "` resumes it", str(run_dir), a.tag)
+    else:
+        checkin(alert(a.name, kind, msg, str(run_dir), a.tag))
     for th in threads:  # the terminal event's check-in finishes before the supervisor exits
         th.join(CHECKIN_TIMEOUT_S + 30)
     return 0 if rc == 0 else 1
@@ -572,9 +615,95 @@ def ack(a: argparse.Namespace) -> int:
     return 0
 
 
+def _stop_roots(r: dict) -> list[Path]:
+    """Where a run's command looks for STOP: its dir and every --watch root
+    that is a directory (a chain's arms; the harness dirs a loop launches)."""
+    roots = [Path(r["dir"])] if r.get("dir") else []
+    for pat in r.get("watch") or []:
+        pp = Path(pat)
+        roots += [q for q in (pp.parent.glob(pp.name) if any(c in pp.name for c in "*?[") else [pp]) if q.is_dir()]
+    return roots
+
+
+def pause(a: argparse.Namespace) -> int:
+    """Stop a run on purpose (09-21): STOP in every root the command watches,
+    `pause_requested` on the state so the supervisor records PAUSED (no
+    FAILED push, no check-in) when the command exits; --now also SIGTERMs
+    the command's process group (the harness drains, ADR-0092)."""
+    r = read_run(a.name)
+    if not r:
+        print(f"pause: no run {a.name}", file=sys.stderr)
+        return 2
+    if r.get("state") not in ("running", "stalled") or not _alive(r.get("supervisor_pid")):
+        print(f"pause: run {a.name} is {r.get('state')}, nothing to pause", file=sys.stderr)
+        return 3
+    stops = []
+    for root in _stop_roots(r):
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+            (root / "STOP").write_text(f"paused by anvil.runs {_now()}\n")
+            stops.append(str(root / "STOP"))
+        except OSError as e:
+            print(f"pause: cannot write {root / 'STOP'}: {e}", file=sys.stderr)
+    r.update(pause_requested=_now(), stop_files=stops)
+    _write_json(_run_file(a.name), r)
+    if a.now and r.get("pid"):
+        try:
+            os.killpg(os.getpgid(r["pid"]), signal.SIGTERM)
+        except OSError:
+            try:
+                os.kill(r["pid"], signal.SIGTERM)
+            except OSError:
+                pass
+    print(f"[runs] PAUSING {a.name}: STOP in {len(stops)} root(s)" + (" + SIGTERM" if a.now else "")
+          + "; the supervisor records `paused` when the command exits", flush=True)
+    if a.wait:
+        while (read_run(a.name) or {}).get("state") in ("running", "stalled"):
+            time.sleep(5)
+        print(f"[runs] {a.name}: {read_run(a.name).get('state')}")
+    return 0
+
+
+def _relaunch_args(r: dict, no_selftest: bool = False) -> argparse.Namespace:
+    return argparse.Namespace(
+        name=r["name"], dir=r["dir"], log=r.get("log"), cwd=r.get("cwd"),
+        stall_min=60, stall_sec=r.get("stall_sec"), tick_sec=r.get("tick_sec", 120.0),
+        nice=r.get("nice", 19), memory_max=r.get("memory_max"), tag=r.get("tag", "anvil"),
+        foreground=False, checkin=r.get("checkin"), no_selftest=no_selftest, watch=r.get("watch") or [],
+        resume_on_gone=bool(r.get("resume")), resume_max=r.get("resume_max", 3),
+        resume_count=r.get("resume_count", 0),
+    )
+
+
+def relaunch(a: argparse.Namespace) -> int:
+    """Re-run a paused / gone / failed / done run's recorded command in place:
+    the STOP files `pause` wrote are removed, the same dir / log / watch /
+    check-in; the command resumes from its own state (selfplay's
+    loop_state.json, the harness's completed games)."""
+    r = read_run(a.name)
+    if not r:
+        print(f"relaunch: no run {a.name}", file=sys.stderr)
+        return 2
+    if r.get("state") in ("running", "stalled") and _alive(r.get("supervisor_pid")):
+        print(f"relaunch: run {a.name} is still {r['state']}", file=sys.stderr)
+        return 3
+    for f in r.get("stop_files") or []:
+        try:
+            Path(f).unlink()
+        except FileNotFoundError:
+            pass
+    ra = _relaunch_args(r, getattr(a, "no_selftest", False))
+    if r.get("launch_cwd"):
+        os.chdir(r["launch_cwd"])
+    print(f"[runs] RELAUNCH {a.name} (was {r.get('state')}): {' '.join(r['cmd'])}", flush=True)
+    return launch(ra, list(r["cmd"]))
+
+
 def sweep(a: argparse.Namespace) -> int:
     """Runs whose supervisor died (reboot, OOM, kill -9) never alert
-    themselves: mark them gone, alert, check in. Idempotent; a timer's job."""
+    themselves: mark them gone, alert, check in — or, launched with
+    --resume-on-gone and under the cap, relaunch them (09-21). Idempotent;
+    a timer's job."""
     n = 0
     for p in (state_dir() / "runs").glob("*.json"):
         try:
@@ -587,11 +716,22 @@ def sweep(a: argparse.Namespace) -> int:
         _write_json(p, r)
         log = Path(r["log"]) if r.get("log") else None
         tail = _tail(log) if log and log.exists() else "(no log)"
+        n += 1
+        if r.get("resume") and r.get("resume_count", 0) < r.get("resume_max", 3):
+            r["resume_count"] = r.get("resume_count", 0) + 1
+            _write_json(p, r)
+            alert(r["name"], "relaunched", f"supervisor pid {r.get('supervisor_pid')} was dead (reboot / OOM / kill); "
+                  f"relaunch {r['resume_count']}/{r.get('resume_max', 3)} of the recorded command", r.get("dir"),
+                  r.get("tag", "anvil"))
+            ra = _relaunch_args(r)
+            if r.get("launch_cwd"):
+                os.chdir(r["launch_cwd"])
+            launch(ra, list(r["cmd"]))
+            continue
         rec = alert(r["name"], "gone", f"supervisor pid {r.get('supervisor_pid')} is dead (reboot / OOM / kill); "
                     f"the run's last log lines:\n{tail}", r.get("dir"), r.get("tag", "anvil"))
         if (r.get("checkin") or checkin_mode(None)) == "claude":
             llm_checkin(rec, r)
-        n += 1
     print(f"swept {n} gone run(s)")
     return 0
 
@@ -628,7 +768,8 @@ def install_sweep(a: argparse.Namespace) -> int:
         return 0
     unit_dir = Path.home() / ".config/systemd/user"
     unit_dir.mkdir(parents=True, exist_ok=True)
-    env = f"Environment=ANVIL_STATE_DIR={os.environ['ANVIL_STATE_DIR']}\n" if os.environ.get("ANVIL_STATE_DIR") else ""
+    env = "".join(f"Environment={k}={os.environ[k]}\n" for k in ("ANVIL_STATE_DIR", "ANVIL_NOTIFY_CMD", "ANVIL_CHECKIN")
+                  if os.environ.get(k))  # the unit runs without a login shell: the sinks it knows are the ones written here
     (unit_dir / "anvil-runs-sweep.service").write_text(SWEEP_SERVICE.format(cwd=cwd, python=py, env=env))
     (unit_dir / "anvil-runs-sweep.timer").write_text(SWEEP_TIMER)
     for c in (["systemctl", "--user", "daemon-reload"],
@@ -681,6 +822,18 @@ def main(argv: list[str] | None = None) -> int:
     la.add_argument("--no-selftest", action="store_true", help="skip the launch-time claude -p self-test")
     la.add_argument("--watch", action="append", default=None, metavar="GLOB",
                     help="extra artifact roots for the stall tick (a glob; repeatable), e.g. 'data/runs/b4post-*'")
+    la.add_argument("--resume-on-gone", action="store_true",
+                    help="the sweep relaunches this run's recorded command when its supervisor is found dead "
+                         "(a reboot, an OOM kill) — for a command that resumes from its own state, e.g. selfplay")
+    la.add_argument("--resume-max", type=int, default=3, help="the relaunch cap under --resume-on-gone (a crash loop stops)")
+    la.add_argument("--resume-count", type=int, default=0, help=argparse.SUPPRESS)
+    pa = sub.add_parser("pause", help="write STOP for the run's command, mark it paused when it exits (no FAILED push)")
+    pa.add_argument("--name", required=True)
+    pa.add_argument("--now", action="store_true", help="also SIGTERM the command's process group (the harness drains its games)")
+    pa.add_argument("--wait", action="store_true", help="block until the run has exited")
+    rl = sub.add_parser("relaunch", help="re-run a paused / gone / failed / done run's recorded command in place (STOP files removed)")
+    rl.add_argument("--name", required=True)
+    rl.add_argument("--no-selftest", action="store_true")
     st = sub.add_parser("status")
     st.add_argument("--json", action="store_true")
     wa = sub.add_parser("wait")
@@ -700,7 +853,8 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     return {"launch": lambda: launch(a, cmd), "status": lambda: status(a), "wait": lambda: wait(a),
             "alerts": lambda: alerts(a), "ack": lambda: ack(a), "prune": lambda: prune(a),
-            "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a)}[a.verb]()
+            "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a),
+            "pause": lambda: pause(a), "relaunch": lambda: relaunch(a)}[a.verb]()
 
 
 if __name__ == "__main__":
