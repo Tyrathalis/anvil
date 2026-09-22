@@ -1447,6 +1447,9 @@ def main() -> None:
     dev = args.device
     ckpt = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     cfg = ckpt["config"]
+    from anvil.bridge.server import check_player_target_convention
+
+    check_player_target_convention(cfg, args.ckpt)
     methods = default_methods()
     n_sa = cfg.get("sa_vocab_size", 0)
     net = build_net(cfg["embed"], cfg["pool_manifest"], len(methods), n_sa=n_sa).to(dev)
@@ -1838,6 +1841,9 @@ def main() -> None:
     win_count = 0
 
     def save(tag="last"):
+        from anvil.encoder.transform import PLAYER_TARGET_CONVENTION
+
+        rl_cfg["player_target_convention"] = PLAYER_TARGET_CONVENTION  # the labels this loop trained on (ADR-0116)
         torch.save(
             {"step": step, "model": net.state_dict(), "config": rl_cfg}, out_dir / f"{tag}.pt"
         )

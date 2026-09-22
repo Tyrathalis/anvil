@@ -228,6 +228,15 @@ silently delete.
 
 ## Engine, fork, and data hygiene
 
+- **A convention is checked through the model's row space, not by label↔decode agreement**: for every
+  head with a player or seat reference, a permutation test over the whole path (swap the registered
+  seats; the decoded engine object must be the same object) — the cast-target decoder's label and
+  decode agreed in registered coordinates while indexing self-first rows for two months (46%
+  self-targets served) ([ADR-0116](decisions/ADR-0116-player-target-positions.md)).
+- **Every read reports the target-sanity row** (the model's self-target rate vs the heuristic's in
+  the same games; the eval battery) and **a checkpoint records its label conventions, a loader
+  refuses a mismatch** ([ADR-0116](decisions/ADR-0116-player-target-positions.md)).
+
 - **Replaying a model-generated store requires the generating run's
   trajectory-perturbing flag set (-reask/-paytelemetry/... from ITS
   run.json) AND its serve config (ckpt, sampled, temperature), and

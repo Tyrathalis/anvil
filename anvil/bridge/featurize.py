@@ -26,7 +26,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from anvil.encoder.transform import HISTORY_K, assemble
+from anvil.encoder.transform import HISTORY_K, assemble, player_seats
 from anvil.training.dataset import (
     COMBAT_COUNT_MAX,
     KINDS,
@@ -483,7 +483,7 @@ class Featurizer:
             "cmb_rows": cmb_rows,
             "cmb_members": {r: sorted(ids) for r, ids in cmb_members.items()},
             "blk_atk_rows": blk_atk_rows,
-            "seats": [p] + [q for q in range(n_players) if q != p],
+            "seats": player_seats(p, n_players),
             **aux_sched,
         }
         return ex, aux

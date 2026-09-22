@@ -1676,3 +1676,15 @@ moves verbatim to the status archive and this section stays here as the record.*
   forge-wasm fork (the user, 09-21) it is on the table for Forge too, decided by the per-tab game rate).
   Survey doc 09-21 section + draft replies. Routed by name: **fork H's export doubles as the wasm
   export** (one ONNX graph, two runtimes) — noted on fork H, no new item.
+- **2026-09-21 (evening) — THE SHAKEDOWN PAUSED ON A KNOWN-WRONG HEAD ([ADR-0116](../decisions/ADR-0116-player-target-positions.md); user).**
+  Kryptic's finding, confirmed and measured here: the cast-target decoder's player label copied the
+  registered seat into a self-first row; on b4post the model targets ITSELF on 46% of player-targeted
+  casts from either seat (the heuristic 11%) — a coin flip, since the encoder is perspective-invariant
+  and has no seat feature; exposure ≈ 1.1% of casts (the class avoided: the heuristic's 1.9%), the search
+  inherits it, and self-picks on spells that cannot target self land in the `no_shape_fit` veto class
+  (ADR-0114's coverage bound re-read on the corrected build). Fixed at both ends through one helper
+  (`self_first_turn_order_v1`; n-player-correct, byte-identical for 2 — the model can identify
+  individual players for any n; multiplayer itself stays routed); the convention pinned in checkpoints;
+  the audit a battery row; the whole-path permutation test the standing rule. The target decoder's refit
+  on heuristic mirror stores launched 18:33; then the paired read + audit; then the shakedown relaunches
+  from the refit build as its day-zero (ADR-0115 amended).

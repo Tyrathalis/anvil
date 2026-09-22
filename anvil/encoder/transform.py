@@ -100,6 +100,30 @@ FORMAT_SCALARS = ["start_life", "deck_size", "singleton", "command_zone", "mull_
 # per player, self first then opponents in seat order
 PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_total", "lost"]
 
+# The player-position convention (09-21, Kryptic's finding; ADR-0116): every
+# model-side player position — the player feature rows, the target decoder's
+# player options, the combat heads' player targets — is SELF FIRST, then the
+# other seats in TURN ORDER after self (registered order rotated to start at
+# the deciding seat). Registered indices live only in the raw records and in
+# the engine; the two coordinate systems meet ONLY through these helpers. For
+# two players the order is [self, opponent] and equals the old [self] +
+# registered-order form byte for byte; for n >= 3 the turn-order rotation keeps
+# the encoding invariant under seat permutation (registered order after self
+# would leak the seat through the opponents' order). Checkpoints record the
+# name; a loader refuses a different one.
+PLAYER_TARGET_CONVENTION = "self_first_turn_order_v1"
+
+
+def player_seats(perspective: int, n_players: int) -> list[int]:
+    """Registered seat index at each model player position (self first, then
+    turn order after self)."""
+    return [(perspective + i) % n_players for i in range(n_players)]
+
+
+def player_target_position(pi: int, perspective: int, n_players: int) -> int:
+    """A registered player reference -> its model position (0 = self)."""
+    return (pi - perspective) % n_players
+
 # v2/v3: scalar features enter the projections at O(1). Raw magnitudes
 # (library ~90, turn ~20+) dominate the linear mix and drown the small
 # decisive signals (life differences) — measured on pilot-run1 as the
@@ -388,8 +412,8 @@ def assemble(
         * GLOBAL_SCALE
     )
 
-    # --- players, self first then seat order ---
-    seats = [perspective] + [i for i in range(n_players) if i != perspective]
+    # --- players, self first then turn order after self (player_seats) ---
+    seats = player_seats(perspective, n_players)
     prows = []
     for i in seats:
         p = obs["players"][i]

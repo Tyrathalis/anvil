@@ -80,6 +80,34 @@ PAY_TAGS = "mtg.pay_mana_class"
 # was fitted (surf_ params present; the has_pay never-serve-fresh-init rule)
 SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode,mtg.surface.order,mtg.surface.damage,mtg.surface.target"
 _HOST_ID = re.compile(r"\((\d+)\)$")  # "Name (id)" labels (mirrors featurize._HOST_ID)
+def decode_player_ref(pos: int, seats: list[int]) -> int:
+    """A target decoder player position -> the registered seat the engine
+    indexes (ADR-0116). Out-of-range positions raise: the realizer would
+    otherwise resolve a dangling ref silently."""
+    if pos < 0 or pos >= len(seats):
+        raise ValueError(f"player position {pos} outside the seat list {seats}")
+    return int(seats[pos])
+
+
+def check_player_target_convention(cfg: dict, where: str) -> str:
+    """Refuse a checkpoint trained under a DIFFERENT player-position
+    convention; warn once on a legacy checkpoint that records none (its
+    target head learned the pre-09-21 mixed label and is served through the
+    corrected decode until refit — ADR-0116)."""
+    from anvil.encoder.transform import PLAYER_TARGET_CONVENTION
+
+    conv = cfg.get("player_target_convention")
+    if conv is None:
+        print(f"[ckpt] {where}: no player_target_convention recorded — a legacy target head "
+              f"(registered-index labels); served through the {PLAYER_TARGET_CONVENTION} decode; "
+              f"refit before relying on its player targets", flush=True)
+        return "legacy"
+    if conv != PLAYER_TARGET_CONVENTION:
+        raise RuntimeError(f"{where}: player_target_convention {conv!r} != this code's "
+                           f"{PLAYER_TARGET_CONVENTION!r}; refusing to serve or train from it")
+    return conv
+
+
 SURFACE_TAG_OF_TASK = {"surf_one": "mtg.surface.entity_one", "surf_set": "mtg.surface.entity_set",
                        "surf_mode": "mtg.surface.mode", "surf_order": "mtg.surface.order",
                        "surf_damage": "mtg.surface.damage", "surf_target": "mtg.surface.target"}
@@ -296,6 +324,7 @@ class ModelBackend:
         self.torch = torch
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
         cfg = ckpt["config"]
+        check_player_target_convention(cfg, str(ckpt_path))
         # sa_vocab_size absent = pre-D2 host-level checkpoint: the model has
         # no SA descriptor and answers host_level=True (Java runs the full
         # disambiguation ladder). D2+ checkpoints name the SA themselves.
@@ -819,7 +848,12 @@ class ModelBackend:
                 if eid in aux["stack_ids"]:
                     ref.ns = 1
             else:
-                ref.player = pick - n_ent  # registered index (label convention)
+                # 09-21 (ADR-0116): the pick is a model position (self first,
+                # then turn order) -> the registered seat through the aux
+                # seat list. The old `pick - n_ent` handed the engine a
+                # registered index from a self-first row: from seat 1 the
+                # model's "opponent" became itself.
+                ref.player = decode_player_ref(pick - n_ent, aux["seats"])
         x = int(out["x_cls"][0])
         cp.has_x = True
         # class 17 = ">16" overflow bucket; clamp + count (decision 2026-07-10)

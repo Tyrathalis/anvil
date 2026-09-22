@@ -87,7 +87,13 @@ import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
 from anvil.encoder.stack_fields import STACK_FIELDS, stack_fields
-from anvil.encoder.transform import HISTORY_K, assemble, history_tokens
+from anvil.encoder.transform import (
+    HISTORY_K,
+    assemble,
+    history_tokens,
+    player_seats,
+    player_target_position,
+)
 from anvil.policy.surfaces import SURF_BUILT, SURF_MAX, AbilityCache, surface_fields, surface_task
 from anvil.store.trajectories import open_store
 
@@ -335,7 +341,7 @@ def attack_fields(
                 "derived candidate basis — superset violated (measured 0/2.23M; "
                 "run scripts/d5/measure_combat_labels.py)"
             )
-    seats = [p] + [q for q in range(n_players) if q != p]
+    seats = player_seats(p, n_players)
     out = {
         "cmb_rows": rows,
         "cmb_count": [],
@@ -598,7 +604,13 @@ class PriorityWindows(IterableDataset):
                                 tgt_kind[slot], tgt_idx[slot] = 0, row_of[ref["e"]]
                                 slot += 1
                             elif "pi" in ref:
-                                tgt_kind[slot], tgt_idx[slot] = 1, ref["pi"]
+                                # 09-21 (ADR-0116): the registered seat ->
+                                # the model's self-first position; the old
+                                # copy of ref["pi"] pointed at the wrong row
+                                # from seat 1 (a coin-flip label; 46% self-
+                                # targets served)
+                                tgt_kind[slot], tgt_idx[slot] = 1, player_target_position(
+                                    int(ref["pi"]), p, len(traj.header["players"]))
                                 slot += 1
                             # "str" refs (non-card/player/SA oddities) are unpointable; skipped
                         tgt_kind[slot], tgt_idx[slot] = 2, 0  # STOP

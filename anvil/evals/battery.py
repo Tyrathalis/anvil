@@ -555,6 +555,15 @@ def eval_read(name: str, arm_dirs: list[str], report_json: str | None, out_dir: 
         },
     }
     (out_dir / "analysis.json").write_text(json.dumps(numbers, indent=1) + "\n")
+    # ADR-0116: the player-target sanity row (the model's self-target rate vs the
+    # heuristic's in the same games) — the audit that found the 46% coin flip
+    try:
+        from anvil.evals.player_targets import battery_lines
+
+        pt_lines, pt_anoms = battery_lines([str(d) for d in arm_dirs])
+        anomalies.extend(pt_anoms)
+    except Exception as e:  # noqa: BLE001
+        pt_lines = [f"## Player targets (ADR-0116)\n\n- audit failed: {e}\n"]
     _write_report(
         out_dir,
         f"{name} eval battery",
@@ -567,6 +576,7 @@ def eval_read(name: str, arm_dirs: list[str], report_json: str | None, out_dir: 
             f"**Deck spread (n≥8):** sd {numbers['per_deck_extremes']['spread_sd']} · "
             f"worst {per_deck[:3]} · best {per_deck[-3:]}",
             "![eval](eval.png)",
+            *pt_lines,
             "\n## Exploratory\n\nEverything above the gate headline is "
             "hypothesis-generating only (run-analysis-protocol rule 1).",
         ],
