@@ -79,6 +79,12 @@ lines** at the 20 s bridge deadline; per-game wall median 86 s vs 32 s on the sa
 the job (max 326 vs 60 s). Ordinary desktop and ComfyUI use costs the run wall, nothing else; a foreign
 job that saturates the card slows in-flight games ≈ 2.7× and gates new chunks until it leaves.
 
+**Amended 2026-09-21 20:37 (ADR-0116):** the day-zero build is the refit build `m12-build4-e1a-tgt` (the
+corrected target head; the policy otherwise byte-identical to e1a); the chain gained a step 0 — the
+day-zero build's own 2,000-game read, the reference for every arm's gain (the old 0.5265 was the legacy
+head's). The first launch (13:00, from e1a) was paused at iteration 3 on ADR-0116 and its artifacts
+deleted; relaunched 20:37 from the refit build, the same four arms and 30 h each.
+
 ## Consequences
 
 - Build order 4½ amended to this ADR (four arms, `--wall-hours`, the arm order, drills off); 4¾

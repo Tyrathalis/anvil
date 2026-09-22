@@ -149,3 +149,9 @@ decisive / 300, the arm's strength 0.534 ± 0.029 = the recipe's; `void-rescue-r
 - **Forkcheck `run-20260919-build4-voidrescue` PASS 21:16 (499/500, 20260969 the standing crash
   seed; fidelity 451/48/1 = the baseline's) → the fork pin `57337a7e38`** (the flag off in the
   recipe; ADR-0025-exempt as a search-copy / recording-only change).
+
+## Note 2026-09-21 (ADR-0116)
+
+The player-target convention bug (ADR-0116) was a candidate explanation for part of the `no_shape_fit`
+class (a self-pick on a spell that cannot target self is a realizer veto). The corrected head's read:
+`no_shape_fit` 651 → 646 on the same 600 games — **unchanged; the coverage bound stands as written.**

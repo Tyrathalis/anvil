@@ -14,7 +14,7 @@ set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
 OUT=$REPO/data/runs/shakedown; mkdir -p "$OUT"
 JAR=${JAR:-$REPO/data/runs/build4-census/forge-census.jar}
-CKPT=${CKPT:-data/training/m12-build4-e1a/last.pt}
+CKPT=${CKPT:-data/training/m12-build4-e1a-tgt/last.pt}  # ADR-0116: the refit build = the day-zero
 WALL_HOURS=${WALL_HOURS:-30}; ARMS=${ARMS:-recipe alloc shallow deep}; WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}
 RECIPE="-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"
 SHALLOW="-search -searchrate 1 -searchrolls 1 -searchact 0.10 -searchtemp 0.025"
@@ -22,6 +22,16 @@ DEEP="$RECIPE -searchdeep 3 -searchdeepleaf h2 -searchdeeprolls 4 -searchdeeplo 
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 [[ -f "$OUT/read.md" ]] || printf '# The shakedown (ADR-0115) — per-arm reads\n\n| arm | wall h | iterations | games | final ckpt | 2,000-game read (network alone) | last lookahead arm |\n|---|---|---|---|---|---|---|\n' > "$OUT/read.md"
 log "shakedown chain start jar=$JAR ckpt=$CKPT wall=${WALL_HOURS}h/arm arms='$ARMS'"
+# step 0 (ADR-0116 / ADR-0115 amended): the day-zero build's own 2,000-game read — the reference every
+# arm's network-alone gain is measured against (the served build's 0.5265 was the OLD head's)
+if [[ ! -f "$OUT/dayzero.read.done" ]]; then
+  log "day-zero read on $CKPT (network alone, $READ_GAMES / seat, $WORKERS x 2)"
+  nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "sd-dayzero" --games "$READ_GAMES" --workers "$WORKERS" \
+    --port 50086 --servers 0 --jar "$JAR" --skip-ante >> "$OUT/dayzero.read.log" 2>&1 || { log "day-zero read FAILED"; exit 1; }
+  ls -dt data/runs/sd-dayzeroarm-s0-* | head -1 | tr -d '\n' > "$OUT/dayzero.read.done"; echo -n "," >> "$OUT/dayzero.read.done"; ls -dt data/runs/sd-dayzeroarm-s1-* | head -1 >> "$OUT/dayzero.read.done"
+  DZ=$(uv run python scripts/arms_report.py --arm "dayzero=$(cat $OUT/dayzero.read.done)" --out "$OUT/dayzero.read.json" 2>/dev/null | grep -o "winrate [0-9.]* ± [0-9.]*" | head -1)
+  printf '| dayzero | 0 | 0 | 0 | %s | %s | n/a |\n' "$CKPT" "$DZ" >> "$OUT/read.md"; log "day-zero read: $DZ"
+fi
 for arm in $ARMS; do
   case $arm in
     recipe) FARGS="$RECIPE"; ALLOC=off ;;

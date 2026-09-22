@@ -127,3 +127,30 @@ legitimate self-targets stay the hard minority class. Build: `data/training/m12-
 `scripts/tgtfix_read_chain.sh`: e1a vs the refit build, 300 / seat network-alone, 24 × 2; the heuristic
 mirror on the same seeds with obs; the audit + the veto census by class on both model arms; the paired
 first-divergence read on both).
+
+## Addendum 2026-09-21 20:30 — THE READ: the head is fixed, the strength within noise, the veto class is NOT this bug; the shakedown relaunched from the refit build
+
+`tgtfix-read` (300 / seat, 24 × 2, the census jar; the heuristic mirror on the same seeds with obs):
+
+| | served build (legacy head, corrected decode) | refit build |
+|---|---:|---:|
+| model self-target rate | 37.5% (69 / 184) | **15.3%** (38 / 248) — seat 0 13.3% / seat 1 17.7% |
+| the heuristic's rate in the same games | 20.9% | 23.5% |
+| paired strength, refit − served | | **−1.34 ± 1.03pp** (t −1.3, n 597; 15 up / 23 down) |
+| `no_shape_fit` vetoes (mainline) | 651 | 646 |
+| veto rate | 4.2% | 4.7% |
+
+The corrected head targets where the heuristic does and casts the class more (248 vs 184 player-targeted
+casts on the same seeds — the avoidance is gone). Strength is within noise and leans negative: the policy's
+option choices were shaped under the old head (when to cast a wheel was noise), and a 600-game read cannot
+resolve a sub-point effect; the loop trains both. **`no_shape_fit` did not move → the third exposure named in
+the context is falsified: ADR-0114's coverage bound stands as written** (a note there). The paired
+first-divergence read: every game diverges by turn 2 (the mulligan tuck or the first cast — the model plays
+its own opening), the first divergence on a player-target window 3 / 600 in both arms, the per-draw sign
+test 91 better / 85 worse (served) and 88 / 90 (refit) — consistent with the paired diff.
+
+**Decision (user's rule: nothing known-wrong proceeds):** the refit build `m12-build4-e1a-tgt` is the served
+build of record and the shakedown's day-zero; the paused run's partial three iterations (3.8 GB) deleted;
+**the shakedown RELAUNCHED 20:37** with a step 0 = the day-zero build's own 2,000-game read (the reference
+every arm's network-alone gain is measured against; the old 0.5265 was the legacy head's). Banked: the
+−1.3 ± 1.0 (re-read at the day-zero step's 2,000 games vs the served build's b4post 0.5265 ± 0.0112).

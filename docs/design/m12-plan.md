@@ -1688,3 +1688,8 @@ moves verbatim to the status archive and this section stays here as the record.*
   the audit a battery row; the whole-path permutation test the standing rule. The target decoder's refit
   on heuristic mirror stores launched 18:33; then the paired read + audit; then the shakedown relaunches
   from the refit build as its day-zero (ADR-0115 amended).
+- **2026-09-21 20:37 — THE SHAKEDOWN RELAUNCHED FROM THE REFIT BUILD (ADR-0116 addendum; ADR-0115 amended).**
+  The corrected head's read: self-target 37.5% → 15.3% (the heuristic ≈ 21%), refit − served −1.34 ± 1.03
+  (noise), `no_shape_fit` unchanged (the coverage bound is not the target bug), the first-divergence read
+  (every game parts by turn 2; the per-draw sign test agrees with the paired diff). Served build of record →
+  `m12-build4-e1a-tgt`; the chain's step 0 = its own 2,000-game day-zero read; then the four arms at 30 h.
