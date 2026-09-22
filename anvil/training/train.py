@@ -274,6 +274,7 @@ def main() -> None:
     step = 0
     t0 = time.time()
     win_seen = 0
+    nonfinite = 0
     while step < a.steps:
         for batch in train:
             if step >= a.steps:
@@ -283,6 +284,14 @@ def main() -> None:
             batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
             with torch.autocast(device, dtype=torch.bfloat16):
                 L = net.losses(batch, pass_weight=a.pass_weight)
+            if not torch.isfinite(L["loss"]):
+                # the belt under masked_cross_entropy: a non-finite step is
+                # skipped and counted, never applied (a NaN loss -> NaN grads
+                # -> NaN weights, permanently)
+                nonfinite += 1
+                print(f"[train] step {step}: non-finite loss skipped ({nonfinite} so far): "
+                      + ", ".join(f"{k}={float(v):.4g}" for k, v in L.items() if v.dim() == 0), flush=True)
+                continue
             opt.zero_grad(set_to_none=True)
             L["loss"].backward()
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
