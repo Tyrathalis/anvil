@@ -106,3 +106,24 @@ its partial iteration discarded.
   unaffected (checked); the legality mask on the decoder's player rows (a strength item: an
   illegal self-pick should be impossible, not vetoed) → the Build 5 queue.
 - Community: Kryptic credited; the draft reply posted by the user 09-21.
+
+## Addendum 2026-09-21 19:33 — the refit landed; the read launched
+
+`tgt-refit` (61 min: 1.14M windows scanned across the two `b2-heurarm` stores, ≈ 20 games skipped on the
+loader's ADR-0005 superset guard — a data-quality note routed to `anvil.store validate`, not a blocker):
+2,286 player-target + 2,059 other targeted windows, 8 epochs, loss 0.497 → 0.313. Held-out (1-in-5):
+
+| class | before | after |
+|---|---:|---:|
+| player-opp accuracy (n 418) | 0.579 | **0.837** |
+| player-self accuracy (n 60) | 0.267 | 0.400 |
+| predicted "self" share on player slots (label share 12.6%) | 32.4% | **19.3%** |
+| entity accuracy (n 120) | 0.892 | 0.917 |
+| STOP (n 869) | 0.999 | 1.000 |
+
+The head moves toward the heuristic's distribution with no drift on the entity and STOP classes;
+legitimate self-targets stay the hard minority class. Build: `data/training/m12-build4-e1a-tgt/last.pt`
+(the convention pinned; the alloc head + fit record carried). **The read launched 19:36** (`tgtfix-read`,
+`scripts/tgtfix_read_chain.sh`: e1a vs the refit build, 300 / seat network-alone, 24 × 2; the heuristic
+mirror on the same seeds with obs; the audit + the veto census by class on both model arms; the paired
+first-divergence read on both).
