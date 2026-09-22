@@ -1693,3 +1693,6 @@ moves verbatim to the status archive and this section stays here as the record.*
   (noise), `no_shape_fit` unchanged (the coverage bound is not the target bug), the first-divergence read
   (every game parts by turn 2; the per-draw sign test agrees with the paired diff). Served build of record →
   `m12-build4-e1a-tgt`; the chain's step 0 = its own 2,000-game day-zero read; then the four arms at 30 h.
+- **2026-09-22 (routed by name): the `nan-guard` branch** (Kryptic's NaN finding: the target term's
+  unguarded `ignore_index` mean; fixed + tested on the branch, pushed) **merges into main when the shakedown
+  closes** — the running trainer re-imports `model.py` per iteration, and the arms stay on one tree.
