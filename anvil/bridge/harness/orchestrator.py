@@ -34,8 +34,8 @@ import time
 from pathlib import Path
 
 from anvil.bridge.harness.gpu_yield import GpuYield
-from anvil.runs import heartbeat
 from anvil.bridge.harness.seeds import game_seed
+from anvil.runs import heartbeat
 from anvil.store.trajectories import OBS_SCHEMA_VERSION
 
 FORGE_DIR = Path(os.environ.get("FORGE_DIR", Path.home() / "Everything/Projects/forge"))

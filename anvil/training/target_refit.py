@@ -117,7 +117,8 @@ def collect(stores: str, embed: str, n_player: int, workers: int, seed: int, max
 @torch.no_grad()
 def evaluate(net, examples: list, dev, batch: int) -> dict:
     net.eval()
-    ok = torch.zeros(4); n = torch.zeros(4)
+    ok = torch.zeros(4)
+    n = torch.zeros(4)
     mix = torch.zeros(4)  # predicted class on player-labelled slots
     for i in range(0, len(examples), batch):
         b = _to(collate(examples[i:i + batch]), dev)
@@ -153,7 +154,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args()
-    out_dir = Path(a.out); out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(a.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
     ck = torch.load(a.ckpt, map_location="cpu", weights_only=False)
     cfg = dict(ck["config"])
     methods = default_methods()
@@ -179,7 +181,8 @@ def main() -> None:
     steps = 0
     for ep in range(a.epochs):
         rng.shuffle(train)
-        tot = 0.0; nb = 0
+        tot = 0.0
+        nb = 0
         for i in range(0, len(train), a.batch):
             b = _to(collate(train[i:i + a.batch]), a.device)
             out = net(b)
@@ -195,7 +198,9 @@ def main() -> None:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(head, 1.0)
             opt.step()
-            tot += loss.item(); nb += 1; steps += 1
+            tot += loss.item()
+            nb += 1
+            steps += 1
         ev = evaluate(net, val, a.device, a.batch)
         print(f"[refit] epoch {ep + 1}: loss {tot / max(nb, 1):.4f} val {json.dumps(ev['acc'])} "
               f"mix {json.dumps(ev['pred_mix_on_player_slots'])}", flush=True)

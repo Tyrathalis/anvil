@@ -143,7 +143,6 @@ def main() -> None:
         rows.append(compare(g, m))
     n = len(rows)
     div = [r for r in rows if r["diverged"]]
-    by_turn = collections.Counter(r.get("turn") for r in div)
     by_method = collections.Counter(r.get("method") for r in div)
     pt = sum(1 for r in div if r.get("player_target"))
     pairs = [(r["model_won"], r["heuristic_won_that_seat"]) for r in rows if "model_won" in r]
