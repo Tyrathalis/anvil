@@ -102,16 +102,33 @@ def lanes(args) -> None:
             for j in chunk:
                 f.write(json.dumps({k: j[k] for k in OBSERVE_JOB_FIELDS}) + "\n")
         sh = outdir / f"{prefix}-lane-{i}.sh"
+        from payment_certify import lane_command
         sh.write_text(
             "#!/bin/sh\nset -e\n"
             f"cd '{gui}'\n"
-            f"nice -n 19 java -Xms1g -Xmx2g -XX:ActiveProcessorCount=2 -jar '{args.jar}' "
-            f"census -f Commander -paytelemetry -certify '{jf}' "
-            f"-certout '{outdir}/{prefix}-lane-{i}.out.jsonl' "
-            f"-obsout '{outdir}/{prefix}-lane-{i}.obs.zst'\n"
+            + lane_command(args.runner, args.jar, str(jf), f"{outdir}/{prefix}-lane-{i}.out.jsonl",
+                           args.forge_flags,
+                           obs_file=f"{outdir}/{prefix}-lane-{i}.obs.zst" if args.runner == "census" else None)
         )
         sh.chmod(0o755)
     print(f"wrote {args.n} lane scripts under {outdir}")
+
+
+def _row_frames(row_paths: list[str]) -> dict[int, tuple[dict, dict]]:
+    """job id -> (header, the window's wire dec) off AnvilRun -replay observe
+    rows (ADR-0117): the row's `frame` is the copy's bridge dec record (the
+    wire shape, hist spliced) and `header` its game header — no obs store."""
+    out: dict[int, tuple[dict, dict]] = {}
+    for path in row_paths:
+        for line in open(path):
+            r = json.loads(line)
+            if r.get("ev") != "certify" or r.get("arm") != 0 or not r.get("frame"):
+                continue
+            if not r.get("header"):
+                print(f"  FRAME ANOMALY job={r['job']}: frame without header")
+                continue
+            out[r["job"]] = (r["header"], r["frame"])
+    return out
 
 
 def _observe_frames(obs_paths: list[str]) -> dict[int, tuple[dict, dict]]:
@@ -166,7 +183,11 @@ def score(args) -> None:
         r = json.loads(line)
         if r.get("ev") == "certify" and r.get("arm") == 0:
             cert[r["job"]] = r
-    frames = _observe_frames(args.obs)
+    frames = _observe_frames(args.obs) if args.obs else {}
+    if getattr(args, "rows", None):
+        frames.update(_row_frames(args.rows))
+    if not frames:
+        raise SystemExit("no frames: pass --obs (census lanes) and/or --rows (anvil -replay rows)")
 
     methods = default_methods()
     stem = str(args.embed).removesuffix(".safetensors")
@@ -240,11 +261,15 @@ def main() -> None:
     n.add_argument("--jobs", required=True)
     n.add_argument("--jar", required=True)
     n.add_argument("-n", type=int, default=4)
+    n.add_argument("--runner", choices=("anvil", "census"), default="anvil")
+    n.add_argument("--forge-flags", default="-paytelemetry")
     n.set_defaults(fn=lanes)
     s = sub.add_parser("score")
     s.add_argument("--jobs", required=True, help="observe master jobs file (with provenance)")
     s.add_argument("--certout", required=True, help="concatenated observe certout")
-    s.add_argument("--obs", nargs="+", required=True, help="lane obs.zst files")
+    s.add_argument("--obs", nargs="*", default=[], help="lane obs.zst files (the census runner)")
+    s.add_argument("--rows", nargs="*", default=[],
+                   help="AnvilRun -replay label files whose observe rows carry the frames (ADR-0117)")
     s.add_argument("--ckpt", required=True)
     s.add_argument("--embed", required=True)
     s.add_argument("--out", default=None, help="per-drill result rows (jsonl)")

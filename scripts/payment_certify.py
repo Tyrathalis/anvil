@@ -2,7 +2,13 @@
 """M9 rung 3: payment-drill certification driver + reader
 (m9-rung3-draft.md, session-pinned protocol).
 
-Three subcommands around the fork-side certify mode (CensusRun -certify):
+Three subcommands around the fork-side certify front. Since the certifier
+merge (09-23, ADR-0117) the front of record is AnvilRun -replay: the job's
+game replayed to its window, the payment answers adjudicated on SEARCH
+COPIES (one per (arm, roll), roll 0 the true continuation), one certify row
+per copy in this same contract; CensusRun -certify (the M9 runner, census
+construction) stays as the parity witness until the big run's launch.
+`lanes --runner census|anvil` picks the runner; the rows read identically.
 
   plan   mined candidates -> jobs.jsonl (+ lane scripts). Top-N per shape;
          deck pair + base seed joined from the census run's lane-*.sh (the
@@ -49,6 +55,22 @@ _CMD = re.compile(
 )
 
 
+def results_index(path: Path) -> dict:
+    """game idx -> {deck1, deck2, seed, profile1, profile2} from an AnvilRun
+    run's results.jsonl (the certifier merge: candidates mined from an
+    AnvilRun -paytelemetry census carry the run's game index; the results
+    row is the coordinate's provenance — decks, seed AND the seat profiles)."""
+    out = {}
+    for line in open(path):
+        r = json.loads(line)
+        if r.get("status") == "drill_skip" or not r.get("decks"):
+            continue
+        prof = r.get("profiles") or [None, None]
+        out[r["i"]] = {"deck1": r["decks"][0], "deck2": r["decks"][1], "seed": r["seed"],
+                       "profile1": prof[0], "profile2": prof[1]}
+    return out
+
+
 def lane_index(census_dir: Path) -> dict:
     """pair-name -> (deck1, deck2, base_seed) from the run's lane scripts."""
     out = {}
@@ -64,9 +86,11 @@ def _window_key(c: dict) -> tuple:
 
 def plan(args) -> None:
     census_dir = Path(args.candidates).parent
-    lanes = lane_index(census_dir)
-    if not lanes:
-        raise SystemExit(f"no lane-*.sh next to {args.candidates} — provenance shim needs them")
+    results = results_index(Path(args.results)) if getattr(args, "results", None) else {}
+    lanes = {} if results else lane_index(census_dir)
+    if not lanes and not results:
+        raise SystemExit(f"no lane-*.sh next to {args.candidates} and no --results — "
+                         "the provenance shim needs one of them")
 
     # windows already certified in prior batches are excluded (scale runs
     # take the NEXT slice of the ranked pool, never re-run a window)
@@ -108,16 +132,28 @@ def plan(args) -> None:
                 continue
             seen.add(key)
             added += 1
-            pair = Path(c["source"]).stem
-            if pair not in lanes:
-                continue
-            d1, d2, _base = lanes[pair]
+            extra = {}
+            if results:
+                prov = results.get(c["g"])
+                if prov is None:
+                    continue
+                d1, d2 = prov["deck1"], prov["deck2"]
+                if prov["profile1"] and prov["profile2"]:
+                    extra = {"profile1": prov["profile1"], "profile2": prov["profile2"]}
+            else:
+                pair = Path(c["source"]).stem
+                if pair not in lanes:
+                    continue
+                d1, d2, _base = lanes[pair]
+            if c.get("ph"):
+                extra["ph"] = c["ph"]  # the window's phase: part of the coordinate (ADR-0117)
             jobs.append({
                 "job": len(jobs), "shape": shape, "seed": c["seed"],
                 "deck1": d1, "deck2": d2, "p": c["p"], "t": c["t"],
                 "sa": c["sa"], "ord": 0,
                 "arms": min(int(c.get("goals", 1)), 9),
                 "k": SHAPE_K.get(shape, 8), "horizon": HORIZON,
+                **extra,
                 # provenance (ignored by the Java side, joined back at read)
                 "source": c["source"], "g": c["g"], "tags": c["tags"],
             })
@@ -280,6 +316,32 @@ def _prov(job: dict) -> dict:
 # the Java-side jobs contract (CensusRun -certify's flat parser accepts
 # EXACTLY these; provenance stays in the master jobs file, joined at read)
 JAVA_JOB_FIELDS = ("job", "seed", "deck1", "deck2", "p", "t", "sa", "ord", "arms", "k", "horizon")
+# AnvilRun -replay reads the same contract plus these when present (the
+# coordinate's seat, profiles and phase — ADR-0117)
+REPLAY_JOB_FIELDS = JAVA_JOB_FIELDS + ("seat", "profile1", "profile2", "ph", "mode")
+
+
+def lane_command(runner: str, jar: str, jobs_file: str, out_file: str, forge_flags: str = "",
+                 obs_file: str | None = None) -> str:
+    """The one lane's java line for either runner. The anvil runner: every
+    seat heuristic (-bridgeseats 2, the harness's heuristic-control idiom),
+    no model server (the outcome leaf makes no head call), the rows in the
+    labels file (ev:"certify"); pass -paytelemetry in forge_flags when the
+    coordinates were mined under it (the prefix must replay under the same
+    flags)."""
+    java = f"nice -n 19 java -Xms1g -Xmx3g -XX:ActiveProcessorCount=2 -Danvil.nogui=on -jar '{jar}' "
+    if runner == "census":
+        cmd = java + f"census -f Commander -paytelemetry -certify '{jobs_file}' -certout '{out_file}'"
+        if obs_file:
+            cmd += f" -obsout '{obs_file}'"
+        return cmd + "\n"
+    cmd = java + (f"anvil -f Commander -b local-random -bridgeseats 2 -replay '{jobs_file}' "
+                  f"-labels '{out_file}' -results '{out_file}.results.jsonl'")
+    if obs_file:
+        cmd += f" -obs '{obs_file}'"
+    if forge_flags:
+        cmd += " " + forge_flags
+    return cmd + "\n"
 
 
 def lanes(args) -> None:
@@ -293,9 +355,10 @@ def lanes(args) -> None:
     for i in range(args.n):
         chunk = jobs[i:: args.n]
         jf = outdir / f"{prefix}-lane-{i}.jobs.jsonl"
+        fields = REPLAY_JOB_FIELDS if args.runner == "anvil" else JAVA_JOB_FIELDS
         with open(jf, "w") as f:
             for j in chunk:
-                f.write(json.dumps({k: j[k] for k in JAVA_JOB_FIELDS}) + "\n")
+                f.write(json.dumps({k: j[k] for k in fields if k in j}) + "\n")
         sh = outdir / f"{prefix}-lane-{i}.sh"
         # cwd must be the fork's forge-gui (res bundles resolve relative to
         # it; a wrong cwd dies in FModel.initialize on the locale bundle)
@@ -303,12 +366,11 @@ def lanes(args) -> None:
         sh.write_text(
             "#!/bin/sh\nset -e\n"
             f"cd '{gui}'\n"
-            f"nice -n 19 java -Xms1g -Xmx2g -XX:ActiveProcessorCount=2 -jar '{args.jar}' "
-            f"census -f Commander -paytelemetry -certify '{jf}' "
-            f"-certout '{outdir}/{prefix}-lane-{i}.out.jsonl'\n"
+            + lane_command(args.runner, args.jar, str(jf), f"{outdir}/{prefix}-lane-{i}.out.jsonl",
+                           args.forge_flags)
         )
         sh.chmod(0o755)
-    print(f"wrote {args.n} lane scripts under {outdir}")
+    print(f"wrote {args.n} lane scripts under {outdir} (runner {args.runner})")
 
 
 def evalset(args) -> None:
@@ -422,6 +484,9 @@ def main() -> None:
                    help="per-shape quota overrides, e.g. 'blocker_pressure=240,color_hold=240'")
     p.add_argument("--exclude", action="append", default=[],
                    help="prior jobs.jsonl whose windows are skipped (repeatable)")
+    p.add_argument("--results", default=None,
+                   help="an AnvilRun run's results.jsonl: the candidates' provenance (decks, "
+                        "seed, profiles by game index) instead of census lane scripts")
     p.set_defaults(fn=plan)
     r = sub.add_parser("read")
     r.add_argument("--jobs", required=True)
@@ -444,6 +509,12 @@ def main() -> None:
     n.add_argument("--jobs", required=True)
     n.add_argument("--jar", required=True)
     n.add_argument("-n", type=int, default=4)
+    n.add_argument("--runner", choices=("anvil", "census"), default="anvil",
+                   help="anvil = AnvilRun -replay (the front of record, ADR-0117); "
+                        "census = CensusRun -certify (the M9 witness)")
+    n.add_argument("--forge-flags", default="-paytelemetry",
+                   help="extra AnvilRun flags for the anvil runner (the prefix replays under "
+                        "the flags the coordinates were mined under)")
     n.set_defaults(fn=lanes)
     args = ap.parse_args()
     args.fn(args)
