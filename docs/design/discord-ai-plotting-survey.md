@@ -1089,3 +1089,53 @@ To Kryptic / Chris:
 > pooled (±2.2) move 1.5–1.8 SE at most, so I'd not read redistribution from it yet — but the Red
 > mirror at 34% is 3.5 SE below 50% and real. Chris's gradient-cosine test between deck batches is
 > the cheapest direct check of the interference idea and I'd run it on that mirror first.
+
+### 09-21 → 09-23 follow-up: forge-wasm in production, the NaN finding, generation rates, the search Q&A, the turn-count check (the user posted six replies; recorded 09-23)
+
+**khaliostr (09-22 01:39):** inference, not training, was the wasm question; the SharedArrayBuffer /
+threading side "is all pretty much sorted" — **forge-wasm has run in production for a couple of weeks
+with 5k+ games completing correctly**; even though the engine is slower it beats a Forge server on the
+network round trip and congestion; "if we can distill the model into something that could fit in wasm
+and answer in 100 ms it'd be great"; they collect continuous PvP and PvAI data and would look at
+distributed training. *The user's reply (06:29):* inference is fine, training would hit browser
+bottlenecks; he will look at it as the model nears deployment; **full recordings of human games are
+themselves valuable (difficulty calibration, human-like behavior); players could instead generate
+model-update trajectories locally, though recordings are not a large privacy risk.** *Our record:* the
+fork H export (ONNX; the Java featurizer port) is the shared work; a human-game corpus from forge-wasm
+is the first real source for the difficulty dial and the skill-token work routed after the big run
+(m12-plan out-of-scope list) — worth a named item when it exists.
+
+**Kryptic (09-22 06:47): the target term's NaN** (his codex sweep; the image in the 09-22 devlog
+entry): `losses()` computed the target cross-entropy with `ignore_index=-1` and no `.any()` guard — an
+all-ignored batch is NaN. *Our record:* real, never hit here (BC batches of 256 priority windows; every
+served checkpoint finite); fixed on the branch `nan-guard` (`masked_cross_entropy` + the trainer's
+non-finite step skip; tests 2), merged after the shakedown. *The user's reply (08:26)* said exactly
+that. Kryptic keeps working the four-deck pool "to complement your work" and asked whether the
+Commander-from-cardpool route stands (it does).
+
+**Generation rates (Kryptic 08:52 / the user 09:14 / Kryptic 09:18):** his — heuristic mirror
+4,000–5,000 g/h, model vs model 600–800, model vs heuristic 1,200–1,500. Ours (24 workers on 32 cores,
+this week's timestamps): **heuristic mirror ≈ 1,900; model vs heuristic without search 2,200–3,200;
+model vs model under the recipe ≈ 300; model vs heuristic under search ≈ 430**; model vs model without
+search not measured recently (800–1,600 at 16 workers historically). The heuristic-mirror ratio is
+game length (our 22 turns vs his 13); his model games running at a quarter to a third of his heuristic
+rate says his RL-side bottleneck is the model server (his GPU sits at ≈ 20%), where ours run two servers
+with micro-batching (mean batch ≈ 4 at ≈ 130 rps). **Kryptic (09-23 12:37) asked whether our model
+games are faster because they are shorter** — the tgtfix read's three arms on identical seeds answer it:
+heuristic mirror 23.4 turns / 533 windows / 32.8 s per game vs model-vs-heuristic 22.2 / 508 / 29 s, i.e.
+≈ 5% shorter (a third to a half of the wall difference); per decision window the model seat costs 56–59
+ms vs the heuristic's 62 on the same seeds (47 on the 2,000-game read). *The user posted the numbers
+(09-23).*
+
+**The search Q&A (Kryptic 09:18 / 16:16; the user 10:40 / 18:27):** "is it MCTS, how new, how
+controlled, is it helping?" — *the user's replies:* added 09-06 (after his 08-29 snapshot); not MCTS —
+the fork per candidate, played forward to the next priority window with hidden cards sampled, the
+leaf-value softmax played when the best leaf clears the margin and the loop trained toward that pick
+beside the outcome signal, the allocation head for where and how deep; ≈ +2.5pp at play time for the
+model or the heuristic alike, the training impact unknown, a searched game 4–10× the time, the current
+run the evidence. *Our record:* the search directive has no reader-facing description (the quickstart
+names the recipe string only) — **a documentation-pass item** (a design-doc section + a flag table).
+
+**chrismaghuhn (09-23 06:25):** [laya-jev](https://github.com/artificial-intelligence-works/laya-jev)
+as "a fast teacher?" — noted, not relevant to our route (the user); no action. The thread also had
+people discussing LLMs playing MTG directly — noted, nothing for us.
