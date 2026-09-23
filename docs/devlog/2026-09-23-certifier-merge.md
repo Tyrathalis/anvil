@@ -95,5 +95,14 @@
 - The documentation pass (Build order 4¾) beside the alloc / shallow / deep arms.
 - At the big run's launch ADR: delete `CensusRun -certify` + `PayDirective`; re-certify
   `payment-evalset-v2` through the witness pair first.
+- **The pause's hidden cost (found 13:58):** `anvil.runs pause` writes STOP into every watched root,
+  the harness run dirs included, so the alloc arm's iteration-4 MAIN generation paused at 34/240 games
+  ("[harness] paused (STOP present)") while the loop went on: the two halves ran (240), training ran on
+  274 games instead of 480, the arms read ran, then the loop stopped at the boundary. Iteration 4 of the
+  alloc arm is a 57% iteration (≈ 200 games short) inside an intact wall budget — recorded for the arm's
+  read, not a confound at its size. **Routed (run hygiene, ADR-0107): `pause` writes STOP to the LOOP
+  root only** (selfplay stops between iterations; the harness roots keep generating), or the loop treats a
+  harness pause as "stop now, discard the partial iteration" — a ~20-line change in `anvil/runs.py`,
+  after the shakedown (the tree rule).
 - Routed: a `-search` front over a stored WINDOW (re-search at higher budget; the pick hook is its hook
   point); the diverged class's attribution (RNG vs AI memory) if a re-certification needs it.

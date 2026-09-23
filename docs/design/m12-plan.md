@@ -1715,4 +1715,7 @@ moves verbatim to the status archive and this section stays here as the record.*
   the shakedown). The forkcheck inside a shakedown pause window (`anvil.runs pause` at the boundary):
   PASS 12:33 (499/500, 20260969 the standing seed; fidelity 451/48/1 = the baseline's). Standing rule: the replay coordinate = the natural pick + turn + phase + profiles, the
   fork point that pick's window continued through the seat's own chooser. Routed: a `-search` front over
-  a stored WINDOW; the deletion of `CensusRun -certify` + `PayDirective` at the big run's launch ADR.
+  a stored WINDOW; the deletion of `CensusRun -certify` + `PayDirective` at the big run's launch ADR. **Found 13:58: the pause
+  truncated the alloc arm's iteration-4 main generation (34/240; the harness honours the STOP too) → a
+  57% iteration inside the intact budget; routed: `pause` writes STOP to the loop root only (after the
+  shakedown).**
