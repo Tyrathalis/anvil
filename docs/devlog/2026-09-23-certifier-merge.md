@@ -79,6 +79,14 @@
   copy is not the same decision. Trajectory continuation needs the pre-decision RNG state (snapshotted
   at the seat's priority event) and the seat's own chooser.
 - zsh: `rm -f dir/prefix.*` with no match aborts the whole `&&` chain (nomatch).
+- **The fork's CI failed on the push (43 `DeckRecognizerTest` failures, JDK 21)** — not the merge: adding
+  any test class (`ReplayJobTest`) reshuffles TestNG's interleaved order; `CardMockTestCase` mocks
+  `FModel.getMagicDb()` to the cached database while core `DeckRecognizer` resolves cards through
+  `StaticData.instance()` (the LAST database constructed in the JVM), so another class's own database sat
+  there. Fixed test-only: the base pins `StaticData.instance()` to the mocked database before every method
+  (`cd4b9d9951`; CI green; DeckRecognizerTest 84/84 locally under
+  `JAVA_TOOL_OPTIONS=-Dnet.bytebuddy.experimental=true` on JDK 26). The tip `cd4b9d9951` = the pin
+  `05fea7938d` + a test-only commit (no game-path change).
 
 ## Next session picks up
 
