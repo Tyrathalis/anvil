@@ -96,3 +96,16 @@ deleted; relaunched 20:37 from the refit build, the same four arms and 30 h each
   the driver's accumulated wall (`--wall-hours`), never its game count; a paused arm resumes its budget.**
 - Routed by name: the state-ranking Spearman checkpoint-eval path (if absent when the first arm closes);
   the shakedown's own `read.md` → the big run's launch ADR.
+
+## Addendum 2026-09-22 — the shakedown's checkpoints are kept; the big run continues from the winner (user)
+
+The big run **continues from the winning arm's final checkpoint**: the settings pass runs a few iterations
+per setting from that state, the best setting resumes from there (the loop state carried when it fits,
+else a warm start from the weights alone). Thirty hours of learning under the recipe of record are not
+discarded for a day-zero origin; the power statement's slope is re-issued from the big run's own curve
+at 50K games regardless. The losing arms' final checkpoints and their 2,000-game reads are kept as the
+era's ladder (the shape comparison in checkpoint form) and their stores as baseline-era arm stores.
+**Promotion follows the standing gate, not the run's purpose**: any shakedown checkpoint that clears
++2.5pp over the era reference at 2,000 games is the RL checkpoint of record the day it reads. The one
+case for a day-zero restart — a settings pass that changes the learner materially — still warm-starts
+from the winner's weights.
