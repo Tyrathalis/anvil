@@ -1696,3 +1696,23 @@ moves verbatim to the status archive and this section stays here as the record.*
 - **2026-09-22 (routed by name): the `nan-guard` branch** (Kryptic's NaN finding: the target term's
   unguarded `ignore_index` mean; fixed + tested on the branch, pushed) **merges into main when the shakedown
   closes** — the running trainer re-imports `model.py` per iteration, and the arms stay on one tree.
+- **2026-09-23 — THE CERTIFIER MERGE LANDED beside the shakedown ([ADR-0117](../decisions/ADR-0117-certifier-merge.md)).**
+  The recipe arm closed 04:30 at 0.5240 ± 0.0112 (30.6 h, 16 iterations, 7,680 games; +0.55pp over the
+  day-zero 0.5185, inside noise); the alloc arm since 04:30. The merge: `AnvilRun -replay <jobs.jsonl>`
+  = the certifier's front over SEARCH COPIES (fork `05fea7938d`): the fork point is the window where the
+  seat's natural pick is the stored option (a controller pick hook; turn + phase + seat + profiles on
+  the coordinate), one copy per (arm, roll) with the option forced and the pay SurfaceDirective answering
+  the arm, every copy continuing the mainline's decision (the seat's own chooser under the pre-decision
+  RNG, the pick verified), roll 0 the true line, CensusRun's row contract. Three miss classes read off
+  the smokes, each a landing (the random bridge has no cast plan → `-bridgeseats 2`; the first window
+  holding the option is one the AI declines → the phase, then the natural pick; `canPlaySa` re-rolls →
+  trajectory continuation). The native replay: 35 fired / 6 diverged / 19 never_fired on 60 jobs (option
+  counts 35/35; 200/200 directed arms `directed_ok`; the never_fired = opponent-turn + in-response
+  casts, no fork point by design); the M9 witness pair: CensusRun 22/30 on today's jar vs `-replay`
+  4/30 on the phase-less census coordinates (the two runners' play agrees rarely → the M9 evalset
+  re-certifies through the witness; new drills mine + certify on AnvilRun's construction); observe rows
+  scored off the rows. The Python side on the branch `certifier-merge` (merges with `nan-guard` after
+  the shakedown). The forkcheck inside a shakedown pause window (`anvil.runs pause` at the boundary):
+  PASS 12:33 (499/500, 20260969 the standing seed; fidelity 451/48/1 = the baseline's). Standing rule: the replay coordinate = the natural pick + turn + phase + profiles, the
+  fork point that pick's window continued through the seat's own chooser. Routed: a `-search` front over
+  a stored WINDOW; the deletion of `CensusRun -certify` + `PayDirective` at the big run's launch ADR.

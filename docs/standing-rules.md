@@ -225,6 +225,12 @@ silently delete.
   ONE two-turn rollout's composite ranks it at 0.47 at ~2× the copy cost; the learned pivotality
   read-out aims certification at zero search cost (AUC 0.69 vs the critic's 0.65)
   ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
+- **A replay coordinate names the seat's natural pick, its turn, its phase and the seat
+  profiles; the fork point is that pick's window, continued through the seat's own chooser under
+  the pre-decision RNG** — never the first window holding the option (the AI declines many) and
+  never a re-approval through `canPlaySa` (its chance checks re-roll); an opponent-turn or
+  in-response cast has no faithful fork point and reads `never_fired`
+  ([ADR-0117](decisions/ADR-0117-certifier-merge.md)).
 
 ## Engine, fork, and data hygiene
 
