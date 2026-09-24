@@ -196,6 +196,55 @@ above with the head; `search_join.json` beside each iteration's checkpoint carri
 and the re-derived threshold. `uv run python -m anvil.store search-rows <run-dir>` backfills the
 rows into a store ingested before this landed.
 
+**What the search is** (design doc [§3e](anvil-design-v2.md#3e-search-as-the-behavior-policy-m12-adr-0101--adr-0118)):
+a one-ply lookahead, not MCTS. At the seat's own main-phase priority windows every legal
+first-ply option (pure mana abilities excluded) is played on a copy of the game determinized to
+the seat's information set, continued under the current policy to the seat's next quiescent
+window, and scored there by the network's value head. The natural pick is always in the set; when
+the best option beats it by the bar the seat samples from the leaf-value softmax, otherwise it
+plays its natural pick. The search's choice and its probability mass are what the trainer trains
+on (the behavior policy); the deployed network plays alone. Every `-search*` flag is an AnvilRun
+flag passed through `--search-recipe`; the recipe of record (M12, ADR-0108 / ADR-0112) is
+
+```
+-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode -searchalloc <tau> -searchfloor 0.1
+```
+
+with `<tau>` the serving checkpoint's own fit record (the driver fills it under `--search-alloc
+head`). Off = not passing `-search`; the game path is then byte-identical to a plain run.
+
+| Flag | Default | What it does |
+|---|---|---|
+| `-search` | off | turn the directive on for every bridged seat (`-searchseats <csv>` names seats explicitly; a heuristic seat named there is searched too — the control arm) |
+| `-searchrate p` | 1.0 | search each candidate window with probability p (a seeded draw) |
+| `-searchrolls R` | 1 | determinizations per option; common random numbers across options; 2 in the recipe |
+| `-searchopts N` | 0 = all | cap on first-ply options valued |
+| `-searchmana` | off | value pure mana abilities too (58% of candidates when on, almost all void) |
+| `-searchleaf next\|eot\|h<N>\|end` | `next` | the leaf: the seat's next quiescent window (the resolved, right judge — ADR-0106 C1) / end of turn / a turn N later / the game's end (the outcome, no head call) |
+| `-searchact bar` | off | the acting rule: act on the search where max V − V(natural) ≥ bar; absent = telemetry only |
+| `-searchtemp T` | 0.025 | the leaf-value softmax temperature the acted option is sampled at (0 = argmax) |
+| `-searchsurf B` | 0 | expand the first traced surface callback (tutor / discard / mode / order / scry / damage / target) on the top-B option paths, one copy per answer; the option's value is lifted to its best answer |
+| `-searchsurfcap C` | 12 | answers enumerated per surface window (8 in the recipe) |
+| `-searchactkinds <csv\|all>` | none | surface kinds whose answer is acted with the option (the recipe: `entity_one,entity_set,mode`); `pay` is never acted |
+| `-searchalloc tau` | off | the allocation head: search where its P(act) ≥ tau; off = the rate draw alone (byte-identical) |
+| `-searchfloor f` | 0.1 | the uniform exploration floor under the head (ungated windows keep labelling it) |
+| `-searchdeep B` | 0 | the deep slot: where the shallow margin is in [`-searchdeeplo` 0.02, bar), re-expand the natural + top-B to `-searchdeepleaf` (`h2`) at `-searchdeeprolls` (4) plus a `-searchdeepfloor` (0.1) draw; needs `-searchact`; ≈ 2.8× the box time per game |
+| `-searchpay B` / `-searchpayleaf` | 0 / `eot` | the payment slot's own expansion (the pay head is withheld; this is the label instrument) |
+| `-searchrollsalt <long>` | 0 | salt the copies' determinization seeds (an outcome arm under independent draws) |
+| `-searchclock s` | 900 | the wall allowance per searched game (raise it for `h<N>` / `end` leaves) |
+| `-searchvoidskip 0\|1` | 1 | do not re-roll a candidate whose first copy voided |
+| `-searchvoidrescue` | off | read-only: re-run a voided candidate with the heuristic's plan and record its value (`vr`) |
+
+**The fleet.** One model server is one Python process and saturates at about twelve search workers.
+Run `uv run python -m anvil.bridge.server --servers N ...` to start N servers on consecutive ports
+and give the harness the matching list, `--bridge grpc:localhost:P,grpc:localhost:P+1,...`; chunks
+are assigned round-robin. Pin N = ceil(workers / 12) and keep workers under your core count (24 on a
+32-core box; 32 runs games 2.5× slower). The recipe of record on a 7950X + 4090 is 24 workers × 2
+servers ≈ 300–350 games/hour searched; `selfplay.py` derives N from `--workers`. The servers print a
+per-minute `[server] stats` occupancy line. A `YIELD` file in a run dir stops new chunks from
+launching without asking workers to exit (a foreign GPU job does the same automatically), and the
+load — workers × servers — is part of any search run's recipe: a paired read pins it on both arms.
+
 ## 7½. Running the long steps unattended
 
 Steps 4, 7 and 8 take hours. Do not run them as foreground commands in a terminal you might

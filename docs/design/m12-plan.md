@@ -205,7 +205,7 @@ whether teaching is happening. The milestone's product is one big training run, 
    what is running, what is next and the pins** — the narrative already lives here. Its output is
    one commit and a devlog; no design decisions are taken in it (those go to ADRs before it). **Amended 09-21 (ADR-0115, user): the pass runs BESIDE the shakedown, not after its
    verdict — it needs no box, the shakedown needs no docs; the verdict lands in the docs as an
-   addendum. The certifier merge lands in the same week for the big run's jar.**
+   addendum. The certifier merge lands in the same week for the big run's jar.** **DONE 2026-09-23 (one commit + the session-2 devlog): the retired-rules file + the prune, design §3e (search as the behavior policy) + §3d′ / §4 / §6 / §13 / §15, the quickstart's flag table + fleet, the field guide's seven new traps, the canonical register's M12 lines, the Now block trimmed (the narrative archived verbatim), the map. The shakedown's verdict lands as an addendum; the format-onboarding recipe doc named by Done-when 5 is UNWRITTEN (the quickstart is the Constructed instance) — routed to the closeout.**
 5. **The big run.** **Envelope: four to six weeks of unattended box time**; games × per-game
    budget derived from it with Build 0's measured search multiplier (300K games at today's
    800–1,600 g/h is 8–16 days flag-off; ×3 is 3–7 weeks; ×10 is 2.5–5 months). Power statement
@@ -352,6 +352,7 @@ whether teaching is happening. The milestone's product is one big training run, 
   capacity / encoding, not more compute.
 - Build 5 tripline: both curves plateau together while the state-ranking Spearman is flat — the
   leaf evaluator caps both; back to the value head.
+- Build 5 tripline, the third shape ([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)): **the state-ranking Spearman FALLS while network-alone is flat** — the leaf is drifting off rollout truth under the loop's outcome targets and the search's labels drift with it; the per-iteration audit flags it (> 2 boot SE below day-zero), the value anchor is the response, and a run whose anchored head still falls stops for a value-head pass before more compute.
 
 ## Inherited obligations and hazards
 

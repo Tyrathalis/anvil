@@ -107,6 +107,40 @@ removed, so a veto becomes a model-chosen alternative rather than a silent
 forced pass the reward never sees. Austinio's project observed the same leak
 from the outcome side: losses had 29% "idle turns with castable spells."
 
+**Any probe on the game path must be game-neutral — RNG *and* the AI's
+memory.** Forge's payability helpers draw from the game RNG per candidate
+mana source (`isManaSourceReserved` → `MyRandom.percentTrue`) and the
+auto-payment test writes the AI's mana-reservation sets. We ran that probe on
+every bridged window for three weeks; a seat answering "auto" everywhere lost
+≈ 2.7pp against an identical seat without the probe — three paired reads
+agreed, and every network arm in the period carried the cost unseen. The fix
+is one wrapper: a scratch RNG plus a snapshot/restore of everything the probe
+can touch (`AnvilOptions.withScratchRng`, `PlayerControllerAnvil.quietProbe`),
+and a served-vs-withheld read proving it before any head is read through it
+([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)
+addendum 09-09, [ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).
+
+**`GameCopier` does not copy the AI's memory, and the AI's decision is
+stochastic per profile.** Two consequences for anyone replaying or forking
+Forge games: (a) a forked copy that reaches the same window can decide
+differently — our fork-fidelity gate reads ≈ 48/500 games diverging for this
+reason alone; (b) re-approving a stored pick through `canPlaySa` on a copy is a
+*new* decision (its chance checks re-roll). To continue a trajectory
+faithfully, snapshot the RNG state at the seat's priority event, run the
+seat's own chooser on the copy, and verify the pick — a replay coordinate is
+the natural pick + turn + phase + seat profiles, never "the first window
+holding the option" (the AI declines many)
+([ADR-0117](decisions/ADR-0117-certifier-merge.md)).
+
+**TestNG interleaves classes; core code reads the LAST `StaticData` built.**
+Adding any test class reshuffles the suite order. `DeckRecognizer` resolves
+cards through `StaticData.instance()`, so a mock-based test class (Forge's
+`CardMockTestCase` mocks `FModel.getMagicDb()`) can find another class's
+database sitting there and fail 43 tests that pass alone. Pin
+`StaticData.instance()` to the mocked database before every method; run a
+suspect class alone before calling a regression
+([devlog 09-23](devlog/2026-09-23-certifier-merge.md)).
+
 ## Data and labels
 
 **Check the fallback flag. Always.** Every answer over our bridge carries
@@ -150,6 +184,19 @@ can't distinguish identical descriptors anyway; don't burn label mass on
 distinctions without a difference — and don't score "picked a different but
 identical 1/1" as an error.
 
+**Check a coordinate convention through the model's row space, not by
+label↔decode agreement.** Our cast-target decoder's player label copied the
+engine's registered seat into a self-first row: the label and the decode agreed
+perfectly in registered coordinates, and the served model targeted *itself* on
+46% of player-targeted casts for two months (the heuristic: 11%). Agreement at
+both ends of one wrong convention is not consistency. For every head with a
+player or seat reference, run a permutation test over the whole path — swap the
+registered seats, decode, and check the engine object is the same object — and
+record the convention in the checkpoint so a loader refuses a mismatch
+([ADR-0116](decisions/ADR-0116-player-target-positions.md)). Found by an
+external user reading our code (Kryptic); the kind of bug a second pair of
+eyes finds and a metric never does.
+
 ## Training
 
 **High agreement ≠ strength; measure both, trust games.** Our BC agent hit
@@ -169,6 +216,35 @@ an encoder on value-only loss teaches it to *discard* the board state
 (opponent-life R² < 0 from their own probe — worth stealing as a diagnostic).
 Our diagnosis tooling: `anvil/training/diagnose_value.py`, binned by
 turns-from-end ([m1-bc-plan.md](design/m1-bc-plan.md), ADR-0013).
+
+**An untrained head costs strength the moment it is served.** A payment head at
+its "safe by design" +2.0 init — argmax = the engine's auto-payment — still
+deviated on 2.7% of windows through its pointer residuals and cost a measured
+−2.56 ± 1.88pp; every arm that served it for a month carried the cost. Serve a
+head only with a fit record in the checkpoint; the server should read the
+record, not the parameters' presence
+([ADR-0104](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)
+addendum 09-09).
+
+**A value head trained on outcomes alone drifts off rollout truth — audit it
+every iteration.** Our value head, fit on K=8 rollout composites, ranked held-out
+states against rollout winrate at Spearman 0.37; after 16 self-play iterations
+training on V-trace outcome targets it read 0.26, in two independent arms, while
+the policy's winrate stayed flat within noise. If the head is also your search's
+leaf, the search's labels drift with it. Keep a frozen rollout-labelled holdout,
+score every checkpoint on it (seconds on CPU), and anchor the head to the
+rollout labels when it trains inside the loop
+([ADR-0118](decisions/ADR-0118-value-head-drift-under-the-loop.md)).
+
+**A distillation that shapes a subset of windows must anchor the rest.** Our
+first offline re-warm distilled the search's picks on the 7% of windows the
+search acted on and nothing held the other 93%; the shared heads generalized
+freely into a pass-happy policy (−47pp at serve). With a frozen-teacher KL on
+the un-acted windows the harm shrank but scaled with the dose; the in-loop form
+(the search as the behavior policy, distillation on acted windows beside the
+policy gradient on all) is the one that works
+([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)
+addenda, [ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
 
 ## Evaluation
 
@@ -209,6 +285,22 @@ This caught real bugs (a duplicate-game join chimera, a terminal-bootstrap
 double-count in V-trace targets — the latter by unit test before any training
 run).
 
+**Search inside the worker beats search outside it, and it is not MCTS.** Our
+lookahead is one ply of legal options played on determinized copies to the
+seat's next quiescent window and scored by the network's value head
+([design §3e](design/anvil-design-v2.md)). Two measured facts for anyone adding
+search to a Forge agent: a masked-value-head lookahead is worth ≈ +2.5pp to
+*any* policy, the heuristic included (so measure network + lookahead against
+heuristic + lookahead, or you will credit the network with the search's gain);
+and the search values only what your action decoder can *realize* — 29% of our
+first-ply candidates voided because the model's own cast plan could not execute
+them, a coverage bound no search depth fixes
+([ADR-0104](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md),
+[ADR-0114](decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md)). Price
+depth before sizing it: a two-turn leaf cost 10× a next-window leaf in wall and
+bought nothing the shallow leaf did not
+([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
+
 ---
 
 ## What's reusable directly
@@ -224,6 +316,16 @@ run).
 - **`forkcheck`** — the fork-fidelity regression harness (static digests,
   twin determinism, full gate under a live model). Run it before trusting any
   state-copying workload on a new engine version.
+- **The search directive** (`AnvilRun -search ...`, [design §3e](design/anvil-design-v2.md),
+  flag table in the [quickstart](design/quickstart-custom-pool.md) §7) — a
+  one-ply determinized lookahead with a learned leaf, the acting rule, the
+  surface round and the allocation head, all inside the Forge worker, with
+  every copy's value recorded per window (`search.jsonl`).
+- **The run launcher** (`anvil.runs`, [ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md))
+  — detach, stall alarm, alert queue, pause / relaunch, a self-answering
+  check-in; the whole unattended-run checklist as one command.
+- **The state-ranking audit** (`value_pretrain eval`) — score any checkpoint's
+  value head on a frozen rollout-labelled holdout in seconds, on CPU.
 - **[The upstream worklist](design/upstream-worklist.md)** — what we've sent
   or plan to send to Card-Forge, including the merged #11203 fidelity fixes
   and the queued determinism-hooks PR.

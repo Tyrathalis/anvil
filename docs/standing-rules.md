@@ -8,8 +8,11 @@ curation cycle.** (The seven design invariants stay in CLAUDE.md; this
 file is the operational layer under them.)
 
 Maintenance: when an ADR births a rule, add it here in the same commit
-batch; when a rule is superseded, strike it with a pointer, never
-silently delete.
+batch; when a rule is superseded, or its mechanism leaves the recipe, move
+it verbatim to [standing-rules-retired.md](standing-rules-retired.md) with
+the date and the reason — never silently delete (the documentation pass of
+2026-09-23 moved the first eight; the active list is what a scoping session
+reads).
 
 ## Gates, reads, and statistics
 
@@ -43,16 +46,7 @@ silently delete.
   ([ADR-0049](decisions/ADR-0049-flat-cycle-audit.md)).
 - Battery findings are **exploratory only** — verdicts stay
   pre-registered ([run-analysis-protocol](design/run-analysis-protocol.md)).
-- **Conditioning-surface flip gates read the content channel** (its
-  true-zero floor); presence floors are banked and SUBTRACTED, never
-  absorbed into absolute bars — v1 absolute thresholds do not transfer
-  to surfaces whose tokens perturb attention by presence
-  ([ADR-0084](decisions/ADR-0084-m10-probe-preflight.md)).
 
-- **A conditioning surface's ceiling funds only the execution regime it
-  was measured in** — the M10 ceiling (+13.5pp) was measured under
-  binding `-forceschedule` execution and six probes tried to earn it on
-  an advisory surface ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
 - **A probe's PRIMARY read is a strength read on the funded stratum with
   the ceiling's own paired instrument; competency proxies are
   exploratory** — six probes read proxies that measured the wrong thing
@@ -90,6 +84,7 @@ silently delete.
   deviations net ≤ 0 by its own label does not serve; a gate must clear the arithmetic's
   precision bar (positives' gain × q − ties' cost × (1 − q) > 0) on the held-out curve before it
   earns a read (`pay_fit --eval`; [ADR-0105 addenda 09-11](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+
 ## Training-loop design
 
 - **Clips at birth** for engineered aggregates AND loss terms
@@ -142,42 +137,12 @@ silently delete.
   traj_per_step, the probe3 false-halt lesson) guards from first
   launch ([ADR-0088](decisions/ADR-0088-grounded-driver.md),
   re-based at [ADR-0090](decisions/ADR-0090-m10-probe4-read.md)).
-- **The degeneracy veto's emission axes (pure-hold, length) read
-  FIRST-WINDOW emissions only** — revision emissions (opponent-action /
-  end-step re-emits, ~80% of emission rows) are legitimately emptier
-  late in the turn; the lumped `sched_len_*` counters mis-read probe5
-  as drifting to ~28% hold when its first-window hold stayed ≤ 9%
-  (ADR-0091 correction; split by the mu `rev` flag until the counters
-  split). Full-support emitter labels (certified arm + the natural
-  line's witnessed casts) stand as a DESIGN decision — schedule every
-  turn — not as a fix for a measured drift
-  ([ADR-0092](decisions/ADR-0092-consumer-coupling.md)).
-- **Serve-side follow and utilization counters inflate on natural-line
-  plans and cannot read consumption** — on windows where the fed plan
-  is what the policy would do anyway, fed = closed; a consumption read
-  must be schedule-conditioned (fed vs mask-closed, and a legal-
-  candidate content swap) on label-shaped inputs
-  (`scripts/sched_content_probe.py`; probe6 adjudication,
-  [ADR-0093](decisions/ADR-0093-m10-probe6-read.md) addendum).
-- **An autoregressive emission head with a STOP class decodes
-  stop-vs-continue (p_stop vs Σ candidates), never whole-row argmax**
-  — a calibrated head makes STOP the plurality class at every slot ≥ 1,
-  and argmax collapses emitted length to ~1 (probe4: 52% pure-hold /
-  mean 1.0 against labels at 8% / 2.45); invisible at init, unmasked by
-  the first real supervision
-  ([ADR-0090](decisions/ADR-0090-m10-probe4-read.md)).
 - The standing veto account: under auto-payment, **probing-via-veto IS
   optimal play** — the veto channel is the model's only affordability
   oracle; deterrence-family levers are CLOSED
   ([ADR-0062](decisions/ADR-0062-m8-closeout.md), falsification
   completed at [ADR-0072](decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)).
 
-- **Under binding execution the natural line is not an independent
-  witness**: a window is labeled only if the certifier rolled it out,
-  and the label is the search-adjudicated best of {the policy's own
-  plan, the enumerated arms} — never label an unrolled window with the
-  policy's own play (the ADR-0085 self-target in a new coat)
-  ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
 - **A distilled clone of the executor cannot learn where the executor is wrong from the
   executor's own features**; search-adjudicated labels need a representation trained on them
   ([ADR-0096](decisions/ADR-0096-m10-closeout.md), the ADR-0050 density argument sharpened).
@@ -332,7 +297,6 @@ silently delete.
 
 - **A distillation that shapes a subset of windows anchors the rest to the teacher** — the first offline search re-warm shaped the 7% acted windows and nothing held the other 93%: the shared heads generalized freely (a pass-happy policy, −47 pp); below the acting bar the rule plays the current policy, so the teacher's distribution is the target there ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
 - **A trainer's join reports its match rate before its first fit** — the same re-warm matched 12.5% of its search rows to their records (contiguous searched-option indices vs the mask, truncated labels) and trained two plausible-looking models on the mana-free slice ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
-- ~~The search values an option under the heuristic's realization; a policy that learns WHICH option cannot execute it by that alone~~ — **struck 09-19 ([ADR-0114](decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md)): on a network arm the copies realize the forced option through the MODEL's CastPlan** (a copy's seats inherit the mainline's bridged tags; 88,395 of 90,955 void copies on `b4-tgtlab` made exactly one forward call — the forced ask); `heuristicRealize` fires only on the unbridged control arm and behind the off `-vetofallback`. The re-warm's harm (over-generalization into casts the AI refuses, scaling with the dose) stands on the fallback read alone ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md) addenda).
 - **The search values only what the decoder can plan — the void class is a coverage bound, not a copy-fidelity artifact** — a first-ply candidate whose forced ask the realizer vetoes (or the model passes despite the mask) is never valued, so the acting rule can never pick it: 35.8% of first-ply copies on `b4-tgtlab` (43.8% of spells, 33.7% of abilities, 1.1% of lands), 98% `no_shape_fit`; a searched arm's census-level veto rate counts the copies' forced asks (the banked 14% of ADR-0112 was this, not the mainline's). Read the void class by reason (`vr`) before sizing an arm; the void-rescue read priced it: the heuristic's own planner refuses 91% of the void class, the rescued 9% reads −0.015 vs the best valued candidate, a rescue clears the bar on 0.8% of searched windows — ≈ 29% of options by count, ≈ 3% by playability, worth less than the valued set; the loop's PG on the decoder's own casts is the route, no offline machinery ([ADR-0114](decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md)).
 
 ## Scoping and routing
@@ -358,15 +322,9 @@ silently delete.
   core features ([ADR-0018](decisions/ADR-0018-ruleset-scope-clarification.md)
   recipe-first).
 - **Every store row carries an explicit format id and pool id**, and a new format onboards by
-  the recipe doc (`docs/design/format-onboarding.md`) as one boundary event — extends the
+  the recipe doc (`docs/design/format-onboarding.md` — unwritten as of 2026-09-23; the [quickstart](design/quickstart-custom-pool.md) is its Constructed instance) as one boundary event — extends the
   content-in-chunks rule to formats
   ([ADR-0101 addendum](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **A binding execution regime is gated by a DAY-ZERO read of the
-  planner against the executor it replaces** — binding pays only where
-  the planner is at least the executor's equal at the bound windows
-  (the distilled planner read −6.7pp as pinned and −4.5pp binding its
-  first slot alone; the damage is monotone in the amount bound)
-  ([ADR-0095](decisions/ADR-0095-m10-dayzero-read.md)).
 - **One decision MECHANISM per milestone; surfaces attribute through
   per-tag reads** (the certifier's per-tag spreads + the paired read with
   the mask closed per tag) — amends design-doc §3d′'s "one decision
