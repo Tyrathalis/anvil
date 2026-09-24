@@ -1719,3 +1719,17 @@ moves verbatim to the status archive and this section stays here as the record.*
   truncated the alloc arm's iteration-4 main generation (34/240; the harness honours the STOP too) → a
   57% iteration inside the intact budget; routed: `pause` writes STOP to the loop root only (after the
   shakedown).**
+- **2026-09-23 (evening) — THE VALUE HEAD DRIFTS OFF ROLLOUT TRUTH UNDER THE LOOP ([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)).**
+  The state-ranking checkpoint-eval path built (`value_pretrain eval`: the frozen 1,197-row holdout scored
+  by any checkpoint's value head, CPU, ≈ 25 s; reproduces the Build 1 records 0.3921 / 0.374). The read:
+  day-zero 0.374 → recipe iter 0 / 4 / 9 / 15 = 0.321 / 0.275 / 0.302 / **0.256**; alloc iter 0 / 4 / 8 =
+  0.333 / 0.275 / **0.256** (boot SE ≈ 0.027) — ≈ four SE, from the first cycle, in both arms, while
+  network-alone strength stayed flat and the lookahead gap drifted up (+0.3 → +3.3pp, ± 2.5). The
+  mechanism: the head trains on V-trace outcome targets at weight 0.5 with no critic and no anchor to
+  the rollout composites it was fit on, and it is the search's leaf. A third shape beside the Build 5
+  kill and tripline — the landmine the shakedown exists to catch. Decisions (user): the arms run to
+  their verdict; the Spearman becomes a per-iteration battery row + guard; the settings pass opens with
+  a value-anchor arm (a replay term on the Build 1 banks; bar: within one SE of 0.374 across the pass);
+  the eval merged into main (`8099b8d`). Also recorded: the alloc head's admission 51% → 66% by iteration
+  8 (tau 0.369 → ≈ 0.02 under the trained head; 34 vs 27–29 copy calls per searched window; per-game
+  wall −14%). Next: the documentation pass (4¾).

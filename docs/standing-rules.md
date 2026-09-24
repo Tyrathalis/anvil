@@ -191,6 +191,11 @@ silently delete.
   M12 day-zero read was pinned at K=8/N=600 on the fork-window paired read while its reference
   number lived on the 2,000-game read, and that instrument could not search inside its own
   completions) ([ADR-0104](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
+- **A value head that trains inside the loop is audited against rollout truth every iteration**
+  (the state-ranking Spearman on the frozen holdout, `value_pretrain eval`), and a head that also
+  serves as the search's leaf is **anchored to that truth** — outcome targets alone pull it off it
+  (the shakedown's 0.374 → 0.256 in 16 iterations;
+  [ADR-0118](decisions/ADR-0118-value-head-drift-under-the-loop.md)).
 
 ## Curation, drills, and the critic
 
