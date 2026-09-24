@@ -1358,3 +1358,14 @@ record.*
   gradient-norm row in `rl.py`, post-run; a `--swap-head` option on `value_pretrain eval`. Status
   check at 09:35: alloc in iteration 17, 27.1 / 30 h, closes ≈ 12:00–13:30; interim iter-014 paired
   read 0.5375 / 0.53 (± 2.5pp; four crashes on the lookahead side vs one).
+- **2026-09-24 (late morning) — VALUE-FUNCTION-FIRST BEFORE THE BIG RUN ([ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md)).**
+  The user's frame: strength is hard to move because the game is noisy, so the instruments that see
+  through the noise come first, and the big run gets every chance. Read this session against that:
+  the shakedown's 2,000-game reads run raw (`--skip-ante`); the Ante ledger is certified but
+  critic-bound at ≈ 0.6–5% reduction with ≈ 69% of draw nodes poisoned (shuffles unobservable);
+  advantages are V-trace on terminal outcomes; the trunk drifts under the head. All three cap at
+  the value function (ADR-0101 finding 1). Decision (user): the settings pass runs anchor →
+  Ante re-measure + shuffle decision record → corrected reads (of record only past 1.5× effective
+  samples) → the amortized advantage head gated on that bar; a pre-registered escalation ladder if
+  the anchor misses (value weight → stop-grad → separate value trunk). The shakedown's verdict is
+  unaffected. Alloc at iteration 17 / 27.1 h at 09:35; closes ≈ 12:00–13:30.

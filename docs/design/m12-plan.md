@@ -193,7 +193,7 @@ whether teaching is happening. The milestone's product is one big training run, 
    deep) at equal box time by `selfplay.py --wall-hours` (30 h each, accumulated across pauses), the
    run of record's loop settings from the e1a build on the census jar, drills OFF, no per-arm day-zero
    read, each closing with the 2,000-game read + the last lookahead arm; arm order recipe → alloc →
-   shallow → deep; `scripts/shakedown_chain.sh` through `anvil.runs` with `--resume-on-gone`.**
+   shallow → deep; `scripts/shakedown_chain.sh` through `anvil.runs` with `--resume-on-gone`.** **Amended 09-24 ([ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md), user): the settings pass runs value-function-first — the anchor arm (ADR-0118) with a pre-registered escalation ladder (value weight → stop-grad at the trunk → a separate value trunk), then the Ante re-measure against the anchored head + a shuffle decision record for draw coverage, then raw-and-corrected columns on every read (corrected becomes the number of record only past 1.5× effective samples), then the amortized advantage head gated on that same bar. The big run's chances over its start date.**
 4¾. **The documentation review session** (user, 09-15) — scheduled between the shakedown's verdict
    and the big run's launch, once every piece of M12 implementation is in: the architectural
    changes since ADR-0101 (search as the behavior policy, the surfaces, the acting rule, the leaf
@@ -402,6 +402,8 @@ re-certification on a new pin needs only deck pair + seed + turn + spell); fork-
 is what runs on the behavior distribution for every surface. Not "inside vs outside the model":
 the engine adjudicates in both, the head never certifies (`end` = the engine's outcome; `eot` /
 `h2` = head-valued readings of the same fork). ≈ a day of fork work + a forkcheck.
+
+**Routed by ADR-0119 (09-24)** to the post-run worktree: the anchor term; the per-term trunk gradient-norm row and `--swap-head` on `value_pretrain eval`; the shuffle decision record (fork, ADR-0025 proof); raw-and-corrected columns in `final_read.py` / `arms_report.py`; the amortized advantage head (gated on the exact ledger's ≥ 1.5× effective samples).
 
 **Routed by the 2026-09-23 fluency review.** To the post-run worktree: **one `RECIPE`
 definition** that the chain scripts source (like `data/pool/CURRENT`), with the quickstart pointing
