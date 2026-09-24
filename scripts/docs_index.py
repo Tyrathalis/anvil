@@ -57,6 +57,8 @@ def render(groups: dict[str, list[tuple[str, str, str]]]) -> str:
     last_adr = adrs[-1][4:8] if adrs else '0000'
     open_plans = [n for n, _, _ in groups['living'] if re.match(r'm\d+-plan\.md$', n)]
     open_plan = open_plans[0] if open_plans else 'design/anvil-design-v2.md'
+    record = open_plan.replace('-plan.md', '-running-record.md')
+    open_record = record if os.path.exists(os.path.join(DESIGN, record)) else None
     out = [
         '# docs/ — index and reading order',
         '',
@@ -69,7 +71,8 @@ def render(groups: dict[str, list[tuple[str, str, str]]]) -> str:
         '',
         '1. [CLAUDE.md](../CLAUDE.md) — the constitution: invariants, conventions, the live Status (Now / state of record / milestone table) and the session wrap-up checklist.',
         '2. [design/anvil-design-v2.md](design/anvil-design-v2.md) — **the canonical design doc.** Why and what; section numbers (§1–§15) are referenced everywhere.',
-        f'3. [design/{open_plan}](design/{open_plan}) — the open milestone plan, with its running record.',
+        f'3. [design/{open_plan}](design/{open_plan}) — the open milestone plan'
+        + (f'; its session-by-session record in [design/{open_record}](design/{open_record}).' if open_record else ', with its running record.'),
         '4. [standing-rules.md](standing-rules.md) — every measured rule the milestones have birthed, one line each with its ADR ([standing-rules-retired.md](standing-rules-retired.md) holds the rules whose mechanism left the recipe). Read the relevant section before designing any run, gate, instrument, or curation cycle.',
         '5. [project-map.html](project-map.html) — the dashboard: Now panel, state-of-record table, run ledger, ADR index.',
         '6. [forge-ai-field-guide.md](forge-ai-field-guide.md) — the traps we measured, with detection and fix. Written for other Forge-AI builders.',
