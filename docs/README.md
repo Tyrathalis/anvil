@@ -4,7 +4,7 @@
 
 ## Start here
 
-1. [CLAUDE.md](../CLAUDE.md) — the constitution: invariants, conventions, the live Status (Now / state of record / milestone table) and the session wrap-up checklist.
+1. [CLAUDE.md](../CLAUDE.md) — the constitution: invariants, conventions, the live Status (Now / state of record; the milestone table is in the root README) and the session wrap-up checklist.
 2. [design/anvil-design-v2.md](design/anvil-design-v2.md) — **the canonical design doc.** Why and what; section numbers (§1–§15) are referenced everywhere.
 3. [design/m12-plan.md](design/m12-plan.md) — the open milestone plan; its session-by-session record in [design/m12-running-record.md](design/m12-running-record.md).
 4. [standing-rules.md](standing-rules.md) — every measured rule the milestones have birthed, one line each with its ADR ([standing-rules-retired.md](standing-rules-retired.md) holds the rules whose mechanism left the recipe). Read the relevant section before designing any run, gate, instrument, or curation cycle.

@@ -46,14 +46,35 @@ the `forkcheck` fidelity-regression harness, and a
 
 ## Status
 
-Twelve milestones in: M0–M11 closed, M12 (search as the behavior policy) in
-scoping as of 2026-09-06. The RL checkpoint of record plays at 52.8% ± 1.1pp
-against Forge's heuristic AI on the current engine, +6.7pp over behavior
-cloning. The live state — one paragraph per open track and one row per
-milestone — is the Status section of [CLAUDE.md](CLAUDE.md); the
+Twelve milestones in: M0–M11 closed, M12 (search as the behavior policy)
+open — its shakedown run is under way as of 2026-09-23. The RL checkpoint of
+record plays at 53.5% ± 1.1pp against Forge's heuristic AI on the current
+engine. The live state is the Status section of [CLAUDE.md](CLAUDE.md); the
 [project map](docs/project-map.html) is the dashboard, the
 [decision records](docs/decisions/) are the record, and
 [docs/README.md](docs/README.md) indexes the rest.
+
+### Milestones
+
+One row per closed milestone; the closeout ADR is the record, and
+[docs/status-archive.md](docs/status-archive.md) holds every Status bullet
+verbatim. Every number is post-boundary unless its ADR says otherwise —
+never compare winrates across eras.
+
+| M | Closed | ADR | Verdict | Carried assets / hazards |
+|---|---|---|---|---|
+| M0 | 07-04 | [0003](docs/decisions/ADR-0003-m0-closeout.md) | harness + bridge v0 ([spec](docs/design/bridge-protocol-v0.md)); bridge tax 2.6% at w=16 | `PlayerControllerAnvil`, harness launch/pause/resume/status/replay/summarize, pool pipeline |
+| M1 | 07-10 | [0009](docs/decisions/ADR-0009-m1-closeout.md) | BC agent 46.8% vs teacher, held-out agreement 0.9758 | obs schema v1 + zstd store, CastPlan executor, 113,592-game corpus, Qwen3 embeddings pinned (0007) |
+| M2 | 07-17 | [0020](docs/decisions/ADR-0020-m2-closeout.md) | V-trace self-play loop end-to-end; first RL ckpt superseded BC | fork rollout contract ([#11203](https://github.com/Card-Forge/forge/pull/11203)), Ante AIVAT certified (0014), entropy guards (0017), `d4-critic-fullvis` |
+| M3 | 07-28 | [0026](docs/decisions/ADR-0026-m3-closeout.md) | RL 0.5121 ± 0.0110, +6.69pp over BC; parity with the heuristic | `final_read.py` 2,000-game protocol, the boundary-event template (0025), [#11285](https://github.com/Card-Forge/forge/pull/11285) |
+| M4 | 08-03 | [0033](docs/decisions/ADR-0033-m4-closeout.md) | Grindstone online; first drill win +1.98pp; **`iter-019` PROMOTED** | `anvil_watchd`, mid-run drill-eval, w=16 + chunk clamp (0032) |
+| M5 | 08-05 | [0037](docs/decisions/ADR-0037-m5-closeout.md) | drill loop one-shot per curation method (Δ2 −0.58pp) | `migration_read.py`, era-scoped isotonic maps (0036) |
+| M6 | 08-10 | [0050](docs/decisions/ADR-0050-m6-closeout.md) | representation not the bottleneck; signal density is (0049) | `rank-critic-c2v3`, `labelset-c2-v3`, frozen-probe benchmark |
+| M7 | 08-16 | [0058](docs/decisions/ADR-0058-m7-closeout.md) | dense per-decision signal trainable and behavior-moving, strength-neutral | seqlabels join, share guard, evalset v4 |
+| M8 | 08-19 | [0062](docs/decisions/ADR-0062-m8-closeout.md) | critic-ordered curation TIED; natural-timing probe failed (0060) | `rankcrit_audit.py`, `critic_select.py`, 492 K=8 labels |
+| M9 | 08-25 | [0077](docs/decisions/ADR-0077-m9-closeout.md) | veto-collapse FALSIFIED (0072); perfect-payment headroom real, +2.96pp/g (0075); no promotion | payment surface as infrastructure, D6 plan machinery, boundary bundle (0068); run14–20 stores banned from mixtures |
+| M10 | 09-05 | [0096](docs/decisions/ADR-0096-m10-closeout.md) | generative planner route NEGATIVE; pivotality learnable (AUC 0.69) | inline certifier, paired strength read + fixed population, harvest pool + mint |
+| M11 | 09-06 | [0100](docs/decisions/ADR-0100-m11-closeout.md) | option scorer NEGATIVE as a mechanism (0098/0099); the engine + value head one step ahead is the asset | `score_options` head (inert), `option_scorer_fit.py`, `critic_lookahead_read.py`, 3,655-window spread corpus |
 
 ## License
 

@@ -69,7 +69,7 @@ def render(groups: dict[str, list[tuple[str, str, str]]]) -> str:
         '',
         '## Start here',
         '',
-        '1. [CLAUDE.md](../CLAUDE.md) — the constitution: invariants, conventions, the live Status (Now / state of record / milestone table) and the session wrap-up checklist.',
+        '1. [CLAUDE.md](../CLAUDE.md) — the constitution: invariants, conventions, the live Status (Now / state of record; the milestone table is in the root README) and the session wrap-up checklist.',
         '2. [design/anvil-design-v2.md](design/anvil-design-v2.md) — **the canonical design doc.** Why and what; section numbers (§1–§15) are referenced everywhere.',
         f'3. [design/{open_plan}](design/{open_plan}) — the open milestone plan'
         + (f'; its session-by-session record in [design/{open_record}](design/{open_record}).' if open_record else ', with its running record.'),
