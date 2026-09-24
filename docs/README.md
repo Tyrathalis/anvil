@@ -26,6 +26,7 @@
 - [canonical-register.md](design/canonical-register.md) — staged-vs-canonical forms, each priced with its promotion instrument; reviewed at scoping sessions
 - [chronicle-mvp-plan.md](design/chronicle-mvp-plan.md) — Chronicle side-stream implementation plan (D5 dogfood open)
 - [fork-lineage.md](design/fork-lineage.md) — the research fork's commit chain with each tip's ADR-0025 proof (the current pin lives in CLAUDE.md)
+- [format-onboarding.md](design/format-onboarding.md) — what a "format" is in Anvil, which ones run today, and the checklist for adding one
 - [m12-plan.md](design/m12-plan.md) — the open milestone plan — charter, build order, forks, kill conditions (the record: m12-running-record.md)
 - [m12-running-record.md](design/m12-running-record.md) — the open milestone's session-by-session record (split from m12-plan.md 2026-09-23)
 - [playable-fork-worklist.md](design/playable-fork-worklist.md) — playable-track doc of record
@@ -45,7 +46,7 @@
 - [multiplayer-hardening.md](design/multiplayer-hardening.md) — public record of the security track (9 findings, 3 merged upstream)
 - [observation-schema-v1.md](design/observation-schema-v1.md) — trajectory/obs format
 - [playercontroller-override-plan.md](design/playercontroller-override-plan.md) — the 109-method decision surface
-- [quickstart-custom-pool.md](design/quickstart-custom-pool.md) — run the BC → self-play loop (and, optionally, the search) on your own Constructed pool, with the defaults that worked externally
+- [quickstart-custom-pool.md](design/quickstart-custom-pool.md) — run the BC → self-play loop (and, optionally, the search) on your own decklists in a supported format, with the defaults that worked externally
 
 **Surveys (ecosystem intelligence, dated snapshots):**
 

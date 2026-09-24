@@ -164,7 +164,7 @@ whether teaching is happening. The milestone's product is one big training run, 
    labels after Build 4** (D4-standalone cost, ~2 h) read by the Build 1 cells as its smoke.
    The **format-onboarding recipe doc** (`docs/design/format-onboarding.md`: pairs file + fixed
    population, Ante certification, ladder anchor, era-scoped calibration maps, pool `CURRENT`)
-   is written when the format block lands. **Amended 09-16 ([ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md)):
+   is written when the format block lands. **WRITTEN 2026-09-23 ([format-onboarding.md](format-onboarding.md)).** **Amended 09-16 ([ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md)):
    the void re-roll skip rides the merge (ADR-0110, landed 09-16); Build 4's surface evening = TARGETS AS A SURFACE
    (triggered-ability targets, re-targeting, the generic target choosers — the largest deferral
    left; the mode head rides it: a three-arm paired read pre-registers the playability gate's
@@ -406,7 +406,7 @@ the engine adjudicates in both, the head never certifies (`end` = the engine's o
 **Routed by the 2026-09-23 fluency review.** To the post-run worktree: **one `RECIPE`
 definition** that the chain scripts source (like `data/pool/CURRENT`), with the quickstart pointing
 at it — today the recipe string is copied into four `scripts/*_chain.sh` files, and
-`shakedown_chain.sh` cannot be edited while it runs. Also to it: a `--banlist none` option on `anvil.pool --format pauper build` (today the Constructed slot always drops Pauper-banned decks; the quickstart documents an empty-snapshot workaround), and a `FORGE_DIR` fallback that is not the author's path. To the next documentation pass (the big run's
+`shakedown_chain.sh` cannot be edited while it runs. Also to it: a `--banlist none` option on `anvil.pool --format pauper build` (today the Constructed slot always drops Pauper-banned decks; the quickstart documents an empty-snapshot workaround), and a `FORGE_DIR` fallback that is not the author's path. **And the Constructed model row** (found 09-23: `vocab_mtg.json` has only `Commander`, so every Constructed game raises `VocabError` at featurization since the M9 format one-hot of 08-21 — the quickstart's headline path, and a gap in fork I's "readiness"): the row + column + the `load_compat` insert-position fix + the identity test, per [format-onboarding.md](format-onboarding.md#adding-a-format)'s worked example; a dataset-boundary ADR. To the next documentation pass (the big run's
 closeout): cap each standing rule at about two lines, the detail left in its ADR (37K → ≈ 25K); cut
 the design doc's §3d′ ledger to the current coverage table, the history to the ADRs;
 `/consolidate-memory` over the memory entries that repeat CLAUDE.md (the three launch entries into

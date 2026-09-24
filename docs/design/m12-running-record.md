@@ -1334,3 +1334,14 @@ record.*
   the eval merged into main (`8099b8d`). Also recorded: the alloc head's admission 51% → 66% by iteration
   8 (tau 0.369 → ≈ 0.02 under the trained head; 34 vs 27–29 copy calls per searched window; per-game
   wall −14%). Next: the documentation pass (4¾).
+- **2026-09-23 (late) — the fluency pass + the format-onboarding doc.** CLAUDE.md 25.8K → 14.1K
+  (the running record split here, the fork chain to `fork-lineage.md`, the milestone table to the
+  root README); the quickstart rewritten for outside readers and made format-agnostic (`SLOT` /
+  `GAME` / `POOLDIR`); **`format-onboarding.md` written** (the Done-when item 5 doc). **Found while
+  writing it:** the Constructed path is broken on main since the M9 format one-hot (08-21) —
+  `vocab_mtg.json` carries only `Commander`, so a Constructed game raises `VocabError` at
+  featurization. And a second trap in the fix: since Build 4 the format scalars follow the one-hot,
+  while `load_compat` pads new globals at the end, so a naive column insert would misread every
+  old checkpoint's scalars. Also undocumented until now: the per-deck `<id>.json` the build needs,
+  and each slot's banlist exclusion. Routed: the Constructed row to the post-run worktree (a
+  dataset-boundary ADR). Next: the shakedown's verdict.
