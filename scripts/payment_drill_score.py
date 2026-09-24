@@ -106,9 +106,9 @@ def lanes(args) -> None:
         sh.write_text(
             "#!/bin/sh\nset -e\n"
             f"cd '{gui}'\n"
-            + lane_command(args.runner, args.jar, str(jf), f"{outdir}/{prefix}-lane-{i}.out.jsonl",
-                           args.forge_flags,
-                           obs_file=f"{outdir}/{prefix}-lane-{i}.obs.zst" if args.runner == "census" else None)
+            + lane_command(getattr(args, "runner", "anvil"), args.jar, str(jf), f"{outdir}/{prefix}-lane-{i}.out.jsonl",
+                           getattr(args, "forge_flags", "-paytelemetry"),
+                           obs_file=f"{outdir}/{prefix}-lane-{i}.obs.zst" if getattr(args, "runner", "anvil") == "census" else None)
         )
         sh.chmod(0o755)
     print(f"wrote {args.n} lane scripts under {outdir}")

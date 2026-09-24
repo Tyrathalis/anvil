@@ -70,12 +70,19 @@ def test_lanes_strip_provenance_keep_mode(tmp_path):
     ev, b1, b4 = _evalset(tmp_path)
     jobs_f = tmp_path / "observe-jobs.jsonl"
     ps.plan(SimpleNamespace(evalset=str(ev), jobs=[f"b1={b1}", f"b4={b4}"], out=str(jobs_f)))
-    ps.lanes(SimpleNamespace(jobs=str(jobs_f), jar="/x/y/target/forge.jar", n=2))
+    # the census runner (the M9 witness): the flat contract + mode, -obsout per lane
+    ps.lanes(SimpleNamespace(jobs=str(jobs_f), jar="/x/y/target/forge.jar", n=2, runner="census"))
     lane0 = [json.loads(x) for x in open(tmp_path / "observe-lane-0.jobs.jsonl")]
     assert lane0 and set(lane0[0]) == set(ps.OBSERVE_JOB_FIELDS)
     assert lane0[0]["mode"] == "observe"
     sh = (tmp_path / "observe-lane-0.sh").read_text()
     assert "-obsout" in sh and "observe-lane-0.obs.zst" in sh
+    # the anvil runner (ADR-0117, the default): -replay + -labels, the frames ride the rows
+    ps.lanes(SimpleNamespace(jobs=str(jobs_f), jar="/x/y/target/forge.jar", n=2))
+    sh = (tmp_path / "observe-lane-0.sh").read_text()
+    assert "anvil -f Commander" in sh and "-replay" in sh and "-labels" in sh and "-obsout" not in sh
+    lane0 = [json.loads(x) for x in open(tmp_path / "observe-lane-0.jobs.jsonl")]
+    assert lane0[0]["mode"] == "observe"
 
 
 def test_accuracy_table_counts_exclusions_separately():

@@ -355,7 +355,7 @@ def lanes(args) -> None:
     for i in range(args.n):
         chunk = jobs[i:: args.n]
         jf = outdir / f"{prefix}-lane-{i}.jobs.jsonl"
-        fields = REPLAY_JOB_FIELDS if args.runner == "anvil" else JAVA_JOB_FIELDS
+        fields = REPLAY_JOB_FIELDS if getattr(args, "runner", "anvil") == "anvil" else JAVA_JOB_FIELDS
         with open(jf, "w") as f:
             for j in chunk:
                 f.write(json.dumps({k: j[k] for k in fields if k in j}) + "\n")
@@ -366,11 +366,11 @@ def lanes(args) -> None:
         sh.write_text(
             "#!/bin/sh\nset -e\n"
             f"cd '{gui}'\n"
-            + lane_command(args.runner, args.jar, str(jf), f"{outdir}/{prefix}-lane-{i}.out.jsonl",
-                           args.forge_flags)
+            + lane_command(getattr(args, "runner", "anvil"), args.jar, str(jf), f"{outdir}/{prefix}-lane-{i}.out.jsonl",
+                           getattr(args, "forge_flags", "-paytelemetry"))
         )
         sh.chmod(0o755)
-    print(f"wrote {args.n} lane scripts under {outdir} (runner {args.runner})")
+    print(f"wrote {args.n} lane scripts under {outdir} (runner {getattr(args, 'runner', 'anvil')})")
 
 
 def evalset(args) -> None:
