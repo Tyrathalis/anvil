@@ -1139,3 +1139,66 @@ names the recipe string only) — **a documentation-pass item** (a design-doc se
 **chrismaghuhn (09-23 06:25):** [laya-jev](https://github.com/artificial-intelligence-works/laya-jev)
 as "a fast teacher?" — noted, not relevant to our route (the user); no action. The thread also had
 people discussing LLMs playing MTG directly — noted, nothing for us.
+
+### 09-24 follow-up: coda's 3 Card Blind solver + the "ai-meta" fixpoint question, Kryptic's reply (read 09-24; nothing posted from here)
+
+**coda (09-24 02:09): the 3 Card Blind solver** ([rules](https://www.3cardblind.com/format-info/rules):
+3 vs 3 cards, the winner determined by optimal play; [his solver](https://aesort.com/3cbsolver/);
+the [human-adjudicated match history](https://www.3cardblind.com/statistics/match-history)) reaches
+≈ 26% of the tournament games "despite pushing AI hard over many weeks"; he takes the point to be
+that even 3-vs-3 is not practically provable, never mind 99! shuffles; he wonders how heuristic /
+LLM results would align with the human-adjudicated history, and names the Hangarback Walker
+matchup the judges never settled ([video](https://www.youtube.com/watch?v=hdaiKwKN50U)).
+*Our record:* the proof framing is the one route Anvil never takes — the engine adjudicates every
+claim, and every number is an estimate audited against rollouts (invariants one and four), so a
+26% solve rate is not a surprise to us and not the bar. What *is* directly ours: a
+human-adjudicated match history is a labeled benchmark of exactly the kind design §7 names
+("pro-game move agreement ranked by decision difficulty"); at 3 cards a side with open lists the
+game is near perfect-information, so an engine-adjudicated fork-and-play-forward (the search copy;
+ADR-0117's one primitive) enumerates the matchup tree where our Commander search only samples it.
+That is also the answer to his alignment question: play every tournament pairing with Forge's
+heuristic (and later the model) on both seats, read the win fraction per pairing, and compare
+against the judges' verdicts — a payoff-matrix agreement number, cheap on his own engine or on
+Forge. The Hangarback matchup is the demo case: an exhaustive engine-adjudicated tree either
+settles it or shows where the judges' "too complicated" is a real cycle. **No action for us**; the
+Pauper testbed (fork G) remains our own small-format route, after the big run.
+
+**coda (09-24 13:38): the "ai-meta"** — a deckbuilding AI against a challenger deck (or pool),
+the challenger replaced by any deck that beats it; does it reach a best-deck fixpoint or a
+nontransitive loop? **Kryptic (16:11):** super interesting; little work on deckbuilding
+specifically; LordOfThePigs has done drafting and maybe deckbuilding; 3CB or general?
+*Our record:* this is design §5's deferred "metagame outer loop: PSRO / double-oracle" question
+exactly. The replace-the-champion loop is a best-response dynamic and the default expectation in
+Magic is a cycle (aggro > control > midrange > aggro is the folk case; Kryptic's own 16-cell
+matrix with the Red mirror at 34% shows how far a payoff matrix sits from transitive). The
+standard fix keeps the population: build the payoff matrix, take the mixed Nash over it, train
+the next best response against the mixture (PSRO / double oracle) — the "ai-meta" is then the
+Nash support, not a single deck. Two things of ours bear on it: (1) Ante's exact ledger exists
+for "deck-vs-population measurement" (§7), which is what makes a payoff matrix cheap enough to
+iterate; (2) ADR-0018's stance that the DC meta decklists are the *human* meta's snapshot and the
+pool is arbitrary-then-validated — the AI meta would be the same object computed under the AI's
+play, and the gap between the two matrices is a direct read on where the agent plays differently
+from humans. **The two coda posts join on 3CB:** the tournament match history is a
+human-adjudicated payoff matrix over the entered decks; an engine-played matrix over the same
+decks gives both the alignment number and the AI meta in one job, with 3-card decks making the
+"deckbuilding" side a search over a tiny space. Forge's own limited deck builder and draft AI are
+the built-in baseline Kryptic asks about; LordOfThePigs' sealed builder / draft agent is the
+learned one on this server (survey §1). **No action for us** — Tutor's outer loop stays deferred
+behind the big run (m12-plan out-of-scope list); noted as the community's first articulation of
+the question we deferred.
+
+### Draft replies (09-24; the user posts; nothing posted from here)
+
+*To coda's solver post:* "26% doesn't surprise me — we gave up on proving anything and let the
+engine adjudicate estimates instead. But your match history is a great benchmark: play every
+tournament pairing with Forge's AI on both seats and compare per-pairing win fractions against
+the judges' calls. At 3 cards with open lists an engine-driven fork-and-play-forward can enumerate
+the tree, which is also how I'd settle the Hangarback game."
+
+*To the ai-meta thread:* "Champion-replacement is a best-response loop, and Magic metas are
+nontransitive by default, so I'd expect a cycle rather than a fixpoint. Keep the population
+instead: payoff matrix over the decks, mixed Nash over it, train the next deck as a best response
+to the mixture (PSRO / double oracle). The 'AI meta' is then the Nash support. For 3CB the deck
+space is tiny, so the matrix is the whole job — and the same matrix against the human match
+history gives you the alignment number from the other thread. It's the outer loop I deferred in
+my own design (Tutor §5) until the pilot is worth building around."
