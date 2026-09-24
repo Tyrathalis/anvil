@@ -1369,3 +1369,14 @@ record.*
   samples) → the amortized advantage head gated on that bar; a pre-registered escalation ladder if
   the anchor misses (value weight → stop-grad → separate value trunk). The shakedown's verdict is
   unaffected. Alloc at iteration 17 / 27.1 h at 09:35; closes ≈ 12:00–13:30.
+- **2026-09-24 (afternoon) — the alloc arm CLOSED at 0.5405 ± 0.0111** (+2.2pp over day-zero
+  0.5185 ± 0.0112; ≈ 1.4 SE on the difference; 2,000 games, 1,983 decisive, no crashes). 20
+  iterations in 32.65 h against the recipe's 16 in 30.6 h — the loop checks `--wall-hours` only at
+  iteration boundaries, and the last iteration plus its paired read carried the arm ≈ 2 h over;
+  the per-box-hour rule absorbs some of it, not all (routed: a wall check before the paired read,
+  post-run). The paired reads across the arm: iter 4 / 9 / 14 / 19 = 0.515 / 0.5475 / 0.5375 /
+  0.52 network-alone, 0.5225 / 0.555 / 0.53 / 0.53 with lookahead (± 2.5pp each). Spearman by
+  hand: iter 12 / 16 / 18 / 19 = 0.277 / 0.213 / 0.248 / 0.250 (final level with the recipe's
+  0.256). Battery (exploratory): 18.3% of day-zero cast decisions changed, 49% of them cast→pass
+  (the ADR-0049 suppression axis); one tripwire flag at iteration 17. Verdict waits for shallow
+  and deep (ADR-0115); shallow launched 14:27.
