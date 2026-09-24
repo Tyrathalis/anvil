@@ -1,6 +1,6 @@
 # Quickstart: train Anvil on your own card pool
 
-**Doc status:** reference · run the BC → self-play loop on an arbitrary small Constructed pool, with the defaults that worked externally
+**Doc status:** reference · run the BC → self-play loop (and, optionally, the search) on your own Constructed pool, with the defaults that worked externally
 
 **Who this is for:** you have a set of 60-card decklists (a Limited set, a cube, a single-deck
 mirror, a small Constructed meta) and want a pilot that plays them at Forge-heuristic strength or
@@ -17,6 +17,21 @@ decisions, outcomes) you can mine for card statistics.
 formats beyond "40-card decks under the Constructed rules" (untested; see step 3), multiplayer,
 and luck-corrected reads (those need a value critic trained on your pool; the raw paired read is
 what you use).
+
+**Formats: what works today.**
+
+| You have | Status | How |
+|---|---|---|
+| 60-card Constructed decklists (a meta, a mirror, a cube's decks) | tested (Kryptic's single-deck mirror) | this page as written |
+| 40-card decks (a Limited set) | accepted, untested | this page + `--main-size 40` (step 3); smoke 20 games first |
+| Your own Commander decks | not documented yet | the project's own Commander pool is built from Duel Commander meta lists (the `dc` slot); a guide for bringing your own Commander pool, or any other format, is planned but not written |
+| Multiplayer | not supported | — |
+
+Two format names appear in the commands and mean different things. `--format Constructed` (the
+harness, `final_read.py`, `selfplay.py`) is the Forge game type the engine plays. `--pool-format
+pauper` / `--format pauper` (on `anvil.pool` and `anvil.encoder`) is the pool slot your decklists
+live in. The Constructed slot is called `pauper` for historical reasons; it accepts any 60-card
+decklists and does not check rarity.
 
 ## 0. Prerequisites
 
@@ -44,11 +59,16 @@ git clone --filter=blob:none https://github.com/Tyrathalis/forge.git
 ```
 
 ```bash
+export FORGE_DIR=$PWD/forge
+```
+
+```bash
 cd forge && mvn -P windows-linux -pl forge-gui-desktop -am package -DskipTests
 ```
 
 The jar lands in `forge-gui-desktop/target/*-jar-with-dependencies.jar`. Anvil finds the fork
-through `FORGE_DIR` (default `~/Everything/Projects/forge`); export it if you cloned elsewhere.
+through `FORGE_DIR`. Keep it exported in every shell you run Anvil from; the fallback default,
+`~/Everything/Projects/forge`, is the author's layout and will not match yours.
 Every run manifest pins the jar's SHA-256 and the fork commit, so rebuilding the fork mid-run is
 refused, not silently absorbed.
 
@@ -58,27 +78,32 @@ refused, not silently absorbed.
 git clone https://github.com/Tyrathalis/anvil.git && cd anvil && uv sync
 ```
 
-```bash
-export FORGE_DIR=/path/to/forge
-```
-
 Everything below runs from the Anvil checkout with `uv run`. Data lives under `data/` in the
 checkout (gitignored).
 
 ## 3. Make the pool
 
 A pool is a manifest (the card list + the decks, content-hashed into a pool version) plus the
-`.dck` files installed into Forge's user deck store, which the workers resolve by name. The
-Constructed pipeline lives in the slot named `pauper` for historical reasons; it accepts any
-60-card decklists and does not check rarity.
+`.dck` files installed into Forge's user deck store, which the workers resolve by name. Your
+decklists go in the `pauper` slot (see *Formats* above).
 
-1. Drop your decklists into `data/pool/pauper/raw/decks/` as `<id>.txt` in MTGO export form
-   (`4 Lightning Bolt` per line, a blank line or `Sideboard` header before the sideboard, ≤ 15
-   sideboard cards, 4-of limit on non-basics), one file per deck, numeric ids. Every card name
-   must exist in the fork's `cardsfolder`; unresolved names exclude the deck and are reported.
-   Two decks is enough for a mirror; a Limited set wants dozens (draft them with Forge's own
-   draft AI or any drafter you trust, export, and drop them here).
-2. Snapshot the banlist, build, install:
+**Decklists.** Drop your decklists into `data/pool/pauper/raw/decks/` as `<id>.txt` in MTGO export form
+(`4 Lightning Bolt` per line, a blank line or `Sideboard` header before the sideboard, ≤ 15
+sideboard cards, 4-of limit on non-basics), one file per deck, numeric ids. Every card name
+must exist in the fork's `cardsfolder`; unresolved names exclude the deck and are reported.
+Two decks is enough for a mirror; a Limited set wants dozens (draft them with Forge's own
+draft AI or any drafter you trust, export, and drop them here).
+
+**Build.** Snapshot the banlist, build, install. The build **drops every deck that contains a
+card on the official Pauper banlist**, since the slot began as Pauper. If your lists are not Pauper,
+skip the `banlist` command and write an empty snapshot instead; the build uses the newest-sorting
+`banlist-*.json`:
+
+```bash
+mkdir -p data/pool/pauper/raw && echo '{"fetched": "custom", "cards": []}' > data/pool/pauper/raw/banlist-custom.json
+```
+
+Either way, check the build's report of excluded decks and their reasons before moving on.
 
 ```bash
 uv run python -m anvil.pool --format pauper banlist
@@ -101,7 +126,7 @@ in the Forge GUI cannot silently change your data.
 `GameType.Constructed`. This path is untested here; the parser and the manifest accept it, and
 nothing downstream keys on deck size, but a first run should be a 20-game smoke.
 
-3. Embed the pool's card text (once per pool; downloads `Qwen/Qwen3-Embedding-4B` the first time):
+**Embed.** Embed the pool's card text (once per pool; downloads `Qwen/Qwen3-Embedding-4B` the first time):
 
 ```bash
 uv run python -m anvil.encoder embed --model qwen3 --format pauper
@@ -181,61 +206,97 @@ Checkpoints land in `data/training/<name>-loop/iter-NNN/train/last.pt`; the moni
 `monitor.jsonl` in the loop dir (reward, entropy, KL, veto rate per iteration). `STOP` in the loop
 dir exits cleanly after the current iteration.
 
-**Search as the behavior policy (M12, ADR-0113).** Add `--search-recipe "<AnvilRun flags>"` to
-run the search directive on the generation workers, e.g.
-`--search-recipe "-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"`.
-The driver then passes `--labels` to the harness, ingests the search rows into each store
-(`search.jsonl`), and the trainer joins them: an acted window trains under the search's
-distribution, the pick-distillation term (`--distill-frac`, 0.05) and the allocation head's term
-(`--alloc-frac`, 0.02) switch on, and the head's `-searchalloc` threshold is re-derived every
-iteration from the serving checkpoint (`--search-alloc head`, `--search-floor 0.1`; a checkpoint
-without a fit record searches at the uniform rate). `--arms-lookahead on` (the default with a
-recipe) adds a second mid-run arm under the recipe beside the argmax arm. `--jar <path>` pins one
-Forge jar for the whole run. Expect roughly 2.5× the wall per game of the plain loop at the recipe
-above with the head; `search_join.json` beside each iteration's checkpoint carries the join census
-and the re-derived threshold. `uv run python -m anvil.store search-rows <run-dir>` backfills the
-rows into a store ingested before this landed.
+### 7a. Optional: search as the behavior policy
 
-**What the search is** (design doc [§3e](anvil-design-v2.md#3e-search-as-the-behavior-policy-m12-adr-0101--adr-0118)):
-a one-ply lookahead, not MCTS. At the seat's own main-phase priority windows every legal
-first-ply option (pure mana abilities excluded) is played on a copy of the game determinized to
-the seat's information set, continued under the current policy to the seat's next quiescent
-window, and scored there by the network's value head. The natural pick is always in the set; when
-the best option beats it by the bar the seat samples from the leaf-value softmax, otherwise it
-plays its natural pick. The search's choice and its probability mass are what the trainer trains
-on (the behavior policy); the deployed network plays alone. Every `-search*` flag is an AnvilRun
-flag passed through `--search-recipe`; the recipe of record (M12, ADR-0108 / ADR-0112) is
+The plain loop above is the proven path, and the one to run first. The search is this project's
+current research line (M12): it can make the games the loop learns from better than the network
+would play alone, at about 2.5× the time per game. On our pool a lookahead is worth about +2.5pp
+to the network that uses it. Whether training on it makes the network *alone* stronger is what
+our current runs are measuring. It has not been run outside this project yet, so start with a
+20-game smoke.
+
+**What it does.** At some of a seat's decision points, before choosing, the worker tries every
+legal option on copies of the game and lets the network's value head judge where each one leads.
+It is a one-step lookahead, not a tree search (not MCTS):
+
+- **The option search.** At a searched window (the seat's own main phase, empty stack) every
+  legal option is played out on a copy of the game. Each copy reshuffles the hidden cards the
+  seat cannot see, so the search never uses information the player would not have. Play continues
+  under the current policy until the seat's next such window, and the value head scores the
+  position there. `-searchrolls` copies per option share their random draws, so options are
+  compared on the same luck.
+- **Acting.** The option the network would have played anyway (the *natural pick*) is always
+  among those tried. If the best option beats it by at least the bar (`-searchact`, 0.10 in win
+  probability), the seat plays an option sampled from the search's values (`-searchtemp`);
+  otherwise it plays the natural pick.
+- **The follow-up choice.** Many options lead straight into a second choice: a target, a mode,
+  a tutor pick, an ordering. On the best few option paths (`-searchsurf`), the search also tries
+  each answer to that first follow-up choice. The option is worth its best answer, and for the
+  kinds in `-searchactkinds` the seat plays that answer too.
+- **Choosing where to search.** Searching every window is expensive and most never change the
+  pick. A small extra output of the network (the *allocation head*) predicts where the search
+  would change the pick; only those windows are searched, plus a random 10% (`-searchfloor`)
+  that keeps its training data honest. A checkpoint that has not trained the head yet (your BC
+  checkpoint) searches every window until the loop has fit it.
+- **What the network learns.** At a window where the search changed the pick, the training
+  record is the search's choice: the policy is trained toward it, and the usual policy gradient
+  runs on every window. The network you deploy plays alone. The search exists to make its
+  training games better, and it never runs at play time.
+
+**Words used below.** *Window*: a point where a seat is asked to choose. *Void*: an option the
+copy could not play out (the engine refused it); it is skipped, not scored. *Surface*: one of the
+follow-up choices above. *Leaf*: where a copy stops and the value head scores it.
+
+**Turn it on** by adding `--search-recipe` to the §7 command, with our recipe:
 
 ```
--search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode -searchalloc <tau> -searchfloor 0.1
+--search-recipe "-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"
 ```
 
-with `<tau>` the serving checkpoint's own fit record (the driver fills it under `--search-alloc
-head`). Off = not passing `-search`; the game path is then byte-identical to a plain run.
+The driver adds the allocation head's flags itself (`-searchalloc <threshold> -searchfloor 0.1`,
+the threshold re-derived each iteration from the serving checkpoint; `--search-alloc off` searches
+at the uniform rate instead). It also records the search's rows into each iteration's store
+(`search.jsonl`) and turns on the trainer's search terms (`--distill-frac` 0.05, `--alloc-frac`
+0.02). `--jar <path>` pins one Forge jar for the whole run. Leaving out `-search` gives a game path
+identical to the plain loop, byte for byte.
+
+**How to tell whether it is helping.** With a recipe the loop's periodic arms read twice
+(`--arms-lookahead on`, the default): the network alone and the network with the search. The
+network-alone number is the one that matters. If with-lookahead climbs while network-alone stays
+flat, the search is not teaching, and the extra 2.5× is wasted. Confirm with the §8 paired read,
+which reads the network alone. `search_join.json` beside each iteration's checkpoint shows how
+many windows were searched and acted on.
+
+**The flags.** Every `-search*` flag is a flag of the Forge worker, passed through
+`--search-recipe`.
 
 | Flag | Default | What it does |
 |---|---|---|
-| `-search` | off | turn the directive on for every bridged seat (`-searchseats <csv>` names seats explicitly; a heuristic seat named there is searched too — the control arm) |
-| `-searchrate p` | 1.0 | search each candidate window with probability p (a seeded draw) |
-| `-searchrolls R` | 1 | determinizations per option; common random numbers across options; 2 in the recipe |
-| `-searchopts N` | 0 = all | cap on first-ply options valued |
-| `-searchmana` | off | value pure mana abilities too (58% of candidates when on, almost all void) |
-| `-searchleaf next\|eot\|h<N>\|end` | `next` | the leaf: the seat's next quiescent window (the resolved, right judge — ADR-0106 C1) / end of turn / a turn N later / the game's end (the outcome, no head call) |
-| `-searchact bar` | off | the acting rule: act on the search where max V − V(natural) ≥ bar; absent = telemetry only |
-| `-searchtemp T` | 0.025 | the leaf-value softmax temperature the acted option is sampled at (0 = argmax) |
-| `-searchsurf B` | 0 | expand the first traced surface callback (tutor / discard / mode / order / scry / damage / target) on the top-B option paths, one copy per answer; the option's value is lifted to its best answer |
-| `-searchsurfcap C` | 12 | answers enumerated per surface window (8 in the recipe) |
-| `-searchactkinds <csv\|all>` | none | surface kinds whose answer is acted with the option (the recipe: `entity_one,entity_set,mode`); `pay` is never acted |
-| `-searchalloc tau` | off | the allocation head: search where its P(act) ≥ tau; off = the rate draw alone (byte-identical) |
-| `-searchfloor f` | 0.1 | the uniform exploration floor under the head (ungated windows keep labelling it) |
-| `-searchdeep B` | 0 | the deep slot: where the shallow margin is in [`-searchdeeplo` 0.02, bar), re-expand the natural + top-B to `-searchdeepleaf` (`h2`) at `-searchdeeprolls` (4) plus a `-searchdeepfloor` (0.1) draw; needs `-searchact`; ≈ 2.8× the box time per game |
-| `-searchpay B` / `-searchpayleaf` | 0 / `eot` | the payment slot's own expansion (the pay head is withheld; this is the label instrument) |
-| `-searchrollsalt <long>` | 0 | salt the copies' determinization seeds (an outcome arm under independent draws) |
-| `-searchclock s` | 900 | the wall allowance per searched game (raise it for `h<N>` / `end` leaves) |
-| `-searchvoidskip 0\|1` | 1 | do not re-roll a candidate whose first copy voided |
-| `-searchvoidrescue` | off | read-only: re-run a voided candidate with the heuristic's plan and record its value (`vr`) |
+| `-search` | off | turn the search on for every model-played seat (`-searchseats <csv>` names seats; a heuristic seat named there is searched too, a control) |
+| `-searchrate p` | 1.0 | search each candidate window with probability p (seeded) |
+| `-searchrolls R` | 1 | copies per option, with shared random draws across options (2 in the recipe) |
+| `-searchopts N` | 0 = all | cap on the options tried |
+| `-searchmana` | off | also try pure mana abilities (58% of candidates when on, nearly all void) |
+| `-searchleaf next\|eot\|h<N>\|end` | `next` | where a copy stops: the seat's next window (measured as the best judge) / end of turn / N turns later / the game's end (the actual result, no value head) |
+| `-searchact bar` | off | the acting rule: act where the best option beats the natural pick by ≥ bar; absent = record only, never act |
+| `-searchtemp T` | 0.025 | how sharply the acted option is sampled from the search's values (0 = always the best) |
+| `-searchsurf B` | 0 | on the top-B option paths, also try each answer to the first follow-up choice (tutor / discard / mode / order / scry / damage / target) |
+| `-searchsurfcap C` | 12 | answers tried per follow-up choice (8 in the recipe) |
+| `-searchactkinds <csv\|all>` | none | follow-up kinds whose best answer the seat also plays (the recipe: `entity_one,entity_set,mode`); payments are never acted |
+| `-searchalloc tau` | off | search only where the allocation head's P(the search would act) ≥ tau; off = the rate alone |
+| `-searchfloor f` | 0.1 | the random share of windows searched regardless of the head |
+| `-searchdeep B` | 0 | a second, deeper look (two turns, 4 copies) at the natural pick + top-B options when the first margin is close (in [`-searchdeeplo` 0.02, bar)); needs `-searchact`; ≈ 2.8× the time per game |
+| `-searchpay B` / `-searchpayleaf` | 0 / `eot` | also try the ways to pay for the top-B options (recorded for study, never acted) |
+| `-searchrollsalt <long>` | 0 | vary the copies' random draws between runs |
+| `-searchclock s` | 900 | wall-clock allowance per searched game (raise it for `h<N>` / `end` leaves) |
+| `-searchvoidskip 0\|1` | 1 | do not retry an option whose first copy voided |
+| `-searchvoidrescue` | off | record-only: re-try a voided option with the heuristic's plan and record its value |
 
-**The fleet.** One model server is one Python process and saturates at about twelve search workers.
+`uv run python -m anvil.store search-rows <run-dir>` backfills search rows into a store ingested
+before that command existed. The design and the measurements behind all of this are the design doc
+[§3e](anvil-design-v2.md#3e-search-as-the-behavior-policy-m12-adr-0101--adr-0118).
+
+**The fleet (search runs).** One model server is one Python process and saturates at about twelve search workers.
 Run `uv run python -m anvil.bridge.server --servers N ...` to start N servers on consecutive ports
 and give the harness the matching list, `--bridge grpc:localhost:P,grpc:localhost:P+1,...`; chunks
 are assigned round-robin. Pin N = ceil(workers / 12) and keep workers under your core count (24 on a
@@ -320,8 +381,8 @@ uv run python scripts/final_read.py --ckpt data/training/<name>-loop/iter-024/tr
 ```
 
 Read every 5–10 iterations with this, not with the arms. Kryptic's mirror: 55.2% at iteration
-25 (n = 1,000, ±1.6). Our pool: parity at iteration ~20 of the first recipe, 52.8% after the
-drill work. Nobody on Forge has reported much past 55% against the heuristic with a network alone.
+25 (n = 1,000, ±1.6). Our pool: parity at iteration ~20 of the first recipe, 53.5% after the
+drill work (on the current engine). Nobody on Forge has reported much past 55% against the heuristic with a network alone.
 
 ## 9. What it costs
 
@@ -331,6 +392,7 @@ drill work. Nobody on Forge has reported much past 55% against the heuristic wit
 | BC, 200K steps at batch 32 | ~2 h |
 | 25 self-play iterations × 480 games | ~10–12 h |
 | One 2,000-game paired read | ~1.5 h |
+| 7a: the same loop under the search | ~2.5× the plain loop per game (24 workers × 2 servers) |
 
 ## Troubleshooting
 
@@ -351,4 +413,5 @@ drill work. Nobody on Forge has reported much past 55% against the heuristic wit
 Throughput and corpus sizes: [ADR-0003](../decisions/ADR-0003-m0-closeout.md),
 [ADR-0009](../decisions/ADR-0009-m1-closeout.md). The loop recipe: [d6-vtrace-loop.md](d6-vtrace-loop.md),
 [ADR-0026](../decisions/ADR-0026-m3-closeout.md). The external replication: [devlog 2026-09-07](../devlog/2026-09-07-session2.md).
+The search (7a): design doc [§3e](anvil-design-v2.md#3e-search-as-the-behavior-policy-m12-adr-0101--adr-0118).
 The rules behind "read with 2,000 paired games, never per-round evals": [standing-rules.md](../standing-rules.md).

@@ -45,7 +45,7 @@
 - [multiplayer-hardening.md](design/multiplayer-hardening.md) — public record of the security track (9 findings, 3 merged upstream)
 - [observation-schema-v1.md](design/observation-schema-v1.md) — trajectory/obs format
 - [playercontroller-override-plan.md](design/playercontroller-override-plan.md) — the 109-method decision surface
-- [quickstart-custom-pool.md](design/quickstart-custom-pool.md) — run the BC → self-play loop on an arbitrary small Constructed pool, with the defaults that worked externally
+- [quickstart-custom-pool.md](design/quickstart-custom-pool.md) — run the BC → self-play loop (and, optionally, the search) on your own Constructed pool, with the defaults that worked externally
 
 **Surveys (ecosystem intelligence, dated snapshots):**
 

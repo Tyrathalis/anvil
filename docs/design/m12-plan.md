@@ -406,7 +406,7 @@ the engine adjudicates in both, the head never certifies (`end` = the engine's o
 **Routed by the 2026-09-23 fluency review.** To the post-run worktree: **one `RECIPE`
 definition** that the chain scripts source (like `data/pool/CURRENT`), with the quickstart pointing
 at it — today the recipe string is copied into four `scripts/*_chain.sh` files, and
-`shakedown_chain.sh` cannot be edited while it runs. To the next documentation pass (the big run's
+`shakedown_chain.sh` cannot be edited while it runs. Also to it: a `--banlist none` option on `anvil.pool --format pauper build` (today the Constructed slot always drops Pauper-banned decks; the quickstart documents an empty-snapshot workaround), and a `FORGE_DIR` fallback that is not the author's path. To the next documentation pass (the big run's
 closeout): cap each standing rule at about two lines, the detail left in its ADR (37K → ≈ 25K); cut
 the design doc's §3d′ ledger to the current coverage table, the history to the ADRs;
 `/consolidate-memory` over the memory entries that repeat CLAUDE.md (the three launch entries into
