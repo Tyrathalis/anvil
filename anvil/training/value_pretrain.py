@@ -34,6 +34,12 @@ Usage:
   uv run python -m anvil.training.value_pretrain fit  --out data/runs/m12-build1 --build \\
       --ckpt-out data/training/m12-build1
   uv run python -m anvil.training.value_pretrain read --out data/runs/m12-build1
+  uv run python -m anvil.training.value_pretrain eval --ckpt <last.pt> [--ckpt ...] \
+      [--device cpu] [--write data/runs/shakedown/state_ranking.jsonl]
+    (the state-ranking read on ANY checkpoint — the frozen holdout scored
+     by its value head; the shakedown's per-arm column and the big run's
+     mid-run plateau tripline; CPU by default so it never trips the
+     fleet's GPU yield)
 """
 
 from __future__ import annotations
@@ -860,6 +866,114 @@ def fit(args: argparse.Namespace) -> None:
 # ------------------------------------------------------------- read
 
 
+# ------------------------------------------------------------- eval (any checkpoint)
+
+
+def _p(x: str) -> Path:
+    q = Path(x)
+    return q if q.is_absolute() else REPO / q
+
+
+def load_net_from(ckpt: str, device: str):
+    """`load_net` for an arbitrary checkpoint (the state-ranking eval); the
+    ability table is set from the checkpoint's own config when it names one
+    (the value path reads zeros for every -1 key either way)."""
+    import torch
+
+    from anvil.training.dataset import default_methods
+    from anvil.training.train import build_net
+
+    ck = torch.load(_p(ckpt), map_location=device, weights_only=False)
+    cfg = ck["config"]
+    net = build_net(
+        cfg["embed"], cfg["pool_manifest"], len(default_methods()), n_sa=cfg.get("sa_vocab_size", 0)
+    ).to(device)
+    net.load_compat(ck["model"])
+    if cfg.get("abilities"):
+        from anvil.policy.surfaces import AbilityCache
+
+        net.set_ability_table(AbilityCache(_p(cfg["abilities"])).vectors)
+    net.eval()
+    return net, ck
+
+
+def widen_globals(examples: list, n_global: int, fmt: str) -> list:
+    """The bank's examples were featurized in the iter-019 era (globals = the
+    base columns + the fmt one-hot). A Build 4 net reads the explicit format
+    scalars after them (transform.GLOBAL_FEATURES); fill them with the
+    vocab's row for the bank's format — exactly what the loader emits for
+    these records today — so a checkpoint that has TRAINED those columns is
+    read at its own inputs (a pre-Build-4 checkpoint is zero-padded there by
+    load_compat and reads the same either way)."""
+    import torch
+
+    from anvil.encoder.transform import Vocab
+
+    have = int(examples[0]["globals"].shape[0])
+    if have == n_global:
+        return examples
+    if have > n_global:
+        raise ValueError(f"bank globals {have} wider than the net's {n_global}")
+    tail = torch.tensor(Vocab().format_scalars(fmt), dtype=examples[0]["globals"].dtype)
+    if have + int(tail.shape[0]) != n_global:
+        raise ValueError(f"bank globals {have} + format scalars {int(tail.shape[0])} != net's {n_global}")
+    return [{**e, "globals": torch.cat([e["globals"], tail])} for e in examples]
+
+
+def eval_ckpts(args: argparse.Namespace) -> None:
+    """The state-ranking read on any checkpoint: the frozen holdout of the
+    state benchmark (1,197 rows — ADR-0103's cell, reference 0.27–0.48, the
+    Build 1 build 0.392) scored by the checkpoint's value head. The
+    shakedown's per-arm column and the big run's mid-run plateau tripline
+    (m12-plan Build order 5). CPU by default: a GPU eval beside a running
+    fleet trips the yield and eats an arm's box time."""
+    import torch
+
+    out_dir = _p(args.out)
+    state = torch.load(out_dir / "bank-state.pt", weights_only=False)
+    sm = state["meta"]
+    s_te = np.arange(len(sm)) if args.split == "all" else np.where([m["holdout"] for m in sm])[0]
+    s_idx = np.array([m["idx"] for m in sm])
+    s_y = np.array([m["wr"] for m in sm], dtype=np.float32)
+    rng = np.random.default_rng(args.seed)
+    rows = []
+    for ck_path in args.ckpt:
+        t0 = time.time()
+        net, ck = load_net_from(ck_path, args.device)
+        exs = widen_globals(state["examples"], net.assemble.n_global, args.fmt)
+        sc = scores(net, exs, s_idx[s_te], args.device, args.eval_batch)
+        y = s_y[s_te]
+        rho = spearman(sc, y)
+        boots = [
+            spearman(sc[b], y[b])
+            for b in (rng.integers(0, len(y), len(y)) for _ in range(args.boot))
+        ]
+        row = {
+            "ckpt": ck_path,
+            "split": args.split,
+            "n": int(len(y)),
+            "spearman": round(rho, 4),
+            "se_boot": round(float(np.std(boots)), 4),
+            "iteration": ck.get("iteration"),
+            "device": args.device,
+            "wall_s": round(time.time() - t0, 1),
+            "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        rows.append(row)
+        print(
+            f"[eval] {ck_path}: state-ranking {row['spearman']} ± {row['se_boot']} "
+            f"(n {row['n']}, {row['wall_s']}s)",
+            flush=True,
+        )
+        if args.write:
+            with _p(args.write).open("a") as f:
+                f.write(json.dumps(row) + "\n")
+        del net
+    print("\n| ckpt | state-ranking ρ | boot SE | n |\n|---|---|---|---|")
+    for r in rows:
+        print(f"| {r['ckpt']} | {r['spearman']} | {r['se_boot']} | {r['n']} |")
+
+
 def read(args: argparse.Namespace) -> None:
     out_dir = REPO / args.out
     folds = sorted(out_dir.glob("result-fold*.json"))
@@ -984,6 +1098,17 @@ def main() -> None:
     p = sub.add_parser("read")
     p.add_argument("--out", required=True)
     p.set_defaults(fn=read)
+    p = sub.add_parser("eval", help="the state-ranking read on arbitrary checkpoints (frozen holdout)")
+    p.add_argument("--out", default="data/runs/m12-build1", help="the bank dir (bank-state.pt)")
+    p.add_argument("--ckpt", action="append", required=True, help="repeatable")
+    p.add_argument("--device", default="cpu")
+    p.add_argument("--eval-batch", type=int, default=64)
+    p.add_argument("--fmt", default="Commander", help="the bank's format (its format scalars)")
+    p.add_argument("--split", default="holdout", choices=("holdout", "all"))
+    p.add_argument("--boot", type=int, default=500, help="bootstrap resamples for the SE")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--write", default=None, help="append one JSON row per checkpoint")
+    p.set_defaults(fn=eval_ckpts)
     args = ap.parse_args()
     if args.cmd == "fit" and not args.build and args.fold is None:
         ap.error("fit needs --fold K or --build")
