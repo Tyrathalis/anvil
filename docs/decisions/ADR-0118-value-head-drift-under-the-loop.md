@@ -85,3 +85,33 @@ per-game wall −14% vs the recipe, so the arm lands ≈ 20 iterations in its 30
   worktree, after the shakedown); the battery row + guard (`anvil/evals/battery.py`, `selfplay.py`);
   whether the one-ply cell (the cross-fit read, GPU) joins the per-iteration audit (priced first); the
   periodic rollout re-fit (only if the anchor fails).
+
+## Addendum 2026-09-24 — the drift lives in the trunk, not the head's weights (the head-swap read)
+
+**Verdict: swapping the value head's four tensors between day-zero and a drifted checkpoint moves the
+Spearman not at all; the trunk's representation under the head is what drifted.** A freeze of the head
+would therefore do nothing (the ADR's guess, now measured); the anchor arm stays first because its
+replay loss reaches the trunk through the head. Read on CPU beside the running alloc arm (no pause;
+the eval is deterministic given the checkpoint), rows in `data/runs/shakedown/state_ranking_headswap.jsonl`.
+
+| trunk from | head from | state-ranking ρ |
+|---|---|---|
+| day-zero | day-zero | 0.374 |
+| alloc iter-016 | alloc iter-016 | 0.213 |
+| **alloc iter-016** | **day-zero** | **0.214** |
+| **day-zero** | **alloc iter-016** | **0.379** |
+| recipe iter-015 | recipe iter-015 | 0.256 |
+| recipe iter-015 | day-zero | 0.259 |
+| day-zero | recipe iter-015 | 0.377 |
+
+Boot SE ≈ 0.026–0.030. The head did move (relative L2 change 1.8% in both arms, vs 0.4% for the
+67M-parameter trunk and 1.7% for the decoders), but its movement is orthogonal to the ranking; the
+0.4% trunk change carries the whole loss. Also read: alloc iter-012 / iter-016 = 0.277 / **0.213**,
+the lowest in either arm, ≈ five SE below day-zero; the loop's own value loss fell 0.418 → 0.371
+over the same iterations (the head fits the V-trace targets better while matching rollout truth worse).
+
+**What this does not tell:** which loss moves the trunk — the value loss at weight 0.5 (the largest
+term by magnitude; then the anchor counteracts it directly) or the policy / distill / alloc terms (then
+the anchor competes with them and may cost strength, which the arm's pre-registered strength bar
+catches). Routed: a per-term trunk gradient-norm row in `rl.py` (worktree, post-run); a `--swap-head`
+option on `value_pretrain eval` so this read is one flag, not a scratch script.

@@ -1345,3 +1345,16 @@ record.*
   old checkpoint's scalars. Also undocumented until now: the per-deck `<id>.json` the build needs,
   and each slot's banlist exclusion. Routed: the Constructed row to the post-run worktree (a
   dataset-boundary ADR). Next: the shakedown's verdict.
+- **2026-09-24 (morning) — the drift is the trunk's, not the head's: the head-swap read
+  ([ADR-0118 addendum](../decisions/ADR-0118-value-head-drift-under-the-loop.md)).** The alloc
+  arm's hand Spearman rows: iter-012 / iter-016 = 0.277 / **0.213** (the lowest in either arm, ≈ five
+  SE below day-zero) while the loop's own value loss fell 0.418 → 0.371. Then the swap, on CPU beside
+  the running arm, no pause: the day-zero head on the alloc-16 trunk scores 0.214 (= alloc-16's own
+  0.213); the alloc-16 head on the day-zero trunk scores 0.379 (= day-zero's 0.374); the recipe pair
+  reads the same (0.259 / 0.377). The head moved 1.8% relative L2, the trunk 0.4% — and the trunk's
+  0.4% carries the whole loss. So a head freeze would do nothing (the ADR's guess, now measured); the
+  anchor arm stays first because its replay loss reaches the trunk. Still open: which loss moves the
+  trunk (the value term at 0.5 or the policy / distill / alloc terms) — routed: a per-term trunk
+  gradient-norm row in `rl.py`, post-run; a `--swap-head` option on `value_pretrain eval`. Status
+  check at 09:35: alloc in iteration 17, 27.1 / 30 h, closes ≈ 12:00–13:30; interim iter-014 paired
+  read 0.5375 / 0.53 (± 2.5pp; four crashes on the lookahead side vs one).
