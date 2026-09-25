@@ -10,8 +10,18 @@
   missing alloc 1–3 + recipe 3 rows, appended to `data/runs/shakedown/state_ranking.jsonl`. Finding
   in the running record: the shared iteration-0 step is there; the iteration-4 drop is not (yet).
 
+- Remote Control as a background service, the phone-starts-sessions kind: `~/.config/systemd/user/anvil-rc-server.service`
+  (enabled under linger, tmux `anvil-rc-server`) runs `claude remote-control --name anvil-box-server
+  --spawn worktree` — server mode, up to 32 sessions from one process; sessions started from the phone
+  each get their own git worktree, the pre-created one stays in the main dir. Environment link:
+  `https://claude.ai/code?environment=env_01UgF4mWesALJnnBmu3MgCso`. The 09-21 trial unit
+  (`anvil-remote-control.service`, one interactive session `anvil-box`) is still up beside it — it holds an
+  unsent draft prompt, so it was left alone; retire it with `systemctl --user disable --now
+  anvil-remote-control.service` once the server has proven itself across a reboot.
+
 ## Broke / surprised me
 
+- `claude remote-control --help` still starts the server instead of printing help (the 09-21 note stands); killed.
 - The iteration-4 network-alone arm read counted five `BridgePoisonedException` games: all deadline
   on `mtg.priority` seq=14 within turns 1–2, 25 s into each worker — the model server's cold start
   against the 20 s bridge deadline. Recycled, not replayed. Alloc's iteration-9 read had one.
