@@ -1395,3 +1395,16 @@ record.*
   server cold-start deadlines on the first priority window (25 s into each worker); cosmetic at 400
   games; routed: a server warm-up ping before the harness starts, post-run. Shallow in iteration 5
   at 20:10, ≈ 53 min per iteration, closes ≈ 09-25 21:00–22:00.
+- **2026-09-25 (morning) — the shallow arm's Spearman drop arrived; it tracks box time, not search
+  depth.** Rows at iterations 8 / 12 / 15 = 0.303 / 0.262 / 0.246 (SE ≈ 0.028), from 0.340 at
+  iteration 4; the same floor the recipe (0.256) and alloc (0.250) reached. By iteration the drop is
+  later; by box time it is the same curve — shallow's iteration 12 (≈ 13 h in) sits where alloc's
+  iteration 8 (0.256, ≈ 13 h) did. So the depth hypothesis of 09-24 is out: one rollout and no
+  surface search drift the trunk as fast per box-hour as two rollouts with it. The drift is a
+  function of accumulated V-trace updates, which is the anchor's territory (ADR-0118/0119), and the
+  anchor arm reads at one search setting. Shallow status at 09:00: iteration 16 training, 17.7 h of
+  30 used, ≈ 66 min per iteration (the 53 of the first five did not hold; the paired reads every
+  five iterations and longer games later), ≈ 27 iterations expected; paired reads iter 4 / 9 / 14 =
+  0.480 / 0.5325 / 0.5075 network-alone, 0.515 / 0.545 / 0.5375 with lookahead (± 2.5pp); no crashes
+  since iteration 4, flags only single fallbacks. Wall check ≈ 20:30–21:30 today, the 2,000-game
+  read after it, deep launches from the chain.

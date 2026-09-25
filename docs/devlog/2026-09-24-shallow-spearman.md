@@ -31,5 +31,6 @@
 
 ## Next session picks up
 
-- Shallow Spearman at iterations 8 and 12 (25 s each; ~1 min total) — does it hold or drop late?
+- ~~Shallow Spearman at iterations 8 and 12~~ — done 09-25 09:00: 0.303 / 0.262 / 0.246 at 8 / 12 / 15; the drop
+  arrived, same floor as the other arms, same curve by box time (running record). Depth hypothesis out.
 - Shallow closes ≈ 09-25 21:00–22:00; deep launches from the chain; verdict ≈ 09-27.
