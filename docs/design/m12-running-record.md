@@ -1380,3 +1380,18 @@ record.*
   0.256). Battery (exploratory): 18.3% of day-zero cast decisions changed, 49% of them cast→pass
   (the ADR-0049 suppression axis); one tripwire flag at iteration 17. Verdict waits for shallow
   and deep (ADR-0115); shallow launched 14:27.
+- **2026-09-24 (evening) — the shallow arm's early Spearman: the iteration-0 step, not yet the
+  iteration-4 drop.** State-ranking rows (holdout n 1,197, boot SE ≈ 0.027) on shallow iterations
+  0–4 = 0.330 / 0.299 / 0.342 / 0.337 / 0.340; day-zero 0.374. The three arms share the same first
+  step (recipe 0.321, alloc 0.333, shallow 0.330 at iteration 0 — one update, ≈ 1.7 SE below day-zero,
+  the same size each time, so it reads as the head meeting V-trace targets, not as noise). Past that
+  the arms part: by iteration 4 recipe 0.275 and alloc 0.267 / 0.275 (iterations 3 / 4; alloc's 1–3
+  filled in tonight = 0.332 / 0.290 / 0.267) against shallow's 0.340 — ≈ 1.7 SE on the difference,
+  suggestive, not a verdict. Shallow iterations cost ≈ 53 min against alloc's ≈ 98, so by box time
+  shallow's iteration 4 (≈ 4.6 h) sits where alloc's iteration 2–3 (≈ 0.29 / 0.27) was, and shallow
+  still holds. Hypothesis to keep in view: the drift scales with search depth in the leaf's targets
+  (`-searchrolls 1` here), which would put the anchor arm's read next to a depth reading. Re-read at
+  iterations 8 and 12 before calling it. The iteration-4 paired read's five network-alone crashes are
+  server cold-start deadlines on the first priority window (25 s into each worker); cosmetic at 400
+  games; routed: a server warm-up ping before the harness starts, post-run. Shallow in iteration 5
+  at 20:10, ≈ 53 min per iteration, closes ≈ 09-25 21:00–22:00.
