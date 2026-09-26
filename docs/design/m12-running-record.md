@@ -1424,3 +1424,15 @@ record.*
   from the chain. Earlier today: iteration 24's paired read 0.52 / 0.52 (± 2.5pp; one crash each
   side), one tripwire violation in iteration 24's training (the second of the shakedown; alloc had
   one at iteration 17), single fallbacks otherwise.
+- **2026-09-26 (morning) — the shallow arm CLOSED at 0.5320 ± 0.0112** (+1.35pp over day-zero
+  0.5185 ± 0.0112, ≈ 1.2 SE on the difference; 2,000 games, 1,977 decisive, 10 crashes; veto rate
+  4.9%). WALL-STOP after 26 iterations at 30.67 h wall, ≈ 28 h productive after the 09-25 yield.
+  Against alloc's +2.2pp in 32.65 h the ordering by gain per box-hour is alloc first, shallow second,
+  recipe last, all inside noise pairwise (SE of any difference ≈ 1.6pp). Final Spearman 0.288 (iter
+  20 / 25 = 0.274 / 0.288), a shade above alloc's 0.250 and the recipe's 0.256 — one SE, not a
+  finding. Paired reads along the arm: iter 4 / 9 / 14 / 19 / 24 = 0.480 / 0.5325 / 0.5075 / — /
+  0.52 network-alone. **Deep launched 21:46**, iteration 0 took 4 h 41 min (21:46 → 02:27; the
+  heuristic stores at ≈ 200 g/h under `-searchdeep 3 -searchdeeprolls 4 -searchclock 3600`), so
+  ≈ 5.5 h per iteration and 5–6 iterations in the box; iteration 1's second heuristic store at 77 /
+  120 at 07:29; no flags, no yield. Deep's iteration-0 Spearman 0.332 — the same first step as the
+  other three arms. Closes ≈ 09-27 05:00 with its read; then the verdict (ADR-0115).
