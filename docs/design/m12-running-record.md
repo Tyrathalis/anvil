@@ -1408,3 +1408,19 @@ record.*
   0.480 / 0.5325 / 0.5075 network-alone, 0.515 / 0.545 / 0.5375 with lookahead (± 2.5pp); no crashes
   since iteration 4, flags only single fallbacks. Wall check ≈ 20:30–21:30 today, the 2,000-game
   read after it, deep launches from the chain.
+- **2026-09-25 (evening) — the shallow arm yielded ≈ 2.1 h of its box to Tabletop Simulator; the
+  wall clock counted it.** The harness's GPU yield tripped on `Tabletop Simulator` (pid 2421906,
+  1.1–1.4 GB, sm 0–17%) near the end of iteration 25's main store and again 26 games into its first
+  heuristic store (≈ 18:30); `resumed: gpu quiet` at 20:38:26; the workers came back at once and the
+  store finished at full rate. The yield did its job (no contention, no crashes — the 09-21 smoke's
+  shape). The cost: `selfplay.py`'s `wall_used()` is `wall_base + (time.time() − session_t0)`, so
+  the yielded window counts as box time; the arm hits the 30 h check after iteration 25 (≈ 21:10,
+  wall_used ≈ 30.1 h) with ≈ 28 h of productive box time against alloc's 32.65 and the recipe's
+  30.6. **For the verdict:** price the shallow arm at ≈ 28 productive hours, 26 iterations
+  (0–25); the per-box-hour rule was written for exactly this. Routed post-run: the loop subtracts
+  yielded seconds from the wall budget (the harness already writes `gpu-yield.json`; a yielded-seconds
+  counter in the monitor row + the subtraction is ≈ 30 lines), so equal box time means equal
+  productive time. Shallow closes ≈ 22:00–22:15 (the closing reads after WALL-STOP); deep launches
+  from the chain. Earlier today: iteration 24's paired read 0.52 / 0.52 (± 2.5pp; one crash each
+  side), one tripwire violation in iteration 24's training (the second of the shakedown; alloc had
+  one at iteration 17), single fallbacks otherwise.
