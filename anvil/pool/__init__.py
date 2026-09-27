@@ -24,7 +24,6 @@ import os
 from pathlib import Path
 
 
-
 def _default_forge_dir() -> Path:
     """$FORGE_DIR, else the fork checked out BESIDE this repo (`../forge`, the
     quickstart's layout), else the author's box path (a worktree session has

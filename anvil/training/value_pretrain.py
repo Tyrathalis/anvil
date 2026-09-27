@@ -45,13 +45,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as _dt
 import hashlib
 import json
 import math
 import random
 import time
-import contextlib
 from collections import defaultdict
 from pathlib import Path
 
@@ -912,7 +912,11 @@ def widen_globals(examples: list, n_global: int, fmt: str) -> list:
     import torch
 
     from anvil.encoder.transform import (
-        FORMAT_SCALARS, N_FORMAT_ONEHOT, Vocab, globals_layout, widen_globals_columns,
+        FORMAT_SCALARS,
+        N_FORMAT_ONEHOT,
+        Vocab,
+        globals_layout,
+        widen_globals_columns,
     )
 
     have = int(examples[0]["globals"].shape[0])

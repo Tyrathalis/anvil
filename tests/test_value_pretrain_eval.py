@@ -6,7 +6,13 @@ import numpy as np
 import pytest
 import torch
 
-from anvil.encoder.transform import FORMAT_SCALARS, GLOBAL_FEATURES, N_FORMAT_ONEHOT, N_GLOBAL_BASE, Vocab
+from anvil.encoder.transform import (
+    FORMAT_SCALARS,
+    GLOBAL_FEATURES,
+    N_FORMAT_ONEHOT,
+    N_GLOBAL_BASE,
+    Vocab,
+)
 from anvil.training.value_pretrain import spearman, widen_globals
 
 
