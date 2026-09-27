@@ -1436,3 +1436,16 @@ record.*
   ≈ 5.5 h per iteration and 5–6 iterations in the box; iteration 1's second heuristic store at 77 /
   120 at 07:29; no flags, no yield. Deep's iteration-0 Spearman 0.332 — the same first step as the
   other three arms. Closes ≈ 09-27 05:00 with its read; then the verdict (ADR-0115).
+- **2026-09-26 (evening) — deep arm at iteration 4, 19.6 h of 30 used at its start (17:24); clean,
+  with one flag to explain.** Iterations 0–3 took 4 h 41 / 5 h 49 / 4 h 52 / 4 h 16 min; the main
+  store runs at ≈ 83 g/h under the deep flags (240 games ≈ 2 h 55), the heuristic stores at
+  ≈ 100–200 g/h. The flag: `fallbacks=88` at iteration 1 (23 at 3, 4 at 2; the other arms ran 1–3):
+  all 88 are bridge fallbacks on `declareAttackers` (80) / `declareBlockers` (8) with `copy: true` —
+  combat windows inside the deep search's copies hitting the 20 s bridge deadline and taking the
+  heuristic's answer — 88 of 4.9 M bridged windows (≈ 2 per 100,000), none on the acted game, no
+  game poisoned (zero deadline / POISONED lines). A note for the deep arm's read, not a defect; the
+  field guide's rule (check the fallback flag) is satisfied by the census. Timing: iteration 4 carries
+  the paired read, and the lookahead half of it runs 400 games under the deep flags (≈ 4–5 h at
+  83 g/h), so iteration 4 ends ≈ 01:00–04:00 on 09-27 at ≈ 27.5–30.5 h; if under 30 h one more
+  iteration (≈ 4.7 h) runs. Close with the 2,000-game read ≈ 07:00–10:00 on 09-27, later than the
+  05:00 estimate. Deep's Spearman rows so far: iteration 0 = 0.332.
