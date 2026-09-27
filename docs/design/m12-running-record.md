@@ -1449,3 +1449,20 @@ record.*
   83 g/h), so iteration 4 ends ≈ 01:00–04:00 on 09-27 at ≈ 27.5–30.5 h; if under 30 h one more
   iteration (≈ 4.7 h) runs. Close with the 2,000-game read ≈ 07:00–10:00 on 09-27, later than the
   05:00 estimate. Deep's Spearman rows so far: iteration 0 = 0.332.
+- **2026-09-26 (night) — the deep arm's Spearman is holding at 20 h of box time; the 09-25 "tracks
+  box time" reading is withdrawn.** Deep iterations 0–3 = 0.332 / 0.329 / 0.348 / 0.353 (SE ≈ 0.026);
+  iteration 3 closed ≈ 19.6 h in, where alloc (iteration 12, 0.277) and shallow (iteration 16 and on,
+  ≈ 0.25–0.27) had long since dropped. So the drift is not a function of box hours. Nor is it a clean
+  function of update count: at four updates the arms read recipe 0.275, alloc 0.275, shallow 0.340,
+  deep 0.353 (gradient steps per iteration are equal across arms) — the two search settings that
+  keep a copy-and-play second look (deep) or take almost no search actions' consequences into the
+  leaf (shallow) hold; the two recipe-shaped arms drop first; three of four reach ≈ 0.25 eventually
+  and deep gets ≤ 6 updates in its box, so it may never show the drop inside the shakedown. The
+  standing conclusion is narrower than either earlier version: the drop is a per-update phenomenon
+  with an arm-dependent onset, the floor is common, and the anchor (ADR-0119) is the instrument that
+  separates "the head is decaying" from "the head is learning value-under-search" — the settings
+  pass reads the anchor arm on the winner only, as scoped. Second exploratory note: the behavioral
+  delta init→final is 27.0% of cast decisions changed for shallow (44% cast→pass) against 18.3% for
+  alloc (49%); shallow moved the policy more (its kl_mu ran higher throughout) for less strength
+  (+1.35 vs +2.2pp) — cheaper iterations buy more movement per box-hour, not more gain. Nothing here
+  touches the pre-registered verdict.
