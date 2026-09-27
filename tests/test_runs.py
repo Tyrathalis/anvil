@@ -277,3 +277,52 @@ def test_heartbeat_touches_the_run_dir_only_inside_a_launch(state, monkeypatch):
     assert runs.heartbeat("gpu yield") is True
     assert json.loads((d / "heartbeat.json").read_text())["note"] == "gpu yield"
     assert runs.heartbeat("again") is False  # throttled
+
+
+# ---- 09-27: the pause's STOP scope (the 09-23 truncated generation)
+
+
+def test_pause_scope_skips_a_loops_live_harness_dirs(state):
+    """A chain watched with a glob that matches both its loop root and the
+    harness dirs the loop launched: STOP lands in the run dir + the loop root
+    only (the loop stops at its iteration boundary; the generation finishes)."""
+    d = state / "chain"
+    d.mkdir()
+    arms = state / "arms"
+    loop = arms / "sd-alloc"
+    loop.mkdir(parents=True)
+    (loop / "loop_state.json").write_text("{}")
+    gen = arms / "sd-alloc-i004-main-x"
+    (gen / "workers").mkdir(parents=True)
+    (gen / "manifest.json").write_text("{}")
+    other = arms / "sd-notes"
+    other.mkdir()
+    r = {"dir": str(d), "watch": [str(arms / "sd-*")]}
+    got = {p.name for p in runs._stop_roots(r)}
+    assert got == {"chain", "sd-alloc", "sd-notes"}
+    assert {p.name for p in runs._stop_roots(r, "all")} == {"chain", "sd-alloc", "sd-alloc-i004-main-x", "sd-notes"}
+    # a harness-only run (no loop root watched) still drains at game granularity
+    (loop / "loop_state.json").unlink()
+    assert {p.name for p in runs._stop_roots(r)} == {"chain", "sd-alloc", "sd-alloc-i004-main-x", "sd-notes"}
+
+
+def test_pause_default_scope_writes_stop_to_loop_roots_only(state):
+    d = state / "pz2"
+    d.mkdir()
+    arms = state / "arms2"
+    loop = arms / "l-a"
+    loop.mkdir(parents=True)
+    (loop / "loop_state.json").write_text("{}")
+    gen = arms / "l-a-i000-main"
+    (gen / "workers").mkdir(parents=True)
+    (gen / "manifest.json").write_text("{}")
+    cmd = ["sh", "-c", f"for i in $(seq 1 60); do [ -f {d}/STOP ] && exit 0; sleep 0.5; done; exit 7"]
+    rc = runs.main(["launch", "--name", "pz2", "--dir", str(d), "--tick-sec", "0.2",
+                    "--watch", str(arms / "l-*"), "--", *cmd])
+    assert rc == 0
+    time.sleep(0.5)
+    assert runs.main(["pause", "--name", "pz2", "--wait"]) == 0
+    st = runs.read_run("pz2")
+    assert st["state"] == "paused"
+    assert sorted(st["stop_files"]) == sorted([str(d / "STOP"), str(loop / "STOP")])
+    assert not (gen / "STOP").exists()

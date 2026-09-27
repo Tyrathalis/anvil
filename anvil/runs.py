@@ -39,9 +39,12 @@ construction, what the checklist used to ask each script to remember:
               tick beside --dir: a read chain launched from its own dir writes
               its arms under data/runs/<name>-* and raised two false stalls
               on 09-17 — name those roots and the tick sees them
-  pause       `anvil.runs pause --name N [--now] [--wait]` (09-21): STOP in every
-              root the command watches + `pause_requested` on the state; the
-              supervisor records PAUSED at exit (no FAILED push, no check-in).
+  pause       `anvil.runs pause --name N [--now] [--wait] [--scope loop|all]` (09-21): STOP in the
+              run dir + every watched LOOP root (09-27: never a loop's live
+              harness dirs — the generation finishes, the loop stops at its
+              boundary; --scope all = every watched dir) + `pause_requested`
+              on the state; the supervisor records PAUSED at exit (no FAILED
+              push, no check-in).
   relaunch    `anvil.runs relaunch --name N`: the recorded command again, in
               place (STOP files removed); `--resume-on-gone` at launch lets
               the sweep do this itself after a reboot, capped by --resume-max.
@@ -615,21 +618,51 @@ def ack(a: argparse.Namespace) -> int:
     return 0
 
 
-def _stop_roots(r: dict) -> list[Path]:
-    """Where a run's command looks for STOP: its dir and every --watch root
-    that is a directory (a chain's arms; the harness dirs a loop launches)."""
-    roots = [Path(r["dir"])] if r.get("dir") else []
+def _watch_dirs(r: dict) -> list[Path]:
+    """Every --watch root that is a directory (a chain's arms; the harness
+    dirs a loop launches)."""
+    roots: list[Path] = []
     for pat in r.get("watch") or []:
         pp = Path(pat)
         roots += [q for q in (pp.parent.glob(pp.name) if any(c in pp.name for c in "*?[") else [pp]) if q.is_dir()]
     return roots
 
 
+def _is_loop_root(d: Path) -> bool:
+    return (d / "loop_state.json").exists()
+
+
+def _is_harness_dir(d: Path) -> bool:
+    return (d / "manifest.json").exists() and (d / "workers").is_dir()
+
+
+def _stop_roots(r: dict, scope: str = "loop") -> list[Path]:
+    """Where `pause` writes STOP. scope="loop" (the default since 09-27): the
+    run's dir, every watched selfplay loop root (loop_state.json) and, when NO
+    loop root is watched, every other watched dir too (a harness-only run
+    drains at game granularity). A loop's harness dirs (manifest.json +
+    workers/) are SKIPPED whenever a loop root is present: the 09-23 pause
+    wrote STOP into the alloc arm's live generation, the harness honoured it
+    at 34/240 games and the loop trained a 57% iteration inside an intact
+    budget (the loop itself stops at its iteration boundary; the generation
+    must finish). scope="all" = the 09-21 behaviour, every root."""
+    roots = [Path(r["dir"])] if r.get("dir") else []
+    watched = _watch_dirs(r)
+    if scope == "all":
+        return roots + watched
+    loops = [d for d in watched if _is_loop_root(d)]
+    if loops:
+        return roots + loops + [d for d in watched if not _is_loop_root(d) and not _is_harness_dir(d)]
+    return roots + watched
+
+
 def pause(a: argparse.Namespace) -> int:
-    """Stop a run on purpose (09-21): STOP in every root the command watches,
-    `pause_requested` on the state so the supervisor records PAUSED (no
-    FAILED push, no check-in) when the command exits; --now also SIGTERMs
-    the command's process group (the harness drains, ADR-0092)."""
+    """Stop a run on purpose (09-21): STOP in the roots `_stop_roots` names
+    (09-27: the loop roots, never a loop's live generation — --scope all for
+    every watched dir), `pause_requested` on the state so the supervisor
+    records PAUSED (no FAILED push, no check-in) when the command exits;
+    --now also SIGTERMs the command's process group (the harness drains,
+    ADR-0092)."""
     r = read_run(a.name)
     if not r:
         print(f"pause: no run {a.name}", file=sys.stderr)
@@ -638,7 +671,7 @@ def pause(a: argparse.Namespace) -> int:
         print(f"pause: run {a.name} is {r.get('state')}, nothing to pause", file=sys.stderr)
         return 3
     stops = []
-    for root in _stop_roots(r):
+    for root in _stop_roots(r, getattr(a, "scope", "loop")):
         try:
             root.mkdir(parents=True, exist_ok=True)
             (root / "STOP").write_text(f"paused by anvil.runs {_now()}\n")
@@ -831,6 +864,9 @@ def main(argv: list[str] | None = None) -> int:
     pa.add_argument("--name", required=True)
     pa.add_argument("--now", action="store_true", help="also SIGTERM the command's process group (the harness drains its games)")
     pa.add_argument("--wait", action="store_true", help="block until the run has exited")
+    pa.add_argument("--scope", choices=("loop", "all"), default="loop",
+                    help="loop (default): STOP in the run dir + watched loop roots, never a loop's live "
+                         "harness dirs (a harness-only run still drains); all: every watched dir (09-21)")
     rl = sub.add_parser("relaunch", help="re-run a paused / gone / failed / done run's recorded command in place (STOP files removed)")
     rl.add_argument("--name", required=True)
     rl.add_argument("--no-selftest", action="store_true")
