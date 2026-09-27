@@ -18,6 +18,10 @@ Wall budget (09-21, the shakedown's equal-box-time arms): --wall-hours H stops
 BETWEEN iterations once the run's accumulated box time (loop_state
 wall_used_s, summed across pauses and resumes) reaches H, then runs the
 closing reads like a completed loop; WALL-STOP in <out> records it. 0 = off.
+09-27: seconds the harness spent yielding the GPU to a foreign job (its
+gpu-yield.json ledger) come OUT of the budget (loop_state yielded_s), so equal
+box time is equal productive time; an interim paired read is skipped once the
+budget is reached (the closing read follows at once).
 
 M10 reset (ADR-0094): --sched-binding/--sched-basis/--sched-empty-rev pin
 the serve regime every driver-started server plays under (sched_flags), and
@@ -247,6 +251,54 @@ def paired_read_cmd(a, ckpt: str, tag: str, jar: str) -> list[str]:
 PAIRED_HEARTBEAT_S = 300  # progress row cadence during a paired read (watchd stall is 75 min)
 
 
+def _stamp() -> str:
+    """Wall-clock stamp for the loop log's phase lines (09-25: a yielded
+    harness read as a dead stall because nothing in the log said when)."""
+    return time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _yielded_s(dirs) -> float:
+    """Seconds the harness runs under `dirs` spent yielding the GPU: the sum
+    of every gpu-yield.json ledger (the orchestrator's cumulative
+    `yielded_s`, 09-27) at or below each dir. Missing files count zero."""
+    total = 0.0
+    seen: set = set()
+    for d in dirs:
+        if d is None:
+            continue
+        for f in Path(d).rglob("gpu-yield.json"):
+            if f in seen:
+                continue
+            seen.add(f)
+            try:
+                total += float(json.loads(f.read_text()).get("yielded_s") or 0.0)
+            except (OSError, ValueError):
+                continue
+    return total
+
+
+def _state_ranking(ckpt, bank: str, fmt: str, out_json: Path) -> "dict | None":
+    """The state-ranking Spearman of `ckpt`'s value head on the Build 1
+    frozen holdout (value_pretrain eval; ADR-0118: the per-iteration battery
+    row + guard). A CPU subprocess (≈ 25 s) so it never trips the GPU yield;
+    None when the bank is absent or the eval fails (logged, never fatal)."""
+    bank_pt = Path(bank) / "bank-state.pt"
+    if not bank_pt.exists():
+        return None
+    cmd = [sys.executable, "-m", "anvil.training.value_pretrain", "eval", "--out", bank,
+           "--ckpt", str(ckpt), "--fmt", fmt, "--device", "cpu", "--write", str(out_json)]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired:
+        print(f"[selfplay] state-ranking eval timed out on {ckpt}")
+        return None
+    if r.returncode != 0 or not out_json.exists():
+        print(f"[selfplay] state-ranking eval failed on {ckpt} (rc {r.returncode}): {r.stdout[-400:]}")
+        return None
+    row = json.loads(out_json.read_text().splitlines()[-1])
+    return {k: row.get(k) for k in ("spearman", "se_boot", "n", "wall_s")}
+
+
 def _paired_run_dir(log: Path) -> "str | None":
     """The read script's run dir from its opening narration line, once written."""
     try:
@@ -328,7 +380,9 @@ def _paired_read(a, state: dict, state_path: Path, out: Path, ckpt: str, tag: st
         "mean": prim.get("mean"), "se": prim.get("se"), "ci95": prim.get("ci95"), "n": prim.get("n"),
         "context_mean": ctx.get("mean"), "context_se": ctx.get("se"),
         "wall_s": round(time.monotonic() - t0),
+        "yield_s": round(_yielded_s([run_dir])),
     }
+    state["yielded_s"] = float(state.get("yielded_s", 0.0)) + rec["yield_s"]
     state[key] = rec
     state_path.write_text(json.dumps(state, indent=2))
     shutil.copy(Path(run_dir) / "read.json", out / f"paired-{tag}.json")
@@ -904,6 +958,8 @@ def guard_flags(
     follow_calib_raw: float | None = None,
     distill_share_max: float | None = None,
     alloc_share_max: float | None = None,
+    state_spearman: float | None = None,
+    spearman_floor: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -987,6 +1043,13 @@ def guard_flags(
                     f"guard: {key} iteration-median {mv} < "
                     f"{lab_memorize_ratio}x calib ({round(calib, 5)})"
                 )
+    # ADR-0118: the value head's state-ranking Spearman on the frozen holdout
+    # (the per-iteration row). The floor catches a head that has stopped
+    # ranking states (collapse), not the drift itself — the shakedown's
+    # drifted arms floored at 0.21–0.26; the drift's bar (within one SE of
+    # 0.374) is the anchor arm's pre-registered read, not a halt.
+    if state_spearman is not None and spearman_floor and state_spearman < spearman_floor:
+        flags.append(f"guard: state_spearman {state_spearman} < floor {spearman_floor}")
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
         if ent is not None and ent0 and ent > ent_mult * ent0:
@@ -1443,6 +1506,15 @@ def main() -> None:
                     help="carry iteration-0's w_alloc for the whole run")
     ap.add_argument("--guard-alloc-share", type=float, default=0.06,
                     help="halt if the iteration-MEDIAN alloc_share exceeds this (3x the 0.02 target)")
+    # ADR-0118: the state-ranking Spearman as a per-iteration battery row + guard
+    ap.add_argument("--state-bank", default="data/runs/m12-build1",
+                    help="the Build 1 state bank dir (bank-state.pt); every produced ckpt's value "
+                         "head is scored on its frozen holdout (value_pretrain eval, CPU, ≈ 25 s) into "
+                         "the monitor row; '' or a missing bank = off")
+    ap.add_argument("--state-bank-fmt", default="Commander", help="the bank's format (its format scalars)")
+    ap.add_argument("--guard-spearman-floor", type=float, default=0.15,
+                    help="halt if the produced ckpt's state-ranking Spearman falls below this (a head "
+                         "that stopped ranking states; the shakedown's drifted floor was 0.21–0.26); 0 = off")
     ap.add_argument("--alloc-recall", type=float, default=0.9,
                     help="the tau re-derivation's recall target (rl.py --alloc-recall)")
     ap.add_argument("--search-calib-steps", type=int, default=50,
@@ -1811,27 +1883,46 @@ def main() -> None:
 
     wall_base = float(state.get("wall_used_s", 0.0))
     session_t0 = time.time()
+    # 09-27: yielded seconds (loop_state yielded_s, cumulative over the run;
+    # the harness ledgers) come out of the budget — wall_used_s stays the
+    # PRODUCTIVE time, so a resume carries the right base
+    yield_base = float(state.get("yielded_s", 0.0))
 
     def wall_used() -> float:
-        return wall_base + (time.time() - session_t0)
+        session_yield = float(state.get("yielded_s", 0.0)) - yield_base
+        return wall_base + (time.time() - session_t0) - session_yield
+
+    def wall_reached() -> bool:
+        return bool(args.wall_hours) and wall_used() >= args.wall_hours * 3600
+
+    # ADR-0118: the day-zero state-ranking row (the run's own reference for
+    # the battery's drift read), once
+    if args.state_bank and state.get("state_ranking_dayzero") is None and state["iteration"] == 0:
+        sr0 = _state_ranking(state["ckpt"], args.state_bank, args.state_bank_fmt, out / "state-ranking-dayzero.json")
+        if sr0:
+            state["state_ranking_dayzero"] = sr0
+            state_path.write_text(json.dumps(state, indent=2))
+            print(f"[selfplay] day-zero state-ranking spearman {sr0['spearman']} ± {sr0['se_boot']}")
 
     while state["iteration"] < args.iterations:
         if (out / "STOP").exists():
-            print("[selfplay] STOP file present — exiting between iterations")
+            print(f"[selfplay] STOP file present — exiting between iterations {_stamp()}")
             state["wall_used_s"] = wall_used()
             state_path.write_text(json.dumps(state, indent=2))
             _watch_unregister(args.name)
             return
-        if args.wall_hours and wall_used() >= args.wall_hours * 3600:
+        if wall_reached():
             msg = (f"wall budget reached: {wall_used() / 3600:.2f} h >= {args.wall_hours} h after "
-                   f"{state['iteration']} iterations — closing like a completed loop")
-            print(f"[selfplay] {msg}")
+                   f"{state['iteration']} iterations (yielded {float(state.get('yielded_s', 0.0)) / 3600:.2f} h "
+                   f"excluded) — closing like a completed loop")
+            print(f"[selfplay] {msg} {_stamp()}")
             (out / "WALL-STOP").write_text(msg + "\n")
             break
         k = state["iteration"]
         it_dir = out / f"iter-{k:03d}"
         it_dir.mkdir(exist_ok=True)
-        print(f"\n[selfplay] ===== iteration {k}: ckpt={state['ckpt']} =====")
+        print(f"\n[selfplay] ===== iteration {k}: ckpt={state['ckpt']} ===== {_stamp()} "
+              f"(wall used {wall_used() / 3600:.2f} h)")
 
         # ---- generate (sampled serve); idempotent — a crash later in the
         # iteration must not cost a ~25-min regeneration on resume.
@@ -1951,6 +2042,18 @@ def main() -> None:
             _gen_track()
             drill_stores, seq_runs = _campaign_track()
         t_gen = walls["gen"]
+        # 09-27: this iteration's yielded seconds out of the wall budget; the
+        # marker keeps a resumed iteration from counting its stores twice
+        ymark = it_dir / "yield.json"
+        if ymark.exists():
+            y_gen = float(json.loads(ymark.read_text()).get("gen_s", 0.0))
+        else:
+            y_gen = _yielded_s(run_dirs)
+            state["yielded_s"] = float(state.get("yielded_s", 0.0)) + y_gen
+            ymark.write_text(json.dumps({"gen_s": round(y_gen, 1)}) + "\n")
+        print(f"[selfplay] iteration {k}: generation {round(t_gen)} s"
+              + (f" (yielded {round(y_gen)} s, excluded from the wall)" if y_gen else "")
+              + f"; wall used {wall_used() / 3600:.2f} h {_stamp()}")
 
         # windows-only (recipe pin 2026-08-12): drill fork stores stay OUT
         # of the training mixture — the bundle is the only training-signal
@@ -2195,6 +2298,16 @@ def main() -> None:
         new_ckpt = train_dir / "last.pt"
         if not new_ckpt.exists():
             raise RuntimeError(f"training produced no checkpoint at {new_ckpt}")
+        print(f"[selfplay] iteration {k}: training {round(t_train)} s {_stamp()}")
+        # ADR-0118: the produced ckpt's state-ranking Spearman (CPU, ≈ 25 s)
+        state_rank = (
+            _state_ranking(new_ckpt, args.state_bank, args.state_bank_fmt, it_dir / "state-ranking.json")
+            if args.state_bank else None
+        )
+        if state_rank:
+            dz = (state.get("state_ranking_dayzero") or {}).get("spearman")
+            print(f"[selfplay] iteration {k}: state-ranking spearman {state_rank['spearman']} "
+                  f"± {state_rank['se_boot']}" + (f" (day zero {dz})" if dz is not None else ""))
 
         # ---- monitor row + anomaly flags (accept ckpt AFTER writing it) ----
         census = _census_tallies(run_dirs)
@@ -2273,6 +2386,8 @@ def main() -> None:
             ),
             distill_share_max=args.guard_distill_share if args.search_recipe and args.distill_frac else None,
             alloc_share_max=args.guard_alloc_share if args.search_recipe and args.alloc_frac else None,
+            state_spearman=state_rank["spearman"] if state_rank else None,
+            spearman_floor=args.guard_spearman_floor,
         )
         search_row = None
         if args.search_recipe:
@@ -2290,8 +2405,11 @@ def main() -> None:
             "store": group,
             **({"search": search_row} if search_row else {}),
             "gen_s": round(t_gen),
+            "yield_s": round(y_gen),
+            "wall_used_h": round(wall_used() / 3600, 2),
             "campaign_s": round(walls["campaign"]),
             "train_s": round(t_train),
+            **({"state_ranking": state_rank} if state_rank else {}),
             "census": census,
             "games": gstats,
             "rl": rl,
@@ -2556,9 +2674,15 @@ def main() -> None:
         # ---- mid-run paired read (informational; the terminal read decides) ----
         if (args.paired_read and args.paired_every and (k + 1) % args.paired_every == 0
                 and k + 1 < args.iterations):
-            rec = _paired_read(args, state, state_path, out, state["ckpt"], f"iter{k:03d}")
-            _notify(f"anvil {args.name}: paired read iter {k} {rec['verdict']}",
-                    f"dwr {rec['mean']} +/- {rec['se']} (n {rec['n']}; context {rec['context_mean']})")
+            if wall_reached():
+                # 09-24: the alloc arm's last interim read carried it ≈ 2 h over
+                # its budget — the closing read follows at once instead
+                print(f"[selfplay] iteration {k}: wall budget reached ({wall_used() / 3600:.2f} h) — "
+                      f"skipping the interim paired read; the closing read follows {_stamp()}")
+            else:
+                rec = _paired_read(args, state, state_path, out, state["ckpt"], f"iter{k:03d}")
+                _notify(f"anvil {args.name}: paired read iter {k} {rec['verdict']}",
+                        f"dwr {rec['mean']} +/- {rec['se']} (n {rec['n']}; context {rec['context_mean']})")
 
     print(f"[selfplay] loop complete: {state['iteration']} iterations, final ckpt {state['ckpt']}")
     # ---- terminal paired read: the final ckpt under the serve regime vs

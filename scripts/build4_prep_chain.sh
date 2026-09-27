@@ -15,8 +15,7 @@ REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
 OUT=$REPO/data/runs/build4-prep; mkdir -p "$OUT"
 JAR=$REPO/data/runs/build4-census/forge-census.jar; FC=$REPO/data/forkcheck/run-20260921-build4-census
 CKPT=data/training/m12-build4-e1a/last.pt
-SHALLOW="-search -searchrate 1 -searchrolls 1 -searchact 0.10 -searchtemp 0.025"
-RECIPE="-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"
+. "$REPO/scripts/recipe.sh"  # RECIPE / SHALLOW / DEEP — the one definition (09-27)
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 log "prep chain start; waiting for $FC/compare.txt"
 until [ -f "$FC/compare.txt" ]; do sleep 60; touch "$OUT/waiting"; done

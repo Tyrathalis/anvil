@@ -581,3 +581,30 @@ def test_warmup_scale_ramp():
     assert warmup_scale(49, 100) == pytest.approx(0.5)
     assert warmup_scale(99, 100) == 1.0
     assert warmup_scale(500, 100) == 1.0
+
+
+# ---- 09-27: the state-ranking guard (ADR-0118) + the yield ledger
+
+
+def test_guard_state_spearman_floor():
+    rl = _rl_of(0.01, 1.0)
+    assert guard_flags({}, rl, None, state_spearman=0.30, spearman_floor=0.15) == []
+    got = guard_flags({}, rl, None, state_spearman=0.12, spearman_floor=0.15)
+    assert got == ["guard: state_spearman 0.12 < floor 0.15"]
+    assert guard_flags({}, rl, None, state_spearman=0.12, spearman_floor=0.0) == []  # off
+    assert guard_flags({}, rl, None, state_spearman=None, spearman_floor=0.15) == []  # no bank
+
+
+def test_yielded_seconds_sum_every_ledger_once(tmp_path):
+    import json
+
+    from anvil.training.selfplay import _yielded_s
+
+    a = tmp_path / "run-a"
+    (a / "sub").mkdir(parents=True)
+    (a / "gpu-yield.json").write_text(json.dumps({"yielding": False, "yielded_s": 120.5}) + "\n")
+    (a / "sub" / "gpu-yield.json").write_text(json.dumps({"yielding": True, "yielded_s": 30}) + "\n")
+    b = tmp_path / "run-b"
+    b.mkdir()
+    (b / "gpu-yield.json").write_text("{not json")
+    assert _yielded_s([a, a, b, None, tmp_path / "missing"]) == 150.5

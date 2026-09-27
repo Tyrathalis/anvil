@@ -937,9 +937,25 @@ def eval_ckpts(args: argparse.Namespace) -> None:
     s_y = np.array([m["wr"] for m in sm], dtype=np.float32)
     rng = np.random.default_rng(args.seed)
     rows = []
+    swap_state = None
+    if getattr(args, "swap_head", None):
+        # ADR-0118 addendum (the 09-24 head-swap read): score the checkpoint's
+        # TRUNK under another checkpoint's value-head tensors — unchanged
+        # Spearman = the drift lives in the representation, not the head
+        swap_state = {
+            k: v for k, v in torch.load(_p(args.swap_head), map_location=args.device, weights_only=False)["model"].items()
+            if k.startswith("value_head.")
+        }
+        if not swap_state:
+            raise ValueError(f"--swap-head {args.swap_head}: no value_head.* tensors")
     for ck_path in args.ckpt:
         t0 = time.time()
         net, ck = load_net_from(ck_path, args.device)
+        if swap_state:
+            missing, unexpected = net.load_state_dict(swap_state, strict=False)
+            if unexpected:
+                raise ValueError(f"--swap-head: unexpected {list(unexpected)}")
+            net.eval()
         exs = widen_globals(state["examples"], net.assemble.n_global, args.fmt)
         sc = scores(net, exs, s_idx[s_te], args.device, args.eval_batch)
         y = s_y[s_te]
@@ -955,6 +971,7 @@ def eval_ckpts(args: argparse.Namespace) -> None:
             "spearman": round(rho, 4),
             "se_boot": round(float(np.std(boots)), 4),
             "iteration": ck.get("iteration"),
+            **({"swap_head": args.swap_head} if swap_state else {}),
             "device": args.device,
             "wall_s": round(time.time() - t0, 1),
             "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -1108,6 +1125,9 @@ def main() -> None:
     p.add_argument("--boot", type=int, default=500, help="bootstrap resamples for the SE")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--write", default=None, help="append one JSON row per checkpoint")
+    p.add_argument("--swap-head", default=None, metavar="CKPT",
+                   help="score each --ckpt's trunk under THIS checkpoint's value_head.* tensors "
+                        "(the ADR-0118 head-swap read: unchanged rho = the drift is the trunk's)")
     p.set_defaults(fn=eval_ckpts)
     args = ap.parse_args()
     if args.cmd == "fit" and not args.build and args.fold is None:

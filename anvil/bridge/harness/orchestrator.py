@@ -346,20 +346,38 @@ class Run:
         # the GPU yield (gpu_yield.py): a foreign GPU job or the YIELD file
         # gates NEW chunk launches only; active workers finish their chunks
         yielder = GpuYield() if self.manifest.get("yield_gpu") else None
-        yield_state = {"on": False}
+        # 09-27: the yield ledger — cumulative yielded seconds for the run
+        # (closed windows + the live one), so a loop can take them OUT of its
+        # wall budget (the 09-25 shallow arm lost ≈ 2.1 h of its 30 to a
+        # foreign job and the clock counted it)
+        yield_state = {"on": False, "since": 0.0, "closed_s": 0.0, "why": ""}
+
+        def _yielded_s() -> float:
+            live = (time.monotonic() - yield_state["since"]) if yield_state["on"] else 0.0
+            return yield_state["closed_s"] + live
+
+        def _write_yield_state(on: bool, manual: bool, why: str) -> None:
+            self.yield_state_file.write_text(
+                json.dumps({"yielding": on, "manual": manual, "foreign": why,
+                            "at": _dt.datetime.now().isoformat(timespec='seconds'),
+                            "yielded_s": round(_yielded_s(), 1)}) + "\n"
+            )
 
         def _yielding() -> bool:
             manual = self.yield_file.exists()
             auto = bool(yielder and yielder.poll())
             on = manual or auto
             if on != yield_state["on"]:
-                yield_state["on"] = on
                 why = "YIELD file" if manual else (yielder.describe() if yielder else "")
-                print(f"[harness] {'YIELDING' if on else 'resumed'}: {why or 'gpu quiet'}", flush=True)
-                self.yield_state_file.write_text(
-                    json.dumps({"yielding": on, "manual": manual, "foreign": why,
-                                "at": _dt.datetime.now().isoformat(timespec='seconds')}) + "\n"
-                )
+                if on:
+                    yield_state["since"] = time.monotonic()
+                else:
+                    yield_state["closed_s"] += time.monotonic() - yield_state["since"]
+                yield_state["on"] = on
+                yield_state["why"] = why or "gpu quiet"
+                print(f"[harness] {'YIELDING' if on else 'resumed'}: {why or 'gpu quiet'}"
+                      f" (yielded {_yielded_s():.0f} s so far)", flush=True)
+                _write_yield_state(on, manual, why)
             if on:
                 # 09-21: a yield is idle on purpose — tell the launcher's stall
                 # tick so a long foreign GPU job does not raise a false stall
@@ -423,9 +441,19 @@ class Run:
                 return
             n_done = len(self.completed())
             if int(time.monotonic() - t0) % 60 < POLL_S and n_done:
-                rate = n_done / max(time.monotonic() - t0, 1) * 3600
-                print(f"[harness] {n_done}/{total} ({rate:.0f} g/h this session)")
+                # the rate excludes yielded time; a live yield is marked on the
+                # line (the 09-25 read mistook a yielded harness for a stall)
+                rate = n_done / max(time.monotonic() - t0 - _yielded_s(), 1) * 3600
+                mark = f" (yielding: {yield_state['why']})" if yielding else ""
+                print(f"[harness] {n_done}/{total} ({rate:.0f} g/h this session){mark}", flush=True)
+                if yielding:
+                    _write_yield_state(True, self.yield_file.exists(), yield_state["why"])
             time.sleep(POLL_S)
+        if yield_state["on"] or yield_state["closed_s"]:
+            if yield_state["on"]:  # close the live window at the run's end
+                yield_state["closed_s"] += time.monotonic() - yield_state["since"]
+                yield_state["on"] = False
+            _write_yield_state(False, self.yield_file.exists(), yield_state["why"])
         print(
             f"[harness] run complete: {len(self.completed())}/{total} "
             f"(+{len(self.skipped())} skipped)"

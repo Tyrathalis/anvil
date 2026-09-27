@@ -116,3 +116,43 @@ def test_emit_never_raises():
         raise RuntimeError("diagnostics must not block the run")
 
     assert battery.emit(boom) is None
+
+
+def test_monitor_curves_flag_the_state_ranking_drift(tmp_path, monkeypatch):
+    """ADR-0118: a first->last Spearman drop beyond two boot SE is an anomaly
+    line (exploratory), a flat series is not."""
+    import json
+
+    from anvil.evals import battery
+
+    class _Ax:
+        def __getattr__(self, _):
+            return lambda *a, **k: None
+
+    class _Fig(_Ax):
+        pass
+
+    class _Plt:
+        def subplots(self, nrow, ncol, **kw):
+            return _Fig(), [[_Ax() for _ in range(ncol)] for _ in range(nrow)]
+
+        def close(self, *_):
+            pass
+
+    monkeypatch.setattr(battery, "_plt", lambda: _Plt())
+
+    def run(spears):
+        d = tmp_path / f"run-{spears[0]}-{spears[-1]}"
+        d.mkdir()
+        with open(d / "monitor.jsonl", "w") as f:
+            for i, sp in enumerate(spears):
+                f.write(json.dumps({"iteration": i, "rl": {"mean": {"ent": 1.0, "kl_mu": 0.01}},
+                                    "census": {"veto_rate": 0.05},
+                                    "state_ranking": {"spearman": sp, "se_boot": 0.027}}) + "\n")
+        return battery.monitor_curves(d)
+
+    an, nums = run([0.374, 0.33, 0.27, 0.256])
+    assert any("state-ranking rho fell" in a for a in an), an
+    assert nums["state_ranking"] == (0.374, 0.256)
+    an, _ = run([0.374, 0.36, 0.37, 0.35])
+    assert not any("state-ranking" in a for a in an), an

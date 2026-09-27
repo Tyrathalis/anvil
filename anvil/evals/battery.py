@@ -93,6 +93,10 @@ def _write_report(out_dir: Path, title: str, anomalies: list[str], sections: lis
 
 MONITOR_SERIES = [
     ("rl.mean.ent", "entropy"),
+    # ADR-0118: the value head's state-ranking Spearman on the Build 1 frozen
+    # holdout (selfplay --state-bank; the drift read) + the yield ledger
+    ("state_ranking.spearman", "state-ranking rho (value head)"),
+    ("yield_s", "gpu yield s (out of the wall)"),
     ("rl.mean.kl_mu", "kl_mu"),
     ("census.veto_rate", "veto rate"),
     ("census.first_veto_rate", "first-veto rate"),
@@ -225,7 +229,18 @@ def monitor_curves(run_dir: Path) -> tuple[list[str], dict]:
                 "auto-bias init lands ~0.10-0.12 — runaway-deviation shape, "
                 "check whether drills agree before trusting the run)"
             )
-        numbers.update(kl_mu=kl, entropy=ent, veto_range=(min(vr), max(vr)) if vr else None)
+        sr = first_last("state-ranking rho (value head)")
+        if sr:
+            se = next((_get(r, "state_ranking.se_boot") for r in reversed(rows)
+                       if _get(r, "state_ranking.se_boot") is not None), None) or 0.027
+            if sr[0] - sr[1] > 2 * se:
+                anomalies.append(
+                    f"state-ranking rho fell {sr[0]:.3f} -> {sr[1]:.3f} (> 2 boot SE; the "
+                    "ADR-0118 drift shape — the value head is leaving rollout truth; "
+                    "the anchor arm's read, not a halt)"
+                )
+        numbers.update(kl_mu=kl, entropy=ent, veto_range=(min(vr), max(vr)) if vr else None,
+                       state_ranking=sr)
     return anomalies, numbers
 
 

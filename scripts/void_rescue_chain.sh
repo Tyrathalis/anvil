@@ -20,7 +20,7 @@ OUT=$REPO/data/runs/build4-voidrescue; mkdir -p "$OUT"
 JAR=$OUT/forge-vr.jar; FC=$REPO/data/forkcheck/run-20260919-build4-voidrescue
 CKPT=${CKPT:-data/training/m12-build4-e1a/last.pt}
 GAMES=${GAMES:-150}; WORKERS=${WORKERS:-24}; BAR=${BAR:-0.10}
-RECIPE="-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"
+. "$REPO/scripts/recipe.sh"  # RECIPE / SHALLOW / DEEP — the one definition (09-27)
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 log "chain start jar=$JAR ($(cat $OUT/forge-vr.commit)) ckpt=$CKPT games=$GAMES/seat workers=$WORKERS bar=$BAR"
 FC_PID=

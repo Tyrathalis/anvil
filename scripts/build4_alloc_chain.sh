@@ -21,7 +21,7 @@ JAR=$OUT/forge-alloc.jar; FC=$REPO/data/forkcheck/run-20260917-build4-alloc
 CKPT=${CKPT:-data/training/m12-build4-e1a/last.pt}
 TAU=${TAU:-$(uv run python -c "import torch,sys;print(torch.load('$CKPT',map_location='cpu',weights_only=False)['config']['alloc_fit']['tau'])")}
 FLOOR=${FLOOR:-0.1}; GAMES=${GAMES:-1000}; WORKERS=${WORKERS:-24}
-RECIPE="-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"
+. "$REPO/scripts/recipe.sh"  # RECIPE / SHALLOW / DEEP — the one definition (09-27)
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 log "chain start jar=$JAR ($(cat $OUT/forge-alloc.commit)) ckpt=$CKPT tau=$TAU floor=$FLOOR games=$GAMES/seat workers=$WORKERS"
 if [[ -z "${SKIP_FORKCHECK:-}" && ! -f "$FC/compare.txt" ]]; then
