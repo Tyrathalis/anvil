@@ -25,6 +25,19 @@ from anvil.encoder.cards import CardEncoder
 from anvil.state.tokens import StateAssembler
 
 
+def masked_cross_entropy(logits, labels, ignore_index: int = -1):
+    """Cross-entropy over the labelled rows; ZERO (not NaN) when a batch has none.
+    `F.cross_entropy(..., ignore_index)` with reduction="mean" over zero valid
+    rows returns NaN, and the target term was the one term in `losses` without
+    an `.any()` guard — a NaN there poisons the whole step (Kryptic, 09-22: NaN
+    metric rows on small-batch BC; ours never hit it at batch 256 over priority
+    windows, where a batch without a cast is essentially impossible)."""
+    valid = labels != ignore_index
+    if not bool(valid.any()):
+        return logits.new_zeros(())
+    return nn.functional.cross_entropy(logits, labels, ignore_index=ignore_index)
+
+
 class AnvilNet(nn.Module):
     def __init__(
         self,
@@ -1024,9 +1037,7 @@ class AnvilNet(nn.Module):
         policy = (ce * w).sum() / w.sum().clamp(min=1e-6)
 
         tl = out["tgt_logits"]
-        target = nn.functional.cross_entropy(
-            tl.flatten(0, 1), batch["tgt_labels"].flatten(), ignore_index=-1
-        )
+        target = masked_cross_entropy(tl.flatten(0, 1), batch["tgt_labels"].flatten())
 
         xmask = batch["x_val"] >= 0
         if xmask.any():
