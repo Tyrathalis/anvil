@@ -1574,3 +1574,18 @@ record.*
   certmerge jar. Coverage: state `~/.local/state/anvil/runs/settings-pass.json`, stall 180 min on the
   run dir + `settings-*` / `sp*`, sinks queue+desk, check-in claude (self-test OK). Session work while
   the cells fly: step 2's shuffle decision record on the fork.
+- **2026-09-27 (evening) — the anchor cell's first update: the Spearman ROSE.** Iteration 0 (480 games in
+  66 min incl. the heuristic-seat halves, training 249 s): the state-ranking Spearman 0.4214 ± 0.023
+  against the day-zero 0.374 — the anchor's first update lifts the head above day-zero by ≈ 2 SE, where every
+  shakedown arm's iteration 0 stepped DOWN (recipe 0.321, alloc 0.333, shallow 0.330, deep 0.332). One
+  row is not the bar (the bar is across the cell); the direction is the anchor doing what it was built to
+  do. The last step's terms: `anchor_state_step` 0.538, `anchor_leaf_step` 0.819; trunk gradient norms
+  `gn_pg` 0.17, `gn_v` 0.42, `gn_anchor` 0.71 — the value term still moves the trunk ≈ 2.5× PG, and the
+  anchor's batch more than either (the 09-27 smoke's ordering holds on real rows). Loop health as the
+  alloc arm's: kl_mu 0.001, ent 0.111, acted_frac 0.5%, distill share 3.5%, alloc share 1.1%, one reward-
+  basis flag (the standing iteration-0 note). **One game crashed with a `StackOverflowError`** (game 117,
+  seed 7441764629846854106, decks dc-863947 / dc-864205, 19 turns) — a
+  class the shakedown's ≈ 1,100 training rows never produced (its background is NPE ≈ 1–3 per iteration
+  and timeouts); the Java trace is not in the worker log. Exploratory: one in 480 is inside the crash
+  background; if the class recurs, attribute on the census jar with the same seed before anything else
+  (the certmerge jar is the one new variable). The babysit tick watches the class by name.
