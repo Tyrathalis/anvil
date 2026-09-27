@@ -23,7 +23,24 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-FORGE_DIR = Path(os.environ.get("FORGE_DIR", Path.home() / "Everything/Projects/forge"))
+
+
+def _default_forge_dir() -> Path:
+    """$FORGE_DIR, else the fork checked out BESIDE this repo (`../forge`, the
+    quickstart's layout), else the author's box path (a worktree session has
+    no sibling clone). Whichever resolves, the cardsfolder scan is loud when
+    it is not a Forge tree."""
+    env = os.environ.get("FORGE_DIR")
+    if env:
+        return Path(env)
+    sibling = Path(__file__).resolve().parents[2].parent / "forge"
+    if sibling.is_dir():
+        return sibling
+    author = Path.home() / "Everything/Projects/forge"
+    return author if author.is_dir() else sibling
+
+
+FORGE_DIR = _default_forge_dir()
 CARDSFOLDER = FORGE_DIR / "forge-gui/res/cardsfolder"
 
 FORGE_USER_DIR = Path(os.environ.get("FORGE_USER_DIR", Path.home() / ".forge"))

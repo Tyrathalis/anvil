@@ -1136,6 +1136,17 @@ def _rl_summary(train_dir: Path) -> dict:
         "acted_kl",
         "distill_raw",
         "distill_share",
+        # ADR-0118 / ADR-0119: the anchor's per-step terms + the trunk gradient-norm read
+        "anchor_state_step",
+        "anchor_leaf_step",
+        "gn_pg",
+        "gn_v",
+        "gn_ent",
+        "gn_plan",
+        "gn_sched",
+        "gn_distill",
+        "gn_alloc",
+        "gn_anchor",
         "alloc_raw",
         "alloc_pos",
         "alloc_share",
@@ -1736,6 +1747,15 @@ def main() -> None:
     )
     ap.add_argument("--critic-batch", type=int, default=256)
     ap.add_argument("--value-weight", type=float, default=0.5)
+    # ADR-0118 / ADR-0119 step 1: the value anchor (rl.py --value-anchor) + the gradient-norm row
+    ap.add_argument("--value-anchor", default=None, metavar="BANK_DIR",
+                    help="the Build 1 bank dir for the value anchor (rl.py --value-anchor; the settings "
+                         "pass's anchor arm reads data/runs/m12-build1); off by default")
+    ap.add_argument("--anchor-weight", type=float, default=0.5)
+    ap.add_argument("--anchor-families", default="state,leaf")
+    ap.add_argument("--anchor-leaf-cap", type=int, default=96)
+    ap.add_argument("--grad-norm-every", type=int, default=50,
+                    help="rl.py --grad-norm-every: the per-term trunk gradient-norm row cadence; 0 = off")
     ap.add_argument("--traj-per-step", type=int, default=4)
     ap.add_argument(
         "--arms-every", type=int, default=5, help="arms vs heuristic every N iterations (0 = off)"
@@ -2259,6 +2279,10 @@ def main() -> None:
                     str(args.ent_floor),
                     "--value-weight",
                     str(args.value_weight),
+                    *(["--value-anchor", args.value_anchor, "--anchor-weight", str(args.anchor_weight),
+                       "--anchor-families", args.anchor_families, "--anchor-leaf-cap", str(args.anchor_leaf_cap)]
+                      if args.value_anchor else []),
+                    "--grad-norm-every", str(args.grad_norm_every),
                     "--traj-per-step",
                     str(args.traj_per_step),
                     "--seg",

@@ -30,11 +30,12 @@ That line is for **1v1 Commander** (40 life, 100-card singleton decks), which wo
 SLOT=pauper; GAME=Constructed; POOLDIR=data/pool/pauper
 ```
 
-That line is for **Constructed** (60-card decks; any lists, the slot's name is historical).
-**Constructed is blocked on current main:** the model has no format row for it yet, so the first
-Constructed game fails at featurization with `VocabError: unknown format 'Constructed'`. The fix
-lands after the current M12 run (≈ 2026-09-27). Until then use Commander, or follow
-[format onboarding](format-onboarding.md#adding-a-format) to add the row yourself.
+That line is for **Constructed** (60-card decks; any lists, the slot's name is historical). The
+model row for it landed 2026-09-27 ([ADR-0120](../decisions/ADR-0120-constructed-model-row.md));
+it is proven at the encoder and the checkpoint loader, and the first played Constructed games are
+yours — read the excluded list and the featurizer's errors on your first 20 heuristic games before
+spending hours. Any other Forge game type still needs its row
+([format onboarding](format-onboarding.md#adding-a-format)).
 
 `GAME` is the Forge game type the engine plays (`--format` on runs and reads). `SLOT` is the pool
 slot your decklists live in (`--format` on `anvil.pool` and `anvil.encoder`, `--pool-format`
@@ -75,8 +76,9 @@ cd forge && mvn -P windows-linux -pl forge-gui-desktop -am package -DskipTests
 ```
 
 The jar lands in `forge-gui-desktop/target/*-jar-with-dependencies.jar`. Anvil finds the fork
-through `FORGE_DIR`. Keep it exported in every shell you run Anvil from; the fallback default,
-`~/Everything/Projects/forge`, is the author's layout and will not match yours.
+through `FORGE_DIR`; unset, it looks for a `forge` checkout beside the Anvil repo (this layout),
+and the cardsfolder scan is loud when neither is a Forge tree. Keep it exported anyway when your
+layout differs.
 Every run manifest pins the jar's SHA-256 and the fork commit, so rebuilding the fork mid-run is
 refused, not silently absorbed.
 
@@ -116,11 +118,8 @@ snapshot it:
 uv run python -m anvil.pool --format $SLOT banlist
 ```
 
-If it is not, write an empty snapshot instead (the build uses the newest-sorting `banlist-*.json`):
-
-```bash
-mkdir -p $POOLDIR/raw && echo '{"fetched": "custom", "cards": []}' > $POOLDIR/raw/banlist-custom.json
-```
+If it is not, build with `--banlist none` (step 4) and no snapshot is needed; the manifest records
+`"fetched": "none"`.
 
 **Build and install:**
 
@@ -259,7 +258,9 @@ It is a one-step lookahead, not a tree search (not MCTS):
 copy could not play out (the engine refused it); it is skipped, not scored. *Surface*: one of the
 follow-up choices above. *Leaf*: where a copy stops and the value head scores it.
 
-**Turn it on** by adding `--search-recipe` to the §7 command, with our recipe:
+**Turn it on** by adding `--search-recipe` to the §7 command, with our recipe. Its one definition
+is `scripts/recipe.sh` (`RECIPE`; also `SHALLOW` and `DEEP`, the shakedown's other arms), which
+the chain scripts source; today it reads:
 
 ```
 --search-recipe "-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"
@@ -347,7 +348,7 @@ uv run python -m anvil.runs status            # every run: running / stalled / d
 uv run python -m anvil.runs alerts --unacked  # what you have not seen yet
 uv run python -m anvil.runs wait --name mydecks-loop   # block a script until it ends (exit 0 = done)
 uv run python -m anvil.runs ack --all
-uv run python -m anvil.runs pause --name mydecks-loop --wait   # STOP for the loop; records `paused`, no FAILED push
+uv run python -m anvil.runs pause --name mydecks-loop --wait   # STOP for the loop (never its live generation); records `paused`, no FAILED push
 uv run python -m anvil.runs relaunch --name mydecks-loop       # the same command again, in place; the loop resumes its state
 ```
 
@@ -357,7 +358,19 @@ For a maintenance reboot: `pause --wait`, update, reboot, `relaunch`. A run laun
 login. A job that is idle on purpose (the harness yielding the GPU to another job, the learner
 parked on a VRAM cotenant) writes `heartbeat.json` in the run dir so the stall alarm stays quiet.
 `selfplay.py --wall-hours H` stops a loop between iterations once its accumulated box time
-(summed across pauses) reaches H and runs the closing reads.
+(summed across pauses) reaches H and runs the closing reads; time the harness spent yielding the
+GPU to another job is not counted, and an interim paired read is skipped once the budget is
+reached. `pause` writes STOP to the loop's root only — a running generation finishes and the loop
+stops at its iteration boundary (`--scope all` stops every watched dir, the old behaviour). The
+loop's log stamps every phase line, and a yielding harness marks its progress line.
+
+Two value-head instruments ride every loop since 09-27
+([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)): each iteration's checkpoint
+is scored on the frozen state-ranking holdout (`--state-bank`, CPU, ≈ 25 s; the row is in
+`monitor.jsonl` and the battery's curves) with a collapse floor (`--guard-spearman-floor 0.15`,
+0 = off), and `--value-anchor data/runs/m12-build1` adds the Build 1 replay term to the trainer so
+the head stays on rollout truth (`--anchor-weight`, `--anchor-families state,leaf`). Both need the
+Build 1 banks, which are ours — without them the row is skipped and the anchor is off.
 
 Alerts land in `~/.local/state/anvil/alerts.jsonl` and, as side effects, on a desktop toast
 (`notify-send` on Linux, `osascript` on macOS). To reach your phone set `ANVIL_NOTIFY_CMD` to any
@@ -415,8 +428,8 @@ drill work (on the current engine). Nobody on Forge has reported much past 55% a
   fork does not script, or `FORGE_DIR` points at a different Forge. Fix the decklist or the path.
 - **`installed pool decks differ from data/pool/decks`**: re-run `install`; something edited the
   Forge deck store.
-- **`VocabError: unknown format 'Constructed'`** (or any other game type): the model has no
-  format row for `$GAME`. See *Pick your format* and [format onboarding](format-onboarding.md#adding-a-format).
+- **`VocabError: unknown format '<GameType>'`**: the model has no format row for `$GAME`
+  (Commander and Constructed have theirs). See [format onboarding](format-onboarding.md#adding-a-format).
 - **`FileNotFoundError` on `raw/decks/<id>.json`**: every decklist needs a `<id>.json` beside it;
   `{}` is enough.
 - **The build included fewer decks than you gave it**: read its excluded list; the usual causes

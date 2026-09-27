@@ -435,9 +435,15 @@ def _start_server(port: int, log: Path, ckpt_main: str, ckpt: str, binding: str,
             s.settimeout(0.5)
             try:
                 s.connect(("127.0.0.1", port))
-                return proc
             except OSError:
                 time.sleep(1.0)
+                continue
+        # 09-27: the port is bound; wait for the servicer to answer a ping
+        # (the cold-start gap behind the 09-24 read's five crashes)
+        from anvil.bridge.fleet import ping_server
+
+        ping_server(port, timeout=max(5.0, 600 - (time.monotonic() - t0)))
+        return proc
     proc.kill()
     raise TimeoutError(f"server on :{port} never opened")
 

@@ -172,14 +172,41 @@ def _port_open(port: int) -> bool:
         return False
 
 
-def wait_ports(port: int, servers: int, timeout: float = 300.0) -> None:
-    """Block until every port of the fleet accepts a connection."""
+def wait_ports(port: int, servers: int, timeout: float = 300.0, ping: bool = True) -> None:
+    """Block until every port of the fleet accepts a connection and (09-27)
+    answers a Ping through its Session stream — a bound port is not a
+    servicer that has finished its warm-up; the first real request of every
+    worker landed on that gap as a cold-start deadline (the 09-24 paired
+    read's five crashes)."""
     t0 = time.monotonic()
     for p in range(port, port + max(int(servers), 1)):
         while not _port_open(p):
             if time.monotonic() - t0 > timeout:
                 raise TimeoutError(f"server never opened port {p}")
             time.sleep(1)
+        if ping:
+            ping_server(p, timeout=max(5.0, timeout - (time.monotonic() - t0)))
+
+
+def ping_server(port: int, timeout: float = 60.0, host: str = "127.0.0.1") -> float:
+    """One Ping through a fresh Session stream; returns the round trip in
+    seconds. Raises TimeoutError when the servicer does not echo it."""
+    import grpc
+
+    from anvil.bridge.pb import anvil_bridge_pb2 as pb
+    from anvil.bridge.pb import anvil_bridge_pb2_grpc as pbg
+
+    t0 = time.monotonic()
+    nonce = int(t0 * 1000) & 0xFFFFFFFF
+    with grpc.insecure_channel(f"{host}:{port}") as ch:
+        stub = pbg.DecisionBridgeStub(ch)
+        try:
+            for msg in stub.Session(iter([pb.WorkerMsg(ping=pb.Ping(nonce=nonce))]), timeout=timeout):
+                if msg.WhichOneof("msg") == "ping" and msg.ping.nonce == nonce:
+                    return time.monotonic() - t0
+        except grpc.RpcError as e:  # noqa: BLE001
+            raise TimeoutError(f"server on :{port} did not answer the ping: {e}") from None
+    raise TimeoutError(f"server on :{port} closed the stream without echoing the ping")
 
 
 def supervise(argv: list[str], n: int, port: int, stagger_ready: bool = True) -> int:

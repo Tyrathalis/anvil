@@ -137,6 +137,9 @@ def aggregate(run_dirs: list[Path]) -> dict:
     return out
 
 
+OF_RECORD_MULTIPLIER = 1.5  # ADR-0119 step 3: the corrected read is of record past this effective-sample ratio
+
+
 def merge_ante(arm: dict, run_dirs: list[Path], reports: list[Path]) -> None:
     """Fold anvil.ante.certify reports (one per mirrored run) into the arm as
     a corrected model winrate. Certify's raw/corrected are SEAT-0-signed;
@@ -169,17 +172,32 @@ def merge_ante(arm: dict, run_dirs: list[Path], reports: list[Path]) -> None:
                 "model_seat": int(seats),
                 "games": rep["games"],
                 "raw_winrate": round(1 - raw, 4) if flip else raw,
+                "raw_se": rep.get("raw_se"),
                 "corrected_winrate": round(1 - wr, 4) if flip else wr,
                 "corrected_se": rep["corrected_cv_se"],
                 "var_ratio_cv": rep.get("var_ratio_cv"),
+                "effective_sample_multiplier": rep.get("effective_sample_multiplier"),
             }
         )
     n_total = sum(r["games"] for r in per_run)
     pooled = sum(r["corrected_winrate"] * r["games"] for r in per_run) / n_total
     pooled_se = (sum((r["games"] / n_total) ** 2 * r["corrected_se"] ** 2 for r in per_run)) ** 0.5
+    # ADR-0119 step 3: raw and corrected side by side, and which is OF RECORD
+    # — the corrected number only once the ledger shows >= 1.5x effective
+    # samples (a >= 18% cut in SE); below that the raw read is the read of
+    # record and the ledger stays an audit
+    raw_pooled = sum(r["raw_winrate"] * r["games"] for r in per_run) / n_total
+    raw_se = (sum((r["games"] / n_total) ** 2 * (r["raw_se"] or 0.0) ** 2 for r in per_run)) ** 0.5
+    effs = [r["effective_sample_multiplier"] for r in per_run if r["effective_sample_multiplier"] is not None]
+    eff = (sum(e * r["games"] for e, r in zip(effs, per_run)) / n_total) if len(effs) == len(per_run) else None
     arm["ante"] = {
+        "raw_winrate": round(raw_pooled, 4),
+        "raw_se": round(raw_se, 4),
         "corrected_winrate": round(pooled, 4),
         "corrected_se": round(pooled_se, 4),
+        "effective_sample_multiplier": round(eff, 3) if eff is not None else None,
+        "of_record": "corrected" if eff is not None and eff >= OF_RECORD_MULTIPLIER else "raw",
+        "of_record_bar": OF_RECORD_MULTIPLIER,
         "games": n_total,
         "per_run": per_run,
     }
@@ -219,9 +237,12 @@ def main() -> None:
             else f"seat0 {a.get('seat0_winrate'):.3f}"
         )
         if a.get("ante"):
+            an = a["ante"]
+            eff = an.get("effective_sample_multiplier")
             wr_s += (
-                f", ante-corrected {a['ante']['corrected_winrate']:.4f} "
-                f"± {a['ante']['corrected_se']:.4f}"
+                f", ante-corrected {an['corrected_winrate']:.4f} ± {an['corrected_se']:.4f}"
+                f" (effective samples x{eff if eff is not None else '?'}; of record: {an['of_record']},"
+                f" bar x{an['of_record_bar']})"
             )
         print(
             f"{name}: {a['games']} games, {a['decisive']} decisive, "

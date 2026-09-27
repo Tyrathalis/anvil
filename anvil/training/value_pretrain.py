@@ -51,6 +51,7 @@ import json
 import math
 import random
 import time
+import contextlib
 from collections import defaultdict
 from pathlib import Path
 
@@ -898,26 +899,42 @@ def load_net_from(ckpt: str, device: str):
 
 
 def widen_globals(examples: list, n_global: int, fmt: str) -> list:
-    """The bank's examples were featurized in the iter-019 era (globals = the
-    base columns + the fmt one-hot). A Build 4 net reads the explicit format
-    scalars after them (transform.GLOBAL_FEATURES); fill them with the
-    vocab's row for the bank's format — exactly what the loader emits for
-    these records today — so a checkpoint that has TRAINED those columns is
-    read at its own inputs (a pre-Build-4 checkpoint is zero-padded there by
-    load_compat and reads the same either way)."""
+    """The bank's examples were featurized in an older globals layout (the
+    iter-019 era: the base columns + the fmt one-hot; a Build 4 bank would
+    carry the scalars too). Re-lay them onto the net's layout through the
+    encoder's column map (transform.widen_globals_columns): saved columns
+    keep their meaning, newer one-hot columns read zero, and the format
+    scalars — when the bank predates them — are filled with the vocab's row
+    for the bank's format, exactly what the loader emits for these records
+    today. A checkpoint that has TRAINED those columns is read at its own
+    inputs; an older one is zero-padded there by load_compat and reads the
+    same either way. Loud on a width no era produced."""
     import torch
 
-    from anvil.encoder.transform import Vocab
+    from anvil.encoder.transform import (
+        FORMAT_SCALARS, N_FORMAT_ONEHOT, Vocab, globals_layout, widen_globals_columns,
+    )
 
     have = int(examples[0]["globals"].shape[0])
     if have == n_global:
         return examples
     if have > n_global:
         raise ValueError(f"bank globals {have} wider than the net's {n_global}")
+    base, _n_fmt, has_scalars = globals_layout(have)
+    cols = widen_globals_columns(have)
+    sc0 = base + N_FORMAT_ONEHOT
+    if sc0 + len(FORMAT_SCALARS) != n_global:
+        raise ValueError(f"net globals {n_global} != today's layout {sc0 + len(FORMAT_SCALARS)}")
     tail = torch.tensor(Vocab().format_scalars(fmt), dtype=examples[0]["globals"].dtype)
-    if have + int(tail.shape[0]) != n_global:
-        raise ValueError(f"bank globals {have} + format scalars {int(tail.shape[0])} != net's {n_global}")
-    return [{**e, "globals": torch.cat([e["globals"], tail])} for e in examples]
+
+    def widen(g):
+        out = g.new_zeros(n_global)
+        out[cols] = g
+        if not has_scalars:
+            out[sc0:] = tail
+        return out
+
+    return [{**e, "globals": widen(e["globals"])} for e in examples]
 
 
 def eval_ckpts(args: argparse.Namespace) -> None:
@@ -1137,3 +1154,125 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# ------------------------------------------------------------- the anchor
+
+
+def trunk_grad_norm(term, params: list) -> float:
+    """L2 norm of d(term)/d(params) without touching .grad (retain_graph so
+    the step's own backward follows). Parameters the term never reaches count
+    zero. The ADR-0118 addendum's per-term row: which loss moves the trunk."""
+    import torch
+
+    if term is None or not params:
+        return 0.0
+    gs = torch.autograd.grad(term, params, retain_graph=True, allow_unused=True)
+    tot = sum((g.float() ** 2).sum() for g in gs if g is not None)
+    return float(torch.sqrt(tot)) if isinstance(tot, torch.Tensor) else 0.0
+
+
+class ValueAnchor:
+    """ADR-0118 item 3 / ADR-0119 step 1: the value anchor for the RL loop —
+    the Build 1 fit's replay terms on the banked rollout truth, one mini-batch
+    per optimizer step, so the head that serves as the search's leaf stays on
+    rollout truth while V-trace trains it (the loop's own value term has no
+    anchor; the trunk under the head drifted four SE in 16 iterations on both
+    shakedown arms). State rows: RankNet on rollout win-rate pairs
+    (PAIR_GATE_WR) + w_state_bce * BCE, on the NON-holdout rows — the frozen
+    holdout stays the audit's (`eval`, the per-iteration Spearman). Leaf rows:
+    one window's leaves per step, the full-vis critic's fv as a BCE target +
+    the composite ranking within (roll, hz) groups, as the build fit. The
+    banks' iter-019-era globals widen to the net's (`widen_globals`)."""
+
+    def __init__(self, bank_dir: str, families: str, n_global: int, device: str, seed: int,
+                 batch: int = 96, leaf_cap: int = 96, fmt: str = "Commander",
+                 w_state_bce: float = 0.05, w_leaf_fv: float = 1.0, w_leaf_rank: float = 1.0):
+        import torch
+
+        self.device, self.batch, self.leaf_cap = device, batch, leaf_cap
+        self.w_state_bce, self.w_leaf_fv, self.w_leaf_rank = w_state_bce, w_leaf_fv, w_leaf_rank
+        self.rng = np.random.default_rng(seed)
+        fams = {f.strip() for f in families.split(",") if f.strip()}
+        bank = _p(bank_dir)
+        self.s_ex = self.l_ex = None
+        if "state" in fams:
+            st = torch.load(bank / "bank-state.pt", weights_only=False)
+            sm = st["meta"]
+            keep = np.where([not m["holdout"] for m in sm])[0]
+            self.s_ex = widen_globals(st["examples"], n_global, fmt)
+            self.s_idx = np.array([m["idx"] for m in sm])[keep]
+            self.s_y = np.array([m["wr"] for m in sm], dtype=np.float32)[keep]
+        if "leaf" in fams and leaf_cap:
+            lf = torch.load(bank / "bank-leaf.pt", weights_only=False)
+            self.l_ex = widen_globals(lf["examples"], n_global, fmt)
+            self.l_meta = lf["meta"]
+            self.leaves_of: dict[int, list[int]] = defaultdict(list)
+            for i, m in enumerate(self.l_meta):
+                self.leaves_of[m["wi"]].append(i)
+            self.windows = [wi for wi, li in self.leaves_of.items() if len(li) >= 4]
+        if self.s_ex is None and self.l_ex is None:
+            raise ValueError(f"--value-anchor {bank_dir}: no families in {families!r}")
+
+    def describe(self) -> str:
+        parts = []
+        if self.s_ex is not None:
+            parts.append(f"state {len(self.s_idx)} rows (holdout excluded), batch {self.batch}")
+        if self.l_ex is not None:
+            parts.append(f"leaf {len(self.windows)} windows, cap {self.leaf_cap}")
+        return "; ".join(parts)
+
+    def loss(self, net, amp=None):
+        """One anchor mini-batch -> (loss tensor or None, {name: float})."""
+        import torch
+        import torch.nn.functional as F
+
+        from anvil.training.dataset import collate
+
+        amp = amp if amp is not None else contextlib.nullcontext()
+        parts: dict[str, float] = {}
+        total = None
+        if self.s_ex is not None:
+            sel = self.rng.choice(len(self.s_idx), min(self.batch, len(self.s_idx)), replace=False)
+            chunk = _to(collate([self.s_ex[j] for j in self.s_idx[sel]]), self.device)
+            y = torch.tensor(self.s_y[sel], device=self.device)
+            with amp:
+                v = value_logits(net, chunk).float()
+            rl = rank_loss(v, y, PAIR_GATE_WR, None)
+            bce = F.binary_cross_entropy_with_logits(v, y)
+            st = (rl if rl is not None else 0.0) + self.w_state_bce * bce
+            parts["anchor_state"] = float(st)
+            total = st
+        if self.l_ex is not None:
+            wi = self.windows[int(self.rng.integers(len(self.windows)))]
+            li = self.leaves_of[wi]
+            if len(li) > self.leaf_cap:
+                li = [int(x) for x in self.rng.choice(li, self.leaf_cap, replace=False)]
+            chunk = _to(collate([self.l_ex[j] for j in li]), self.device)
+            ms = [self.l_meta[j] for j in li]
+            fv = torch.tensor([m["fv"] for m in ms], device=self.device, dtype=torch.float32)
+            with amp:
+                v = value_logits(net, chunk).float()
+            distill = F.binary_cross_entropy_with_logits(v, fv)
+            groups: dict[tuple, list[int]] = defaultdict(list)
+            for k, m in enumerate(ms):
+                if m["arm"] > 0 and m["comp"] is not None:
+                    groups[(m["roll"], m["hz"])].append(k)
+            rls, ws = [], []
+            for ks in groups.values():
+                if len(ks) < 2:
+                    continue
+                ks_t = torch.tensor(ks, device=self.device)
+                rl = rank_loss(
+                    v[ks_t],
+                    torch.tensor([ms[k]["comp"] for k in ks], device=self.device, dtype=torch.float32),
+                    PAIR_GATE_COMP, COMP_SCALE,
+                )
+                if rl is not None:
+                    rls.append(rl)
+                    ws.append(len(ks))
+            rank = sum(r * w for r, w in zip(rls, ws)) / sum(ws) if rls else None
+            lf = self.w_leaf_fv * distill + (self.w_leaf_rank * rank if rank is not None else 0.0)
+            parts["anchor_leaf"] = float(lf)
+            total = lf if total is None else total + lf
+        return total, parts

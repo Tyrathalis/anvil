@@ -38,6 +38,23 @@ def masked_cross_entropy(logits, labels, ignore_index: int = -1):
     return nn.functional.cross_entropy(logits, labels, ignore_index=ignore_index)
 
 
+def pad_state_proj(cur_w: torch.Tensor, saved_w: torch.Tensor, n_global: int) -> torch.Tensor:
+    """A saved state_proj weight (globals + players columns, an older globals
+    layout) re-laid onto today's column layout with ZERO weights on the new
+    globals columns: the saved input x, mapped to today's layout through the
+    same column map (widen_globals_columns), projects to the same output."""
+    from anvil.encoder.transform import widen_globals_columns
+
+    grow = cur_w.shape[1] - saved_w.shape[1]
+    n_saved = n_global - grow  # the saved globals width
+    cols = widen_globals_columns(n_saved)
+    saved_w = saved_w.to(cur_w.device, cur_w.dtype)  # a CPU-loaded state onto a CUDA net
+    padded = cur_w.new_zeros(cur_w.shape)
+    padded[:, cols] = saved_w[:, :n_saved]
+    padded[:, n_global:] = saved_w[:, n_saved:]
+    return padded
+
+
 class AnvilNet(nn.Module):
     def __init__(
         self,
@@ -367,18 +384,16 @@ class AnvilNet(nn.Module):
             padded[:, : saved_ep.shape[1]] = saved_ep
             state = {**state, "assemble.ent_proj.weight": padded}
         # M9 boundary: GLOBAL_FEATURES growth (fmt one-hot). The new columns
-        # sit at the END of the globals segment — mid-input for state_proj
-        # (players follow) — so the zero-pad INSERTS at that position. Zero,
-        # not fresh init: pre-boundary checkpoints serve byte-identically.
+        # sit mid-input for state_proj (players follow the globals), so the
+        # zero-pad INSERTS: at the one-hot's end for a new format column
+        # (ADR-0120 — the Build 4 scalars follow the one-hot, so a saved
+        # checkpoint's scalar weights move past the new column), at the
+        # globals' end for the scalars themselves. Zero, not fresh init:
+        # pre-boundary checkpoints serve byte-identically.
         cur_sp = self.assemble.state_proj.weight
         saved_sp = state.get("assemble.state_proj.weight")
         if saved_sp is not None and saved_sp.shape[1] < cur_sp.shape[1]:
-            grow = cur_sp.shape[1] - saved_sp.shape[1]
-            split = self.assemble.n_global - grow  # end of the saved globals
-            padded = cur_sp.new_zeros(cur_sp.shape)
-            padded[:, :split] = saved_sp[:, :split]
-            padded[:, self.assemble.n_global :] = saved_sp[:, split:]
-            state = {**state, "assemble.state_proj.weight": padded}
+            state = {**state, "assemble.state_proj.weight": pad_state_proj(cur_sp, saved_sp, self.assemble.n_global)}
         missing, unexpected = self.load_state_dict(state, strict=False)
         bad = [k for k in missing if not k.startswith(self._D5_PREFIXES)]
         if bad or unexpected:

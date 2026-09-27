@@ -1112,6 +1112,22 @@ def main() -> None:
     ap.add_argument("--rho-bar", type=float, default=1.0)
     ap.add_argument("--c-bar", type=float, default=1.0)
     ap.add_argument("--value-weight", type=float, default=0.5)
+    # ADR-0118 / ADR-0119 step 1: the value anchor + the per-term trunk gradient-norm row
+    ap.add_argument("--value-anchor", default=None, metavar="BANK_DIR",
+                    help="the value anchor: the Build 1 fit's replay terms on the banked rollout "
+                         "truth (bank-state.pt: RankNet + BCE on rollout win rates; bank-leaf.pt: "
+                         "the full-vis critic's leaf values + the composite ranking), one mini-batch "
+                         "per optimizer step, so the head that serves as the search's leaf stays on "
+                         "rollout truth while V-trace trains it; off by default")
+    ap.add_argument("--anchor-weight", type=float, default=0.5, help="the anchor term's weight (the value term's own scale)")
+    ap.add_argument("--anchor-batch", type=int, default=96, help="state-bank rows per anchor step")
+    ap.add_argument("--anchor-leaf-cap", type=int, default=96,
+                    help="leaf rows per anchor step (one window's leaves, capped); 0 = the state bank only")
+    ap.add_argument("--anchor-families", default="state,leaf", help="csv of state,leaf")
+    ap.add_argument("--grad-norm-every", type=int, default=50,
+                    help="every N optimizer steps, the per-term TRUNK gradient norms (gn_<term>: pg, v, ent, "
+                         "plan, sched, distill, alloc on that step's first segment; anchor on its batch) — "
+                         "which loss moves the trunk (ADR-0118 addendum); 0 = off")
     ap.add_argument(
         "--ent-weight",
         type=float,
@@ -1558,6 +1574,12 @@ def main() -> None:
                 "rho_bar",
                 "c_bar",
                 "value_weight",
+                "value_anchor",
+                "anchor_weight",
+                "anchor_batch",
+                "anchor_leaf_cap",
+                "anchor_families",
+                "grad_norm_every",
                 "ent_weight",
                 "ent_floor",
                 "epochs",
@@ -1841,12 +1863,28 @@ def main() -> None:
     win_count = 0
 
     def save(tag="last"):
-        from anvil.encoder.transform import PLAYER_TARGET_CONVENTION
+        from anvil.encoder.transform import GLOBAL_FEATURES, PLAYER_TARGET_CONVENTION
 
         rl_cfg["player_target_convention"] = PLAYER_TARGET_CONVENTION  # the labels this loop trained on (ADR-0116)
+        rl_cfg["global_features"] = list(GLOBAL_FEATURES)  # the globals layout this checkpoint trained on (ADR-0120)
         torch.save(
             {"step": step, "model": net.state_dict(), "config": rl_cfg}, out_dir / f"{tag}.pt"
         )
+
+    # ADR-0118 / ADR-0119: the value anchor (one bank mini-batch per optimizer
+    # step) and the trunk parameter list the gradient-norm row reads
+    anchor = None
+    if args.value_anchor:
+        from anvil.training.value_pretrain import ValueAnchor
+
+        anchor = ValueAnchor(args.value_anchor, args.anchor_families, net.assemble.n_global, dev,
+                             args.seed, args.anchor_batch, args.anchor_leaf_cap)
+        print(f"[rl] value anchor {args.value_anchor} @ {args.anchor_weight}: {anchor.describe()}")
+    trunk_params = [p_ for p_ in net.trunk.parameters() if p_.requires_grad]
+    gn_last: dict[str, float] = {}
+    gn_done_step = -1
+    anchor_sum: dict[str, float] = {}
+    anchor_steps = 0
 
     # Per-phase wall clock (bench 2026-07-25: the GPU sits ~90% idle through
     # the train phase and throughput is flat in both --seg and --workers, so
@@ -2121,6 +2159,25 @@ def main() -> None:
                 loss = loss + distill.w * distill_term / args.traj_per_step
             if alloc_term is not None and alloc is not None and alloc.active:
                 loss = loss + alloc.w * alloc_term / args.traj_per_step
+            if args.grad_norm_every and step % args.grad_norm_every == 0 and gn_done_step != step:
+                # ADR-0118 addendum: the per-term trunk gradient norms on this
+                # step's first segment (each WEIGHTED term as it enters the
+                # loss, without the 1/traj_per_step factor) — a read, not a
+                # guard; the ratios say which loss moves the trunk
+                from anvil.training.value_pretrain import trunk_grad_norm
+
+                gn_done_step = step
+                terms = {
+                    "pg": pg_loss, "v": args.value_weight * v_loss, "ent": args.ent_weight * ent_pen,
+                    "plan": w_plan * plan_term if plan_term is not None and w_plan else None,
+                    "sched": w_sched * sched_term if sched_term is not None and w_sched else None,
+                    "distill": distill.w * distill_term
+                    if distill_term is not None and distill is not None and distill.active else None,
+                    "alloc": alloc.w * alloc_term
+                    if alloc_term is not None and alloc is not None and alloc.active else None,
+                }
+                gn_last = {f"gn_{k_}": round(trunk_grad_norm(t_, trunk_params), 6)
+                           for k_, t_ in terms.items() if t_ is not None and t_.requires_grad}
             loss.backward()
             acc["pg"] = acc.get("pg", 0.0) + float(pg_loss)
             traj_pg += float(pg_loss)
@@ -2402,6 +2459,20 @@ def main() -> None:
                     acc["follow_raw"] = acc.get("follow_raw", 0.0) + raw
                     follow_share_raw += raw
                     follow_share_steps += 1
+            if anchor is not None:
+                # ADR-0118 item 3: one bank mini-batch per optimizer step, its
+                # gradient added to the step's own before the clip
+                a_loss, a_parts = anchor.loss(net, _amp(dev))
+                if a_loss is not None:
+                    a_term = args.anchor_weight * a_loss
+                    if args.grad_norm_every and step % args.grad_norm_every == 0:
+                        from anvil.training.value_pretrain import trunk_grad_norm
+
+                        gn_last["gn_anchor"] = round(trunk_grad_norm(a_term, trunk_params), 6)
+                    a_term.backward()
+                    for k_, v_ in a_parts.items():
+                        anchor_sum[k_] = anchor_sum.get(k_, 0.0) + v_
+                    anchor_steps += 1
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             opt.step()
             opt.zero_grad(set_to_none=True)
@@ -2544,6 +2615,11 @@ def main() -> None:
                     ),
                     **(distill.window() if distill is not None else {}),
                     **(alloc.window() if alloc is not None else {}),
+                    # the anchor's per-STEP means over the window + the last
+                    # gradient-norm read (ADR-0118 / ADR-0119)
+                    **({f"{k_}_step": round(v_ / anchor_steps, 5) for k_, v_ in anchor_sum.items()}
+                       if anchor_steps else {}),
+                    **gn_last,
                     **({"search_join": dict(search_counts)} if args.search else {}),
                     "skips": dict(skips),
                     "tripwire_viol": tripwire_viol,
@@ -2555,6 +2631,8 @@ def main() -> None:
                 }
                 metrics.write(json.dumps(row) + "\n")
                 print(f"[rl] {row}")
+                anchor_sum = {}
+                anchor_steps = 0
                 if args.search and search_counts.get("rows", 0) >= 500:
                     rate = search_counts.get("row_matched", 0) / max(1, search_counts["rows"])
                     if rate < args.search_join_min:

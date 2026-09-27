@@ -26,7 +26,7 @@ never guesses.
 | Format | Pool slot | Model row | Status |
 |---|---|---|---|
 | **1v1 Commander** (40 life, 100-card singleton, command zone) | `dc` | `Commander` | **works end to end**; the project's own pool |
-| **Constructed** (60-card, or 40-card untested; sideboard) | `pauper` (the name is historical; any lists) | **missing** | **blocked on current main.** The pool pipeline works, but the model row was never added, so featurizing a Constructed game raises `VocabError` (since the M9 format one-hot, 2026-08-21). The fix is routed to the first worktree after the M12 shakedown (≈ 09-27); it is also this page's worked example below |
+| **Constructed** (60-card, or 40-card untested; sideboard) | `pauper` (the name is historical; any lists) | `Constructed` | **row landed 2026-09-27** ([ADR-0120](../decisions/ADR-0120-constructed-model-row.md)): proven at the encoder and the checkpoint loader (the identity tests); the step-4 smoke on played games is routed to the next quickstart pass. The pool pipeline works (`--banlist none` for your own lists) |
 | Anything else Forge plays (Brawl, Oathbreaker, Limited as its own type, …) | none | none | needs a slot and a row (the checklist below) |
 | Multiplayer | — | — | not supported: the bridge, the reads and the value head are 1v1 |
 
@@ -62,13 +62,13 @@ record it in an ADR and never compare numbers across it.
 1. **The model row.** Append the Forge game-type name to `formats` and its row to `format_features`
    in `anvil/encoder/vocab_mtg.json`, and a matching `fmt_<name>` column after the last `fmt_*`
    entry in `GLOBAL_FEATURES` (`anvil/encoder/transform.py`; `GLOBAL_SCALE` grows with it).
-   `Vocab` refuses to load if the two lists disagree. **Watch the checkpoint loader:**
-   `load_compat` (`anvil/policy/model.py`) zero-pads new global columns at the *end* of the
-   globals, but since Build 4 the five format scalars follow the one-hot. A new one-hot column
-   lands before them, so `load_compat` must insert the zeros at the one-hot's end instead;
-   otherwise every old checkpoint reads its format scalars through the wrong weights. The test
-   that proves it: a pre-change checkpoint's forward on a Commander game is byte-identical after
-   the change, plus a round-trip featurize of a header with the new name.
+   `Vocab` refuses to load if the two lists disagree. The column's position is handled: since
+   [ADR-0120](../decisions/ADR-0120-constructed-model-row.md) the checkpoint loader
+   (`model.pad_state_proj`) and the pre-featurized banks (`value_pretrain.widen_globals`) map
+   every older layout through one column map (`transform.globals_layout`), so a new one-hot
+   column inserts at the one-hot's end and older checkpoints project byte-identically. Run
+   `tests/test_format_row.py` after the edit: it is the identity proof (and extend
+   `test_layout_constants` with the new name).
 2. **The pool slot** (skip it when an existing slot's deck shape and banlist fit, as Constructed
    formats fit `pauper`). Copy `anvil/pool/pauper/` to `anvil/pool/<slot>/`; change the deck-shape
    check in `decklist.py` and the banlist source in `fetch.py`; add the slot to
@@ -80,10 +80,10 @@ record it in an ADR and never compare numbers across it.
 4. **Smoke.** Build a two-deck pool, run 20 heuristic games with `--obs`, ingest, and run 1,000 BC
    steps. Every layer is exercised before anything costs hours.
 
-**Worked example: unblocking Constructed.** Step 1 only: `Constructed` with start life 20, deck
-size 60, singleton 0, command zone 0, mulligan variant 1 (London), with the `load_compat` insert
-fix and its identity test. The `pauper` slot already exists. Then the step 4 smoke, and the
-quickstart's Constructed column is live again.
+**Worked example: Constructed (landed 2026-09-27, ADR-0120).** Step 1 only: `Constructed` with
+start life 20, deck size 60, singleton 0, command zone 0, mulligan variant 1 (London), the
+layout-aware pad and its identity tests. The `pauper` slot already existed. The step-4 smoke on
+played games is routed to the next quickstart pass.
 
 ## Research-grade onboarding
 

@@ -1513,3 +1513,42 @@ record.*
   calls per game). Now block, map, docs index. Next: the post-run worktree, then the settings pass on
   alloc in the ADR-0119 order (the anchor arm first; the allocation head over one-roll search as the
   first search cell).
+- **2026-09-27 (afternoon) — THE POST-RUN WORKTREE LANDED** (the Now block's list, one session, the box
+  quiet; 338 tests green). Merged: `nan-guard` (the target term's NaN guard) and `certifier-merge` (the
+  ADR-0117 Python side). **Run hygiene:** `anvil.runs pause` writes STOP to the loop roots only — a
+  loop's live harness dirs are skipped, so the generation finishes and the loop stops at its boundary
+  (the 09-23 truncated iteration; `--scope all` keeps the old behaviour; a harness-only run still
+  drains); yielded seconds come out of the wall budget (the harness's `gpu-yield.json` is a cumulative
+  ledger; `loop_state.yielded_s`; the paired read's record too) so equal box time is equal productive
+  time; the harness progress line marks a live yield and rates productive time; the loop log stamps its
+  phase lines; the interim paired read is skipped once the wall budget is reached (the alloc arm's 2 h
+  overrun); `wait_ports` now pings each server through its Session stream after the port opens (the
+  09-24 cold-start crashes' gap; a two-server fleet up and pinged in 4.1 s). **The value function
+  (ADR-0118 / ADR-0119 step 1):** the state-ranking Spearman is a per-iteration row + guard
+  (`--state-bank`, CPU ≈ 25 s per ckpt, the day-zero row once; `--guard-spearman-floor 0.15` catches
+  collapse, the drift bar stays the anchor arm's pre-registered read; the battery curves it and flags a
+  > 2 SE drop); `value_pretrain eval --swap-head` (re-read: day-zero 0.374, the alloc iter-019 trunk
+  under the day-zero head 0.253 — the addendum stands); **the value anchor** (`rl.py --value-anchor
+  <bank>`: the Build 1 fit's replay terms — RankNet + BCE on the state bank's non-holdout rows, the
+  leaf bank's fv BCE + composite ranking — one mini-batch per optimizer step, weight 0.5; `selfplay
+  --value-anchor` passes it through) and **the per-term trunk gradient-norm row** (`--grad-norm-every
+  50`: `gn_pg / gn_v / gn_ent / gn_plan / gn_sched / gn_distill / gn_alloc` on the step's first segment,
+  `gn_anchor` on its batch). Smoked on a 4% slice of the alloc arm's last store (10 steps, 66 s):
+  every row carries the anchor terms and the norms; the first (exploratory, one segment per step)
+  read of the attribution is `gn_v` ≈ 0.05–0.28 against `gn_pg` ≈ 0.01–0.04 and `gn_anchor` ≈ 0.7–3.5
+  — the value term moves the trunk more than PG does on those segments, the anchor's whole batch more
+  still; the anchor arm's per-iteration rows are the read of record. `arms_report.py` reports raw
+  beside corrected with `of_record` by the 1.5× effective-sample bar (ADR-0119 step 3). **The
+  Constructed model row ([ADR-0120](../decisions/ADR-0120-constructed-model-row.md)):** the vocab
+  row + `fmt_constructed`, inserted at the one-hot's end; one layout map (`transform.globals_layout`)
+  shared by the checkpoint pad (`model.pad_state_proj`) and the bank widening, the identity tests the
+  proof (the smoke caught a CPU→CUDA indexing bug in the pad before it reached a run); checkpoints
+  record `global_features`. Not a numeric boundary for Commander reads; the first Constructed data
+  is. **Fluency items:** `scripts/recipe.sh` is the one recipe definition (the four chain scripts source
+  it; the quickstart points at it); `anvil.pool build --banlist none`; `FORGE_DIR` falls back to a
+  `forge` checkout beside the repo. Docs: quickstart, format-onboarding, plan routed section, a
+  standing rule. **Still routed:** the shuffle decision record (fork; the settings pass's step 2), the
+  amortized advantage head (gated), the onboarding step-4 smoke on played Constructed games. Next: the
+  settings pass on alloc, the anchor arm first (`--value-anchor data/runs/m12-build1` on
+  `shakedown-alloc/iter-019`; bar: Spearman within one SE of 0.374 across the pass while network-alone
+  is not worse than the un-anchored winner).

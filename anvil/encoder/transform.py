@@ -86,6 +86,13 @@ GLOBAL_FEATURES = [
     # zero-pads state_proj), and the pre-registered transfer probe runs when
     # breadth actually opens.
     "fmt_commander",
+    # ADR-0120 (09-27): Constructed (Forge GameType.Constructed; 20 life, 60
+    # cards, no singleton, no command zone) — the quickstart's headline path
+    # raised VocabError here since the M9 one-hot. The column inserts at the
+    # one-hot's END (before the scalars); load_compat / widen_globals map a
+    # saved layout through globals_layout(), so every older checkpoint and
+    # bank reads byte-identically.
+    "fmt_constructed",
     # M12 Build 4 (ADR-0111, design §2 "format as features"): the explicit
     # format scalars — from the vocab's format_features table by format id;
     # appended after the one-hot (load_compat zero-pads state_proj at the
@@ -97,6 +104,42 @@ GLOBAL_FEATURES = [
     "format_mull_variant",
 ]
 FORMAT_SCALARS = ["start_life", "deck_size", "singleton", "command_zone", "mull_variant"]
+N_FORMAT_ONEHOT = sum(1 for f in GLOBAL_FEATURES if f.startswith("fmt_"))
+N_GLOBAL_BASE = len(GLOBAL_FEATURES) - N_FORMAT_ONEHOT - len(FORMAT_SCALARS)
+
+
+def globals_layout(width: int) -> tuple[int, int, bool]:
+    """(base, n_fmt, has_scalars) of a globals vector `width` wide under this
+    module's layout history: the base columns (M1–M8), then the format
+    one-hot (M9; one column per known format, appended per format), then the
+    five format scalars (Build 4). The scalars arrived after at least one
+    one-hot column existed, so any width past base + scalars carries them.
+    Loud on a width no era produced (ADR-0120)."""
+    n_sc = len(FORMAT_SCALARS)
+    if width < N_GLOBAL_BASE:
+        raise ValueError(f"globals width {width} < the {N_GLOBAL_BASE} base columns")
+    if width >= N_GLOBAL_BASE + n_sc + 1:
+        n_fmt, has = width - N_GLOBAL_BASE - n_sc, True
+    else:
+        n_fmt, has = width - N_GLOBAL_BASE, False
+    if n_fmt > N_FORMAT_ONEHOT:
+        raise ValueError(
+            f"globals width {width}: {n_fmt} format columns > the vocab's {N_FORMAT_ONEHOT}"
+        )
+    return N_GLOBAL_BASE, n_fmt, has
+
+
+def widen_globals_columns(width: int) -> list[int]:
+    """Today's column index of each column of a `width`-wide saved globals
+    vector: the base and the saved one-hot columns keep their index, saved
+    scalars move past the newer one-hot columns. The insert map every
+    checkpoint pad (model.load_compat) and bank widening (value_pretrain)
+    share, so a format addition is one edit here and one in the vocab."""
+    base, n_fmt, has = globals_layout(width)
+    cols = list(range(base + n_fmt))
+    if has:
+        cols += list(range(base + N_FORMAT_ONEHOT, base + N_FORMAT_ONEHOT + len(FORMAT_SCALARS)))
+    return cols
 # per player, self first then opponents in seat order
 PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_total", "lost"]
 
@@ -130,7 +173,7 @@ def player_target_position(pi: int, perspective: int, n_players: int) -> int:
 # at-chance value head (value_diag_val: AUC 0.53 flat by turns-from-end,
 # pred std ~0.015). Binary flags stay 1.
 GLOBAL_SCALE = np.array(
-    [1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3] + [1.0] * 1 + [1 / 40, 1 / 100, 1, 1, 1],  # + fmt one-hot + format scalars
+    [1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3] + [1.0] * 2 + [1 / 40, 1 / 100, 1, 1, 1],  # + fmt one-hot + format scalars
     dtype=np.float32,
 )
 PLAYER_SCALE = np.array([1 / 40, 1 / 8, 1 / 100, 1 / 4, 1 / 10, 1], dtype=np.float32)

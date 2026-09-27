@@ -267,6 +267,7 @@ def main() -> None:
     from anvil.encoder.transform import PLAYER_TARGET_CONVENTION
 
     config["player_target_convention"] = PLAYER_TARGET_CONVENTION  # ADR-0116
+    config["global_features"] = list(GLOBAL_FEATURES)  # the globals layout (ADR-0120)
     (out_dir / "config.json").write_text(json.dumps(config, indent=1, default=str) + "\n")
     metrics = open(out_dir / "metrics.jsonl", "a")
     print(f"[train] {n_params / 1e6:.1f}M params -> {out_dir}")

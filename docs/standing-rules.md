@@ -217,6 +217,11 @@ reads).
 - **Every read reports the target-sanity row** (the model's self-target rate vs the heuristic's in
   the same games; the eval battery) and **a checkpoint records its label conventions, a loader
   refuses a mismatch** ([ADR-0116](decisions/ADR-0116-player-target-positions.md)).
+- **A format addition edits the vocab row and the feature column and nothing else**: every
+  pre-featurized asset and checkpoint reads through the encoder's one layout map
+  (`transform.globals_layout`), and the change lands with the identity test green — the row alone
+  is a schema change with a proof, the first data in that format is the boundary event
+  ([ADR-0120](decisions/ADR-0120-constructed-model-row.md)).
 
 - **Replaying a model-generated store requires the generating run's
   trajectory-perturbing flag set (-reask/-paytelemetry/... from ITS

@@ -39,15 +39,22 @@ def _load_overrides() -> dict[str, str]:
     return json.loads(OVERRIDES_FILE.read_text()) if OVERRIDES_FILE.exists() else {}
 
 
-def build(main_size: int = decklist.MAIN_SIZE) -> dict:
+def build(main_size: int = decklist.MAIN_SIZE, banlist: str = "latest") -> dict:
+    """banlist: "latest" = the newest snapshot under raw/ (loud when none);
+    "none" = no exclusion (09-27: the quickstart's Constructed path with your
+    own lists needed an empty-snapshot workaround before this)."""
     universe = forge_db.load_names()
     overrides = _load_overrides()
-    banlist = latest_banlist()
-    if banlist is None:
-        raise SystemExit(
-            "no banlist snapshot — run `python -m anvil.pool --format pauper banlist` first"
-        )
-    banned = {forge_db.normalize(c["name"]) for c in banlist["cards"]}
+    if banlist == "none":
+        banlist_doc = {"fetched": "none", "cards": []}
+    else:
+        banlist_doc = latest_banlist()
+        if banlist_doc is None:
+            raise SystemExit(
+                "no banlist snapshot — run `python -m anvil.pool --format pauper banlist` first, "
+                "or build with --banlist none"
+            )
+    banned = {forge_db.normalize(c["name"]) for c in banlist_doc["cards"]}
 
     decks_out, excluded, unresolved_freq = [], [], {}
     pool: dict[str, dict] = {}  # forge name -> {sources, first_seen}
@@ -120,8 +127,8 @@ def build(main_size: int = decklist.MAIN_SIZE) -> dict:
     manifest = {
         "format": "pauper",
         "banlist": {
-            "fetched": banlist["fetched"],
-            "sha256": hashlib.sha256(json.dumps(banlist, sort_keys=True).encode()).hexdigest(),
+            "fetched": banlist_doc["fetched"],
+            "sha256": hashlib.sha256(json.dumps(banlist_doc, sort_keys=True).encode()).hexdigest(),
         },
         "fork_commit": forge_db.fork_commit(),
         "decks": decks_out,

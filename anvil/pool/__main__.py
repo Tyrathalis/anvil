@@ -38,6 +38,14 @@ def main() -> None:
         help="main-deck size the Constructed (pauper) slot accepts (default 60; "
         "40 for Limited decks). Ignored by the dc pipeline.",
     )
+    b.add_argument(
+        "--banlist",
+        choices=["latest", "none"],
+        default="latest",
+        help="the Constructed (pauper) slot's banlist: latest = the newest banlist-*.json snapshot "
+        "(the default; the slot drops decks that hit it), none = no exclusion (your own lists, "
+        "no snapshot needed). Ignored by the dc pipeline.",
+    )
     sub.add_parser("install", help="copy built .dck files into the Forge profile")
     sub.add_parser("status", help="raw/built state summary")
     a = p.parse_args()
@@ -62,7 +70,11 @@ def main() -> None:
         import importlib
 
         build = importlib.import_module(f"{pool_pkg}.build").build
-        kw = {"main_size": a.main_size} if (a.format == "pauper" and a.main_size) else {}
+        kw = {}
+        if a.format == "pauper":
+            if a.main_size:
+                kw["main_size"] = a.main_size
+            kw["banlist"] = a.banlist
         print(json.dumps(build(**kw), indent=2))
     elif a.verb == "install":
         dcks = sorted(DECKS_OUT_DIR.glob("*.dck"))
