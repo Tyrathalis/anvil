@@ -222,6 +222,10 @@ reads).
   (`transform.globals_layout`), and the change lands with the identity test green — the row alone
   is a schema change with a proof, the first data in that format is the boundary event
   ([ADR-0120](decisions/ADR-0120-constructed-model-row.md)).
+- **A chance event that voids knowledge the ledger tracks is a stream record, not an inference**: the
+  shuffle is a store-frame mark from the engine's own event, either seat, recording only; the ledger
+  cleanses its poison, tuck and seen state on the mark, after the mark's own record, and stores without
+  marks read as before ([ADR-0121](decisions/ADR-0121-shuffle-mark.md)).
 
 - **Replaying a model-generated store requires the generating run's
   trajectory-perturbing flag set (-reask/-paytelemetry/... from ITS
