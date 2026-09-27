@@ -85,6 +85,11 @@ reads).
   precision bar (positives' gain × q − ties' cost × (1 − q) > 0) on the held-out curve before it
   earns a read (`pay_fit --eval`; [ADR-0105 addenda 09-11](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
 
+- **A pre-registered tie-break that names "the cheaper arm" defines cheaper at registration** — as forward
+  calls per game (ADR-0101's budget unit), never left to the reader: the shakedown's best point estimate
+  (alloc) was not its cheapest arm (shallow), and the clause read both ways
+  ([ADR-0115](decisions/ADR-0115-m12-shakedown-scoping.md), the 09-27 verdict addendum).
+
 ## Training-loop design
 
 - **Clips at birth** for engineered aggregates AND loss terms

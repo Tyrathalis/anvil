@@ -1504,3 +1504,12 @@ record.*
   supervisor's headless check-in ran on the DONE state (34 s), summarised the run and the winner by
   the rule, skipped the push as redundant (terminal active) and relayed to the Remote Control
   sessions — the ADR-0107 consumer confirmed on a real close.
+- **2026-09-27 (mid-morning) — VERDICT: ALLOC (user).** The tie-break read: deep did not pay for its
+  generation cost; alloc learned faster than shallow despite costing more per game, and carries the
+  higher ceiling (a learned allocation of search compute is what a chess-clock deployment extends).
+  Landed as the ADR-0115 verdict addendum with the four-arm table, the rule's three clauses applied,
+  the promotion read (none — alloc is +0.57pp over `iter-019`; the record stays), the warm-start
+  (`shakedown-alloc/iter-019`) and one standing rule (a pre-registration defines "cheaper" as forward
+  calls per game). Now block, map, docs index. Next: the post-run worktree, then the settings pass on
+  alloc in the ADR-0119 order (the anchor arm first; the allocation head over one-roll search as the
+  first search cell).

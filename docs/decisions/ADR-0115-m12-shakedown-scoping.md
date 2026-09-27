@@ -1,7 +1,7 @@
 # ADR-0115: M12 Build 4½ — the shakedown scoped: four arms at equal box time through `selfplay.py`
 
 - **Date:** 2026-09-21
-- **Status:** accepted (user, 09-21: the shakedown launches first, the documentation pass runs beside it); the census jar `cbe386d2c6` proven 11:53 (499/500), the shallow-wide rate measured 12:03 (587 g/h peak); the contention smoke clean (below)
+- **Status:** accepted; **verdict 09-27: alloc** (the addendum below) (user, 09-21: the shakedown launches first, the documentation pass runs beside it); the census jar `cbe386d2c6` proven 11:53 (499/500), the shallow-wide rate measured 12:03 (587 g/h peak); the contention smoke clean (below)
 - **Design-doc anchor:** §6 (training pipeline), §9 (engine & infrastructure); m12-plan Build order 4½ / 4¾
 
 ## Context
@@ -109,3 +109,46 @@ era's ladder (the shape comparison in checkpoint form) and their stores as basel
 +2.5pp over the era reference at 2,000 games is the RL checkpoint of record the day it reads. The one
 case for a day-zero restart — a settings pass that changes the learner materially — still warm-starts
 from the winner's weights.
+
+## Addendum 2026-09-27 — THE VERDICT: alloc (rule clause (a) + the user's tie-break call)
+
+**The run closed 08:48 on 09-27 (92.2 h).** Network alone, 2,000 games each, every read ± 1.12pp
+(the SE of any difference ≈ 1.6pp), from day-zero `m12-build4-e1a-tgt` 0.5185 ± 0.0112:
+
+| arm | read | gain | box h | gain per box-hour | iterations |
+|---|---|---|---|---|---|
+| recipe | 0.5240 ± 0.0112 | +0.55pp | 30.6 | 0.018 pp/h | 16 |
+| **alloc** | **0.5405 ± 0.0111** | **+2.20pp** | 32.65 | **0.067 pp/h** | 20 |
+| shallow | 0.5320 ± 0.0112 | +1.35pp | 30.67 (≈ 28 productive; a 2.1 h GPU yield) | 0.044 pp/h | 26 |
+| deep | 0.5240 ± 0.0112 | +0.55pp | 34.38 | 0.016 pp/h | 6 |
+
+**The rule applied.** Clause (a), the best network-alone gain per box-hour: alloc, on both the gain and
+the per-hour ordering. Clause (b), ties within one SE go to the cheaper arm: alloc − shallow = 0.85pp
+is a tie; shallow is the cheaper arm by forward calls per game (one roll, no surface round; 26
+iterations in the box to alloc's 20), alloc is the cheaper arm than the recipe it extends (search gated
+to ≈ 51–66% of windows; 20 iterations to the recipe's 16). The rule did not define "cheaper" for an arm
+that is the best point estimate without being the cheapest, and clause (c) ("no detectable difference
+→ the cheap arm") applies to every pair here (the largest gap is 1.04 SE). **Decision (user):
+alloc.** Grounds: the best point estimate on the pre-registered metric; it dominates the recipe on
+every column (gain, cost, policy movement — 18% of day-zero cast decisions changed vs 28%); the
+capability default (keep the surface round and the allocation head); the higher ceiling — a learned
+allocation of search compute is the axis a chess-clock deployment would extend, a fixed one-roll search
+is not; and the shallow finding is not lost, since the allocation head over the one-roll search is the
+settings pass's first cell. **Deep is out on its price:** ×2.83 wall per game verified (6 iterations),
+no gain in six updates, the two-turn leaf a hint only (the priority-slot calibration, ADR-0106 C1).
+
+**What the shape read adds (exploratory, run-analysis-protocol rule 1):** alloc bought the same volume
+of acted labels as the recipe (acted fraction 0.59% vs 0.65%, equal distillation share) at two thirds
+of the search cost — the head skips the searched-but-unacted windows; shallow bought the most policy
+movement per box-hour for the second-most gain; the value head drifted to the same floor (≈ 0.25–0.29)
+in every arm past ~8 updates and held in deep's six ([ADR-0118](ADR-0118-value-head-drift-under-the-loop.md);
+the anchor arm is unchanged by this verdict). The kill shape (with-lookahead climbing while network-alone
+is flat) did not appear in any arm.
+
+**Promotion:** none. The standing gate (+2.5pp over the era reference `iter-019` 0.5348 ± 0.0110 at
+2,000 games) is not cleared by any arm — alloc reads +0.57pp over the reference — so `d6-run11/iter-019`
+stays the RL checkpoint of record; the settings pass and the big run warm-start from
+`data/training/shakedown-alloc/iter-019/train/last.pt` per the 09-22 addendum.
+
+**Rule birthed:** a pre-registered verdict that names "the cheaper arm" defines cheaper as **forward
+calls per game** (the budget unit of ADR-0101) at the time of registration ([standing-rules.md](../standing-rules.md)).
