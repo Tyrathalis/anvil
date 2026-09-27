@@ -1466,3 +1466,41 @@ record.*
   alloc (49%); shallow moved the policy more (its kl_mu ran higher throughout) for less strength
   (+1.35 vs +2.2pp) — cheaper iterations buy more movement per box-hour, not more gain. Nothing here
   touches the pre-registered verdict.
+- **2026-09-27 (morning) — THE SHAKEDOWN CLOSED. Deep at 0.5240 ± 0.0112 (+0.55pp, noise); the chain
+  done 08:48 after 92.2 h; the verdict rule applied below, one call left to the user.** Deep: 6
+  iterations in 34.38 h wall (the boundary check plus the 4–5 h deep-flag lookahead read at iteration 4
+  carried it 4.4 h over), 2,880 games, the read 1,980 decisive / 3 crashes; iteration-4 paired read
+  0.5025 / 0.5575 (the widest lookahead gap of the run, the deep flags on that side); Spearman by
+  iteration 0.332 / 0.329 / 0.348 / 0.353 / 0.326 / 0.314 — turning down at updates 5–6, consistent
+  with the per-update onset; behavioral delta 11.8% of cast decisions changed (60% cast→pass), the
+  smallest movement of the four. **The four arms, network alone, each read ± 1.12pp (SE of any
+  difference ≈ 1.6pp):**
+
+  | arm | gain over day-zero | box h | gain per box-hour | iterations | final Spearman | cast decisions changed |
+  |---|---|---|---|---|---|---|
+  | recipe | +0.55pp | 30.6 | 0.018 pp/h | 16 | 0.256 | 28.0% (51% cast→pass) |
+  | alloc | **+2.20pp** | 32.65 | **0.067 pp/h** | 20 | 0.250 | 18.3% (49%) |
+  | shallow | +1.35pp | 30.67 (≈ 28 productive) | 0.044 (0.048) pp/h | 26 | 0.288 | 27.0% (44%) |
+  | deep | +0.55pp | 34.38 | 0.016 pp/h | 6 | 0.314 | 11.8% (60%) |
+
+  **The pre-registered rule (ADR-0115 §4)** in three clauses: (a) the best network-alone gain per
+  box-hour → alloc, by point estimate, on both the gain and the per-hour ordering; (b) ties within one
+  SE go to the cheaper arm → alloc − shallow = 0.85pp on an SE of 1.6 is a tie, and by per-game compute
+  shallow is the cheaper arm (26 iterations in the box against 20; one roll, no surface round); alloc −
+  recipe = 1.65pp ≈ 1.04 SE is not a tie; (c) "no detectable difference at this size is itself the
+  decision — the cheap arm" → nothing here is detectable at conventional levels (the largest gap is
+  1.04 SE). So clause (a) says alloc and clauses (b)/(c) say shallow, on one reading of "cheaper"
+  (per-game compute); on the other reading ("cheaper" = less machinery than the recipe; alloc *is* the
+  recipe made cheaper by gating search to ≈ 66% of windows, and finished more iterations than the
+  recipe in its box) alloc holds. The rule did not anticipate an arm that is both the best point
+  estimate and not the cheapest. **The call is the user's; it lands as the ADR-0115 verdict addendum.**
+  What the record adds to the call: the shape read — alloc got the most gain for the least policy
+  movement (18% of cast decisions changed vs shallow's 27%); shallow bought the most movement per
+  box-hour and the second-most gain; deep, the priced arm, bought the least movement and no gain in
+  six updates (the read that mattered for its price: ×2.83 wall per game, verified — it is out); the
+  recipe is dominated by alloc on every column. The capability default ([capabilities over heuristic
+  fallback]) favours keeping the surface round and the allocation head; a shallow-rolls × alloc-head
+  cell is a natural settings-pass axis whichever arm is named. **The check-in fired end-to-end:** the
+  supervisor's headless check-in ran on the DONE state (34 s), summarised the run and the winner by
+  the rule, skipped the push as redundant (terminal active) and relayed to the Remote Control
+  sessions — the ADR-0107 consumer confirmed on a real close.
