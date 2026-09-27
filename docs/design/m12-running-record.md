@@ -1552,3 +1552,25 @@ record.*
   settings pass on alloc, the anchor arm first (`--value-anchor data/runs/m12-build1` on
   `shakedown-alloc/iter-019`; bar: Spearman within one SE of 0.374 across the pass while network-alone
   is not worse than the un-anchored winner).
+- **2026-09-27 (late afternoon) — THE SETTINGS PASS ON ALLOC LAUNCHED 14:57: the anchor cell first,
+  then the allocation head over one-roll search** (`scripts/settings_pass_chain.sh` under
+  `anvil.runs launch --name settings-pass`; dir `data/runs/settings-pass/`; loops `settings-anchor`,
+  `settings-shallowalloc`). **Three calls (user, as recommended).** (1) Both cells start from the
+  shakedown's day-zero `m12-build4-e1a-tgt`, not the alloc warm start the verdict addendum named for the
+  pass: ADR-0118's pre-registered bar — the Spearman within one SE of the day-zero 0.374 across the pass
+  while network-alone is not worse than the un-anchored winner — reads as registered only from the same
+  start and box time as the shakedown's alloc arm (0.5405 ± 0.0111, 30 h); from `iter-019` (Spearman 0.250)
+  it becomes a recovery bar, and the strength clause would compare thirty extra hours of training against
+  none. The recovery of a drifted trunk is its own read (a short Spearman-only continuation from
+  `shakedown-alloc/iter-019`) if the anchor clears; it decides the big run's warm start. (2) The jar is
+  the pin of record's, the certifier merge `05fea7938d` (forkcheck 499/500 = behavior-identical to the
+  census jar, so the shakedown's reads stay the references) — the big run's jar in a full loop before
+  the big run. (3) The two cells chained: `anchor` = the alloc arm + `--value-anchor data/runs/m12-build1`
+  at weight 0.5 (state + leaf families, 96 rows each) + `--grad-norm-every 50`; `shallowalloc` = SHALLOW +
+  the allocation head, no anchor, read against alloc 0.5405 and shallow 0.5320 on the same footing. Both
+  30 h by `--wall-hours`, the shakedown's loop settings and seed base, drills OFF, the raw 2,000-game
+  read per cell (corrected reads become of record only after step 2's re-measure). ≈ 3 days of box.
+  First look: the day-zero row 0.374 ± 0.0237; iteration 0 generating with `-searchalloc 0.36923` on the
+  certmerge jar. Coverage: state `~/.local/state/anvil/runs/settings-pass.json`, stall 180 min on the
+  run dir + `settings-*` / `sp*`, sinks queue+desk, check-in claude (self-test OK). Session work while
+  the cells fly: step 2's shuffle decision record on the fork.
