@@ -30,6 +30,11 @@ CKPT=${CKPT:-data/training/m12-build4-e1a-tgt/last.pt}  # the shakedown's day-ze
 BANK=${BANK:-data/runs/m12-build1}; ANCHOR_WEIGHT=${ANCHOR_WEIGHT:-0.5}
 WALL_HOURS=${WALL_HOURS:-30}; ARMS=${ARMS:-anchor shallowalloc}; WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}
 . "$REPO/scripts/recipe.sh"  # RECIPE / SHALLOW — the one definition
+# 09-28: every worker JVM prints a crash's stack trace (the fork's anvil.crash.trace switch, read by the
+# harness from ANVIL_EXTRA_JVM_OPTS) — the anchor cell's StackOverflowError class (2 in 4,800 games; a
+# class the shakedown never produced) cannot be attributed by seed replay (search lines are
+# serving-environment dependent), so the next occurrence carries its trace.
+export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}"
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 [[ -f "$OUT/read.md" ]] || printf '# The settings pass on alloc (ADR-0119 step 1 + the ADR-0115 verdict) — per-cell reads\n\nReferences (the shakedown, census jar, same day-zero): dayzero 0.5185 ± 0.0112 · alloc 0.5405 ± 0.0111 · shallow 0.5320 ± 0.0112; day-zero state-ranking Spearman 0.374 ± 0.024.\n\n| cell | wall h | iterations | games | final ckpt | 2,000-game read (network alone) | last lookahead arm |\n|---|---|---|---|---|---|---|\n' > "$OUT/read.md"
 log "settings-pass chain start jar=$JAR ckpt=$CKPT wall=${WALL_HOURS}h/cell arms='$ARMS' bank=$BANK anchor_weight=$ANCHOR_WEIGHT"
