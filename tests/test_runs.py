@@ -294,7 +294,7 @@ def test_pause_scope_skips_a_loops_live_harness_dirs(state):
     (loop / "loop_state.json").write_text("{}")
     gen = arms / "sd-alloc-i004-main-x"
     (gen / "workers").mkdir(parents=True)
-    (gen / "manifest.json").write_text("{}")
+    (gen / "run.json").write_text("{}")  # the harness's pinning manifest (09-28: not manifest.json)
     other = arms / "sd-notes"
     other.mkdir()
     r = {"dir": str(d), "watch": [str(arms / "sd-*")]}
@@ -315,7 +315,7 @@ def test_pause_default_scope_writes_stop_to_loop_roots_only(state):
     (loop / "loop_state.json").write_text("{}")
     gen = arms / "l-a-i000-main"
     (gen / "workers").mkdir(parents=True)
-    (gen / "manifest.json").write_text("{}")
+    (gen / "run.json").write_text("{}")  # the harness's pinning manifest (09-28: not manifest.json)
     cmd = ["sh", "-c", f"for i in $(seq 1 60); do [ -f {d}/STOP ] && exit 0; sleep 0.5; done; exit 7"]
     rc = runs.main(["launch", "--name", "pz2", "--dir", str(d), "--tick-sec", "0.2",
                     "--watch", str(arms / "l-*"), "--", *cmd])

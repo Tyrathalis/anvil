@@ -1622,3 +1622,24 @@ record.*
   was not launched with it. Routed: the flag in the chain's environment at the next launch (or a pause /
   relaunch at an iteration boundary now — the user's call); the serving-environment caveat on replay
   into the field guide at the next docs pass.
+- **2026-09-28 (mid-morning) — the crash logs point at Spider-Man 2099 in combat; the pause / relaunch
+  with the crash-trace flag landed at the iteration-11 boundary — and the pause truncated a generation
+  half again (the 09-27 fix keyed on the wrong file name; fixed).** **The logs:** both crashed games end
+  on a bridged `declareBlockers` row with the crash in the combat that resolves it, and both have
+  Spider-Man 2099 (double strike, vigilance) on the battlefield in that combat — game 117: the Spider
+  deck (dc-864205) attacking with four (Spider-Man 2099, Malcolm, Bonecrusher Giant, a flashed-in Wan Shi
+  Tong) into the Fantasticar deck's two blockers after seven Zuran Orb land sacrifices; game 2421: the
+  other Spider list (dc-864795; Spider-Man 2099 recast on turn 11, Vendilion Clique, Tishana's Tidebinder)
+  blocking Lumra's single attacker with one creature. No obvious second shared card (the two Spider lists
+  share 72 of ≈ 94; the opposing decks share only Zuran Orb + utility lands). The trace names the recursion.
+  **The pause (user):** `pause --wait` at 08:44, the chain exited 09:27 at the iteration-11 boundary
+  (iter-010 produced, 18.5 h used), main fast-forwarded to the flagged chain (`export
+  ANVIL_EXTRA_JVM_OPTS=-Danvil.crash.trace=true`), `relaunch` 09:27:54 — iteration 11 generating, every
+  worker JVM carrying `-Danvil.crash.trace=true` (verified in `cmd.txt`). **The defect:** the pause wrote
+  STOP into **44 roots**, the live `i010h0` harness dir among them; the harness honoured its own STOP and
+  drained at 25/120, the loop went on to h1 (120/120) and trained iteration 10 on **385 games** (1,236
+  trajectories vs ≈ 1,380) — the 09-23 shape (ADR-0107 addendum) inside an intact budget. Cause:
+  `anvil.runs._is_harness_dir` tested for `manifest.json`; the harness's pinning manifest is `run.json`,
+  and the 09-27 tests faked `manifest.json`, so the skip never fired on a real dir. Fixed (`run.json` or
+  `manifest.json` + `workers/`; the tests write `run.json`; 18 pass). Iteration 10's row stands as
+  recorded (one 80% iteration of ≈ 20; its Spearman 0.4141 ± 0.024); no re-run.

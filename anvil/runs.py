@@ -633,7 +633,11 @@ def _is_loop_root(d: Path) -> bool:
 
 
 def _is_harness_dir(d: Path) -> bool:
-    return (d / "manifest.json").exists() and (d / "workers").is_dir()
+    """A harness run dir: its pinning manifest is `run.json` (orchestrator.py;
+    the 09-27 check keyed on `manifest.json`, a name the harness never writes,
+    so the 09-28 pause wrote STOP into the anchor cell's live generation half —
+    44 roots — and it drained at 25/120; the test had faked the wrong file)."""
+    return ((d / "run.json").exists() or (d / "manifest.json").exists()) and (d / "workers").is_dir()
 
 
 def _stop_roots(r: dict, scope: str = "loop") -> list[Path]:
