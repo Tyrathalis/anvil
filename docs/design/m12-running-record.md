@@ -1589,3 +1589,36 @@ record.*
   and timeouts); the Java trace is not in the worker log. Exploratory: one in 480 is inside the crash
   background; if the class recurs, attribute on the census jar with the same seed before anything else
   (the certmerge jar is the one new variable). The babysit tick watches the class by name.
+- **2026-09-28 (morning) — the anchor cell at iteration 10: the Spearman holds well above day-zero,
+  strength leans below the alloc arm within noise, the StackOverflowError attribution is inconclusive
+  by replay and the jars are search-path-identical under fixed serving.** Rows 0–9: 0.421 / 0.440 /
+  0.451 / 0.456 / 0.451 / 0.445 / 0.443 / 0.429 / 0.432 / 0.428 (± 0.023) — every row ≥ 2 SE above
+  0.374 where every shakedown arm's iteration 0 stepped down; a slide of ≈ 0.03 since the iteration-3
+  peak is the thing to watch across the closing rows. Guards clean, no yield, ≈ 1.5 h per iteration.
+  **Strength so far (two exploratory readings, both raw):** the paired heuristic-seat halves (240 games
+  per iteration on the alloc arm's seeds) pooled over iterations 0–9 read 0.5456 (anchor) vs 0.5590
+  (alloc), −1.3 ± 1.4pp; the lookahead arms read iteration 4 0.520 / 0.525 (alloc 0.515 / 0.5225) and
+  iteration 9 0.5025 / 0.5075 (alloc 0.5475 / 0.555, −4.5pp on ± 2.5pp cells). Both lean the same way
+  inside noise; the closing 2,000-game read decides the strength clause. **The crash class:** a second
+  `StackOverflowError` at iteration 5 (game 2421, seed 6295728496635203890, decks dc-863788 / dc-864795),
+  none since; 2 in 4,800 games vs 0 in the shakedown's ≈ 32,000 loop games on the census jar —
+  suggestive, not clean (the anchored model plays other lines). **The replay (user-approved, ≈ 40 min
+  of CPU servers beside the loop, `data/runs/sp-crash-attrib/`):** both seeds under their crash-time
+  checkpoints and search flags on both jars; no crash on either — because the crash lines cannot be
+  replayed off the fleet: the same seed + checkpoint + tau diverges from the original at the FIRST
+  search window, with leaf values differing in the third decimal (0.17676 vs 0.17773; the shakedown's
+  alloc arm played the same game 117 on the census jar and diverged from the anchor cell's line the
+  same way). Batched serving perturbs the forward pass at that level and the search's 0.025-temperature
+  acting flips on it — **seeded replay of a search-directed game is exact only under the same serving
+  environment** (a limit on the deterministic-replay invariant for search games; the game path under the
+  random bridge is unaffected, which is what forkcheck proves). Under fixed serving the jars agree:
+  game 117 identical across jars for 84 windows (concurrent), game 2421 identical for all 104 windows /
+  830 windows to the turn cap (sequential, one client on one CPU server); the one concurrent divergence
+  (window 20, a copy's `no_shape_fit` void vs a fit) was the census JVM flipping under shared batching,
+  and the sequential certmerge line matches the concurrent certmerge line for all 64 windows the latter
+  reached. The certifier-merge commit's search-directive change is gated by `replayNatural` (off in the
+  loop). **Verdict: no jar-path difference is in evidence; the class stays open for a trace.** The fork
+  has `-Danvil.crash.trace=true` and the harness reads `ANVIL_EXTRA_JVM_OPTS` for exactly this; the loop
+  was not launched with it. Routed: the flag in the chain's environment at the next launch (or a pause /
+  relaunch at an iteration boundary now — the user's call); the serving-environment caveat on replay
+  into the field guide at the next docs pass.
