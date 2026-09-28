@@ -1552,3 +1552,18 @@ record.*
   settings pass on alloc, the anchor arm first (`--value-anchor data/runs/m12-build1` on
   `shakedown-alloc/iter-019`; bar: Spearman within one SE of 0.374 across the pass while network-alone
   is not worse than the un-anchored winner).
+
+- **2026-09-27 (session 3) — THE UPSTREAM SUBMISSION PLAN for the big run's waiting window** (the
+  user's ask; the first section of [upstream-worklist.md](upstream-worklist.md)). Every discussed
+  upstream item swept and re-checked against upstream master `2ccbbb0132`: the monarch fix is
+  upstream (Hanmac fixed the ternary 09-25) — struck; #11285 was stale-closed 09-14 with no verdict
+  and comes back as two PRs; #11457 stays parked; upstream's 09-24 cleanup reshaped
+  `AiBlockController` again, so talor's cache is rebuilt on the tip. The order: Tier 0 = five
+  stock-bug fixes under 30 lines (Cabal Coffers refund, the STATION guard, the quest all-colors
+  pool, the `ChooseSourceEffect` re-ask, the copier's effect-source links), one engine + one GUI PR
+  open at a time, each from a clean upstream worktree; Tier 1 = the `AiCache` series on TRT's
+  condition (the cache as the first user of the scope `AiCache`'s TODO names, re-measured; the
+  mana-source memo gated on a stock-heuristic read; the cross-game clear); Tier 2 = the
+  determinism hooks; Tier 3 = the playable GUI fixes as fillers; Tier 4 = the blessed Copier →
+  Snapshot consolidation in four PRs; Tier 5 = Discord-first design items. Nothing on the research
+  path changes; fixes return to the fork at the next boundary merge.

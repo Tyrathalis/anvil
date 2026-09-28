@@ -1,6 +1,6 @@
 # Upstream worklist
 
-**Doc status:** living · queued upstream contributions + diagnosed engine classes
+**Doc status:** living · the submission plan (2026-09-27, first section) + queued upstream contributions + diagnosed engine classes
 
 Seed-pinned, deterministically reproducible engine bugs harvested from Anvil
 runs, queued for upstream PRs to Card-Forge/forge (per ADR-0002: static-bug
@@ -13,6 +13,189 @@ Repro: `uv run python -m anvil.bridge.harness replay d3pilot-20260704-175219 <ga
 self-consistent but can drift from in-run instances via AI wall-clock
 timeouts; crash repros here are engine-path crashes and expected to
 reproduce — verify before filing).
+
+## The submission plan (2026-09-27) — the big run's waiting window
+
+**Verdict: five tiny stock-bug fixes go first, one engine PR and one GUI PR open at a time; the
+AiCache series (talor's cache, then the mana-source memo) follows on TRT's condition; the
+determinism hooks come back as two PRs; the maintainer-blessed Copier → Snapshot consolidation is
+staged as four small PRs after those.** Every item below was re-checked against upstream master
+`2ccbbb0132` (fetched 09-27): what upstream already carries is struck from the queue, and each
+survivor's size is its diff against that tip.
+
+### The rules we submit under
+
+What the record says the maintainers accept, from #11203's review (tool4ever, 07-11), TRT's
+09-16 condition on talor's cache, the #11457 thread and the stale bot:
+
+1. **One change per PR, with its one test.** A fix and the regression test that fails first, in
+   the existing test class where one exists. No bundles: the monarch PR's "bundle the ternary"
+   idea is the shape to avoid.
+2. **Reuse what exists; never add an abstraction a maintainer did not name.** TRT on the cache:
+   "existing systems need to be reused for less technical debt — in this case AiCache."
+   tool4ever on #11203: consolidate on the snapshot path, delete the duplicate. Those two named
+   directions are the only abstractions this plan builds.
+3. **Small test surface.** One focused test per fix; the 221-line geometry test on the hit-test
+   item is trimmed to the two cases that carry the bug before it is offered.
+4. **Every PR is authored on a clean upstream-master worktree** (`../forge-upstream`, the
+   #11203 / #11285 / hardening pattern), never on the research fork or `playable`. The research
+   fork is frozen for the big run; fixes return to it at the next boundary merge, when the
+   fork-local copies are dropped (as #11203's were).
+5. **The stale bot closes at ≈ 35 days of silence** (#11285 died that way on 09-14 with a
+   maintainer question answered and no verdict). A PR with an open question gets a ping at day
+   25; a PR nobody has touched gets one nudge, then is left to close.
+6. **Two open at a time, in disjoint modules** — one engine (`forge-game` / `forge-ai`), one GUI
+   (`forge-gui*`). The user's public line (Discord 09-16) was one patch at a time; two in
+   disjoint areas keeps that spirit while a stalled review does not idle the stream.
+7. **Evidence in the description, not in the diff:** the repro (seed, card, turn), the CR rule,
+   the before / after; a perf PR carries a game-count read on stock heuristic play (what
+   upstream's users see), not on our bridged scan.
+8. **Design-shaped items go to Discord `#contribution-questions` first** and become a PR only
+   after a maintainer nods (the survey's house rule; issues are never the venue).
+
+### Tier 0 — the warm-up: stock bugs under 30 lines, in this order
+
+| # | Fix | Where it lives today | Diff | Test | State on upstream tip |
+|---|---|---|---|---|---|
+| 0.1 | **Cabal Coffers cancel-refund** (`ManaRefundService.refundManaPaid` ignores `am.undo()`'s result and recurses anyway; CR 728.1 says reversal is all-or-nothing down the chain) | unbuilt ([playable worklist item 10](playable-fork-worklist.md)) | ≈ 5 lines | in the existing `ManaRefundServiceTest` (Swamps + Coffers, cancel after chaining) | bug present, file untouched since the pin |
+| 0.2 | **`ComputerUtil.chooseTapType` STATION guard** (the power filter shrinks the list under `amount` after the size guard passed; IndexOutOfBounds) | fork `3fa6d200f4` | 7 lines | `StationTapCostTest` (fail-first, exists) | bug present at `ComputerUtil:701` |
+| 0.3 | **Quest all-colors starting pool is empty** (`BoosterUtils.populateBalancedFilters` multiplies by the non-selected colors) | playable `692d166633` | 9 lines | `QuestStartingPoolTest` (54 lines, exists) | bug present, file untouched |
+| 0.4 | **`ChooseSourceEffect` unbounded re-ask** on a controller that answers null (the AI's `NeedsPrevention` chooser outside combat; 150K asks, 65 min on the Build 2 arm) | fork `b482528552` | 20 lines | to write: a stub controller returning null | `do … while` still at `ChooseSourceEffect:131` |
+| 0.5 | **`GameCopier` effect-source links for every copied card** (command-zone Effect cards — Prepared spells, impulse grants — resolved `EffectSource*` empty in copies; the MayPlayPlayer `.get(0)` crash class) | fork `ffbecf7869` | 14 lines | `EffectSourceCopyTest` (exists) | bug present; a #11203 follow-up in the same file |
+
+Order rationale: 0.1 is human-visible in the GUI and rules-backed, the strongest opener; 0.2 and
+0.3 are one-screen diffs with tests already written; 0.4 changes what the engine does when a
+controller cannot answer, so it goes after two clean merges; 0.5 reopens the #11203 thread with
+tool4ever and leads into Tier 4. Interleave: 0.1 (engine) with 0.3 (GUI), then 0.2 with a
+Tier 3 GUI item, and so on under rule 6.
+
+### Tier 1 — the AiCache series (talor's request 09-16, TRT's condition the same day)
+
+- **1.1 The AI block-legality cache on `AiCache`** — talor author, us co-author. The fork's
+  version (`8044e36366` + `6f5e1643b2`, 259 lines against the tip) keeps two identity maps on
+  the controller: pure-pair legality that survives combat mutations, and context legality
+  (lure, max blockers, capacity) cleared on every mutation. `AiCache` today is one global
+  string-keyed multimap, linearly scanned, cleared once per `chooseSpellAbilityToPlay`, with its
+  own TODO "add different scopes + staleness indicator". The PR is a rewrite of the storage,
+  not of what is cached: `AiCache` gains the one scope the TODO names (a scope handle cleared by
+  its owner — here `assignBlockers` per combat mutation for the context entries, per invocation
+  for the pair entries), and the block cache is its first user. **Rebuild on the tip:** upstream's
+  09-24 "Code cleanup" (`fb3cc67c56`) reshaped the same method region again (66 lines), on top
+  of #11790. **Re-measure before proposing:** talor's 500-game read (−15.6% CPU, faster in
+  478/500, determinism 500/500) was on his storage; `AiCache`'s linear scan may eat part of it —
+  if the gain survives, that is the description; if it does not, the number is the evidence
+  for a keyed lookup inside `AiCache`, which is the next small PR, not a reason to keep our own
+  maps. The behavior-identity proof runs on a fork worktree jar (`harness --jar`, one worker),
+  never on the pin.
+- **1.2 The mana-source memo as the second `AiCache` user** (fork `1dd36f7342`, 56 lines,
+  Anvil-shaped: a `ThreadLocal` armed by our scan under `-Danvil.scan.sourcememo`). Upstream's
+  shape: `groupSourcesByManaColor` memoized for the candidate scan of one
+  `chooseSpellAbilityToPlay` (every `canPayCost` per candidate rebuilds it), invalidated by the
+  scope from 1.1 when a payment taps a source. **Gate:** a JFR read on stock heuristic play
+  first — our 18% was the bridged scan's number; if the heuristic's own scan shows under ≈ 5%,
+  drop the item rather than argue it.
+- **1.3 `AiCache` staleness across games** (the M10 sweep OOM, fork `7716bbe44d`; standing rule):
+  a seat that never enters `chooseSpellAbilityToPlay` never clears the map, so any external
+  controller (manabrew, talor's harness, LordOfThePigs's runner) leaks one game graph per game.
+  A clear on game end, or the scope from 1.1 keyed by game. Small; goes after 1.1 lands so it
+  uses the same mechanism.
+
+### Tier 2 — the determinism hooks, back as two PRs
+
+#11285 (174 lines, two tests) was auto-closed 09-14 by the stale bot after Hanmac's one question
+(07-19: is `InheritableThreadLocal` needed?) was answered (07-20) and nothing followed. Upstream
+still has neither half: `MyRandom` is a static `SecureRandom`, `Match.preparePlayerZone` still
+builds the library in `CardPool` iteration order before the shuffle.
+
+- **2.1 The pre-shuffle sort** (`Match.preparePlayerZone`, 9 lines + `PreShuffleDeterminismTest`).
+  Behavior-invariant (a uniform shuffle of sorted input); the argument is upstream's own
+  `sim -s <seed>` (#11365): a seeded run should not depend on a hash map's iteration order
+  across JVM and library versions. manabrew is the co-consumer to name.
+- **2.2 Per-thread `MyRandom`** (31 lines + `MyRandomThreadLocalTest`). Hanmac's question is
+  answered in the description up front (pooled threads vs dedicated spawns; why inheritable),
+  and floated on Discord to him before the PR opens, so the review starts past it.
+
+Sequenced after Tier 0 has two merges — this is the pair that needs credibility, and it is the
+pair a maintainer already engaged with.
+
+### Tier 3 — playable-branch GUI fixes, one per PR, as the GUI slot's fillers
+
+In order of size; all stock bugs, all on files upstream has not touched since the pin unless
+noted. None touches the engine.
+
+| # | Fix | playable commit | Diff | Note |
+|---|---|---|---|---|
+| 3.1 | ItemManager context menu offset when the screen is embedded (mobile-dev shell; identity on phones) | `10c22003df` | 12 lines, no test | needs a before / after screenshot |
+| 3.2 | `FTextField` CHANGE fires per keystroke; the online chat sends a network message per event (per-keystroke chat is broken on master today) | `881207ed27` (half) | 16 lines + 8 opt-in call sites for the local search filters | split from 3.3 |
+| 3.3 | Net lobby team-selection echo (the wire listener drops the panel index; the server applies to the sender's slot) | `881207ed27` (half) | ≈ 25 lines | rebase over #11942 (disjoint hunks: icon refresh vs the team combo) |
+| 3.4 | `RestartUtil` never relaunches (one command string through `Runtime.exec(String)`: quoted binary, paths with spaces) | `57e345f922` | 133 lines + a 57-line test | the largest here; offer the minimal `ProcessBuilder` form and keep the test to the two failing shapes |
+| 3.5 | Nested `Graphics` transforms compose (`startRotateTransform` `idt()`s the live matrix; the sideways stack's items do not draw) | `c8ebbbd813` | 16 + 12 lines | **re-port**: upstream touched `Graphics.java` five times since the pin (shader work); pixel-identical at 90° is the safety argument; float it to the mobile maintainer first |
+| 3.6 | Tapped-card hit-test by inverse rotation (`RotatedRect`; the 180-rotated field's hit-box sits h−w off the drawn card) | `7d64eebfe3` `50b19c529a` `c79b80868d` | 101 + 48 lines | after 3.5; the test trimmed to the 90° bit-identity case + the 180° bug case |
+
+Held back from this tier: `StorageNestedFolders` (dead code upstream; only with a deck-site sync
+PR), the whose-action tracking (`AwaitingInput`, 10 files — a feature, Tier 5), custom sleeves,
+the tap-angle preference (Tier 5).
+
+### Tier 4 — the blessed one: `GameCopier` → `GameSnapshot`, staged small
+
+tool4ever's merge note on #11203 framed the duplication as debt whose removal "should also help
+with your project"; that is the one large direction with a maintainer's name on it. Four PRs,
+each reviewable alone, in this order:
+
+- **4.1 The snapshot path's foretold restore** — `GameSnapshot:482–483` are still commented out
+  (`setForetold` / `setForetoldCostByEffect`); the effect-card wiring is already there (#11401
+  calls `copyEffectCardsToSnapshot`). A two-line fix with a test.
+- **4.2 The `advanceToPhase` delegation gap** — `makeCopy(advanceToPhase, aiPlayer)` ignores the
+  phase on the snapshot path (upstream's own TODO).
+- **4.3 The switch** — simulation copies on the snapshot path by default
+  (`EXPERIMENTAL_RESTORE_SNAPSHOT`), gated by forkcheck: the 500-game copy-vs-original digest +
+  the twin determinism gate on a fork worktree jar, the 58-seed deterministic-divergence set
+  (`run-20260812-fixedhash`) read on both paths. **Box time:** forkcheck is CPU-only and runs at
+  nice 19 beside the big run, but it perturbs throughput; schedule it in a maintenance window.
+  manabrew's restore-in-place consumer is the second voice on the thread.
+- **4.4 Delete the duplicated copy logic** in `GameCopier`.
+
+Starts when Tier 1.1 has landed (the same reviewer pool), coordinated on the PR thread as
+volunteered 07-11.
+
+### Tier 5 — Discord first, no PR until a maintainer nods
+
+- **The engine-side combat legality surface** (Jetz 09-15: legality lives in the GUI module,
+  relocation desirable but large). The small entry point: a `forge-game` validator for a block
+  declaration / a damage assignment for any controller. What we carry: the block requirement
+  fixed point and the `MinMaxBlocker` bounds in `forge-ai/.../anvil/CombatRealizer` (fork-side,
+  Anvil-shaped; the upstream version is written fresh in `CombatUtil`). After Tier 4; khaliostr's
+  `forge-engine` module is the same direction from the other end.
+- **The 09-14 perf trio** (the LKI copy recomputing a full view per event; the copier's
+  `CardFactory` rebuild; the per-event replacement scan in `cantHappenCheck`). Each needs a
+  stock-Forge profile first (#11916's shape: cheap checks before expensive ones).
+- Features with user pull: the tap-angle preference, Android incremental asset updates (never
+  say "delta" there), deck-site account sync, whose-action tracking.
+- Positions to hold, not PRs: evaluation-loop budgets (count-based, flag-gated, off by default);
+  the host as an authoritative referee (multiplayer-hardening's open design question).
+
+### Struck from the queue (verified on the tip, 09-27)
+
+- **The monarch / initiative effect-card copy fix** — upstream carries the zone guard
+  (`Player.mapEffectCard`: an effect card in no zone is left unset); **`getMonarchSet`'s
+  inverted ternary was fixed by Hanmac on 09-25** (`8cd226407b`). Nothing to submit.
+- #11916 (khaliostr's), the `FCollectionTest` fix (upstream's own), the hardening reports 1, 2
+  and 4 (merged); the two declined hardening findings (never resubmit).
+- **#11457 (chat rate limiting) stays parked** — open, mergeable, MostCromulent: "solving a
+  problem that doesn't actually exist in practice"; tool4ever: reconsider when lobbies are
+  broader. Do not chase; if the stale bot closes it, let it.
+- The six load-dependent pilot crashes (#11161 covers the class), the `StackOverflowError`
+  recursion class (no reproducing trace), the fireball SVar rename (does not reproduce).
+
+### Cadence
+
+The big run is four to six weeks. Small fixes have merged in about two days when a maintainer
+picked them up (the hardening reports, #11203 in two days after review) and stalled for weeks
+when none did. Tier 0 fits in the first three weeks under rule 6; Tier 1.1 starts as soon as
+talor is on board and runs beside Tier 0's tail; Tier 2 opens after two Tier 0 merges; Tier 3
+fills the GUI slot throughout; Tier 4 begins when 1.1 lands. Mechanics: `../forge-upstream`
+tracking `upstream/master`, one branch per PR pushed to `origin` (Tyrathalis/forge), PRs opened
+against Card-Forge/forge; the fork's `test-11161`-style verification branches are the model.
 
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 
@@ -57,7 +240,8 @@ Notes (replay triage, 2026-07-06):
 
 ## Open upstream PRs — monitor for maintainer feedback
 
-*(none currently open)*
+- **[#11457](https://github.com/Card-Forge/forge/pull/11457) chat rate limiting — OPEN, parked** (mergeable; MostCromulent 08-03: a problem that does not exist in practice; tool4ever 08-04: maybe when lobbies are broader). Not chased (user, 08-31).
+- **[#11285](https://github.com/Card-Forge/forge/pull/11285) determinism hooks — CLOSED 09-14 by the stale bot**, no maintainer verdict (Hanmac's 07-19 question answered 07-20, then silence). Upstream still has neither half. Returns as the plan's Tier 2 (two PRs).
 
 - **[Card-Forge/forge#11203](https://github.com/Card-Forge/forge/pull/11203)
   — GameCopier state-fidelity fixes (PR #1): MERGED 2026-07-12** by
@@ -75,6 +259,8 @@ Notes (replay triage, 2026-07-06):
   History: submission 2026-07-10; review + [reply](https://github.com/Card-Forge/forge/pull/11203#issuecomment-4946992438) 2026-07-11.
 
 ## Queued PR candidate — effect-card copy fix after monarchy/initiative transfer (found 2026-07-29, M4 D2 drill sweep)
+
+**STRUCK 2026-09-27 — upstream carries both halves:** `Player.mapEffectCard` leaves an effect card in no zone unset (the snapshot rework, #11401 era), and Hanmac fixed the `getMonarchSet` ternary on 09-25 (`8cd226407b`). Nothing to submit.
 
 - **The bug (fork-fixed `6d728677d1`, upstream still has it):**
   `Zone.remove()` never clears the removed card's `zone` field, so after a
@@ -605,6 +791,8 @@ Consequences:
   no M12 dependency.
 
 ## Queued PR — the AI block-legality cache (talor, [Tyrathalis/forge#1](https://github.com/Tyrathalis/forge/pull/1); merged into the fork 2026-08-11; asked to be upstreamed 2026-09-16)
+
+**Plan Tier 1.1 (09-27).** Upstream reshaped the same method region again on 09-24 (`fb3cc67c56`, 66 lines): the PR is rebuilt on the tip, not rebased from the fork; the fork's diff against the tip is 259 lines.
 
 - **What:** `AiBlockController` caches `CombatUtil.canBlock` pair legality and the
   assignment-context legality (lure, max blockers, capacity) within one `assignBlockers`
