@@ -1643,3 +1643,42 @@ record.*
   and the 09-27 tests faked `manifest.json`, so the skip never fired on a real dir. Fixed (`run.json` or
   `manifest.json` + `workers/`; the tests write `run.json`; 18 pass). Iteration 10's row stands as
   recorded (one 80% iteration of ≈ 20; its Spearman 0.4141 ± 0.024); no re-run.
+- **2026-09-29 (morning) — THE ANCHOR CELL CLOSED 09-28 21:58: 0.4895 ± 0.0112 network-alone — the
+  strength clause FAILS; the Spearman clause holds on its letter and fails its spirit. The
+  StackOverflowError trace landed: an upstream Forge AI recursion, not the jar.** The cell: 18 iterations
+  in 30.3 h (two fewer than the alloc arm — ≈ 12-min training steps against ≈ 4, plus the pause's drain),
+  the 2,000-game read on `iter-017` 1,977 decisive / 1 crash. **Against the pre-registered bar (ADR-0118
+  item 3):** (a) Spearman by iteration 0.421 / 0.440 / 0.451 / 0.456 / 0.451 / 0.445 / 0.443 / 0.429 /
+  0.432 / 0.428 / 0.414 / 0.422 / 0.401 / 0.408 / 0.395 / 0.393 / 0.377 / 0.380 — every row within one
+  SE of 0.374 (the floor is ≈ 0.350), so the letter holds; the shape is a rise to 0.456 by iteration 3
+  and a slide of ≈ 0.005 per iteration back to day-zero, with the anchor's own bank loss falling
+  0.54 → 0.18 the whole way (the head fits the fixed bank better while the holdout ranking eases —
+  memorization of the 96-rows-per-step bank is the reading); (b) network-alone 0.4895 vs the
+  un-anchored winner's 0.5405: **−5.1pp (≈ 3.2 SE) and −2.9pp below day-zero** — the anchor at weight
+  0.5 costs strength outright. **Mechanism (the gradient-norm row, the read of record):** across the cell
+  `gn_anchor` 0.7–2.2 vs `gn_v` 0.3–0.9 vs `gn_pg` 0.07–0.17 — the anchor's batch moves the trunk
+  ≈ 2× the value term and ≈ 10–20× the policy gradient; the battery's behavioral delta says where it went:
+  27.7% of the day-zero cast decisions changed, **69% of them cast → pass** (the ADR-0049 cast-suppression
+  axis), hold-then-cast 0.232 → 0.265, kl_mu 6.4× — the trunk pulled toward the Build 1 bank's
+  representation at the policy's expense. The three mid-run leans (−1.3, −4.5, −3.5pp) were the signal.
+  Corroboration: the alloc arm at value weight 0.5 with no anchor gained +2.2pp, so the value weight
+  alone is not the strength problem; the anchor term is. **Verdict: rung 1 of the ADR-0119 ladder is
+  due.** The ladder's literal first rung is a lower `--value-weight`; the gradient read names the anchor's
+  weight as the dominant term, so the proposed rung 1′ is **`--anchor-weight 0.1`** (one knob; value
+  weight unchanged; the same bar) — the user's call, since the ladder is pre-registered. **The trace
+  (the flagged relaunch paid off at the shallowalloc cell's iteration 0, game 117 again — the same seed
+  under the same day-zero ckpt crashes at iteration 0 in a second cell):** `java.lang.StackOverflowError`
+  in forge-ai — `ComputerUtilMana.payManaCost → chooseManaAbility → ComputerUtilCost.checkForManaSacrificeCost
+  → AiController.chooseSacrificeType → ComputerUtil.getCardPreference → shouldSacrificeThreatenedCard →
+  predictCreatureWillDieThisTurn → ComputerUtilCombat.combatantWouldBeDestroyed → canDestroyBlockerBeforeFirstStrike
+  → ComputerUtil.canRegenerate → ComputerUtilCost.canPayCost → ComputerUtilMana.canPayManaCost → payManaCost …`
+  (26 turns of the cycle in the captured frames): the heuristic seat, paying a cost whose mana source has a
+  sacrifice cost, asks which creature to sacrifice, which asks whether each is about to die in combat,
+  which asks whether the blocker can regenerate, which asks whether its regeneration cost is payable,
+  which re-enters mana payment. Upstream code, identical in both jars — **the jar question is closed**;
+  a first-strike/double-strike combat (Spider-Man 2099) with a sacrifice-for-mana source on the
+  Fantasticar side is the conjunction. Routed: a small upstream PR (a re-entrancy guard in
+  `ComputerUtil.canRegenerate` or `shouldSacrificeThreatenedCard`, with a test); until then a ≈ 0.04%
+  crash class inside the background. **The shallowalloc cell** (launched 21:58): iteration 10 at 11.2 h,
+  ≈ 1 h per iteration, Spearman 0.343 → 0.307 with the un-anchored dip to 0.24–0.28 at iterations 5–8
+  (the shakedown's shape); closes ≈ 09-30 04:00 + the read. The pause fix (`run.json`) is in main.

@@ -24,7 +24,7 @@
 # Pause / resume (a maintenance reboot): anvil.runs pause --name settings-pass --wait ... anvil.runs relaunch --name settings-pass
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
-OUT=$REPO/data/runs/settings-pass; mkdir -p "$OUT"
+OUT=$REPO/data/runs/${CHAIN_OUT:-settings-pass}; mkdir -p "$OUT"  # 09-29: chain2 writes to settings-pass2
 JAR=${JAR:-$REPO/data/runs/certmerge/forge-certmerge.jar}
 CKPT=${CKPT:-data/training/m12-build4-e1a-tgt/last.pt}  # the shakedown's day-zero (ADR-0116)
 BANK=${BANK:-data/runs/m12-build1}; ANCHOR_WEIGHT=${ANCHOR_WEIGHT:-0.5}
@@ -40,7 +40,7 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 log "settings-pass chain start jar=$JAR ckpt=$CKPT wall=${WALL_HOURS}h/cell arms='$ARMS' bank=$BANK anchor_weight=$ANCHOR_WEIGHT"
 for arm in $ARMS; do
   case $arm in
-    anchor) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --grad-norm-every 50" ;;
+    anchor|anchor-w*) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --grad-norm-every 50" ;;  # anchor-w01 = rung 1' (09-29): ANCHOR_WEIGHT=0.1
     shallowalloc) FARGS="$SHALLOW"; ALLOC=head; EXTRA="--grad-norm-every 50" ;;
     *) log "unknown arm $arm"; exit 1 ;;
   esac
