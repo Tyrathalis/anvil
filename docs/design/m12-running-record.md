@@ -1682,3 +1682,24 @@ record.*
   crash class inside the background. **The shallowalloc cell** (launched 21:58): iteration 10 at 11.2 h,
   ≈ 1 h per iteration, Spearman 0.343 → 0.307 with the un-anchored dip to 0.24–0.28 at iterations 5–8
   (the shakedown's shape); closes ≈ 09-30 04:00 + the read. The pause fix (`run.json`) is in main.
+- **2026-09-30 (05:00) — THE SHALLOWALLOC CELL CLOSED: 0.5130 ± 0.0112 — the allocation head over
+  one-roll search is OUT; the rung 1′ cell (`anchor-w01`, `--anchor-weight 0.1`) auto-launched 05:00:29.**
+  The cell: 30 iterations in 29.8 h (the most training of any arm: 14,400 games, ≈ 57 min per iteration),
+  the read on `iter-029` 1,980 decisive / 2 crashes. **Against its references (network alone, ± 1.1 each):**
+  −2.75pp vs the alloc arm (0.5405; ≈ 1.7 SE), −1.9pp vs the shallow arm (0.5320), −0.55pp vs day-zero
+  (0.5185) — below both parents; the verdict addendum's first search cell does not pay: gating a one-roll
+  search to the head's ≈ 66% of windows loses more signal than it saves in box time. Its shape is the
+  one the big run's kill rule names: the mid-run arms read network-alone 0.500 / 0.510 / 0.5025 / 0.505
+  / **0.4875** against with-lookahead 0.540 / 0.515 / 0.5425 / 0.5375 / **0.545** (200-game cells,
+  ± 2.5pp) — the with-lookahead line climbs while network-alone drifts down, five reads in a row
+  (exploratory; the 2,000-game read is the number). Spearman un-anchored at the shakedown's floor
+  (0.24–0.35, no slope; final 0.30). Fewer casts per game than any parent (24.9 vs alloc's 27.1 /
+  shallow's 26.6) at the lowest veto rate (4.6%) — a more passive policy, the ADR-0049 axis again.
+  **Standing after two cells:** alloc (recipe + head, 0.5405) remains the winner; the anchor at 0.5 and
+  the one-roll head-gated search are both out. **Rung 1′ running:** `settings-pass2` /
+  `settings-anchor-w01` from day-zero on the certmerge jar, 30 h, `--anchor-weight 0.1`, value weight
+  0.5, the crash-trace flag on; the same bar (Spearman within one SE of 0.374 across the cell AND
+  network-alone not worse than 0.5405 ± 0.0111); closes ≈ 10-01 11:00 + the read. If it misses on
+  strength, rung 2 (the value gradient stopped at the trunk) is unbuilt — a worktree item to write while
+  the cell flies. The chain2 auto-launch (a background wait → `git merge --ff-only` → `anvil.runs
+  launch`) worked end to end: `CHAIN2-LAUNCH rc=0`.
