@@ -1763,3 +1763,13 @@ record.*
      cell from day-zero under the same bar.
   **Not opened:** weight 0.05, a sparser anchor step, or a separate value trunk (rung 3). The ladder
   already holds the next sensible tests; at a 1.2-SE gap more weight tuning would mostly fit noise.
+- **2026-10-01 (13:49) — THE RESOLUTION READ LAUNCHED** (`anvil.runs` name `resolution-read`, dir
+  `data/runs/resolution-read/`, chain `scripts/resolution_read_chain.sh`). Two cells in sequence, alloc
+  first: `shakedown-alloc/iter-019` then `settings-anchor-w01/iter-017`, each 2,500 games per seat
+  assignment (24 workers × 2 servers, network alone, raw, `--reask`, the certmerge jar), on one new
+  seed base (20261001; neither read replays the cells' 2,000-game seeds) with 13 games per pair on the
+  200-pair file. Each cell lands a row in the dir's `read.md`; `paired_arms.py` writes the paired
+  difference (anchor-w01 − alloc) at the end, which is the number the FIXED margin (≥ −1.0pp) reads.
+  At the cell reads' pace (≈ 3,100 games/h) the chain closes ≈ 17:20. Launcher coverage line: stall
+  alarm 60 min on the dir + `data/runs/rr-*`, sinks queue+desk, check-in claude (self-test OK).
+
