@@ -1756,6 +1756,9 @@ def main() -> None:
     ap.add_argument("--anchor-leaf-cap", type=int, default=96)
     ap.add_argument("--grad-norm-every", type=int, default=50,
                     help="rl.py --grad-norm-every: the per-term trunk gradient-norm row cadence; 0 = off")
+    ap.add_argument("--value-stopgrad-trunk", action="store_true",
+                    help="rl.py --value-stopgrad-trunk (ADR-0119 ladder rung 2): the value head reads a "
+                         "detached trunk read-out; no value-side gradient reaches the trunk")
     ap.add_argument("--traj-per-step", type=int, default=4)
     ap.add_argument(
         "--arms-every", type=int, default=5, help="arms vs heuristic every N iterations (0 = off)"
@@ -2283,6 +2286,7 @@ def main() -> None:
                        "--anchor-families", args.anchor_families, "--anchor-leaf-cap", str(args.anchor_leaf_cap)]
                       if args.value_anchor else []),
                     "--grad-norm-every", str(args.grad_norm_every),
+                    *(["--value-stopgrad-trunk"] if args.value_stopgrad_trunk else []),
                     "--traj-per-step",
                     str(args.traj_per_step),
                     "--seg",

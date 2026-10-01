@@ -122,6 +122,15 @@ class AnvilNet(nn.Module):
         self.value_head = nn.Sequential(
             nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, 1)
         )
+        # ADR-0119 ladder rung 2 (10-01): a training-time switch, not an
+        # architecture parameter (checkpoints carry no trace of it; the
+        # trainer sets it from --value-stopgrad-trunk). When set, the value
+        # head reads a DETACHED [STATE] read-out, so every value-side term
+        # (V-trace, the anchor, the distill carry's value BCE) trains the
+        # head alone and the trunk is the policy's — the drift's cause
+        # removed by construction (ADR-0118: the loss lives in the trunk's
+        # representation, fed by the value loss).
+        self.value_stopgrad = False
         # target decoder (rung 1, autoregressive over T_MAX+1 slots incl. STOP)
         from anvil.training.dataset import T_MAX, TASKS, X_CLASSES
 
@@ -832,7 +841,9 @@ class AnvilNet(nn.Module):
             "bool_logit": bool_logit,
             "num_logits": num_logits,
             "plan": plan,
-            "value_logit": self.value_head(state).squeeze(-1),
+            "value_logit": self.value_head(
+                state.detach() if self.value_stopgrad else state
+            ).squeeze(-1),
             "pay_gate": self.pay_gate(state).squeeze(-1),
             "alloc": self.alloc_head(state).squeeze(-1),
             **self._combat_outputs(state, ent_out, batch),

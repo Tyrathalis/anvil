@@ -1128,6 +1128,11 @@ def main() -> None:
                     help="every N optimizer steps, the per-term TRUNK gradient norms (gn_<term>: pg, v, ent, "
                          "plan, sched, distill, alloc on that step's first segment; anchor on its batch) — "
                          "which loss moves the trunk (ADR-0118 addendum); 0 = off")
+    ap.add_argument("--value-stopgrad-trunk", action="store_true",
+                    help="ADR-0119 ladder rung 2: the value head reads a detached [STATE] read-out, so every "
+                         "value-side term (V-trace, the anchor, the distill carry's value BCE) trains the head "
+                         "alone and no value gradient reaches the trunk (gn_v / gn_anchor read 0); the trunk "
+                         "is the policy's. Off by default")
     ap.add_argument(
         "--ent-weight",
         type=float,
@@ -1471,6 +1476,10 @@ def main() -> None:
     net = build_net(cfg["embed"], cfg["pool_manifest"], len(methods), n_sa=n_sa).to(dev)
     net.load_compat(ckpt["model"])
     net.train()
+    if args.value_stopgrad_trunk:
+        # ADR-0119 rung 2: the value head alone chases outcomes (model.py)
+        net.value_stopgrad = True
+        print("[rl] value stop-grad at the trunk: every value-side term trains the head only")
     ref = build_net(cfg["embed"], cfg["pool_manifest"], len(methods), n_sa=n_sa).to(dev)
     ref_ckpt = (
         torch.load(args.ref_ckpt, map_location="cpu", weights_only=False) if args.ref_ckpt else ckpt
@@ -1580,6 +1589,7 @@ def main() -> None:
                 "anchor_leaf_cap",
                 "anchor_families",
                 "grad_norm_every",
+                "value_stopgrad_trunk",
                 "ent_weight",
                 "ent_floor",
                 "epochs",

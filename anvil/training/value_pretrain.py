@@ -424,11 +424,17 @@ def set_trainable(net, unfreeze: str) -> int:
 
 
 def value_logits(net, chunk: dict):
-    """The cheap path: cards -> assemble -> trunk -> value head."""
+    """The cheap path: cards -> assemble -> trunk -> value head. Honors the
+    net's value_stopgrad switch (ADR-0119 rung 2) exactly as AnvilNet.forward
+    does, so the anchor term is head-only under it (the 10-01 smoke: without
+    this, gn_anchor kept reaching the trunk while gn_v read 0)."""
     card_vecs = net.cards(chunk["ent_emb"])
     tokens, pad = net.assemble(card_vecs, chunk)
     h = net.trunk(tokens, src_key_padding_mask=pad)
-    return net.value_head(h[:, 0]).squeeze(-1)
+    state = h[:, 0]
+    if getattr(net, "value_stopgrad", False):
+        state = state.detach()
+    return net.value_head(state).squeeze(-1)
 
 
 def _to(chunk: dict, device: str) -> dict:

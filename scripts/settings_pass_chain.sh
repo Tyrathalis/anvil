@@ -42,6 +42,7 @@ for arm in $ARMS; do
   case $arm in
     anchor|anchor-w*) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --grad-norm-every 50" ;;  # anchor-w01 = rung 1' (09-29): ANCHOR_WEIGHT=0.1
     shallowalloc) FARGS="$SHALLOW"; ALLOC=head; EXTRA="--grad-norm-every 50" ;;
+    stopgrad) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --value-stopgrad-trunk --grad-norm-every 50" ;;  # rung 2 (10-01): the alloc arm + the anchor HEAD-ONLY (ANCHOR_WEIGHT=0.1) + stop-grad at the trunk
     *) log "unknown arm $arm"; exit 1 ;;
   esac
   NAME=settings-$arm; LOOP=data/training/$NAME

@@ -371,6 +371,9 @@ is scored on the frozen state-ranking holdout (`--state-bank`, CPU, ≈ 25 s; th
 0 = off), and `--value-anchor data/runs/m12-build1` adds the Build 1 replay term to the trainer so
 the head stays on rollout truth (`--anchor-weight`, `--anchor-families state,leaf`). Both need the
 Build 1 banks, which are ours — without them the row is skipped and the anchor is off.
+`--value-stopgrad-trunk` (10-01, ADR-0119 ladder rung 2) makes the value head read a detached trunk
+read-out, so every value-side term trains the head alone and the trunk is the policy's; the
+gradient-norm row's `gn_v` / `gn_anchor` read 0 under it. Off by default.
 
 Alerts land in `~/.local/state/anvil/alerts.jsonl` and, as side effects, on a desktop toast
 (`notify-send` on Linux, `osascript` on macOS). To reach your phone set `ANVIL_NOTIFY_CMD` to any

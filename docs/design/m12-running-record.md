@@ -1772,6 +1772,29 @@ record.*
   difference (anchor-w01 − alloc) at the end, which is the number the FIXED margin (≥ −1.0pp) reads.
   At the cell reads' pace (≈ 3,100 games/h) the chain closes ≈ 17:20. Launcher coverage line: stall
   alarm 60 min on the dir + `data/runs/rr-*`, sinks queue+desk, check-in claude (self-test OK).
+- **2026-10-01 (14:20) — RUNG 2 WRITTEN AND PRE-REGISTERED while the resolution read runs (no game
+  of the read had been read; its first cell was ≈ 60% through).** The definition, fixed now so the
+  read's number cannot shape it: **`--value-stopgrad-trunk`** — the value head reads a DETACHED
+  [STATE] read-out, so every value-side term (V-trace, the anchor, the distill carry's value BCE)
+  trains the head alone and the trunk is the policy's; the anchor is KEPT at weight 0.1 as a
+  head-only term (the user's call: head-only it costs the policy nothing and keeps the head on
+  rollout truth, which is what the search leaf and the Ante re-measure consume). A model switch
+  (`AnvilNet.value_stopgrad`, not an architecture parameter; checkpoints carry no trace; default
+  off is the pre-rung-2 model exactly), set by `rl.py --value-stopgrad-trunk` and forwarded by
+  `selfplay --value-stopgrad-trunk`; the anchor's own path (`value_pretrain.value_logits`) honors
+  it too. **The smoke earned its keep:** the first pass left `gn_anchor` on the trunk at 0.2–0.85
+  while `gn_v` read 0 — the anchor computes its logits outside the model's forward; fixed, and the
+  second pass (one store, 30 steps, 146 s, rc 0, the iter-017 head) reads `gn_v` = `gn_anchor` = 0
+  on every step with `gn_pg` > 0 and the anchor's state/leaf losses still moving. Four tests
+  (`tests/test_value_stopgrad.py`: default off reaches the trunk; on, the value gradient stops at
+  the trunk while the head and the policy gradient still train, forward values bit-identical; the
+  `gn_v` row reads 0; the anchor path honors the switch). The cell, if the read misses:
+  `scripts/settings_pass_chain3.sh` (`settings-pass3`, arm `stopgrad` = the alloc arm's recipe +
+  the head-only anchor at 0.1 + the switch), from day-zero, 30 h, the same bar (Spearman within one
+  SE of 0.374 across the cell; network-alone not worse than alloc by the same −1.0pp margin on a
+  fresh paired read). Open question the cell answers: whether the policy gradient alone keeps a
+  representation the head can rank well. The merge to main waits for the read's close (main is
+  the running tree).
 
 - **2026-10-01 (16:45) — THE RESOLUTION READ CLOSED: anchor-w01 − alloc = −1.57 ± 0.67pp (t −2.35;
   4,910 paired games, 501 up / 578 down) — BELOW the fixed −1.0pp margin. Rung 1′ MISSES on strength;
