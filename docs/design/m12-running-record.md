@@ -1773,3 +1773,20 @@ record.*
   At the cell reads' pace (≈ 3,100 games/h) the chain closes ≈ 17:20. Launcher coverage line: stall
   alarm 60 min on the dir + `data/runs/rr-*`, sinks queue+desk, check-in claude (self-test OK).
 
+- **2026-10-01 (16:45) — THE RESOLUTION READ CLOSED: anchor-w01 − alloc = −1.57 ± 0.67pp (t −2.35;
+  4,910 paired games, 501 up / 578 down) — BELOW the fixed −1.0pp margin. Rung 1′ MISSES on strength;
+  rung 2 is next.** The read: fresh network-alone reads on the certmerge jar, 2,500 games per seat
+  each, one new seed base (20261001), the same seeds for both checkpoints. Alloc `iter-019` 0.5394 ±
+  0.0070 (4,958 decisive / 2 crashes); anchor-w01 `iter-017` 0.5206 ± 0.0071 (4,945 / 3). **Against
+  the margin fixed before any game (≥ −1.0pp on the point estimate): −1.57pp, a miss.** It is also
+  no longer ambiguous: the anchor's cost at weight 0.1 is now resolved at ≈ 2.3 SE, and the two
+  2,000-game reads were close to these (−1.95 there, −1.57 here). **The suspected biases were
+  small:** alloc's fresh read is 0.5394 against its shakedown 0.5405, so best-of-four flattered it
+  by ≈ 0.1pp, and the jar change moved nothing measurable. **What it means:** the anchor buys the
+  value head back (Spearman 0.41–0.46 all cell) but costs the policy ≈ 1.6pp of network-alone
+  strength at weight 0.1 and ≈ 5pp at 0.5. The price falls with the weight but stays the same sign
+  (the cast → pass push), which is the argument the plan made for removing the trunk-side pull
+  instead of counterweighting it. **Next, as pre-registered:** rung 2 (the value gradient stopped at
+  the trunk) is built in a worktree, smoked, then run as a 30-h cell from day-zero on the certmerge
+  jar under the same two-clause bar, with the strength clause read against the fresh alloc
+  0.5394 ± 0.0070 and the same −1.0pp margin.
