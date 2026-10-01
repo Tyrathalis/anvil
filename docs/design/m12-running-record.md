@@ -1813,3 +1813,17 @@ record.*
   the trunk) is built in a worktree, smoked, then run as a 30-h cell from day-zero on the certmerge
   jar under the same two-clause bar, with the strength clause read against the fresh alloc
   0.5394 ± 0.0070 and the same −1.0pp margin.
+- **2026-10-01 (16:48) — THE RUNG 2 CELL LAUNCHED** (`anvil.runs` name `settings-pass3`, dir
+  `data/runs/settings-pass3/`, chain `scripts/settings_pass_chain3.sh`, arm `stopgrad`): from day-zero
+  on the certmerge jar, 30 h, the alloc arm's recipe + the anchor at 0.1 head-only +
+  `--value-stopgrad-trunk`, the same loop settings and seed base as every settings-pass cell. The bar,
+  pre-registered (14:20 entry): the Spearman within one SE of 0.374 across the cell, and
+  network-alone not worse than alloc by the −1.0pp margin on a fresh paired read against
+  `shakedown-alloc/iter-019` (the resolution read's seed base 20261001 pairs it with the fresh
+  alloc 0.5394 ± 0.0070 at no new alloc games). The chain's own 2,000-game read at the close is a
+  first look, not the number. Closes ≈ 10-03 early morning + the read. Launcher coverage line:
+  stall alarm 180 min on the dir + `data/training/settings-*`, `data/runs/settings-*`, `data/runs/sp*`,
+  sinks queue+desk, check-in claude (self-test OK), `--resume-on-gone`. The read's merge order:
+  rung 2 landed on main after the parallel session's close commit (`ad64a6f`), rebased, no code
+  conflict; main at `83f4989` is the cell's tree.
+
