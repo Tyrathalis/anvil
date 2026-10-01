@@ -1731,3 +1731,34 @@ record.*
   trunk, unbuilt) removes the value-side pull by construction at the price of the head's
   representational reach. Both chains are done; the box is quiet; the crash-trace flag caught
   nothing new (the one StackOverflowError is iteration 0's game 117 in every cell).
+- **2026-10-01 (evening) — THE PLAN AFTER RUNG 1′: settle the strength question with a cheap read
+  before building or running anything new; write rung 2 while the read runs.** Clause (b) of the
+  ADR-0118/0119 bar ("network-alone not worse than the un-anchored winner") registered no margin. A
+  not-worse test without a margin cannot be decided by a read that is only 1.2 SE short, so it passes
+  under one reading and fails under another. Two more things shade the comparison. Alloc's 0.5405 was
+  the best of four noisy reads, so it likely reads high. It was also read on the census jar, while the
+  settings pass runs the certmerge jar. **Not a rerun (attribute-before-rerunning):** the cell's
+  result stands; what is missing is power on one paired question, and two checkpoint reads (≈ 4 h)
+  cost far less than another 30-h cell. **The plan, in order:**
+  1. **Fix the margin before any game is played** (the user's call, recorded here at launch).
+     Proposed: anchor-w01 is non-inferior if anchor-w01 − alloc ≥ −1.0pp at the resolution read.
+     Fixing the reading after seeing the number is what pre-registration exists to stop.
+  2. **The resolution read:** fresh network-alone reads of `shakedown-alloc/iter-019` and
+     `settings-anchor-w01/iter-017` on the certmerge jar, on the same seed set, ≈ 5,000 games each
+     (24 × 2, ≈ 4 h of box time). SE of the difference ≈ 1.0pp. The fresh alloc read is the one of
+     record (the 0.5405 read carries the best-of-four bias); the earlier 2,000-game reads are reported
+     beside it, not pooled.
+  3. **Rung 2 written in a worktree while the read runs:** the value gradient stopped at the trunk,
+     so only the head chases V-trace outcomes. It is the next pre-registered rung, and the evidence
+     favors it as a hypothesis. The head-swap read put the drift in the trunk's representation, fed by
+     the value loss. The anchor fights that pull with a second gradient on the trunk, and the policy
+     pays for the fight (cast → pass at 62% of changed cast decisions even at weight 0.1). Stopping
+     the gradient removes the cause instead. The open question is whether the policy gradient alone
+     keeps a representation the head can rank well. Built either way, so it costs nothing on the
+     timeline.
+  4. **The decision:** anchor-w01 clears the margin → the ladder stops as registered; the Ante
+     re-measure (ADR-0119 step 2) runs against the weight-0.1 head; rung 2 stays shelved as the
+     fallback if the passivity push grows in the big run. It misses → rung 2 runs as the next 30-h
+     cell from day-zero under the same bar.
+  **Not opened:** weight 0.05, a sparser anchor step, or a separate value trunk (rung 3). The ladder
+  already holds the next sensible tests; at a 1.2-SE gap more weight tuning would mostly fit noise.
