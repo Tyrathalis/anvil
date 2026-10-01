@@ -1703,3 +1703,31 @@ record.*
   strength, rung 2 (the value gradient stopped at the trunk) is unbuilt — a worktree item to write while
   the cell flies. The chain2 auto-launch (a background wait → `git merge --ff-only` → `anvil.runs
   launch`) worked end to end: `CHAIN2-LAUNCH rc=0`.
+- **2026-10-01 (11:46) — THE RUNG 1′ CELL CLOSED: `anchor-w01` (anchor weight 0.1) at 0.5210 ± 0.0112
+  network-alone — the Spearman clause CLEARS on letter and spirit; the strength clause is a 1.2-SE
+  shortfall against the un-anchored winner, inside noise but not a tie by the one-SE rule.** The cell:
+  18 iterations in 30.1 h (the alloc arm's cadence; no pause), the read on `iter-017` 1,982 decisive /
+  2 crashes, seed halves 0.528 / 0.524 (clean). **Spearman by iteration:** 0.412 / 0.428 / 0.458 /
+  0.458 / 0.462 / 0.451 / 0.456 / 0.451 / 0.462 / 0.463 / 0.454 / 0.447 / 0.428 / 0.431 / 0.431 / 0.434
+  / 0.424 / 0.436 — min 0.412, every row 1.6–3.7 SE ABOVE day-zero; a plateau at 0.45–0.46 through
+  iteration 10, a step to a second plateau at 0.42–0.44 from iteration 12, no return to day-zero
+  (the weight-0.5 cell ended at 0.380). The anchor's bank loss eased 0.64 → 0.28 (the 0.5 cell:
+  0.54 → 0.18), the trunk gradient balance `gn_anchor` 0.16–0.54 / `gn_v` 0.15–0.93 / `gn_pg`
+  0.04–0.17 — the anchor and value terms trade the lead, PG a quarter of either (at 0.5 the anchor
+  was 10–20× PG). **Strength:** 0.5210 vs alloc 0.5405 = **−1.95 ± 1.58pp (−1.2 SE)**; +0.25pp vs
+  day-zero; the three lookahead arms read 0.515 / 0.5175 / **0.540** network-alone (alloc 0.515 /
+  0.5475 / 0.5375), the paired heuristic halves +0.4pp over iterations 0–8 and −3.3pp over 9–17
+  (± 1.5 each), −1.45 ± 1.07pp pooled. Casts per game 26.0 (alloc 27.1, day-zero 28.2), the
+  behavioral delta 24.2% of cast decisions changed with 62% cast → pass (the 0.5 cell: 27.7% / 69%;
+  the alloc arm: 18.3% / 49%) — the passivity push is reduced, not gone. **The anchor's price by
+  weight: 0.5 → −5.1pp; 0.1 → −2.0 ± 1.6pp.** Reading: the lower weight buys the Spearman hold
+  almost outright and most of the strength back; what remains is a residual pull of the same sign.
+  **Verdict on the bar:** clause (a) cleared decisively; clause (b) not cleared at the one-SE
+  standard the shakedown used for ties (1.2 SE), not failed at any conventional level — a judgment
+  call, the user's. The three readings of record for that call: the +2.2pp un-anchored gain is
+  measured on the same box time; the anchored head's value for the Ante re-measure (step 2) and
+  as the big run's search leaf is what the anchor is for; and the price curve suggests a lower
+  weight (0.03) or a sparser anchor step would cost less still, where rung 2 (stop-grad at the
+  trunk, unbuilt) removes the value-side pull by construction at the price of the head's
+  representational reach. Both chains are done; the box is quiet; the crash-trace flag caught
+  nothing new (the one StackOverflowError is iteration 0's game 117 in every cell).
