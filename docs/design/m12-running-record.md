@@ -1740,8 +1740,9 @@ record.*
   settings pass runs the certmerge jar. **Not a rerun (attribute-before-rerunning):** the cell's
   result stands; what is missing is power on one paired question, and two checkpoint reads (≈ 4 h)
   cost far less than another 30-h cell. **The plan, in order:**
-  1. **Fix the margin before any game is played** (the user's call, recorded here at launch).
-     Proposed: anchor-w01 is non-inferior if anchor-w01 − alloc ≥ −1.0pp at the resolution read.
+  1. **Fix the margin before any game is played.** **FIXED 10-01 (user): anchor-w01 is non-inferior
+     if anchor-w01 − alloc ≥ −1.0pp at the resolution read** (the point estimate of the fresh paired
+     difference; no game of the resolution read had been played when it was fixed).
      Fixing the reading after seeing the number is what pre-registration exists to stop.
   2. **The resolution read:** fresh network-alone reads of `shakedown-alloc/iter-019` and
      `settings-anchor-w01/iter-017` on the certmerge jar, on the same seed set, ≈ 5,000 games each
