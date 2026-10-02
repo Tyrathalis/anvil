@@ -1257,8 +1257,15 @@ my own design (Tutor §5) until the pilot is worth building around."
   questions are different players — so "Elo above random" does not carry across engines unless
   the random bots are made equivalent; (2) the honest cross-project number is the same engine with
   different agents, which is what Kryptic's heuristic-vs-heuristic test would calibrate first.
-  **No action; nothing routed** — a Spellbench entry is a post-big-run question at the earliest
-  and needs the user's call.
+  **Routed (the user, 10-01): a Spellbench entry, after the big run**, once a format and a card
+  chunk have been added and tested (the m12-plan out-of-scope list). The 10-01 read of the repo:
+  v2 is 2-player Bo1 with Commander out of scope; the one rated board is `pauper-kernel` (8 Pauper
+  decks on a private mtg-kernel build: g115 +388, a48 +238, c12 +226, the builtin heuristic +102
+  over random); MageZero is not on the board (blocked on their XMage adapter, fixed-deck
+  benchmarks and a fair mode); Forge is on their "Later" list. Our route would be a Forge
+  environment adapter (their comparable adapters are priced at 17–27 agent-days) with Anvil as an
+  engine-native agent through an extension (their gorge annex pattern), on a 60-card checkpoint.
+  The harder part may be social: a canonical decision decomposition the engines agree on.
 - **coda (09-30 11:16)** thanked itemfive for `mtgish` (he had an AI use it to generate card lists
   for the 3 Card Blind solver; "regexes over oracle text just don't cut it"). **itemfive (11:38,
   11:59):** [comby](https://comby.dev/) (structural search-and-replace that understands nested
