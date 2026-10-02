@@ -1875,4 +1875,29 @@ record.*
   step quarter against `ctrl`; whichever single change brings kl_mu to the control's names the
   mechanism (trunk step vs head bias) and the rung's fix. A read, not a rerun: the rerun's settings
   are the user's call on this read. Both new flags are plumbed through `selfplay` for that rerun.
+- **2026-10-01 (22:47) — THE ATTRIBUTION REPLAYS READ: the halt is the optimizer's trunk step, and
+  the trunk-side lr group at 3e-6 restores the control's policy step exactly; the head's bias is a
+  separate, smaller effect. THE RUNG 2 RERUN LAUNCHED 22:49** (`anvil.runs` name `settings-pass4`,
+  dir `data/runs/settings-pass4/`, chain `scripts/settings_pass_chain4.sh`, arm `stopgrad-t3e6`).
+  The six replays (iteration 0's training on the halted cell's own store, 180 steps, ≈ 4 min each;
+  `data/runs/rung2-attrib/read.md`), kl_mu at the end of iteration 0 / v0 at the end: `ctrl` (no
+  stop-grad) **0.0024 / 0.46**; `sg` (as run) 0.0195 / 0.61 — the cell's own 0.020 reproduced;
+  `sg-t3e6` **0.0020 / 0.60**; `sg-t1e6` 0.0008 / 0.60 (too slow); `sg-h1e4` 0.0181 / 0.55 (the head
+  lr does nothing for kl_mu); `sg-t3e6-h1e4` **0.0019 / 0.55**. Reading: (1) with the value and
+  anchor gradients off the trunk, AdamW's per-parameter scaling hands the trunk's whole step to the
+  policy direction — the trunk at lr/3.3 brings kl_mu to the control's (kl ∝ lr² ⇒ /11, as seen);
+  rung 3 (a separate value trunk) inherits this and its fix. (2) The detached head alone fits slowly
+  at the trunk lr (v0 0.60 vs rewards ≈ 0.50); at 1e-4 it moves to 0.55 inside iteration 0 and the
+  kl_mu is untouched — the ADR-0069 starved-parameter arithmetic for an isolated head. **The rerun's
+  settings, from the read as the 22:20 plan stated it:** the halted cell's recipe + `--trunk-lr 3e-6`
+  + `--value-head-lr 1e-4` (both: each mechanism is independent and the head's quality is the rung's
+  subject); from day-zero, 30 h, the same bar (Spearman within one SE of 0.374 across the cell;
+  network-alone not worse than the fresh alloc 0.5394 ± 0.0070 by the −1.0pp margin on a fresh paired
+  read at seed base 20261001; the chain's 2,000-game read is a first look). The kl guard (0.06) stays
+  as the tripline; the replay covers iteration 0 only, so kl_mu's growth across iterations is the
+  thing to watch at the first glance. Launched under the overnight rule (the user away; killable at
+  the morning check if the settings are not the user's). The halted cell's artifacts
+  (`settings-stopgrad`, iterations 0–2 accepted) stay for the record. Launcher coverage line: stall
+  alarm 180 min on the dir + the settings / sp roots, sinks queue+desk, check-in claude (self-test OK),
+  `--resume-on-gone`. Closes ≈ 10-03 05:00 + the read.
 

@@ -373,7 +373,10 @@ the head stays on rollout truth (`--anchor-weight`, `--anchor-families state,lea
 Build 1 banks, which are ours — without them the row is skipped and the anchor is off.
 `--value-stopgrad-trunk` (10-01, ADR-0119 ladder rung 2) makes the value head read a detached trunk
 read-out, so every value-side term trains the head alone and the trunk is the policy's; the
-gradient-norm row's `gn_v` / `gn_anchor` read 0 under it. Off by default.
+gradient-norm row's `gn_v` / `gn_anchor` read 0 under it. Off by default. With it, two lr groups keep
+the optimizer's step comparable: `--trunk-lr` for everything upstream of the detach (the value gradients
+leaving the trunk otherwise hand its whole AdamW step to the policy; 3e-6 against a 1e-5 trunk restored
+the un-switched kl_mu on 10-01) and `--value-head-lr` for the head that now trains alone (1e-4).
 
 Alerts land in `~/.local/state/anvil/alerts.jsonl` and, as side effects, on a desktop toast
 (`notify-send` on Linux, `osascript` on macOS). To reach your phone set `ANVIL_NOTIFY_CMD` to any
