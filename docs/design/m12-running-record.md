@@ -1827,3 +1827,41 @@ record.*
   rung 2 landed on main after the parallel session's close commit (`ad64a6f`), rebased, no code
   conflict; main at `83f4989` is the cell's tree.
 
+- **2026-10-02 (morning) — THE RUNG 2 CELL HALTED at iteration 3 on the kl guard (kl_mu 0.0716 >
+  0.06, 22:16 10-01; ckpt not accepted, `settings-pass3` FAILED rc=1 after 5.5 h). The guard was
+  right: with the value gradient stopped at the trunk, the policy moves ≈ 10× faster per step and the
+  value head sits biased high. As run, the cell does not test the rung's hypothesis cleanly.**
+  **The read (per-iteration medians of the training rows):**
+
+  | cell | kl_mu, iterations 0–3 | v0 (start-of-game value) | Spearman, iterations 0–3 |
+  |---|---|---|---|
+  | alloc (no anchor) | 0.0023 / 0.0028 / 0.0060 / 0.0072 | 0.47 / 0.45 / 0.46 / 0.48 | (shakedown: 0.333 at 0) |
+  | anchor 0.5 | 0.0008 / 0.0021 / 0.0039 / 0.0073 | 0.56 / 0.53 / 0.53 / 0.54 | 0.421 / 0.440 / 0.451 / 0.456 |
+  | anchor 0.1 | 0.0015 / 0.0016 / 0.0035 / 0.0051 | 0.50 / 0.46 / 0.51 / 0.48 | 0.412 / 0.428 / 0.458 / 0.458 |
+  | **stopgrad** | **0.0070 / 0.016 / 0.032 / 0.068** | **0.60 / 0.59 / 0.59 / 0.60** | 0.357 / 0.313 / 0.349 / 0.356 |
+
+  kl_mu doubles every iteration, from 3× alloc's at iteration 0. Inside iteration 0 it is 0.02 by step
+  140, against 0.002 for anchor-w01 on the same data. The code is right: `gn_v` and `gn_anchor` read 0
+  on the trunk, and the detach changes no forward value. **Two candidate mechanisms, not yet told
+  apart:**
+  1. **The optimizer's step size.** AdamW scales each parameter's step by its own gradient history,
+     and one lr (1e-5) covers the trunk. In every earlier cell the value and anchor gradients were
+     2–6× the policy gradient on the trunk. With them removed, the trunk's full step goes to the policy
+     direction, so the policy's effective learning rate jumps. The global grad clip may add to this.
+  2. **A biased critic.** Day-zero's head starts at v0 ≈ 0.65. With the trunk free to move, the
+     value loss pulls that to ≈ 0.50 inside ≈ 100 steps in every other cell. The detached head alone
+     stays at ≈ 0.60 against rewards of ≈ 0.45–0.50, and the battery flagged it (critic 0.594 vs reward
+     basis 0.4545). Biased bootstrapped values make the V-trace advantages noisy.
+
+  **The bar, on its letter:** iteration 1's 0.313 is outside one SE of 0.374 (floor ≈ 0.350), so
+  clause (a) is already missed. But a policy moving 10× faster also moves the representation, so that
+  miss is confounded with mechanism 1. **One consequence for the ladder:** rung 3 (a separate value
+  trunk) also removes every value gradient from the policy's trunk, so it would inherit mechanism 1.
+  Whatever fixes the step size here is a prerequisite there. **Also checked:** the anchor did not
+  slow the policy (alloc's kl_mu matches anchor-w01's), so the anchored cells' strength cost is not
+  a smaller policy step. **Proposed next (the user's call), attribution before any 30-h cell:**
+  replay iteration 0's training on its existing store, ≈ 11 min per arm, and read kl_mu and v0 per
+  step: (i) stopgrad at the trunk lr scaled down (≈ 3e-6, chosen to bring kl_mu to anchor-w01's
+  ≈ 0.0015); (ii) stopgrad with a higher value-head lr (head catches up, trunk unchanged); (iii) both.
+  If (i) alone matches anchor-w01's kl_mu, rerun rung 2 at that lr under the same bar and margin;
+  if (ii) alone does, the critic bias drives it, and the head's lr becomes the rung's fix.
