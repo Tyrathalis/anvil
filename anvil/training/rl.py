@@ -1128,6 +1128,11 @@ def main() -> None:
                     help="every N optimizer steps, the per-term TRUNK gradient norms (gn_<term>: pg, v, ent, "
                          "plan, sched, distill, alloc on that step's first segment; anchor on its batch) — "
                          "which loss moves the trunk (ADR-0118 addendum); 0 = off")
+    ap.add_argument("--trunk-lr", type=float, default=None,
+                    help="lr group for everything upstream of the value head's detach (cards., assemble., trunk.; "
+                         "the sched / plan assembler groups keep theirs); None = --lr. ADR-0119 rung 2 attribution")
+    ap.add_argument("--value-head-lr", type=float, default=None,
+                    help="lr group for value_head.*; None = --lr. ADR-0119 rung 2 attribution")
     ap.add_argument("--value-stopgrad-trunk", action="store_true",
                     help="ADR-0119 ladder rung 2: the value head reads a detached [STATE] read-out, so every "
                          "value-side term (V-trace, the anchor, the distill carry's value BCE) trains the head "
@@ -1519,6 +1524,21 @@ def main() -> None:
         groups.append(("sched_", args.sched_lr))
         groups.append(("assemble.sched_", args.sched_proj_lr
                        if args.sched_proj_lr is not None else args.sched_lr))
+    if args.value_head_lr is not None:
+        # ADR-0119 rung 2 attribution (10-02): the detached head alone chases
+        # outcomes at the trunk lr and sat biased (v0 ~0.60 vs rewards ~0.50
+        # through iteration 3 of the halted cell); its own group lets it catch up
+        groups.append(("value_head.", args.value_head_lr))
+    if args.trunk_lr is not None:
+        # ADR-0119 rung 2 attribution (10-02): everything UPSTREAM of the value
+        # head's detach (cards, assemble, trunk) at its own lr — AdamW scales
+        # each parameter's step by its own gradient history, so removing the
+        # value gradients from the trunk raised the policy's effective step
+        # ~10x (kl_mu 0.007 -> 0.068 over four iterations, the kl guard halt);
+        # appended last so the sched / plan assembler groups keep theirs
+        for prefix in ("cards.", "assemble.", "trunk."):
+            if any(n_.startswith(prefix) for n_, _ in net.named_parameters()):
+                groups.append((prefix, args.trunk_lr))
     if not groups:
         opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd)
     else:
@@ -1590,6 +1610,8 @@ def main() -> None:
                 "anchor_families",
                 "grad_norm_every",
                 "value_stopgrad_trunk",
+                "trunk_lr",
+                "value_head_lr",
                 "ent_weight",
                 "ent_floor",
                 "epochs",
