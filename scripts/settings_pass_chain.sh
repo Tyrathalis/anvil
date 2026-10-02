@@ -43,6 +43,7 @@ for arm in $ARMS; do
     anchor|anchor-w*) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --grad-norm-every 50" ;;  # anchor-w01 = rung 1' (09-29): ANCHOR_WEIGHT=0.1
     shallowalloc) FARGS="$SHALLOW"; ALLOC=head; EXTRA="--grad-norm-every 50" ;;
     stopgrad) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --value-stopgrad-trunk --grad-norm-every 50" ;;  # rung 2 (10-01): the alloc arm + the anchor HEAD-ONLY (ANCHOR_WEIGHT=0.1) + stop-grad at the trunk
+    stopgrad-t3e6) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4 --grad-norm-every 50" ;;  # rung 2 RERUN (10-01 22:50): the halted stopgrad cell + the attribution read's fixes — the trunk-side lr group at 3e-6 restores the control's policy step (kl_mu 0.0020 vs ctrl 0.0024 at iteration 0; as run 0.0195), the head at 1e-4 for its own bias
     *) log "unknown arm $arm"; exit 1 ;;
   esac
   NAME=settings-$arm; LOOP=data/training/$NAME
