@@ -1865,3 +1865,14 @@ record.*
   ≈ 0.0015); (ii) stopgrad with a higher value-head lr (head catches up, trunk unchanged); (iii) both.
   If (i) alone matches anchor-w01's kl_mu, rerun rung 2 at that lr under the same bar and margin;
   if (ii) alone does, the critic bias drives it, and the head's lr becomes the rung's fix.
+- **2026-10-01 (22:22) — THE RUNG 2 ATTRIBUTION REPLAYS LAUNCHED** (`anvil.runs` name `rung2-attrib`,
+  dir `data/runs/rung2-attrib/`, chain `scripts/rung2_attrib_replay.sh`): the halted cell's
+  iteration-0 training replayed on its own store (day-zero ckpt, seed 0, the cell's flags) under six
+  settings, ≈ 11 min each, sequential: `ctrl` (no stop-grad, anchor 0.1 — the anchor-w01 recipe on
+  identical data), `sg` (as run), `sg-t3e6` / `sg-t1e6` (stop-grad + `--trunk-lr`, the new group for
+  cards / assemble / trunk, everything upstream of the detach), `sg-h1e4` (stop-grad +
+  `--value-head-lr 1e-4`), `sg-t3e6-h1e4` (both). The read is the halt entry's: kl_mu and v0 per
+  step quarter against `ctrl`; whichever single change brings kl_mu to the control's names the
+  mechanism (trunk step vs head bias) and the rung's fix. A read, not a rerun: the rerun's settings
+  are the user's call on this read. Both new flags are plumbed through `selfplay` for that rerun.
+
