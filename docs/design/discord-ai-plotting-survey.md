@@ -1202,3 +1202,141 @@ to the mixture (PSRO / double oracle). The 'AI meta' is then the Nash support. F
 space is tiny, so the matrix is the whole job — and the same matrix against the human match
 history gives you the alignment number from the other thread. It's the outer loop I deferred in
 my own design (Tutor §5) until the pilot is worth building around."
+
+### 09-26 → 10-01 follow-up: the MCTS question, Spellbench and cross-engine protocols, the in-process GUI seam (Card-Forge #12091), two newcomers asking for a stronger AI (read 10-01; the user posted once, 09-27 09:20)
+
+**#ai-plotting:**
+
+- **Kryptic (09-27 08:58): why this search and not MCTS — hidden information, or something
+  else?** *The user's reply (09:20):* MCTS would help serve-time strength, but that is not the goal;
+  search is too expensive on a phone, so the search runs at training time to improve the training
+  signal and make the network stronger with search off. The search is one-ply with no backed-up
+  tree statistics, so information from other branches cannot leak into the model, and it is much
+  cheaper than a full tree. It also trains the allocation head that learns when to search, so a
+  later model could get a chess clock and spend its own compute where it matters. A tree would be
+  better at checking long forced lines. **Kryptic (09-28 11:12)** will read up on both before
+  following up. *Our record:* consistent with the 09-23 search Q&A above and design §3e; the
+  "chess clock" is the allocation head's served use, which is not scheduled (the big run trains
+  it; serving it under a budget is a later product question). The shakedown's verdict (alloc,
+  ADR-0115 addendum) is the evidence behind "trains the head that learns when to search".
+- **Kryptic (09-28 11:12): Spellbench**, posted in the MageZero Discord —
+  [site](https://jackmaiorino.github.io/spellbench/), [repo](https://github.com/jackmaiorino/spellbench):
+  one agent protocol for Magic bots on any rules engine, plus a public leaderboard (Elo above a
+  random bot, re-derived from committed match ledgers). Kryptic would like Forge-heuristic and
+  later Anvil entries so our numbers compare with MageZero's. Not read from here.
+- **itemfive (11:22 → 13:19): such protocols stay tied to one engine.** The Manabrew protocol has
+  the same issue. Engines decompose one card's choice differently: K'un-Lun Warrior ("you may
+  sacrifice an artifact or discard a card; if you do, draw") can be a cost menu then a card pick, one
+  flat list of every (cost, card) pair plus decline, or two yes/no questions. All are correct, and
+  an AI client would have to know they are equivalent, so Forge and XMage would have to agree on
+  the ordering and wording card by card. Tokens are worse (near-arbitrary abilities and CR 607
+  links); Manabrew sends forge-script for tokens as a fallback. His earlier hope was a code
+  generator emitting matching forge-script and XMage code from one card format (a partial goal of
+  `mtgish`). Doable, but it needs one agreed backend and per-card adapters to it. **mtg-kernel**
+  (by the Spellbench author) appears to use forge-script and talks to MageZero/XMage on a limited
+  pool (≈ 6 decks). chrismaghuhn agreed.
+- **khaliostr (13:48 → 13:53): push the semantics into a small set of typed choice primitives**,
+  so an adapter maps engine decisions rather than card implementations ("pay this optional cost by
+  sacrificing X / discarding Y / decline"); the abstraction will leak in ugly cases, and Spellbench
+  could measure how far it gets. Two Manabrew forks drive Forge over their protocol:
+  [estherandrew-code/manabrew](https://github.com/estherandrew-code/manabrew) (play against an LLM)
+  and [TrevorS/manabrew `fork/parity-loop`](https://github.com/TrevorS/manabrew/tree/fork/parity-loop)
+  (gym-style RL training). Manabrew now has "manabot" in place of the Forge AI, playing over the
+  wire. He counted about five new MTG projects last month ("lots of reinventing and bike
+  shedding"). **Kryptic (13:55)** proposed the test: the Forge heuristic against the XMage heuristic
+  over one protocol, on a small pool. khaliostr has it on his list.
+- *Our record (the protocol thread):* our bridge already made khaliostr's move — every bridged
+  callback reduces to one of six answer shapes keyed by a decision tag
+  ([bridge-protocol-v0.md](bridge-protocol-v0.md)), and our 07-18 review of their v1 protocol
+  ([manabrew-protocol-445-review.md](manabrew-protocol-445-review.md)) is the coverage side of the
+  same question. itemfive's point is the one that binds for a learned agent: a policy trained on
+  Forge's decomposition is off-distribution on another engine's decomposition of the same card,
+  even through a perfect adapter, so a cross-engine Anvil entry would measure the adapter as much
+  as the agent. Two further reads for any such leaderboard: (1) a uniform-random baseline is itself
+  decomposition-dependent — random over a five-way flat list and random over two sequential yes/no
+  questions are different players — so "Elo above random" does not carry across engines unless
+  the random bots are made equivalent; (2) the honest cross-project number is the same engine with
+  different agents, which is what Kryptic's heuristic-vs-heuristic test would calibrate first.
+  **No action; nothing routed** — a Spellbench entry is a post-big-run question at the earliest
+  and needs the user's call.
+- **coda (09-30 11:16)** thanked itemfive for `mtgish` (he had an AI use it to generate card lists
+  for the 3 Card Blind solver; "regexes over oracle text just don't cut it"). **itemfive (11:38,
+  11:59):** [comby](https://comby.dev/) (structural search-and-replace that understands nested
+  parentheses) let him rewrite reflexive triggers in bulk, e.g. `MustCost(RollAD6), If(CostWasPaid,
+  [ReflexiveTrigger(:[3])])` → `Reflexive_RollDice_WhenYouDo(D6, :[3])`. *Our record:* `mtgish` is
+  a parsed card format, so it is a structured alternative to embedding ability text for the ability
+  table (ADR-0105); noted only, nothing routed.
+- **Brad [CFX] (10-01 12:00, 12:09): any way to connect Forge to an LLM for a stronger AI?** He is
+  on Android and has a Raspberry Pi 5. **itemfive (14:02):** LLMs are not that good yet; see
+  [mage-bench.com](https://mage-bench.com/) (per-match cost and reasoning) and its HN thread.
+  *Our record:* this is Anvil's target user — a stronger opponent on a phone, which is why search
+  is training-time only (the reply to Kryptic above). Draft reply below.
+- **Tolmet [VMVG] (16:40): what does "AI plotting" mean; is the repo open source; could he spend
+  tokens on reinforcement learning or game simulations?** Dan B (17:02): building AI to play MTG.
+  Draft reply below.
+
+**#contribution-questions:**
+
+- **Vyra (09-26 02:04 → 09-27 03:40):** scripted Runeblade Raiser (YTDM), still open on the
+  GitHub project board. Found that after Patriar's Humiliation (HBG; "perpetually loses all
+  abilities") and a bounce to hand, the card can no longer be cast, even on an empty board; YTDM
+  image download also fails for it. **TRT:** a superseding PR is fine (an inactive dev's PR exists;
+  study it first); the uncastable card is what perpetual loss of all abilities should do, and
+  changing it would need confirmation that Arena behaves differently. Vyra's script wipes all
+  abilities and re-adds the ETB trigger; TRT: a plain wipe also loses other perpetual effects.
+  Vyra was beaten to an Omnipresence fix PR by one minute. *Our record:* Alchemy only; outside the
+  pool and the playable worklist. Nothing for us.
+- **MostCromulent (09-28 17:51): a multiplayer Forge server + web GUI**
+  ([forge-gui-web](https://github.com/MostCromulent/forge/tree/forge-gui-web/forge-gui-web)) — one
+  device runs the server, and every player, the host included, connects over the remote client path.
+- **khaliostr (09-28 17:55 → 09-29 09:17): a generic headless Forge server speaking a common
+  protocol, upstreamed**, so each project need not keep its own Forge ↔ client boundary; their
+  [forge-harness](https://github.com/witchesofthehill/manabrew/tree/main/forge-harness) uses only
+  Forge internals. Lighter option for the browser: [`@manabrew/forge-wasm`](https://www.npmjs.com/package/@manabrew/forge-wasm).
+  **TRT (09-29 01:40 → 05:48):** shrink Forge's own API surface rather than emit JSON at the
+  `PlayerController` level; start from the existing network protocol, which carries delta sync,
+  and reuse it with a different encoder. `PlayerController` as the boundary is one layer above the
+  network API, not below. khaliostr: Manabrew runs Forge in-process (library, native, wasm), so the
+  network stack cannot be their boundary; today `ManaBrewInteractiveSession` /
+  `ManaBrewInteractiveController` wrap many Forge internals. He found a seam at `IRemote` /
+  `GameProtocolSender` and **spiked it (08:28): a stock `PlayerControllerHuman` vs the AI through
+  the remote GUI machinery, fully in-process**, network path and tests intact. Most gameplay goes
+  through `Input`s rather than `sendAndWait`, so he added an `awaitInput` hook that also works
+  single-threaded for wasm. It would let Manabrew drop its custom `PlayerController` and copied
+  Forge logic. TRT deferred to MostCromulent's scope first; MostCromulent will look at the weekend.
+- **khaliostr (10-01 07:55): [Card-Forge#12091](https://github.com/Card-Forge/forge/pull/12091)**
+  — "Make the remote GUI protocol usable without the network stack": the transport-independent
+  part of `RemoteClientGuiGame` moves into `ProtocolGuiGame`, so offline play no longer loads Netty.
+  **TRT (09:21):** always loading Netty is a recent regression he missed and wants gone. khaliostr
+  added tests for the isolation boundary and the single-threaded path; TRT: tests are judged case
+  by case (LLMs add many redundant ones), and this isolation may be worth guarding. Fuzz (04:08)
+  noted it would help the AI crowd.
+- *Our record (the headless-server thread):* our bridge sits at the `PlayerController` (the AI
+  path, `PlayerControllerAnvil`), the layer TRT places above the network API; the proposed seam is
+  the human path (`PlayerControllerHuman` + `Input`s). That matters for one standing gap: the
+  `Input`s carry the validation the AI path skips (the GUI-owned combat legality thread of 09-15
+  and the queued engine-side legality surface in [upstream-worklist.md](upstream-worklist.md)). An
+  agent driven through this seam would inherit the human path's legality checks, at the price of
+  the human path's decomposition. **No action:** our boundary does not move, and the research
+  fork pins its engine. #12091 enters our world at the next upstream sync, which is a dataset
+  boundary in any case; on the playable branch it removes the Netty load from offline play. Watch
+  the PR; nothing routed.
+
+### Draft replies (10-01; the user posts; nothing posted from here)
+
+*To Brad:* "Not with an LLM yet — they're slow, expensive per game, and not strong (mage-bench
+shows it). I'm training a neural agent on Forge's engine that's meant to run on a phone; it's
+research-stage and Commander-only for now, so nothing to install yet, but this is exactly the use
+it's for."
+
+*To Tolmet:* "It's people building AIs that play Magic inside Forge (or other engines). Mine is
+Anvil, open source: https://github.com/Tyrathalis/anvil (the quickstart is docs/design/quickstart-custom-pool.md). Token spend doesn't help much on the RL side — the
+cost is games played on CPU and a GPU for training — but anyone with a spare box can run the
+quickstart on their own decks and pool, which is what Kryptic did."
+
+*To Kryptic on Spellbench (optional):* "The catch itemfive raised bites a learned agent hardest:
+Anvil learned Forge's decomposition of each choice, so on another engine's decomposition it's
+off-distribution even through a perfect adapter. Even 'Elo above random' doesn't carry across
+engines — random over a flat five-option list and random over two yes/no prompts are different
+players. Your Forge-heuristic vs XMage-heuristic test is the right first step: it measures the
+adapter before anyone reads agent numbers off it."
