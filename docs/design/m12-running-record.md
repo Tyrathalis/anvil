@@ -1900,4 +1900,13 @@ record.*
   (`settings-stopgrad`, iterations 0–2 accepted) stay for the record. Launcher coverage line: stall
   alarm 180 min on the dir + the settings / sp roots, sinks queue+desk, check-in claude (self-test OK),
   `--resume-on-gone`. Closes ≈ 10-03 05:00 + the read.
+- **2026-10-02 (04:04) — THE RERUN'S FIRST GLANCE (iterations 0–3): the fix holds across iterations.**
+  kl_mu (per-iteration median) 0.0011 / 0.0021 / 0.0032 / 0.0049 — anchor-w01's track (0.0015 / 0.0016
+  / 0.0035 / 0.0051) where the halted cell doubled (0.007 / 0.016 / 0.032 / 0.068); the kl guard
+  silent, four checkpoints accepted. State-ranking Spearman 0.390 / 0.403 / 0.424 / 0.433 (± 0.023),
+  every row above day-zero 0.374 and rising (anchor-w01 at the same points 0.412 / 0.428 / 0.458 /
+  0.458; the halted cell 0.357 / 0.313 / 0.349 / 0.356). The detached head's bias is gone by
+  iteration 1 (v0 0.54 → 0.48 → 0.51 → 0.51 against rewards ≈ 0.50). `gn_v` = `gn_anchor` = 0 on every
+  row. Cadence 1.3 h per iteration (iteration 4 at 5.2 h) → ≈ 22 iterations; closes ≈ 10-03 05:00 +
+  the read. Exploratory; the verdict is the close's reads.
 
