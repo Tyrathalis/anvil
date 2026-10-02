@@ -1909,4 +1909,24 @@ record.*
   iteration 1 (v0 0.54 → 0.48 → 0.51 → 0.51 against rewards ≈ 0.50). `gn_v` = `gn_anchor` = 0 on every
   row. Cadence 1.3 h per iteration (iteration 4 at 5.2 h) → ≈ 22 iterations; closes ≈ 10-03 05:00 +
   the read. Exploratory; the verdict is the close's reads.
+- **2026-10-02 (07:03) — THE QUEUE AFTER THE RERUN ARMED** (`anvil.runs` name `after-pass4`, dir
+  `data/runs/after-pass4/`, `scripts/after_pass4_queue.sh`): when `settings-pass4` leaves the box, in
+  order — (1) **the rung 2 margin read** (`scripts/margin_read_chain.sh`, only if the cell closed
+  normally): the cell's final checkpoint fresh on the certmerge jar at the resolution read's seed base
+  (20261001, 2,500 per seat, 13 per pair), so it pairs game-for-game with the alloc read of record
+  (0.5394 ± 0.0070) at no new alloc games; `paired_arms` + the fixed margin (≥ −1.0pp) applied in its
+  `read.md`; ≈ 1.5 h. (2) The merge of the Discord-survey session's `baseline-reads` branch
+  (worktree `bridge-cse_019NK…`, 9ea5b7a: `final_read --seat-forge-args`, `scripts/baseline_reads.py`,
+  `scripts/baseline_reads_chain.sh`, the survey's follow-up section; merge-tree clean against main)
+  — deferred to the queue because `final_read.py` is the running cell's read driver. (3) **The
+  baseline reads** (user, 10-01, from the Discord thread on cross-engine baselines; exploratory, no
+  bar): the jar built from fork branch `baseline-reads` (`7ac02da6a9`, `../forge-baselines`:
+  `-randomseats` = FullRandomBridge, uniform over every bridged decision; `-aisim full|hybrid` =
+  Forge's own simulation AI on chosen seats; both default off), then `randheur` (random vs the
+  heuristic), `modelrand` (alloc `iter-019` network-alone vs random), `heur` (the mirror, the cost
+  unit), `heursearch` (the heuristic under our one-roll search), and three fixed-size cost probes
+  under a 3-h timeout each (full sim, hybrid sim, our search with the network-free `end` leaf);
+  ≈ 5–6 h + ≤ 9 h; `data/runs/baseline-reads/read.md`. The random arms' first games are the smoke
+  (random-seat vetoes in the census). Coverage: stall alarm 240 min over the queue dir + every
+  phase's roots, check-in claude; the session wait is on the queue's close.
 
