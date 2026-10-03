@@ -27,6 +27,7 @@ OUT=$REPO/data/runs/baseline-reads; mkdir -p "$OUT"
 WORKERS=${WORKERS:-24}; N_RAND=${N_RAND:-200}; N_SEARCH=${N_SEARCH:-1000}; N_PROBE=${N_PROBE:-24}
 PROBE_HOURS=${PROBE_HOURS:-3}; SEED_BASE=${SEED_BASE:-20261002}
 CKPT=data/training/shakedown-alloc/iter-019/train/last.pt
+# -search needs -labels <file> (the fork FATALs without it); the search arms pass final_read --labels
 SEARCH="-search -searchrate 1 -searchrolls 1 -searchact 0.05 -searchtemp 0.025"
 export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}"
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
@@ -67,10 +68,10 @@ run_arm() {
 run_arm randheur   "$N_RAND"   1 0 --heuristic-control --seat-forge-args "-randomseats {seat}"
 run_arm modelrand  "$N_RAND"   1 0 --seat-forge-args "-randomseats {other}"
 run_arm heur       "$N_RAND"   1 0 --heuristic-control
-run_arm heursearch "$N_SEARCH" 5 0 --heuristic-control --forge-args "$SEARCH"
+run_arm heursearch "$N_SEARCH" 5 0 --heuristic-control --forge-args "$SEARCH" --labels
 run_arm simfull    "$N_PROBE"  1 "$PROBE_HOURS" --heuristic-control --seat-forge-args "-aisim full -aisimseats {seat}"
 run_arm simhybrid  "$N_PROBE"  1 "$PROBE_HOURS" --heuristic-control --seat-forge-args "-aisim hybrid -aisimseats {seat}"
-run_arm searchend  "$N_PROBE"  1 "$PROBE_HOURS" --heuristic-control --forge-args "$SEARCH -searchleaf end"
+run_arm searchend  "$N_PROBE"  1 "$PROBE_HOURS" --heuristic-control --forge-args "$SEARCH -searchleaf end" --labels
 
 args=()
 for arm in heur randheur modelrand heursearch simfull simhybrid searchend; do
