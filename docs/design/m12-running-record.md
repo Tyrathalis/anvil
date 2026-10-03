@@ -2120,3 +2120,31 @@ record.*
   the representation is the problem, not the head (the 09-24 head-swap read's finding, re-asked under the
   recipe). The 2,000-game read is a strength point beside alloc's 0.5405 ± 0.0111, exploratory (a gap of
   two SE flags; one cell cannot separate the trunk lr's cost from the warm start's). Closes ≈ 10-04 04:00.
+- **2026-10-03 (16:57) — THE ANTE RE-MEASURE CLOSED: effective samples ×1.027 (full-vis critic) and
+  ×1.040 (the rung 2 head itself), far BELOW the pre-registered 1.5× bar. Under ADR-0119 steps 3–4,
+  raw reads stay the number of record, the ledger stays an audit, and the amortized advantage head is
+  routed, not built.** The read: `settings-stopgrad-t3e6/iter-019`, 2,000 games network-alone on the
+  shuffle-mark jar (fork pin `8d82dfa546`), seed base 20261003, 1,975 decisive. Raw 0.5463 ± 0.0112.
+  Corrected 0.5456 ± 0.0111 under the full-vis critic (var ratio 0.974, CI90 [0.962, 0.986]; corr(raw,
+  ledger) 0.163) and 0.5455 ± 0.0110 under the head (var ratio 0.962 [0.948, 0.976]; corr 0.197).
+  **The shuffle mark did its job and it did not matter.** Draws corrected rose to 31,011, three times
+  the 09-16 stake of 9,930; 14,367 seat-draws were returned by the cleanse; 17,591 are still
+  poisoned. But a draw node's correlation with the outcome is ≈ 0.019 (opener nodes ≈ 0.078). Per-node
+  draw luck is real but nearly orthogonal to who wins a 1v1 Commander game at this length, so even
+  full coverage could not have moved the ratio toward 1.5×. **The ledger is unbiased:** its mean is
+  0.0018 ± 0.0032 (t 0.56) under the critic and 0.0016 ± 0.0043 (t 0.38) under the head. Luck did not
+  tilt the read either way, so the raw number is not flattered. **The head as critic** slightly beats
+  the standing full-vis critic (1.040 vs 1.027; corr 0.197 vs 0.163) from its omniscient windows. That
+  is consistent with rung 2's Spearman hold, and exploratory.
+  **Strength, exploratory:** the rung 2 checkpoint reads 0.5463 on fresh seeds and jar, against
+  0.5270 on the chain's read and the margin read's −0.47pp to alloc. These are three different seed
+  sets; the margin read is the number of record. **Consequences, as registered:**
+  - Step 3: the launch ADR's power statement quotes raw resolution (± 1.12pp per 2,000-game read),
+    and no "reads of record run corrected" rule is born.
+  - Step 4: the amortized advantage head is not built. A correction the exact ledger cannot make, the
+    amortized one cannot either.
+  - The Ante instrument stays an audit on every read of record. Its value now is the bias check
+    (t < 1), not variance reduction.
+  **Next:** the queue is running (`after-remeasure2`): the cast-mask forkcheck, then the settings-pass5
+  recovery cell (the rung 2 flags from `shakedown-alloc/iter-019`, the big run's warm-start question).
+  Then the cast-target legality mask, then the launch ADR.
