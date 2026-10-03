@@ -1390,3 +1390,35 @@ this channel's strength questions: the model and the heuristic against uniform r
 own simulation AI against the heuristic under our search, strength and cost — the second answers
 whether our search (with the network-free `end` leaf) is a cheaper stronger-opponent option worth
 upstreaming.
+
+### 10-03 follow-up: chrismaghuhn's Argentum P1 (read 10-03; nothing posted from here)
+
+**chrismaghuhn posted [argentum-p1](https://huggingface.co/chrismaghuhn/argentum-p1)** (Hugging
+Face, MIT weights): policy models for wingedsheep's **Argentum** engine (survey §1), not Forge.
+Standard (60-card 1v1) and Commander. A set transformer (3 layers, d_model 128, 4 heads, ≈ 2.7M
+parameters for Standard) over card tokens (name, zone, types, colors, keywords, counters, P/T,
+status; 384-dim bge-small rules-text embeddings on the Standard models) and a global token; the
+opponent's hand and library are counts only. **The action space is top-level only:** each
+engine-enumerated legal action is scored by a small MLP (kind, source token, pooled target tokens,
+cost features) under one softmax; the engine AI fills in exact targets, mana payment and combat
+damage assignment. Training: imitation of the engine AI (Standard: 48,592 games on 65 MTGGoldfish
+meta decks fetched 10-02, 477 cards; 93.3% top-1 agreement), then PPO against a league (self, the
+base model, the engine AI, past checkpoints; Standard 16 × 4,000 games; Commander imitation + two
+DAgger rounds + 48 PPO iterations, ≈ 34K games total). Results (argmax): Standard on held-out decks
+vs the engine AI 31% / 32% / 40% / 43% at PPO iterations 4 / 8 / 12 / 16 (≈ 340 games per match,
+± 5pp), 57–63% vs its own base model; **Commander 55–45 vs the engine AI over 100 games** (± 10pp,
+not distinguishable from parity; the card's Elo framing overstates it). ≈ 0.5% of rollout games
+ended in engine exceptions.
+
+*Our record:* a third independent replication of the imitate-then-RL shape (after Kryptic's Forge
+runs), landing where Anvil did early — RL gains over its own imitation base, not a clear win over
+the engine AI. Its answer to Kryptic's target question is to give the targets to the engine AI:
+legal by construction, at the cost of the model never learning targets, payment or combat damage
+(Anvil's pre-M2 stage; we keep the decisions and add the legality mask, running record 10-02). The
+user's read: a smaller model on a more constrained decision surface, so weak but consistent
+evidence that Anvil was larger than it needed to be while its surface was that small (already
+suspected; ADR-0049 found representation was not the bottleneck at M6) — a different engine and
+a noise-level Commander result keep it suggestive only. Not directly usable (Argentum's card
+vocabulary and decomposition). **No action; kept in mind as a live project for a direct comparison
+once cross-engine match protocols mature** (Argentum is on Spellbench's future-engine list; the
+Spellbench entry is routed after the big run).
