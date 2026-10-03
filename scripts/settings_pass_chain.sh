@@ -44,6 +44,7 @@ for arm in $ARMS; do
     shallowalloc) FARGS="$SHALLOW"; ALLOC=head; EXTRA="--grad-norm-every 50" ;;
     stopgrad) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --value-stopgrad-trunk --grad-norm-every 50" ;;  # rung 2 (10-01): the alloc arm + the anchor HEAD-ONLY (ANCHOR_WEIGHT=0.1) + stop-grad at the trunk
     stopgrad-t3e6) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4 --grad-norm-every 50" ;;  # rung 2 RERUN (10-01 22:50): the halted stopgrad cell + the attribution read's fixes — the trunk-side lr group at 3e-6 restores the control's policy step (kl_mu 0.0020 vs ctrl 0.0024 at iteration 0; as run 0.0195), the head at 1e-4 for its own bias
+    recovery) FARGS="$RECIPE"; ALLOC=head; EXTRA="--value-anchor $BANK --anchor-weight $ANCHOR_WEIGHT --value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4 --grad-norm-every 50" ;;  # THE DRIFTED-TRUNK RECOVERY READ (10-03, ADR-0119 addendum): the rung-2 recipe continued from shakedown-alloc/iter-019 (CKPT; Spearman 0.250) for a short wall (WALL_HOURS 9) — does the detached head recover day-zero ranking on a drifted trunk? Decides the big run's warm start.
     *) log "unknown arm $arm"; exit 1 ;;
   esac
   NAME=settings-$arm; LOOP=data/training/$NAME

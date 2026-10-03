@@ -2102,3 +2102,21 @@ record.*
   alone games run ≈ 3,500 g/h on this box (the margin read: 5,000 in 86 min), so the whole re-measure is
   ≈ 1.5 h, not the day the plan priced. Coverage: state `~/.local/state/anvil/runs/ante-remeasure.json`,
   stall 60 min on the run dir + `ar-*`, sinks queue+desk, check-in claude (self-test OK).
+- **2026-10-03 (16:20) — THE DRIFTED-TRUNK RECOVERY READ, PRE-REGISTERED AND QUEUED behind the re-measure
+  (`scripts/after_remeasure_queue.sh`, `anvil.runs` name `after-remeasure`).** ADR-0119's 10-03 addendum
+  names it: a short continuation from `shakedown-alloc/iter-019` under the rung-2 recipe decides the big
+  run's warm start (the 09-27 call kept the settings cells on day-zero so the bar read as registered; the
+  recovery of a drifted trunk was made its own read). **The cell:** the settings-pass chain's new arm
+  `recovery` = the `stopgrad-t3e6` flags exactly (head-only anchor 0.1 + `--value-stopgrad-trunk` +
+  `--trunk-lr 3e-6` / `--value-head-lr 1e-4`), `CKPT` = `shakedown-alloc/iter-019` (Spearman 0.250 ± 0.029,
+  the shakedown's end state), `WALL_HOURS` 9 (≈ 6 iterations at the alloc cadence) + the chain's 2,000-game
+  read, on the shuffle-mark jar (the pin); loop `settings-recovery`, dir `data/runs/settings-pass5/`.
+  **Pre-registered bar:** the state-ranking Spearman at the cell's last iteration **≥ 0.350** (within one
+  bootstrap SE of day-zero's 0.374, ADR-0118's letter) = the drifted trunk RECOVERS under the head-only
+  recipe → the big run may warm-start from `iter-019` (≈ 30 h of box time back); below → day-zero
+  `m12-build4-e1a-tgt` is the warm start, no further argument. The question is real on both sides: the
+  head reads a detached [STATE] read-out of a trunk that drifted for 20 iterations with no value anchor, and
+  the trunk now moves at lr/3.3 — a head that cannot rank on that representation inside six iterations says
+  the representation is the problem, not the head (the 09-24 head-swap read's finding, re-asked under the
+  recipe). The 2,000-game read is a strength point beside alloc's 0.5405 ± 0.0111, exploratory (a gap of
+  two SE flags; one cell cannot separate the trunk lr's cost from the warm start's). Closes ≈ 10-04 04:00.
