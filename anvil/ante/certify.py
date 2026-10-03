@@ -205,6 +205,13 @@ def main() -> None:
         help="re-aggregate a prior run's per-game ledger JSONL "
         "(no GPU; applies current estimator + node semantics)",
     )
+    ap.add_argument(
+        "--full-vis",
+        action="store_true",
+        help="score the ledger on full-visibility windows whatever the ckpt's fine-tune stamp "
+        "says (the 10-03 Ante re-measure: a policy checkpoint's value head read as an omniscient "
+        "critic — a VALUE instrument only, never a policy read)",
+    )
     a = ap.parse_args()
 
     if a.from_ledger:
@@ -221,7 +228,7 @@ def main() -> None:
     if not a.store:
         ap.error("--store is required unless --from-ledger is given")
 
-    ev = ValueEvaluator(a.ckpt, batch=a.batch)
+    ev = ValueEvaluator(a.ckpt, batch=a.batch, full_vis=True if a.full_vis else None)
     store = open_store(a.store)
     games = store.game_indices()
     if a.split:
@@ -266,6 +273,7 @@ def main() -> None:
     report = {
         "ckpt": ev.ckpt,
         "step": ev.step,
+        "full_vis": ev.full_vis,
         "store": a.store,
         "split": a.split,
         "mc_samples": a.mc,

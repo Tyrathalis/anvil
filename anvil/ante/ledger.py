@@ -24,8 +24,9 @@ v0 chance-node classes (per the 2026-07-11 D4 scope decision):
   k=1 (weighted by multiplicity), MC for k>1. Draws are corrected only when
   the uniform distribution is *provable*:
     - p has no prior library-ORDER knowledge (`ORDER_METHODS` dec ⇒ p is
-      poisoned for the rest of the game — v0-conservative; a shuffle would
-      cleanse, but shuffles are not observable as decision records);
+      poisoned until p's next SHUFFLE — the fork's `{"k":"mark","m":"shuffle",
+      "p":seat}` record, ADR-0121; before it, v0 poisoned game-long because
+      shuffles were not observable, skipping about half of all draw nodes);
     - the drawn ids were never serialized in any earlier record (looked-at
       library tops appear as library rows under schema 5a, so a known-top
       card fails this check);
@@ -44,6 +45,17 @@ state at that record), re-assembled from p's perspective, batched through
 the checkpoint's value head. The actual outcome is evaluated through the
 identical path (identity surgery), so v(actual) and E[v(c)] share every
 approximation — the zero-mean property survives any surgery infidelity.
+
+The shuffle cleanse (ADR-0121): a shuffle mark for p between two records
+voids every piece of library knowledge the ledger holds for p — the poison
+flag, the London known-bottom list, and the `seen` status of every p-owned
+entity that is not serialized in a non-library zone at the next record (a
+looked-at library card is uniform again once shuffled; a card in hand,
+play or the yard stays seen). The cleanse is applied AFTER that record's
+draw detection: events inside one gap have no order, so a draw in the
+shuffle's own gap is judged under the pre-shuffle state (conservative,
+never a draw of a card whose position was known). Stores without marks
+(every pre-ADR-0121 jar) read exactly as before.
 
 Library multisets are never trusted blind: derived library = decklist −
 (all serialized non-library, non-token entities owned by p), and a node is
@@ -147,7 +159,18 @@ def extract(
     """Walk one game's decision stream -> (nodes, on_play seat, skip census)."""
     n_players = len(traj.header["players"])
     seen: set[int] = set()
+    owner: dict[int, int] = {}  # entity id -> owner seat (the cleanse's key)
     poisoned = [False] * n_players
+    # ADR-0121: shuffle marks in stream order; a mark between records i-1 and
+    # i cleanses its seat after record i's draw detection. Marks are placed
+    # by _pos (decode_frame sets it on decs and marks alike); a hand-built
+    # trajectory without positions carries no marks.
+    shuffles = sorted(
+        (m for m in traj.marks if m.get("m") == "shuffle" and "_pos" in m),
+        key=lambda m: m["_pos"],
+    )
+    si = 0
+    cleanse = [False] * n_players
     tucked: list[list[str]] = [[] for _ in range(n_players)]
     hand_prev: list[set[int]] = [set() for _ in range(n_players)]
     lib_prev: list[int | None] = [None] * n_players
@@ -160,6 +183,12 @@ def extract(
         obs = dec.get("obs")
         if obs is None:
             continue
+        pos = dec.get("_pos")
+        while si < len(shuffles) and pos is not None and shuffles[si]["_pos"] < pos:
+            sp = shuffles[si].get("p", -1)
+            if 0 <= sp < n_players:
+                cleanse[sp] = True
+            si += 1
         glob = obs["glob"]
         turn = glob.get("turn", 0)
         if on_play is None and turn >= 1 and glob.get("ap", -1) >= 0:
@@ -238,7 +267,19 @@ def extract(
         for p in range(n_players):
             hand_prev[p] = set(hands[p])
             lib_prev[p] = obs["players"][p]["lib"]
-        seen.update(e["e"] for e in obs["ents"])
+        for e in obs["ents"]:
+            seen.add(e["e"])
+            owner.setdefault(e["e"], e.get("o", e["c"]))
+        if any(cleanse):
+            nonlib = {e["e"] for e in obs["ents"] if e["z"] != "library"}
+            for p in range(n_players):
+                if not cleanse[p]:
+                    continue
+                cleanse[p] = False
+                poisoned[p] = False
+                tucked[p] = []
+                seen.difference_update({e for e in seen if owner.get(e) == p and e not in nonlib})
+                skips["shuffle_cleanse"] += 1  # a census row, not a skip
         if m == "tuckCardsViaMulligan" and p_dec >= 0 and isinstance(dec.get("ret"), list):
             by_id = {e["e"]: e["n"] for e in obs["ents"]}
             for ref in dec["ret"]:

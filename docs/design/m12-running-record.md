@@ -1574,6 +1574,22 @@ record.*
   certmerge jar. Coverage: state `~/.local/state/anvil/runs/settings-pass.json`, stall 180 min on the
   run dir + `settings-*` / `sp*`, sinks queue+desk, check-in claude (self-test OK). Session work while
   the cells fly: step 2's shuffle decision record on the fork.
+- **2026-09-27 (session 4) — THE SHUFFLE MARK ([ADR-0121](../decisions/ADR-0121-shuffle-mark.md)),
+  written while the anchor cell flies.** ADR-0119 step 2's draw-coverage half. The seam was already
+  there on both sides: `Player.shuffle` fires `GameEventShuffle` on the game's synchronous bus, and
+  the store frame's `mark` kind is store-session-only, position-ordered and unread. **Fork:**
+  `Obs.startGame` subscribes a `ShuffleMarker` (fork commit `8d82dfa546`); every shuffle, either seat, writes
+  `{"k":"mark","m":"shuffle","p":seat}` through `Obs.mark`'s store gate, so search / fidelity copies
+  write nothing and the game path is untouched; `ShuffleMarkTest` (2) reads both seats' marks back out
+  of a real frame. **Ledger:** `extract` reads `traj.marks` by position; a mark cleanses the seat's
+  poison flag, London tuck list and the seen status of its library-side entities, after the mark's own
+  record (same-gap conservatism); the census gains `shuffle_cleanse`; six tests. **Not a boundary**
+  (additive kind, no `sv` bump, old stores read as before); the ADR-0025 forkcheck (35 min on a quiet
+  box on 09-23) is held until the pass closes — the cells are compared at equal box time. The stake,
+  from the 09-16 read: 9,930 draws corrected vs 10,735 skipped as poisoned. Standing rule: a chance
+  event that voids tracked knowledge is a stream record. Next: on the pass's close, the forkcheck
+  (PASS → the pin + the lineage row), then the Ante re-measure on the new jar with the anchored head,
+  one read for both step-2 halves.
 - **2026-09-27 (evening) — the anchor cell's first update: the Spearman ROSE.** Iteration 0 (480 games in
   66 min incl. the heuristic-seat halves, training 249 s): the state-ranking Spearman 0.4214 ± 0.023
   against the day-zero 0.374 — the anchor's first update lifts the head above day-zero by ≈ 2 SE, where every
