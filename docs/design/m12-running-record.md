@@ -1929,4 +1929,33 @@ record.*
   ≈ 5–6 h + ≤ 9 h; `data/runs/baseline-reads/read.md`. The random arms' first games are the smoke
   (random-seat vetoes in the census). Coverage: stall alarm 240 min over the queue dir + every
   phase's roots, check-in claude; the session wait is on the queue's close.
-
+- **2026-10-02 — THE CAST-TARGET LEGALITY MASK ROUTED PRE-BIG-RUN (user), from Kryptic's #ai-plotting
+  thread.** The finding: the cast-time target decoder is a free pointer over every entity and player
+  row (`anvil/policy/model.py` ≈ 918–958, a padding mask only); the realizer vetoes illegal picks
+  (`no_shape_fit`), and `-reask` drops the vetoed ability for the rest of the window, so an ability
+  gets one try at its targets per window and an unfamiliar card learns its targets across games, under
+  the 0.02 penalty. ADR-0116 had routed the player-row half to the Build 5 queue; this generalizes it.
+  Not a rejected design: the override plan's invariant ("masking is construction") and
+  bridge-protocol-v0's `TargetPlan` (indices into the legal-candidate list) specified a mask; the M1
+  rung-1 label extractor recorded the heuristic's injected targets as entity refs (ADR-0004: they never
+  surface as a callback), and the free pointer was the staged form that was never promoted.
+  **The breakdown** (the resolution read's alloc arm, 5,000 games, mainline cast attempts; 9,565 vetoes
+  beside ≈ 147K realized casts): `no_shape_fit` 4,828 (≈ 3% of cast attempts) over 361 abilities, the
+  top 25 half of it — conditional targets (mana value ≤ 3: 177 vetoes vs 234 casts; counter MV 2: 152 vs
+  364; power or toughness ≤ 2: 135 vs 339; nonblack creature: 124 vs 17 and 56 vs 11) and abilities that
+  almost never fit ("{3}{G}{G}: return this card and target land card from your graveyard" 409 vs 47;
+  Chthonian Nightmare's ability 60 vs 0). **A separate mask bug:** `restrictions` 3,587, of which
+  Spider-Man 2099 alone is 2,655 (vs 2,586 casts) — the priority option predicate offers it in windows
+  the realizer's `legality()` refuses (its can't-cast-early restriction); ≈ 28% of all vetoes.
+  **Routed, in order, before the launch ADR:** (1) the Spider-Man fix — the option mask runs the
+  realizer's restrictions check (fork; forkcheck; under a day); (2) the union target mask — the fork
+  lists each priority option's legal targets (the union over its targeting nodes, from
+  `TargetRestrictions.getAllCandidates` as the target surface does, plus stack entries; from the acting
+  seat's information set), the decoder masks its pointer to the chosen option's set, older stores read
+  unmasked (an additive field, the ADR-0120 pattern); the realizer stays the backstop for cross-node
+  cases (X-dependent, "another target", divided). **Go/no-go = the agreement check** (user): every
+  heuristic-chosen target on a fresh labelled corpus lies inside the mask — the heuristic is not a
+  perfect definition of playable, but a mask that excludes its targets at any real rate is not exact
+  yet (the ADR-0005 lesson). Then a timing check (per-window enumeration cost against the recipe's
+  ≈ 300 g/h), a smoke, a paired read. ≈ 2–3 days. The user's terms: a correctness item before the big
+  run; dropped to after it if the implementation fights back.

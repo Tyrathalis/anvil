@@ -403,6 +403,8 @@ is what runs on the behavior distribution for every surface. Not "inside vs outs
 the engine adjudicates in both, the head never certifies (`end` = the engine's outcome; `eot` /
 `h2` = head-valued readings of the same fork). ≈ a day of fork work + a forkcheck.
 
+**Routed 10-02 (user), pre-big-run:** the cast-target legality mask — the Spider-Man 2099 option-mask fix (the priority predicate misses the realizer's restrictions check; ≈ 28% of vetoes), then the union target mask (each option's legal targets listed by the fork, the decoder masked to them; go/no-go = every heuristic-chosen target inside the mask); dropped to after the run if it fights back. ADR-0116's player-row half is folded in. Detail: the running record, 10-02.
+
 **Routed by ADR-0119 (09-24)** to the post-run worktree — **landed 09-27** except where noted: the anchor term (`rl.py --value-anchor`, `selfplay --value-anchor`; smoked on the alloc arm's last store); the per-term trunk gradient-norm row (`--grad-norm-every`, `gn_*` in the metrics row) and `--swap-head` on `value_pretrain eval`; raw-and-corrected columns in `arms_report.py` (the `of_record` field by the 1.5× effective-sample bar). **Still routed:** the shuffle decision record (fork, ADR-0025 proof — the settings pass's step 2); the amortized advantage head (gated on the exact ledger's ≥ 1.5× effective samples).
 
 **Routed by the 2026-09-23 fluency review** to the post-run worktree — **all landed 09-27**: one `RECIPE`
