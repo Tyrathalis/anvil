@@ -30,6 +30,17 @@ CRITIC = "data/training/d4-critic-fullvis/last.pt"
 TRAJ_DIR = Path("data/trajectories")
 
 
+def _seat_forge_args(a, seat: int) -> str:
+    """The forge args for one seat run: --forge-args, the control arm's
+    -searchseats, and the --seat-forge-args template for this seat."""
+    parts = [a.forge_args or ""]
+    if a.heuristic_control:
+        parts.append(f"-searchseats {seat}")
+    if a.seat_forge_args:
+        parts.append(a.seat_forge_args.format(seat=seat, other=1 - seat))
+    return " ".join(p for p in parts if p).strip()
+
+
 def main() -> None:
     # Detached stdout to a redirected log is BLOCK-buffered, so a log-tail
     # watcher sees nothing until exit (run-8 held 36h of narration in memory).
@@ -98,6 +109,13 @@ def main() -> None:
         "to the forge args per seat run, so the searched heuristic seat sits "
         "where the bridged seat sits in the network arms; the server still "
         "serves the leaf values",
+    )
+    ap.add_argument(
+        "--seat-forge-args",
+        default=None,
+        help="the 10-01 baseline reads: extra forge args per seat run, '{seat}' = the run's test "
+        "seat and '{other}' = the opposing seat (e.g. '-randomseats {other}' for the model vs "
+        "random, '-aisim full -aisimseats {seat}' under --heuristic-control)",
     )
     ap.add_argument(
         "--format",
@@ -181,9 +199,9 @@ def main() -> None:
                     *(
                         # the = form: a value starting with '-' (e.g. -payrescue) is
                         # otherwise read by the harness's parser as a flag
-                        [f"--forge-args={(a.forge_args or '')} -searchseats {seat}".strip()]
-                        if a.heuristic_control
-                        else ([f"--forge-args={a.forge_args}"] if a.forge_args else [])
+                        [f"--forge-args={fargs}"]
+                        if (fargs := _seat_forge_args(a, seat))
+                        else []
                     ),
                     *(["--labels"] if a.labels else []),
                     *(["--jar", a.jar] if a.jar else []),
