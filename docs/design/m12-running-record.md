@@ -2120,3 +2120,23 @@ record.*
   the representation is the problem, not the head (the 09-24 head-swap read's finding, re-asked under the
   recipe). The 2,000-game read is a strength point beside alloc's 0.5405 ± 0.0111, exploratory (a gap of
   two SE flags; one cell cannot separate the trunk lr's cost from the warm start's). Closes ≈ 10-04 04:00.
+- **2026-10-03 (15:50) — THE SPIDER-MAN 2099 OPTION-MASK FIX, WRITTEN AND TESTED WHILE THE BOX READS (fork
+  branch `cast-mask`, commit `9c589c1ced`; forkcheck queued before the recovery cell).** The 10-02 routing's
+  item (1). **The mechanism, from the engine:** `Spell.canPlay()` never consults the `CantBeCast` statics;
+  Forge's own AI checks them in a second step (`AiController.canPlaySa`: `checkRestrictions` on an LKI copy
+  placed in the stack zone, the stack-CMC dance), and the realizer's `legality()` does the same — but the
+  priority option scan (`AnvilOptions.buildPriorityOptions`) asked `canPlay()` alone. Spider-Man 2099
+  ("you can't cast this during your first, second, or third turns") passed the scan and failed the realizer.
+  The 10-01 alloc read's census confirms the shape: 1,775 `restrictions` vetoes in the s0 arm, 1,215 of them
+  Spider-Man, **1,176 of them on game turns 5–6** — each seat's third own turn, the first with UR up. **The
+  fix:** `CastPlanRealizer.passesRestrictions` (the LKI dance + `checkRestrictions`) shared by `legality()`
+  and the scan; a dropped option counts in a census row `optmask/restricted`. The option list is the serve /
+  recording path; the heuristic's game path is untouched, which the ADR-0025 forkcheck proves
+  (`run-20261003-castmask`, queued first in `after_remeasure_queue.sh` so it never sits inside the recovery
+  cell's wall budget). Test `OptionMaskRestrictionsTest` (1): `canPlay` admits Spider-Man on the controller's
+  turn ≤ 3, `passesRestrictions` and `priorityOptions` refuse it, both admit it from the fourth turn — passes.
+  Cost: one LKI copy per candidate spell per scan, what the engine's AI already pays per candidate; the paired
+  read prices it. Snapshot jar `data/runs/castmask/forge-castmask.jar`. **Not an ADR:** the fix is item (1) of
+  the routed mask work; the union target mask (item 2) carries the ADR. On PASS the pin moves to `9c589c1ced`
+  (a serve-path change: the big run's jar, so it needs a smoke + the paired read the routing named before it
+  serves a run). The old queue (`after-remeasure`) was killed to insert the step — its FAILED alert is the kill.
