@@ -43,6 +43,8 @@ def read_arm(dirs: list[Path]) -> dict:
     for rd in dirs:
         seat = seat_of(rd)
         tag = f"({seat + 1})"
+        if not (rd / "games.jsonl").exists():
+            continue  # an arm whose harness aborted before any game (a failed probe): reads as 0 games
         for line in (rd / "games.jsonl").read_text().splitlines():
             g = json.loads(line)
             games += 1
@@ -94,6 +96,9 @@ def main() -> None:
         x = f"{r['cost_x_ref']:.2f}" if r["cost_x_ref"] else "—"
         mpw = f"{r['ms_per_window_mean']:.1f}" if r["ms_per_window_mean"] else "—"
         gs = f"{r['game_s_median']:.1f}" if r["game_s_median"] else "—"
+        if not r["games"]:
+            print(f"| {name} | 0 | — (no games: the arm failed) | — | — | — | — |")
+            continue
         print(f"| {name} | {r['games']} | {r['winrate']:.4f} ± {r['se']:.4f} | {r['crashes']} | {mpw} | {x} | {gs} |")
 
 

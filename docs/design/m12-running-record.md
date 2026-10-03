@@ -2023,3 +2023,36 @@ record.*
   **Next (ADR-0119 step 2):** the Ante re-measure against `settings-stopgrad-t3e6/iter-019` (the
   ledger re-aggregation, then the values re-scored), and the shuffle decision record on the fork for
   draw coverage. The baseline reads run first, already queued (`after-pass4` step 3).
+- **2026-10-03 (12:04) — THE BASELINE READS CLOSED (exploratory, no bar).** On this pool the network
+  beats uniform random 99% of the time. Random never beats the heuristic. Our one-roll search lifts
+  the heuristic by about 2.75pp. Forge's full simulation AI cannot run here at all.
+
+  | arm | games | test-seat winrate | × the heuristic's ms per window |
+  |---|---|---|---|
+  | heur (the mirror; the cost unit) | 400 | 0.495 ± 0.025 | 1.00 |
+  | randheur (random vs the heuristic) | 400 | **0.000** | 0.68 |
+  | modelrand (alloc `iter-019` network-alone vs random) | 400 | **0.990 ± 0.005** | 0.70 |
+  | heursearch (the heuristic under our one-roll search, alloc leaf) | 2,000 | **0.5275 ± 0.0112** | 1.19 |
+  | simfull (Forge's full simulation AI) | **0** | failed (below) | — |
+  | simhybrid (Forge's hybrid simulation AI; probe) | 48 | 0.458 ± 0.072 | 1.40 |
+  | searchend (our search, the network-free `end` leaf; probe) | 48 | 0.417 ± 0.071 | **50.3** |
+
+  **Readings:**
+  - **heursearch** re-measures the Build 2 control arm (+2.51 ± 1.00pp) at +2.75 ± 1.12pp on today's
+    jar and leaf: what a one-roll lookahead buys any policy is stable across eras.
+  - **The random arms** are the floor the Discord thread asked for. Both random seats played every
+    bridged decision with no smoke failures (1–2 crashes in 400).
+  - **searchend** costs 50× the heuristic per window, against 1.19× for the network leaf. Rolling out
+    to the game's end without a value function is not a usable leaf at this pool's game length
+    (median game 809 s).
+  - **simhybrid's** 48 games are a cost read, not a strength read.
+
+  **simfull played zero games.** Every worker failed within a game of starting. The first error in
+  each is the playable branch's benign `CHRONICLE_BINDER` preference warning, which simhybrid prints
+  too. The real exits are Forge's own simulation AI: `GameCopier.find` "Couldn't map Construct Token"
+  (a `RuntimeException` inside `simulateUpcomingCombatThisTurn`, 4 games) and Java heap OOMs (4
+  workers). The harness then aborted on 3 zero-game workers in a row. That is an upstream forge-ai bug
+  (token copies in the game copier), not ours; routed as an upstream report beside the
+  StackOverflowError PR. **The chain's summary step crashed** on the missing `games.jsonl`.
+  `scripts/baseline_reads.py` now reads a game-less arm as "no games: the arm failed", and the summary
+  was re-run by hand into `data/runs/baseline-reads/read.md` (the DONE marker written with it).
