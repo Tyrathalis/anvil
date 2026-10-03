@@ -77,3 +77,41 @@ the one before:
   row and `--swap-head` (ADR-0118 addendum); the shuffle decision record (fork); the corrected
   columns in `final_read.py` / `arms_report.py` reporting raw and corrected together; the amortized
   head (gated).
+
+## Addendum 2026-10-03 — step 1 closed: the ladder stops at rung 2; the value-head recipe of record
+
+**The ladder's outcome (the settings pass, 09-27 → 10-03, four 30-h cells from day-zero plus the
+reads; running record 09-28 → 10-03).** The anchor at weight 0.5 held the Spearman and cost
+−5.1pp (OUT). Rung 1′ (anchor weight 0.1) held the Spearman at 0.41–0.46 and cost −1.57 ± 0.67pp
+on the 5,000-game paired resolution read — below the −1.0pp margin the user fixed before any game
+(MISS; the bar's "not worse" clause had set no margin, which is the thing to fix in every future
+bar). **Rung 2 — the value gradient stopped at the trunk — CLEARS:** Spearman 0.390 → a 0.45
+plateau, every row above day-zero 0.374, and −0.47 ± 0.69pp vs the alloc read of record on the
+same paired seeds. Rung 3 (a separate value trunk) is not needed.
+
+**The value-head recipe of record for the big run (one line in the chain, `settings_pass_chain.sh`
+arm `stopgrad-t3e6`):** the alloc recipe + `--value-anchor data/runs/m12-build1 --anchor-weight 0.1`
+as a HEAD-ONLY term + `--value-stopgrad-trunk` (`AnvilNet.value_stopgrad`: the value head reads a
+detached [STATE] read-out, so V-trace, the anchor and the distill carry's value BCE train the head
+alone; `gn_v` = `gn_anchor` = 0 on every row) + `--trunk-lr 3e-6` (cards / assemble / trunk,
+everything upstream of the detach) + `--value-head-lr 1e-4`. The two lr groups are part of the
+recipe, not tuning: rung 2's first cell at the trunk lr of 1e-5 halted at iteration 3 on the kl
+guard (kl_mu 0.007 → 0.068, doubling per iteration), and six iteration-0 replays put it on the
+optimizer — with the value and anchor gradients (2–5× the policy gradient) gone from the trunk,
+AdamW's per-parameter scaling handed the trunk's whole step to the policy direction; the trunk at
+lr/3.3 restored the control's kl_mu exactly (0.0020 vs 0.0024), the head lr alone changed nothing
+on kl_mu and only the detached head's bias (v0 0.60 → 0.55).
+
+**What rung 2 buys over rung 1′ (same seeds, same box time):** ≈ 1.1pp of the anchor's strength
+cost back, the Spearman plateau 0.02 higher, and the anchor's cast → pass push gone (casts per game
+28.9 vs 26.3; alloc 29.5). Open, routed to the launch ADR: whether the slower trunk lr is a strength
+cost of its own over the big run's length (−0.47pp is inside noise; priced against alloc's kl_mu
+track), and the 38% re-ask rescue rate (17–21% in every other cell) as a census read.
+
+**Consequences for the steps that follow:** step 2 (the Ante re-measure) runs against
+`settings-stopgrad-t3e6/iter-019`, the head of record for the leaf and the ledger; the shuffle
+decision record (fork) proceeds as written. The drifted-trunk recovery read (a short continuation
+from `shakedown-alloc/iter-019` under this recipe) decides the big run's warm start and is a
+launch-ADR item. A standing rule is born (below); ADR-0118's audit-and-anchor rule stands with the
+anchor now head-only.
+

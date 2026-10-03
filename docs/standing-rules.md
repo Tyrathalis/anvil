@@ -166,6 +166,14 @@ reads).
   serves as the search's leaf is **anchored to that truth** — outcome targets alone pull it off it
   (the shakedown's 0.374 → 0.256 in 16 iterations;
   [ADR-0118](decisions/ADR-0118-value-head-drift-under-the-loop.md)).
+- **Adding or removing a loss on a shared trunk re-sizes every other loss's step under AdamW** —
+  the per-parameter scaling hands the freed (or taken) gradient budget to whatever remains, so a
+  recipe tuned with the value gradient on the trunk runs the policy ≈ 10× faster once it is off
+  (rung 2's first cell: kl_mu doubling per iteration, the kl guard at iteration 3). Before any cell
+  that changes which losses reach the trunk, **replay one iteration's training on an existing store
+  and re-match kl_mu to the control** (≈ 4 min per setting), then pin the per-group lr
+  (`--trunk-lr`, `--value-head-lr`) as part of the recipe
+  ([ADR-0119](decisions/ADR-0119-value-function-first-before-the-big-run.md) addendum 10-03).
 
 ## Curation, drills, and the critic
 
