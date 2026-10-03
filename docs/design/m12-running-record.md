@@ -1959,3 +1959,22 @@ record.*
   yet (the ADR-0005 lesson). Then a timing check (per-window enumeration cost against the recipe's
   ≈ 300 g/h), a smoke, a paired read. ≈ 2–3 days. The user's terms: a correctness item before the big
   run; dropped to after it if the implementation fights back.
+- **2026-10-02 (17:34) — THE RERUN'S MID-CELL GLANCE (iterations 0–11, 18.7 h): on track on every row.**
+  Spearman 0.390 / 0.403 / 0.424 / 0.433 / 0.440 / 0.435 / 0.435 / 0.449 / 0.454 / 0.455 / 0.450 /
+  0.449 (± 0.023) — a plateau at 0.45 from iteration 7, every row ≥ 2 SE above day-zero (the
+  un-anchored arms dipped to 0.24–0.28 at iterations 5–8; anchor-w01 held 0.45–0.46 through 10).
+  kl_mu per-iteration median 0.0011 → 0.0049 by iteration 3, then 0.005–0.007 flat through 11 (anchor-
+  w01's band); no guard; v0 0.47–0.51. `gn_v` = `gn_anchor` = 0 on every row. The mid-run arms
+  (400 games, ± 2.5pp, exploratory): iteration 4 network-alone **0.550** / with-lookahead 0.560;
+  iteration 9 **0.5225** / 0.5375 — both network-alone reads above day-zero's 0.5185, neither a
+  verdict. **One background item:** the iteration-9 strength arm lost 8 of 400 games to
+  `BridgePoisonedException` (deadline on the first priority call, seq 3, 20 s) — all on seat 0's
+  arm, all on even-numbered workers, i.e. the first wave into the first arm server right after its
+  warm-up (both servers warmed in < 1 s; the alloc head fit sits between the port opening and the
+  first real forward). Discarded games, not scored; the arm stands on 385 decisive. The class
+  reads 1 in the whole alloc arm and 0 in anchor-w01, so a startup race, not the cell. **Routed
+  (convenience, next worktree):** the ping handshake sends one full-size priority request (or
+  the first call's deadline is 60 s) so the first wave never times out on a server mid-fit.
+  Closes ≈ 10-03 05:00 (iteration 12 at 18.7 h → ≈ 20–21 iterations) + the read; the queue
+  (`after-pass4`) is waiting on it.
+
