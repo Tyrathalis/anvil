@@ -35,6 +35,19 @@ def seat_of(run_dir: Path) -> int:
     raise ValueError(f"no -s0- / -s1- in {name}")
 
 
+def _games_lines(rd: Path) -> list[str]:
+    """The merged games.jsonl, or — for a probe the harness never completed
+    (a timeout, or its zero-game abort: the 10-03 simfull probe) — the
+    workers' own files, which hold every game already written."""
+    merged = rd / "games.jsonl"
+    if merged.exists():
+        return merged.read_text().splitlines()
+    lines: list[str] = []
+    for f in sorted(rd.glob("workers/inv-*/games.jsonl")):
+        lines += f.read_text().splitlines()
+    return lines
+
+
 def read_arm(dirs: list[Path]) -> dict:
     games = wins = crashes = capped = 0
     per_window: list[float] = []
@@ -43,9 +56,7 @@ def read_arm(dirs: list[Path]) -> dict:
     for rd in dirs:
         seat = seat_of(rd)
         tag = f"({seat + 1})"
-        if not (rd / "games.jsonl").exists():
-            continue  # an arm whose harness aborted before any game (a failed probe): reads as 0 games
-        for line in (rd / "games.jsonl").read_text().splitlines():
+        for line in _games_lines(rd):
             g = json.loads(line)
             games += 1
             status = g.get("status", "")
