@@ -23,8 +23,9 @@ known, not regressions:
 
 | Tip | What | Scope | Forkcheck | PASS | ADR |
 |---|---|---|---|---|---|
-| `cd4b9d9951` | the pin + a test-only commit: the CI order-immunity pin in `CardMockTestCase` | tests only | — | — | — |
-| **`05fea7938d` ← THE PIN** | certifier merge: `-replay`, the certifier's front over search copies (the pick hook, `replayNatural`, the pay SurfaceDirective's exec record, `trueLine` / `playRng` on runCopy) | recording / replay; off | `run-20260923-certmerge` 499/500, fidelity 451/48/1 | 09-23 12:33 | [0117](../decisions/ADR-0117-certifier-merge.md) |
+| **`8d82dfa546` ← THE PIN** | the shuffle mark: every `Player.shuffle` on the store session's game as a `mark` record (either seat; `Obs.ShuffleMarker` on the game's event bus, through `Obs.mark`'s store-session gate); the Ante ledger's cleanse event | recording | `run-20261003-shufflemark` 499/500, 20260969 the standing seed, fidelity 451/48/1 | 10-03 15:35 | [0121](../decisions/ADR-0121-shuffle-mark.md) |
+| `cd4b9d9951` | a test-only commit: the CI order-immunity pin in `CardMockTestCase` | tests only | — | — | — |
+| `05fea7938d` | certifier merge: `-replay`, the certifier's front over search copies (the pick hook, `replayNatural`, the pay SurfaceDirective's exec record, `trueLine` / `playRng` on runCopy) | recording / replay; off | `run-20260923-certmerge` 499/500, fidelity 451/48/1 | 09-23 12:33 | [0117](../decisions/ADR-0117-certifier-merge.md) |
 | `cbe386d2c6` | census: `vr` unconditional, `act_vr` on the mainline's forced ask, `copy:true` on search-copy census rows | recording | `run-20260921-build4-census` 499/500, fidelity 451/48/1 | 09-21 11:53 | [0115](../decisions/ADR-0115-m12-shakedown-scoping.md), [0107](../decisions/ADR-0107-run-launcher-and-checkin.md) addendum |
 | `57337a7e38` | void rescue: `-searchvoidrescue` + the `vr` void reason + `Obs.planJson` | search-copy / recording; off in the recipe | `run-20260919-build4-voidrescue` 499/500, fidelity 451/48/1 | 09-19 21:16 | [0114](../decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md) |
 | `a37bc6a8b4` | allocation: `-searchalloc` / `-searchfloor` + the `anvil.alloc` ask | off | `run-20260917-build4-alloc` 499/500, fidelity 451/48/1 | 09-17 15:45 | [0112](../decisions/ADR-0112-m12-build4-allocation-head-served.md) |

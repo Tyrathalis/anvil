@@ -2072,3 +2072,33 @@ record.*
   StackOverflowError PR. **The chain's summary step crashed** on the missing `games.jsonl`.
   `scripts/baseline_reads.py` now reads a game-less arm as "no games: the arm failed", and the summary
   was re-run by hand into `data/runs/baseline-reads/read.md` (the DONE marker written with it).
+- **2026-10-03 (15:35) — THE SHUFFLE MARK'S FORKCHECK PASSES; `8d82dfa546` IS THE PIN; THE ANTE RE-MEASURE
+  LAUNCHED 15:36.** The session opened on a quiet box with the ladder stopped at rung 2 and found the
+  shuffle decision record ([ADR-0121](../decisions/ADR-0121-shuffle-mark.md)) already written in a sibling
+  worktree since 09-27, built and tested, waiting only for its ADR-0025 proof — the Now block still called it
+  "routed". **The proof:** `run-20261003-shufflemark` on the staged jar of `8d82dfa546`, 500 seeds from
+  20260703 against the 09-16 baseline: 499/500 main-trace hashes identical, the one miss seed 20260969 (the
+  standing identity-hash residual, the same miss as the 09-23 certmerge run), fork fidelity 451/48/1 = the
+  baseline's; 30 min wall, launched through `anvil.runs` (`shufflemark-forkcheck`). PASS → the pin, the
+  lineage row, the state-of-record table and the map; the fork commit pushed to `origin/master`; the
+  worktree's branch (the ledger's cleanse, six tests, the 09-27 session-4 record) merged.
+  **Three decisions taken (user, 10-03):**
+  1. *Which critic scores the re-measure's ledger.* ADR-0119 says "against the anchored head"; every Ante read
+     on record scores with the full-vis critic `d4-critic-fullvis` and the stopgrad head is a policy-visibility
+     head trained toward that critic's own leaf bank. Both run: final_read's Ante step under the standing
+     critic, then `certify --full-vis` (new: the evaluator's omniscient-window override exposed on the CLI)
+     with the head itself over the same stores. The effective-sample ratio picks.
+  2. *Size.* The standard 2,000-game read (1,000 per seat, 5 per pair), network alone, fresh seed base
+     20261003 on the shuffle-mark jar — ADR-0121 §4's one read for both step-2 halves. The 12,800-game mirror
+     of ADR-0014 only if the ratio lands near the bar.
+  3. *Order after it.* The drifted-trunk recovery read queues behind the re-measure; the Spider-Man 2099
+     option-mask fix is written while the box reads.
+  **The chain** (`scripts/ante_remeasure_chain.sh`, `anvil.runs` name `ante-remeasure`): the read, the
+  head-as-critic certify per arm, then `scripts/ante_remeasure.py` — per critic × arm the raw and fitted-β
+  corrected winrate, corr(raw, ledger), the variance ratio with CI90 and the effective-sample multiplier;
+  the two arms pooled (the s1 arm's seats flipped) into one 2,000-game ledger read against the 1.5× bar;
+  the census columns draws corrected / `draw_poisoned` / `shuffle_cleanse`. Verified on the run-9 reports
+  (pooled ×1.035 under the old critic, every column populated) and an 8-game head-as-critic smoke. Network-
+  alone games run ≈ 3,500 g/h on this box (the margin read: 5,000 in 86 min), so the whole re-measure is
+  ≈ 1.5 h, not the day the plan priced. Coverage: state `~/.local/state/anvil/runs/ante-remeasure.json`,
+  stall 60 min on the run dir + `ar-*`, sinks queue+desk, check-in claude (self-test OK).

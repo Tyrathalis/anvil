@@ -1,7 +1,7 @@
 # ADR-0121: The shuffle mark — draw coverage for the Ante ledger
 
 - **Date:** 2026-09-27
-- **Status:** accepted (the ADR-0025 proof pending: the forkcheck runs on the quiet box after the settings pass closes; the jar becomes the pin of record only on PASS)
+- **Status:** accepted — the ADR-0025 proof PASSED 2026-10-03 15:35 (`run-20261003-shufflemark`: 499/500 main-trace hashes identical to the 09-16 baseline, 20260969 the standing seed; fidelity 451/48/1 = the baseline's; 30 min); `8d82dfa546` is the fork pin of record from 10-03, pushed to `origin/master`
 - **Design-doc anchor:** §7 (Ante) and §9 (bridge / store)
 
 ## Context
