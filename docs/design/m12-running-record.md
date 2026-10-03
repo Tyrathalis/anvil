@@ -1977,4 +1977,31 @@ record.*
   the first call's deadline is 60 s) so the first wave never times out on a server mid-fit.
   Closes ≈ 10-03 05:00 (iteration 12 at 18.7 h → ≈ 20–21 iterations) + the read; the queue
   (`after-pass4`) is waiting on it.
+- **2026-10-03 (07:42) — THE RUNG 2 RERUN CLOSED: `stopgrad-t3e6` at 0.5270 ± 0.0112 on the chain's
+  2,000-game read (the first look); the Spearman clause CLEARS on letter and spirit; the strength
+  clause awaits the margin read (launched 07:42 by the queue, ≈ 09:15).** The cell: 20 iterations in
+  31.3 h (the alloc cadence; no pause, no guard halt — the kl guard that stopped the first cell at
+  iteration 3 never fired, kl_mu 0.005–0.007 flat from iteration 3), the read on `iter-019` 1,977
+  decisive / 2 crashes, seed halves 0.548 / 0.519 (gap 2.9pp, flag at 4.5), battery anomalies none.
+  **Spearman by iteration:** 0.390 / 0.403 / 0.424 / 0.433 / 0.440 / 0.435 / 0.435 / 0.449 / 0.454 /
+  0.455 / 0.450 / 0.449 / 0.447 / 0.452 / 0.446 / 0.445 / 0.450 / 0.443 / 0.455 / 0.446 — min 0.390
+  (iteration 0), every row above day-zero 0.374, a plateau at 0.44–0.45 from iteration 7 with no
+  second step down (anchor-w01: 0.412 → 0.46 then 0.42–0.44; the halted cell 0.31–0.36). The
+  detached head, trained alone at 1e-4 with the head-only anchor, ranks states better than the
+  un-anchored trunk ever did (the shakedown's 0.24–0.35) and as well as the weight-0.1 anchor did
+  with the trunk's help. **Strength, first look:** 0.5270 vs day-zero 0.5185 (+0.85pp), vs alloc's
+  2,000-game 0.5405 (−1.35 ± 1.58pp), vs anchor-w01 0.5210 (+0.6pp); the lookahead arms at
+  iterations 4 / 9 / 14 / 19 read 0.550 / 0.5225 / 0.545 / **0.500** network-alone (400 games,
+  ± 2.5) against 0.560 / 0.5375 / 0.5425 / 0.5475 with lookahead — the last arm is the low one;
+  no kill shape (network-alone is not sinking under a climbing lookahead line across the four).
+  **Behavior (exploratory):** casts per game 28.9 (alloc 29.5, day-zero 28.2, anchor-w01 26.3) —
+  the anchor's passivity push is absent with the value gradient off the trunk; veto rate 6.4%
+  (every cell 6.1–6.5%); the re-ask rescue rate **38%** against 17–21% in every other cell — after
+  a vetoed first pick the second pick lands a cast twice as often, a signature to read in the
+  census if the margin clears. **The number of record is the margin read:** `iter-019` fresh at
+  seed base 20261001, paired with the alloc read of record (0.5394 ± 0.0070), the fixed ≥ −1.0pp
+  applied in `data/runs/rung2-margin-read/read.md`. Clears → the ladder stops at rung 2 (the
+  head-only anchor + stop-grad + the two lr groups is the value-head recipe for the big run) and
+  the Ante re-measure (step 2) runs against this head; misses → rung 3 (a separate value trunk) is
+  the next registered rung, carrying the lr-group fix.
 
