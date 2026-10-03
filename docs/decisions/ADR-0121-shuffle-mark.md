@@ -25,3 +25,14 @@ The seam exists on both sides. Every shuffle goes through one engine method, `Pl
 - Draw coverage is bounded by the census above: at most the poisoned half returns, minus the draws inside a shuffle's own gap. The re-measure's effective-sample ratio decides whether corrected reads become the number of record (the ADR-0119 step 3 bar, 1.5×).
 - One standing rule: a chance event that voids knowledge the ledger tracks is a stream record, not an inference.
 - Routed by name: the heuristic seat's order-revealing decisions are never recorded, so that seat is never poisoned (a pre-existing gap, now visible against the mark's census); the same-gap conservatism is measurable from the re-measure and stays unless it costs coverage; the fork-lineage row and the pin move on the forkcheck's PASS.
+
+## Addendum 2026-10-03 — the proof and the coverage read
+
+The ADR-0025 forkcheck PASSED at 15:35 (`run-20261003-shufflemark`: 499/500, the standing seed 20260969,
+fidelity 451/48/1 = the baseline's); `8d82dfa546` is the fork pin of record. The re-measure that evening
+(ADR-0119's 10-03 evening addendum) measured the cleanse on 1,975 games: 14,367 `shuffle_cleanse` events,
+31,011 draws corrected against 17,591 still poisoned — the corrected share 64% against the 09-16 read's 48%
+(≈ 15.7 corrected draws per game, from ≈ 10.0). The remaining poisoned third is the gap the ADR named: the
+heuristic seat's order-revealing decisions are never recorded, and a seat stays poisoned from its first
+such decision to its next shuffle. The coverage did not move the effective-sample multiplier (×1.03 →
+×1.03–1.04): the critic, not coverage, binds. The mark stays; the same-gap conservatism stays.

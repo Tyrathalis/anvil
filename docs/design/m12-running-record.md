@@ -2140,3 +2140,26 @@ record.*
   the routed mask work; the union target mask (item 2) carries the ADR. On PASS the pin moves to `9c589c1ced`
   (a serve-path change: the big run's jar, so it needs a smoke + the paired read the routing named before it
   serves a run). The old queue (`after-remeasure`) was killed to insert the step — its FAILED alert is the kill.
+- **2026-10-03 (17:00) — THE ANTE RE-MEASURE CLOSED 16:57: BELOW THE 1.5× BAR UNDER BOTH CRITICS (×1.027
+  with `d4-critic-fullvis`, ×1.040 with the stopgrad head on omniscient windows); the shuffle mark lifted
+  draw coverage from 48% to 64% and the multiplier did not move. The ledger stays an audit; the amortized
+  head is routed, not built** ([ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md)
+  evening addendum; `data/runs/ante-remeasure/read.md`). The read: 1,975 decisive games of
+  `settings-stopgrad-t3e6/iter-019` network alone on the shuffle-mark jar, 81 min for the games (≈ 2,960 g/h),
+  10 min per certify pass per arm. Pooled: raw 0.5463 ± 0.0112, corrected 0.5456 ± 0.0111 (full-vis) /
+  0.5455 ± 0.0110 (the head); corr(raw, ledger) 0.163 / 0.197; var ratio 0.9739 [0.9623, 0.9862] /
+  0.9616 [0.9475, 0.9759]; ledger mean t 0.56 / 0.38 (unbiased). Per arm the s0 seat reads ×1.045 / ×1.060
+  and the s1 seat ×1.008 / ×1.026 — the s1 arm's full-vis CI90 touches 1.0. **Coverage:** `shuffle_cleanse`
+  14,367; draws corrected 31,011 vs `draw_poisoned` 17,591 (64%; the 09-16 stake 9,930 vs 10,735, 48%);
+  the other draw skips ≈ 2,300 (lib mismatch / delta / mixed sources / tuck). **The reading:** 1.5× needs
+  corr ≈ 0.58 and the best critic on hand reads 0.20 — the ×1.03–1.05 band has held since ADR-0014 across
+  three critics and two coverage regimes; the critic binds, coverage never did. The head itself scores the
+  ledger a little better than the full-vis critic (0.197 vs 0.163), which says the anchored head is at least
+  the equal of the D4 critic as an outcome predictor, and that neither is close. **Exploratory beside it:**
+  the raw 0.5463 ± 0.0112 on fresh seeds (seed base 20261003) against the same checkpoint's 0.5270 (chain
+  read, seeds 20260710) and 0.5358 (margin read, 20261001) — three reads of one checkpoint spanning 1.9pp on
+  ± 1.1 cells, the noise the ledger was meant to cut and did not. **Consequences as pre-registered:** raw stays
+  of record (step 3, no rule); the amortized head routed to after the big run behind a critic upgrade (step
+  4); the launch ADR quotes raw power (step 5). The shuffle mark and `certify --full-vis` stay as instruments.
+  **The queue moved on at 16:57:** the cast-mask forkcheck (`run-20261003-castmask`) is running; the recovery
+  cell launches on its completion (≈ 17:30; closes ≈ 10-04 03:30).

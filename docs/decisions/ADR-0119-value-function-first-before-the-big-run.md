@@ -115,3 +115,45 @@ from `shakedown-alloc/iter-019` under this recipe) decides the big run's warm st
 launch-ADR item. A standing rule is born (below); ADR-0118's audit-and-anchor rule stands with the
 anchor now head-only.
 
+
+## Addendum 2026-10-03 (evening) — step 2 closed: the ledger stays an audit; the amortized head is routed, not built
+
+**The re-measure (`data/runs/ante-remeasure/read.md`; running record 10-03 15:35 and 17:00).** One
+2,000-game network-alone read of `settings-stopgrad-t3e6/iter-019` on the shuffle-mark jar
+([ADR-0121](ADR-0121-shuffle-mark.md), forkcheck PASS the same afternoon), the ledger scored twice: by the
+standing full-vis critic `d4-critic-fullvis` and by the stopgrad head itself on omniscient windows
+(`certify --full-vis`). Pooled over both seat arms (1,975 decisive games):
+
+| critic | corr(raw, ledger) | var ratio (CI90) | effective samples |
+|---|---|---|---|
+| `d4-critic-fullvis` | 0.163 | 0.9739 [0.9623, 0.9862] | **×1.027** |
+| the stopgrad head, omniscient windows | 0.197 | 0.9616 [0.9475, 0.9759] | **×1.040** |
+
+**Both miss the pre-registered 1.5× bar by an order of magnitude**, with the CI90 upper bounds nowhere
+near the 0.667 variance ratio the bar needs. The ledger is unbiased as before (ledger mean t 0.56 / 0.38).
+**Draw coverage was not the bottleneck:** the shuffle mark cleansed 14,367 seat-states and lifted the
+corrected share of draws from 48% (the 09-16 read: 9,930 corrected vs 10,735 poisoned) to 64% (31,011 vs
+17,591) — a third more corrected draws per game — and the effective-sample multiplier moved from the
+×1.03–1.05 band it has sat in since ADR-0014 by nothing. The binding constraint is the critic's
+correlation with outcomes, exactly as ADR-0014's effect-size clause said: 1.5× needs corr(raw, ledger)
+≈ 0.58 (ρ² = 1 − 1/1.5); the best critic on hand reads 0.20. A head that ranks states at Spearman 0.45
+against rollouts is still a weak predictor of a 40-life Commander game's outcome from one draw step.
+
+**Consequences, as pre-registered:**
+- **Step 3:** the raw read stays the number of record on every bar; the corrected columns stay an audit
+  (`arms_report`'s `of_record` stays raw). No standing rule is written.
+- **Step 4:** the amortized advantage head is **not built**; routed by name to after the big run, behind a
+  critic upgrade (the exact ledger's ratio is the gate, unchanged). A correction the exact ledger cannot make
+  at 2,000 games, the amortized one cannot make for training advantages either.
+- **Step 5:** the launch ADR states power at the raw resolution: ± 1.1pp at 2,000 games, 0.7pp paired at
+  5,000; the promotable target stays ≥ +2.5pp.
+- The shuffle mark stays (ADR-0121): coverage is real, cheap and recording-only; it pays the day the critic
+  does. The head-as-critic path (`certify --full-vis`) stays as the instrument that re-asks this question at
+  any checkpoint in minutes.
+- **Routed by name:** a critic upgrade (rollout-labelled, full-vis, trained for outcome correlation rather than
+  state ranking) as the one lever on the ledger — after the big run, or beside it if the box has room.
+
+**What step 1 and step 2 bought together:** a value head that holds its ranking under the loop (rung 2), a
+ledger with two-thirds draw coverage, and the knowledge — before four to six weeks of box time, not after
+— that the measurement side of the big run runs raw. The value-function-first order did its job by closing
+the question early.
