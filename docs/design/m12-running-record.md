@@ -2005,3 +2005,21 @@ record.*
   the Ante re-measure (step 2) runs against this head; misses → rung 3 (a separate value trunk) is
   the next registered rung, carrying the lr-group fix.
 
+- **2026-10-03 (09:08) — THE RUNG 2 MARGIN READ CLEARS: stopgrad-t3e6 − alloc = −0.47 ± 0.69pp (t
+  −0.67; 4,920 paired games, 569 up / 592 down), above the fixed −1.0pp margin. Both clauses of the
+  ADR-0118/0119 bar now hold, so the ladder stops at rung 2.** The read: `settings-stopgrad-t3e6/iter-019`
+  fresh on the certmerge jar, 2,500 games per seat at the resolution read's seed base (20261001),
+  paired against the alloc read of record (0.5394 ± 0.0070). Rung 1′ (anchor-w01) measured −1.57 ±
+  0.67pp on the same seeds, so moving the value gradient off the trunk recovered ≈ 1.1pp of the
+  anchor's strength cost while keeping its Spearman (0.45 plateau, against anchor-w01's 0.43–0.46).
+  The cast → pass push is gone too (casts per game 28.9, against alloc's 29.5). **The value-head
+  recipe for the big run:** the head-only anchor at 0.1 + `--value-stopgrad-trunk` + the two lr groups
+  (`--trunk-lr 3e-6`, `--value-head-lr 1e-4`). The trunk lr is part of the recipe, not a side detail:
+  without it the policy runs away (the 10-01 halt). **Open questions, routed, not blocking:**
+  - Is the slower trunk lr a strength cost of its own? −0.47pp is inside noise, and a policy step of
+    a third could matter more over the big run's length. It is a launch-ADR question, priced against
+    alloc's kl_mu track.
+  - The re-ask rescue rate at 38%, against 17–21% everywhere else: a census read.
+  **Next (ADR-0119 step 2):** the Ante re-measure against `settings-stopgrad-t3e6/iter-019` (the
+  ledger re-aggregation, then the values re-scored), and the shuffle decision record on the fork for
+  draw coverage. The baseline reads run first, already queued (`after-pass4` step 3).
