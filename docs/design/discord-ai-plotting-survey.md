@@ -1347,3 +1347,46 @@ off-distribution even through a perfect adapter. Even 'Elo above random' doesn't
 engines — random over a flat five-option list and random over two yes/no prompts are different
 players. Your Forge-heuristic vs XMage-heuristic test is the right first step: it measures the
 adapter before anyone reads agent numbers off it."
+
+### 10-01 → 10-02 follow-up: the user's intro post, Tolmet's headless question, Kryptic's target-mask thread (the user posted four replies; recorded 10-02)
+
+**The user (10-01), answering Tolmet / Dan B:** ai-plotting as designing bots that play Magic,
+mostly with machine learning; Anvil (github.com/Tyrathalis/anvil) is a transformer trained on Forge
+gameplay; the trained model covers a limited pool (1v1 Commander, ≈ 1,700 cards from Duel
+Commander lists) and is not much stronger than the heuristic; the bottleneck is training compute,
+not coding tokens; the repo is open for anyone testing the architecture on other formats and pools.
+Also: the model learns Forge's decision decomposition and would probably get confused by an engine
+swap (the Spellbench thread above).
+
+**Tolmet: headless games, "10k games really fast"?** *The user's reply:* Forge has a headless sim
+mode on the command line, and Anvil trains through its own headless runner; ≈ 2K Commander games an
+hour on 24 workers here, 60-card formats faster; the imitation corpus was ≈ 100K games (113.6K, the
+ADR-0006 stopping rule), and 50K would already have done — the curve was flat past it.
+
+**Kryptic (new thread): how cast targets reach the model.** His reading (from the early-September
+repo): the model can pick any target and the engine rejects illegal ones; `-reask` removes the
+spell; the veto penalty could teach the model to stop casting unfamiliar cards; he asked for a
+validity mask over targets. *Our check:* right on the core — the cast-time target decoder is a free
+pointer over every entity and player row, and the realizer vetoes (`no_shape_fit`); re-ask drops the
+vetoed ability (not the card) for the rest of the window, so an ability gets one try at its targets
+per window. Out of date on: the option mask (timing-legal and payable since Build 0, 09-06), the
+penalty (0.02, once per window, with a 1.5× veto-rate guard). *The user's reply:* a legitimate risk,
+modest in practice (imitation prior + text embeddings; ≈ 5% of cast attempts vetoed; the penalty
+charged once per window); targeted drills can help; masking further to valid targets is possible.
+**His follow-up:** after BC his four-deck runs veto 0.2 times per game, rising to ≈ 5 per game during
+RL, mostly not recovered by re-ask, at > 50% win rate; a rise in unpayable vetoes too; he may try a
+target mask himself. *The user's reply:* 0.2 → 5 is pathological; ours holds at 1.9 per game in
+longer games because of the veto defenses (the penalty, the guard, the exact-payability option
+mask — which should remove most of his unpayable vetoes; merge patches); Forge enumerates legal
+targets (`TargetRestrictions.getAllCandidates`), so no per-card definitions are needed; the user
+will test a mask and welcomes an alternate design to compare against, since mask gaps are the main
+risk. *Our record:* the per-card veto breakdown and the routing (the Spider-Man 2099 option-mask
+fix, then the union target mask behind the heuristic-agreement check, pre-big-run) are in the
+running record's 10-02 entry. A Kryptic implementation, if it comes, is the cross-check on mask
+exactness — compare the two masks' agreement rates on one labelled corpus.
+
+**The baseline reads** (built 10-01, queued behind `settings-pass4` by `after-pass4`) came out of
+this channel's strength questions: the model and the heuristic against uniform random, and Forge's
+own simulation AI against the heuristic under our search, strength and cost — the second answers
+whether our search (with the network-free `end` leaf) is a cheaper stronger-opponent option worth
+upstreaming.
