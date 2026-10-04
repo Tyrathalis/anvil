@@ -2155,7 +2155,10 @@ record.*
   corr ≈ 0.58 and the best critic on hand reads 0.20 — the ×1.03–1.05 band has held since ADR-0014 across
   three critics and two coverage regimes; the critic binds, coverage never did. The head itself scores the
   ledger a little better than the full-vis critic (0.197 vs 0.163), which says the anchored head is at least
-  the equal of the D4 critic as an outcome predictor, and that neither is close. **Exploratory beside it:**
+  the equal of the D4 critic as an outcome predictor, and that neither is close. The per-node view (the
+  parallel check-in's reading, 16:58): a draw node's correction correlates ≈ 0.02 with the outcome, an
+  opener's ≈ 0.08 — per-draw luck is real and nearly orthogonal to who wins a 1v1 Commander game at this
+  length, so even full draw coverage could not have reached the bar with these critics. **Exploratory beside it:**
   the raw 0.5463 ± 0.0112 on fresh seeds (seed base 20261003) against the same checkpoint's 0.5270 (chain
   read, seeds 20260710) and 0.5358 (margin read, 20261001) — three reads of one checkpoint spanning 1.9pp on
   ± 1.1 cells, the noise the ledger was meant to cut and did not. **Consequences as pre-registered:** raw stays
