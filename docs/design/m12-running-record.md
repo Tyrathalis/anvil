@@ -2166,3 +2166,17 @@ record.*
   4); the launch ADR quotes raw power (step 5). The shuffle mark and `certify --full-vis` stay as instruments.
   **The queue moved on at 16:57:** the cast-mask forkcheck (`run-20261003-castmask`) is running; the recovery
   cell launches on its completion (≈ 17:30; closes ≈ 10-04 03:30).
+- **2026-10-03 (17:35) — THE CAST-MASK FORKCHECK PASSES (17:29: `run-20261003-castmask` 499/500, the standing
+  seed 20260969, fidelity 451/48/1 = the baseline's); `9c589c1ced` IS THE PIN (fork `master`, pushed). THE
+  RECOVERY CELL LAUNCHED 17:29 by the queue** (`settings-pass5`, loop `settings-recovery`; flags verified in
+  its queue log: the anchor at 0.1, `--value-stopgrad-trunk`, `--trunk-lr 3e-6 --value-head-lr 1e-4`, from
+  `shakedown-alloc/iter-019`, 9 h, the shuffle-mark jar; closes ≈ 10-04 03:30). **The fix's read, queued
+  behind the cell (`scripts/after_recovery_queue.sh`, `anvil.runs` name `after-recovery`):** the same
+  checkpoint on the same seeds (20261003, 1,000 per seat) on the cast-mask jar, paired game-for-game against
+  the re-measure's arms on the shuffle-mark jar (raw 0.5463 ± 0.0112) at no new control games — the 10-02
+  routing's paired read for a serve-path change before it serves a run. **Pre-registered:** a correctness
+  item read for regression; expectation: a change inside noise (the fix removes options the realizer vetoed
+  anyway, and `-reask` then re-asked); FLAG below −1.0pp or beyond 2 SE either way; the census check:
+  Spider-Man 2099's `restrictions` vetoes (1,215 of the control s0 arm's 1,775) gone, `optmask/restricted`
+  rows in their place. ≈ 1 h after the cell. The pin moved on PASS by the standing convention (every tip's
+  proof is the forkcheck); the jar serves a run only after this read.
