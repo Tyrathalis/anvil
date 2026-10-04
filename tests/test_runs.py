@@ -145,6 +145,11 @@ def test_checkin_relays_to_the_launching_session(state, claude_shim):
     assert rc == 1
     assert "recorded no launching session" in claude_shim.read_text()
     assert runs.read_run("cu")["launched_by"] is None
+    # 10-04: with a ref the relay matches the bracketed id, not the name (peers list a
+    # titled session by its title)
+    rc = _launch(state, "cr", ["sh", "-c", "exit 2"], checkin="claude", launched_by="bridge-abc-7f [33c4ae]")
+    assert rc == 1
+    assert "whose row carries the ref [33c4ae]" in claude_shim.read_text()
 
 
 def test_wait_heartbeats_its_own_run(state, monkeypatch):

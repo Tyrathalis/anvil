@@ -75,6 +75,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -280,8 +281,15 @@ def _relay_rule(st: dict) -> str:
     fallback = ("to the most recently started interactive session whose name or title contains \"anvil\" "
                 "(case-insensitive), or, if there is none, to the most recently started interactive session")
     if who:
-        return (f"With SendMessage, send ONE message to the session named \"{who}\" (the session that launched "
-                f"this run) if it is listed; only if it is NOT listed, send it {fallback}.")
+        # 10-04: a session's own "This session is <name> [<ref>]" name is NOT what peers see —
+        # a session with a conversation title is listed by that title; only the bracketed ref
+        # is the same from every side (the 10-03/10-04 relays reported the launcher "not
+        # listed" and fell back, while its row sat there under its title). Match the ref.
+        m = re.search(r"\[([0-9a-f]{4,})\]", who)
+        key = (f"whose row carries the ref [{m.group(1)}] (the bracketed id; the row's name or title may differ)"
+               if m else f"named \"{who}\" — or, if no row has that name, whose row carries that text as its ref")
+        return (f"With SendMessage, send ONE message to the session {key}: the session that launched this run. "
+                f"Only if no row matches, send it {fallback}.")
     return f"With SendMessage, send ONE message {fallback} (this run recorded no launching session)."
 
 
@@ -881,8 +889,10 @@ def main(argv: list[str] | None = None) -> int:
                          "is on PATH; $ANVIL_CHECKIN overrides)")
     la.add_argument("--no-selftest", action="store_true", help="skip the launch-time claude -p self-test")
     la.add_argument("--launched-by", default=os.environ.get("ANVIL_LAUNCHED_BY") or None, metavar="SESSION",
-                    help="the launching Claude session's ListAgents name (10-03): the check-in relays the run's "
-                         "events to THAT session alone when it is live, so the launcher (who owns the close) is "
+                    help="the launching Claude session as ListAgents names it to ITSELF, name and ref: "
+                         "'<name> [<ref>]' (10-03/10-04). The check-in relays the run's events to the session "
+                         "whose row carries that bracketed ref (peers see a titled session by its title, not its "
+                         "name; the ref is the same from every side), so the launcher — who owns the close — is "
                          "woken and no peer writes a second record; unset = the relay falls back to any live "
                          "anvil session ($ANVIL_LAUNCHED_BY is the default)")
     la.add_argument("--watch", action="append", default=None, metavar="GLOB",

@@ -327,7 +327,7 @@ whole unattended-run checklist in one command (ADR-0107).
 
 ```bash
 uv run python -m anvil.runs launch --name mydecks-loop --dir data/training/mydecks-loop --stall-min 60 \
-    --launched-by "$MY_SESSION" -- \
+    --launched-by "$MY_SESSION" -- \   # '<name> [<ref>]' as ListAgents prints it to you
   uv run python -m anvil.training.selfplay --name mydecks-loop --ckpt data/training/bc-mydecks/last.pt ... (the §7 command)
 ```
 
