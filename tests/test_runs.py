@@ -131,6 +131,22 @@ def test_checkin_runs_on_failure_and_records_itself(state, claude_shim):
     assert runs.read_run("cf")["checkin"] == "claude"
 
 
+def test_checkin_relays_to_the_launching_session(state, claude_shim):
+    """10-03: the event goes to the launcher (who owns the close), not to every
+    'anvil' session; unset -> the fallback, said so in the prompt."""
+    rc = _launch(state, "cl", ["sh", "-c", "exit 2"], checkin="claude", launched_by="bridge-abc-7f")
+    assert rc == 1
+    calls = claude_shim.read_text()
+    assert 'send ONE message to the session named "bridge-abc-7f"' in calls
+    assert "owns its record" in calls and "do not write its close" in calls
+    assert runs.read_run("cl")["launched_by"] == "bridge-abc-7f"
+    assert runs._relaunch_args(runs.read_run("cl")).launched_by == "bridge-abc-7f"
+    rc = _launch(state, "cu", ["sh", "-c", "exit 2"], checkin="claude")
+    assert rc == 1
+    assert "recorded no launching session" in claude_shim.read_text()
+    assert runs.read_run("cu")["launched_by"] is None
+
+
 def test_short_done_does_not_check_in(state, claude_shim):
     rc = _launch(state, "cd", ["true"], checkin="claude", no_selftest=True)
     assert rc == 0

@@ -147,3 +147,31 @@ passphrase). Landed, tests +4 (`tests/test_runs.py` 16):
   weeks.
 - Companion: `selfplay.py --wall-hours H` (the shakedown's equal-box-time arms, ADR-0115) stops between
   iterations on the loop's accumulated box time, carried across pauses in `loop_state.wall_used_s`.
+
+## Addendum 2026-10-03 — the check-in relays to the launching session; the launcher owns the close
+
+**The defect.** The 09-18 check-in's step 3 messaged every live interactive session whose name contains
+"anvil". On this box those are the two long-lived remote-control sessions in the main checkout, not the
+session that launched the run: a bridge worktree session is named `bridge-cse-…`, so the launcher was never
+messaged, and an idle remote-control session, handed "run X DONE" with the log path as a user turn, did what
+the wrap-up checklist says and wrote the close to main — twice (the resolution read 10-01 `ad64a6f`; the Ante
+re-measure 10-03 `7176bac`), each time two minutes ahead of the launching session's own entry, each time two
+Now blocks and two map rows to reconcile. The check-in itself stayed read-only; the duplicate was a peer acting
+on its relay. The launcher's own background wait is capped at ten minutes per call, so on a nine-hour cell the
+launching session is asleep at close while the broadcast wakes the wrong one.
+
+**The change.** `anvil.runs launch --launched-by <ListAgents name>` (default `$ANVIL_LAUNCHED_BY`) records the
+launching session in the run's state file (`launched_by`; carried through `relaunch`). The check-in's step 3
+sends ONE message, to that session if it is listed; only if it is not, to the most recently started "anvil"
+session (then any interactive session) — the fallback the user accepted, since a run whose launcher is gone
+still needs someone to read it. Every relay carries one sentence verbatim: *the session that launched this run
+owns its record; if you are not that session, do not write its close — read the state file and leave the
+record to the launcher.* The coverage line names the relay target (`relay to <name>`, or `UNSET … pass
+--launched-by`, loud). Test `test_checkin_relays_to_the_launching_session`.
+
+**Consequences.** The launching session no longer needs a long-lived background wait to be present at close:
+the relay wakes it. A session that does not know its own name reads it from ListAgents ("This session is …").
+Standing rule (amended): a run event delivered by the check-in is informational unless you launched the run;
+before writing any close, read the state file's `launched_by` and the last three commits on main. Routed by
+name: a PreToolUse hook that warns on a launch without `--launched-by`; an `anvil.runs stop` verb (09-18, still
+open).

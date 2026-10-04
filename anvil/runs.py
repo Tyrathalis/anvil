@@ -269,6 +269,22 @@ def checkin_mode(requested: str | None) -> str:
     return m
 
 
+def _relay_rule(st: dict) -> str:
+    """Step 3 of the check-in: who gets the event (10-03). The launching session
+    owns the run's close, so the relay wakes it and nobody else; the broadcast
+    to every 'anvil' session (09-18) woke the idle remote-control sessions in
+    the main checkout, which wrote their own closes on 10-01 and 10-03 while
+    the launcher — a bridge worktree session whose name has no 'anvil' — was
+    never messaged."""
+    who = st.get("launched_by")
+    fallback = ("to the most recently started interactive session whose name or title contains \"anvil\" "
+                "(case-insensitive), or, if there is none, to the most recently started interactive session")
+    if who:
+        return (f"With SendMessage, send ONE message to the session named \"{who}\" (the session that launched "
+                f"this run) if it is listed; only if it is NOT listed, send it {fallback}.")
+    return f"With SendMessage, send ONE message {fallback} (this run recorded no launching session)."
+
+
 def checkin_prompt(rec: dict, st: dict, tail: str) -> str:
     run, kind = rec["run"], rec["kind"].upper()
     first = (rec.get("msg") or "").splitlines()[0][:200] if rec.get("msg") else ""
@@ -284,10 +300,10 @@ def checkin_prompt(rec: dict, st: dict, tail: str) -> str:
         "ToolSearch (query \"select:PushNotification,SendMessage,ListAgents\").\n"
         "2. Send ONE push notification with PushNotification, under 200 characters, leading with what to act on, "
         f"e.g. \"{run} {kind}: <the first error line / the minutes stalled / the hours run>\".\n"
-        "3. Call ListAgents. With SendMessage, send one message to every peer session on this machine marked "
-        "interactive whose name or title contains \"anvil\" (case-insensitive); if there is none, to the most "
-        "recently started interactive session. The message: the event kind, the run name, the state file, the "
-        "log path and the error lines. Do not ask them questions.\n"
+        "3. Call ListAgents. " + _relay_rule(st) + " The message: the event kind, the run name, the state "
+        "file, the log path and the error lines, then this sentence verbatim: \"The session that launched this "
+        "run owns its record; if you are not that session, do not write its close (running record, Now block, "
+        "map, devlog) — read the state file and leave the record to the launcher.\" Do not ask them questions.\n"
         f"4. Ack this alert with one shell command: `uv run python -m anvil.runs ack --id {rec['id']}` "
         f"(if uv is missing: `python -m anvil.runs ack --id {rec['id']}`).\n"
         "5. Reply with ONE line: what you pushed and which sessions you messaged. Nothing else."
@@ -403,6 +419,7 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         "started": _now(), "cmd": cmd, "dir": str(run_dir), "log": str(log),
         "stall_sec": stall_s, "tick_sec": a.tick_sec, "note": note, "tag": a.tag,
         "checkin": mode, "launch_cwd": os.getcwd(), "watch": watch,
+        "launched_by": getattr(a, "launched_by", None) or None,
         "nice": a.nice, "memory_max": a.memory_max, "cwd": a.cwd,
         "resume": bool(getattr(a, "resume_on_gone", False)), "resume_max": getattr(a, "resume_max", 3),
         "resume_count": getattr(a, "resume_count", 0),
@@ -543,7 +560,8 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
         f"[runs] LAUNCHED {a.name}: state {_run_file(a.name)} ({st.get('state', '?')}, pid {st.get('pid')}), "
         f"log {st.get('log')}, stall alarm {stall_s // 60} min on {run_dir}"
         + (f" + {' '.join(a.watch)}" if a.watch else "") + f", sinks {'+'.join(sinks)}, "
-        f"check-in {checkin_note}"
+        f"check-in {checkin_note}, relay to "
+        + (f"{st['launched_by']}" if st.get("launched_by") else "UNSET (any live anvil session; pass --launched-by)")
         + (f"; note: {st['note']}" if st.get("note") else ""),
         flush=True,
     )
@@ -708,7 +726,7 @@ def _relaunch_args(r: dict, no_selftest: bool = False) -> argparse.Namespace:
         nice=r.get("nice", 19), memory_max=r.get("memory_max"), tag=r.get("tag", "anvil"),
         foreground=False, checkin=r.get("checkin"), no_selftest=no_selftest, watch=r.get("watch") or [],
         resume_on_gone=bool(r.get("resume")), resume_max=r.get("resume_max", 3),
-        resume_count=r.get("resume_count", 0),
+        resume_count=r.get("resume_count", 0), launched_by=r.get("launched_by"),
     )
 
 
@@ -857,6 +875,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="the LLM check-in on failed / stalled / gone / long done (auto = claude when the CLI "
                          "is on PATH; $ANVIL_CHECKIN overrides)")
     la.add_argument("--no-selftest", action="store_true", help="skip the launch-time claude -p self-test")
+    la.add_argument("--launched-by", default=os.environ.get("ANVIL_LAUNCHED_BY") or None, metavar="SESSION",
+                    help="the launching Claude session's ListAgents name (10-03): the check-in relays the run's "
+                         "events to THAT session alone when it is live, so the launcher (who owns the close) is "
+                         "woken and no peer writes a second record; unset = the relay falls back to any live "
+                         "anvil session ($ANVIL_LAUNCHED_BY is the default)")
     la.add_argument("--watch", action="append", default=None, metavar="GLOB",
                     help="extra artifact roots for the stall tick (a glob; repeatable), e.g. 'data/runs/b4post-*'")
     la.add_argument("--resume-on-gone", action="store_true",
