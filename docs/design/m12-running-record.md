@@ -2241,3 +2241,17 @@ record.*
   ADR takes both reads together. **On the box:** the cast-mask paired read started 04:28 (`after-recovery`),
   the no-anchor control queued behind it. The close was relayed by a fallback peer (the cell was launched by a
   queue that predates `--launched-by`); the peer wrote nothing — the relay rule held.
+- **2026-10-04 (05:15) — THE CAST-MASK PAIRED READ CLOSED 05:11: CLEAN. `9c589c1ced` − the shuffle-mark jar =
+  +0.15 ± 0.30pp (t 0.51; 1,970 paired games, 19 up / 16 down) — inside the registered flag (below −1.0pp or
+  beyond 2 SE) by an order of magnitude, and the census shows the fix doing exactly what it was built to do:
+  `restrictions` vetoes 367 / 306 in the control arms (Spider-Man 2099 116 / 112 of them) → 0 / 0 on the
+  cast-mask jar, with 18,335 / 15,985 `optmask/restricted` census rows where the scan dropped a restricted
+  option before it was offered. The jar may serve the next run.** The read (`after-recovery`): the same
+  checkpoint (`settings-stopgrad-t3e6/iter-019`), the same seeds (20261003, 1,000 per seat) on the cast-mask
+  jar, raw 0.5405 ± 0.0111 (1,972 decisive, 5 crashes), paired against the re-measure's arms (0.5463 ± 0.0112);
+  43 min. Only 35 of 1,970 paired games changed outcome: `-reask` had already re-asked after every veto, so the
+  fix mostly removes a wasted first pick and its 0.02 penalty rather than changing the line — the agreement
+  check for the union mask (item 2) will be where strength can move. The 10-01 alloc read counted 1,775
+  `restrictions` vetoes per 2,500-game arm; the stopgrad checkpoint picks Spider-Man early far less often
+  (≈ 115 per 1,000 games), which is why the control arms' counts are lower, not a discrepancy. **The no-anchor
+  control launched 05:12 (`settings-pass6`, the first cell under `--launched-by`); closes ≈ 16:00.**
