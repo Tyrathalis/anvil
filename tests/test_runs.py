@@ -147,6 +147,20 @@ def test_checkin_relays_to_the_launching_session(state, claude_shim):
     assert runs.read_run("cu")["launched_by"] is None
 
 
+def test_wait_heartbeats_its_own_run(state, monkeypatch):
+    """10-03: `anvil.runs wait` inside a launched run writes the waiting run's
+    heartbeat.json each poll, so a queue's benign wait is not a stall."""
+    d = state / "q"
+    d.mkdir()
+    runs._write_json(runs._run_file("q"), {"name": "q", "state": "running", "dir": str(d), "pid": 1})
+    runs._write_json(runs._run_file("target"), {"name": "target", "state": "done", "rc": 0, "dir": str(state / "t")})
+    monkeypatch.setenv("ANVIL_RUN_NAME", "q")
+    runs._HEARTBEAT_LAST[0] = 0.0
+    assert runs.main(["wait", "--name", "target"]) == 0
+    hb = json.loads((d / "heartbeat.json").read_text())
+    assert hb["note"] == "waiting on target"
+
+
 def test_short_done_does_not_check_in(state, claude_shim):
     rc = _launch(state, "cd", ["true"], checkin="claude", no_selftest=True)
     assert rc == 0

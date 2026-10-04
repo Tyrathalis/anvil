@@ -605,6 +605,11 @@ def status(a: argparse.Namespace) -> int:
 def wait(a: argparse.Namespace) -> int:
     t0 = time.time()
     while True:
+        # 10-03: a queue that waits inside a launched run is alive by construction —
+        # its own dir gets a heartbeat (a no-op outside a launched run), so the
+        # supervisor's stall tick stops raising the false-stall class on queues
+        # (after-paired STALLED at 240 min, 22:45, four hours into a benign wait).
+        heartbeat(f"waiting on {a.name}")
         r = read_run(a.name)
         if r and r.get("state") in ("done", "failed"):
             print(f"{a.name}: {r['state']} rc={r.get('rc')}")

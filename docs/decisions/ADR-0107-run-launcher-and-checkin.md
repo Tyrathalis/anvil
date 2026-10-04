@@ -171,6 +171,8 @@ record to the launcher.* The coverage line names the relay target (`relay to <na
 
 **Consequences.** The launching session no longer needs a long-lived background wait to be present at close:
 the relay wakes it. A session that does not know its own name reads it from ListAgents ("This session is …").
+**First relay under the flag (22:46):** the queue `after-paired` raised STALLED at 240 min into a benign wait on `after-recovery`; the check-in did not find the launching bridge session in its ListAgents and fell back to the most recent anvil session, which relayed the event to the launcher instead of acting — the fallback working as designed (why a live bridge session is unlisted to a `claude -p` process is open). The stall itself is the false-stall class on queues: `anvil.runs wait` now heartbeats the waiting run's own dir each poll (a no-op outside a launched run; test `test_wait_heartbeats_its_own_run`), so a queue that waits is alive by construction.
+
 Standing rule (amended): a run event delivered by the check-in is informational unless you launched the run;
 before writing any close, read the state file's `launched_by` and the last three commits on main. Routed by
 name: a PreToolUse hook that warns on a launch without `--launched-by`; an `anvil.runs stop` verb (09-18, still
