@@ -2221,3 +2221,23 @@ record.*
   below it, with the recovery cell above, the anchor earns its place. The two per-iteration tracks are read
   side by side (same start, same wall, one flag apart); the 2,000-game read is a strength point beside the
   recovery cell's, exploratory. Runs ≈ 10-04 04:30 → 14:00. First launch under `--launched-by`.
+- **2026-10-04 (04:30) — THE DRIFTED-TRUNK RECOVERY READ CLOSED 04:28: the bar CLEARS. From `shakedown-alloc/
+  iter-019` (Spearman 0.250) under the rung-2 recipe, the state-ranking Spearman rose every iteration — 0.320 /
+  0.354 / 0.381 / 0.398 / 0.422 / 0.428 / **0.439** (± 0.023–0.026) — against the pre-registered ≥ 0.350 at the
+  last iteration (≈ 4 SE clear), above the day-zero 0.374 from iteration 2 and still rising at the wall. The
+  big run may warm-start from `iter-019`.** The cell (`settings-pass5`, loop `settings-recovery`): 7 iterations
+  in 10.3 h (the wall check is per iteration boundary; ≈ 1.4 h each), 3,360 games, no guard, no yield; kl_mu
+  0.0006 → 0.002–0.007 (the stopgrad-t3e6 band), v0 0.45–0.50, `gn_v` = `gn_anchor` = 0 on every row (the
+  head alone trained), the anchor's bank loss 0.69 → 0.56–0.66. **The 2,000-game read on `iter-006`:** 0.5285
+  ± 0.0112 (1,983 decisive, 5 crashes) — against the start point's 0.5405 ± 0.0111 (alloc `iter-019`, the
+  shakedown's chain read) −1.2 ± 1.6pp (0.8 SE; inside the registered 2-SE flag), against day-zero +1.0pp;
+  exploratory, and a single cell cannot separate the trunk lr's cost from the warm start's. **The reading:** a
+  head that reads a detached [STATE] read-out of a trunk that drifted for 20 un-anchored iterations ranks
+  states at day-zero's level after two iterations and at the rung-2 cells' plateau (0.44–0.45) after seven —
+  the representation the 09-24 head-swap read blamed is recoverable by the head alone once the trunk stops
+  moving fast. **Consequence (a launch-ADR item, now with its read):** the big run's warm start may be
+  `shakedown-alloc/iter-019` — ≈ 30 h of loop time back — rather than day-zero; the no-anchor control
+  (`settings-pass6`, next on the box) says whether the anchor term is part of what recovered it, and the launch
+  ADR takes both reads together. **On the box:** the cast-mask paired read started 04:28 (`after-recovery`),
+  the no-anchor control queued behind it. The close was relayed by a fallback peer (the cell was launched by a
+  queue that predates `--launched-by`); the peer wrote nothing — the relay rule held.

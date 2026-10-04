@@ -157,3 +157,5 @@ against rollouts is still a weak predictor of a 40-life Commander game's outcome
 ledger with two-thirds draw coverage, and the knowledge — before four to six weeks of box time, not after
 — that the measurement side of the big run runs raw. The value-function-first order did its job by closing
 the question early.
+
+**10-04 04:28 — the drifted-trunk recovery read (the 10-03 addendum's launch-ADR item) CLEARS:** from `shakedown-alloc/iter-019` under the rung-2 recipe the Spearman rose 0.250 → 0.320 → … → 0.439 ± 0.023 in seven iterations (bar ≥ 0.350; day-zero 0.374 passed at iteration 2), the 2,000-game read 0.5285 ± 0.0112 inside the registered flag. The big run may warm-start from `iter-019`; the launch ADR takes this read together with the no-anchor control (`settings-pass6`, running record 10-03 18:55).
