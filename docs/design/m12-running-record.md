@@ -2210,3 +2210,14 @@ record.*
      the same. Routed by name as hygiene, not a read: the fork's loader prints one line instead of a stack
      trace for an unknown config name (an upstream-friendly one-liner; the trace is the red herring the
      10-03 simfull triage hit), at the next fork commit.
+- **2026-10-03 (18:55) — THE NO-ANCHOR CONTROL, PRE-REGISTERED AND QUEUED (user: "worthwhile, let's queue
+  it").** `scripts/after_paired_queue.sh` (`anvil.runs` name `after-paired`) waits for the cast-mask paired read
+  and launches `settings-pass6`, arm `recovery-noanchor`: the recovery cell's flags minus `--value-anchor`
+  (`--value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4`), from the same `shakedown-alloc/iter-019`
+  (Spearman 0.250), the same 9 h wall, the same shuffle-mark jar, plus the chain's 2,000-game read; loop
+  `settings-recovery-noanchor`. **Pre-registered bar:** the same absolute bar as the recovery cell — the last
+  iteration's state-ranking Spearman **≥ 0.350** = the slow trunk alone holds the ranking, and the Build 1
+  banks and the replay term leave the recipe of record (an ADR-0118/0119 addendum; the simpler architecture);
+  below it, with the recovery cell above, the anchor earns its place. The two per-iteration tracks are read
+  side by side (same start, same wall, one flag apart); the 2,000-game read is a strength point beside the
+  recovery cell's, exploratory. Runs ≈ 10-04 04:30 → 14:00. First launch under `--launched-by`.
