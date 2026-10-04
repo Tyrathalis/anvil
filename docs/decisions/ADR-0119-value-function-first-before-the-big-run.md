@@ -159,3 +159,5 @@ ledger with two-thirds draw coverage, and the knowledge — before four to six w
 the question early.
 
 **10-04 04:28 — the drifted-trunk recovery read (the 10-03 addendum's launch-ADR item) CLEARS:** from `shakedown-alloc/iter-019` under the rung-2 recipe the Spearman rose 0.250 → 0.320 → … → 0.439 ± 0.023 in seven iterations (bar ≥ 0.350; day-zero 0.374 passed at iteration 2), the 2,000-game read 0.5285 ± 0.0112 inside the registered flag. The big run may warm-start from `iter-019`; the launch ADR takes this read together with the no-anchor control (`settings-pass6`, running record 10-03 18:55).
+
+**10-04 15:45 — the no-anchor control (user, 10-03) is BELOW the bar:** the same continuation from `iter-019` without `--value-anchor` left the Spearman at 0.245–0.261 (last 0.251 ± 0.028) over six iterations while the anchored cell reached 0.439, with kl_mu in the same band in both. The slow trunk sets the policy step; the anchor term sets the ranking. The recipe of record stands as written, and the warm start from `iter-019` is taken under it.

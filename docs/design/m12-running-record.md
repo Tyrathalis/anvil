@@ -2255,3 +2255,24 @@ record.*
   `restrictions` vetoes per 2,500-game arm; the stopgrad checkpoint picks Spider-Man early far less often
   (≈ 115 per 1,000 games), which is why the control arms' counts are lower, not a discrepancy. **The no-anchor
   control launched 05:12 (`settings-pass6`, the first cell under `--launched-by`); closes ≈ 16:00.**
+- **2026-10-04 (15:50) — THE NO-ANCHOR CONTROL CLOSED 15:45: BELOW the bar — the anchor term EARNS ITS PLACE.
+  Same start (`shakedown-alloc/iter-019`, Spearman 0.250), same jar, same wall, the recovery cell's flags minus
+  `--value-anchor`: the state-ranking Spearman never left the start — 0.261 / 0.248 / 0.245 / 0.253 / 0.260 /
+  **0.251** (± 0.028) over six iterations in 9.9 h, every row within one SE of 0.250, against the recovery cell's
+  0.320 → 0.439 on the same iterations.** The cell (`settings-pass6`, loop `settings-recovery-noanchor`): 2,880
+  games, no guard; kl_mu 0.0004 → 0.002–0.006 — the same band as the anchored cell, so **the slow trunk sets the
+  policy step and the anchor sets the ranking**: the confound is split, each flag does one job, and the recipe of
+  record (head-only anchor 0.1 + stop-grad + trunk-lr 3e-6 / head-lr 1e-4) stands as written. v0 0.45–0.51.
+  **The 2,000-game read on `iter-005`:** 0.5215 ± 0.0112 (1,985 decisive, 4 crashes) — beside the recovery
+  cell's 0.5285 (+0.7pp, noise) and the alloc start point's 0.5405 (−1.9 ± 1.6pp, 1.2 SE, inside the flag);
+  exploratory. **The reading:** with the value gradient off the trunk and the trunk nearly still, a head
+  trained on V-trace outcome targets alone does not recover the ranking of a drifted trunk's read-out — the
+  Build 1 replay term (rollout composites + the full-vis critic's leaf values) is what carries it. ADR-0118's
+  anchor apparatus is load-bearing, and the 09-24 head-swap read's attribution (the trunk's representation)
+  reads today as: the representation can be ranked, but only a rollout-grounded target teaches the head to
+  rank it. **Consequences:** the anchor term stays; the launch ADR takes the warm start from the recovery read
+  (`iter-019` under the recipe of record) with this control as its attribution; no addendum to ADR-0119's
+  ladder is needed (rung 2 stands). The box is quiet. **Next:** the launch ADR (the warm start, the recipe, the
+  raw power statement, `payment-evalset-v2` re-certified, `CensusRun -certify` + `PayDirective` deleted) and
+  the union target mask (item 2 of the 10-02 routing; ADR-0122). The close was relayed by the fallback (the cell
+  carried the bare name; the ref fix landed after its launch).
