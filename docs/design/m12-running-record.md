@@ -2180,3 +2180,33 @@ record.*
   Spider-Man 2099's `restrictions` vetoes (1,215 of the control s0 arm's 1,775) gone, `optmask/restricted`
   rows in their place. ≈ 1 h after the cell. The pin moved on PASS by the standing convention (every tip's
   proof is the forkcheck); the jar serves a run only after this read.
+- **2026-10-03 (18:45) — THE CHECK-IN RELAYS TO THE LAUNCHER (ADR-0107 addendum; user): `anvil.runs launch
+  --launched-by <ListAgents name>`.** The duplicate closes of 10-01 and 10-03 were not the check-in writing
+  reports — it is read-only and only pushed and relayed — but its step 3 relaying the event to every session
+  named "anvil", i.e. the two idle remote-control sessions in the main checkout, never to the bridge-worktree
+  launcher (no "anvil" in its name). The idle session, handed "run X DONE" with the log path, followed the
+  wrap-up checklist and committed a close two minutes ahead of the launcher's. Now the state file records the
+  launcher, the relay goes to it alone while it is live (fallback: the most recent anvil session, then any —
+  the user's call: a run whose launcher is gone still needs a reader), every relay says the launcher owns the
+  close, and the coverage line names the relay target. Standing rule amended; the launcher bullet in CLAUDE.md
+  and the quickstart carry the flag. The relay also replaces the launcher's ten-minute-capped background wait
+  as the way the launching session is woken at close.
+  **Two open items from the `anvil-box` session (user asked; never committed anywhere, so not queued):**
+  1. **The no-anchor control.** Real and unrouted: every anchored cell that held the Spearman also slowed the
+     trunk, and the rung-2 recipe of record carries both (`--value-anchor … 0.1` and `--trunk-lr 3e-6`) with
+     `gn_anchor` = 0 on the trunk — the anchor term and the slow trunk are confounded, and the slow trunk alone
+     may be doing the anchoring. The cheap split: the recovery cell's exact flags minus `--value-anchor`, from
+     the same `shakedown-alloc/iter-019`, 9 h, Spearman-only (`recovery-noanchor`), read beside the running
+     recovery cell. Holds → the Build 1 banks and the replay term leave the recipe (the simpler architecture);
+     drops → the anchor earns its place. Proposed to the user as the next quiet-box cell (≈ 9 h after the
+     paired read); a launch-ADR question either way.
+  2. **The clean-user-dir forkcheck for the `CHRONICLE_BINDER` contamination.** Not needed, by code: the
+     exception in every worker log comes from `ItemManagerConfig.load`, whose per-entry `try` ("capture enum
+     parse errors without losing other preferences") catches and prints it, skipping one GUI item-view layout
+     the playable branch wrote into the shared `item_view.preferences` on 08-02; `FModel.initialize` then
+     loads the AI profiles as before, and the harness sets every seat's profile itself (`AnvilRun`
+     `seatProfiles`), so the shared `UI_CURRENT_AI_PROFILE=Random (Every Match)` never reaches a research
+     game. The game path is untouched and the forkchecks since 08-02 (every one against the same profile) say
+     the same. Routed by name as hygiene, not a read: the fork's loader prints one line instead of a stack
+     trace for an unknown config name (an upstream-friendly one-liner; the trace is the red herring the
+     10-03 simfull triage hit), at the next fork commit.
