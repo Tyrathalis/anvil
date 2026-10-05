@@ -109,3 +109,18 @@ after the run if the implementation fights back.
   `peekPriority` windows (search leaves) if a future surface decodes targets from them; the
   stack-reference ambiguity when two stack entries share a host (pre-existing in the ref idiom).
 - ADR-0116's "the legality mask on the decoder's player rows" (routed to Build 5) lands here.
+
+## Addendum 2026-10-04 (evening): the first agreement read missed, attributably; the re-read runs
+
+The first read (store `tgtmask-agree`, 2,000 games) put 1,586 of 23,768 heuristic-chosen targets
+outside the mask. Attribution (the running record, 21:08): modal spells (1,522 + ≈ 35 — the union
+never walked a Charm's modes), stack-zone cards (Reprieve), energy X (Chthonian Nightmare),
+parent-defined ValidTgts text (Searing Blaze), the heuristic's own engine-illegal picks (Explore
+onto a shrouded creature, divided damage at a hexproof player), one stale label. Fork `e412dbb24d`
+walks the modes, reads X in any cost part, tests the ParentTarget / Targeted text, lists stack-zone
+cards, and marks engine-refused labels (`"ill":1`) so the validator counts the heuristic's illegal
+picks apart — the bar stays zero LEGAL targets excluded, read mechanically. The re-read
+(`tgtmask-agree2`, its own forkcheck first) is the pre-registered single re-read. Found beside it
+and routed: 87 heuristic casts whose host the option scan never offered (King T'Challa's back face
+from the command zone, Dargo's cost-reduced cast, X spells) — absent from a 300-game sample of a
+pre-cast-mask store; a commander-zone unit test before the launch ADR.

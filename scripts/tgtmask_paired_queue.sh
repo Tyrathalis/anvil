@@ -17,17 +17,18 @@
 #   --dir data/runs/tgtmask-paired --launched-by '<ListAgents name> [<ref>]' --watch 'data/runs/tm-*' \
 #   --stall-min 240 -- bash scripts/tgtmask_paired_queue.sh
 set -u
+TAG=${TAG:-}   # the gate chain's suffix (see tgtmask_agree_queue.sh); the read's own arms carry it too
 REPO=${REPO:-$(cd "$(dirname "$0")/.." && pwd)}; cd "$REPO"
-OUT=$REPO/data/runs/tgtmask-paired; mkdir -p "$OUT"
-GATE=$REPO/data/runs/tgtmask-agree
+OUT=$REPO/data/runs/tgtmask-paired$TAG; mkdir -p "$OUT"
+GATE=$REPO/data/runs/tgtmask-agree$TAG
 CKPT=data/training/settings-stopgrad-t3e6/iter-019/train/last.pt
-JAR=$REPO/data/runs/tgtmask/forge-tgtmask.jar
+JAR=$REPO/data/runs/tgtmask/forge-tgtmask$TAG.jar
 REF_DONE=$REPO/data/runs/after-recovery/read.done   # the cast-mask read's arms (unmasked decoder)
 export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}"
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 log "waiting for the gate chain (tgtmask-agree)"
-uv run python -m anvil.runs wait --name tgtmask-agree >> "$OUT/queue.log" 2>&1
-log "gate chain left: $(grep -o '"state": "[a-z]*"' ~/.local/state/anvil/runs/tgtmask-agree.json)"
+uv run python -m anvil.runs wait --name "tgtmask-agree$TAG" >> "$OUT/queue.log" 2>&1
+log "gate chain left: $(grep -o '"state": "[a-z]*"' ~/.local/state/anvil/runs/tgtmask-agree$TAG.json)"
 sleep 30
 [[ -f "$GATE/DONE" ]] || { log "gate chain did not finish (no DONE)"; exit 1; }
 if ! grep -q "validate exit=0" "$GATE/validate.txt"; then
@@ -38,9 +39,9 @@ log "agreement check CLEARED: $(grep -m1 'target mask (ADR-0122)' "$GATE/validat
 log "the paired read: ckpt=$CKPT jar=$JAR (decoder masked) vs $(cat $REF_DONE)"
 T0=$(date +%s)
 if [[ ! -f "$OUT/read.done" ]]; then
-  nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name tm-stopgrad --games 1000 --games-per-pair 5 \
+  nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "tm$TAG-stopgrad" --games 1000 --games-per-pair 5 \
     --seed-base 20261003 --workers 24 --port 50091 --servers 0 --jar "$JAR" --skip-ante >> "$OUT/read.log" 2>&1 || { log "read FAILED"; exit 1; }
-  ls -dt data/runs/tm-stopgradarm-s0-* | head -1 | tr -d '\n' > "$OUT/read.done"; echo -n "," >> "$OUT/read.done"; ls -dt data/runs/tm-stopgradarm-s1-* | head -1 >> "$OUT/read.done"
+  ls -dt "data/runs/tm$TAG-stopgradarm-s0-"* | head -1 | tr -d '\n' > "$OUT/read.done"; echo -n "," >> "$OUT/read.done"; ls -dt "data/runs/tm$TAG-stopgradarm-s1-"* | head -1 >> "$OUT/read.done"
   echo "wall_s=$(( $(date +%s) - T0 ))" > "$OUT/wall.txt"
 fi
 uv run python scripts/arms_report.py --arm "tgtmask=$(cat $OUT/read.done)" --out "$OUT/tgtmask.read.json" > /dev/null 2>&1

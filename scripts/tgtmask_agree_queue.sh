@@ -16,20 +16,23 @@
 # Launch (from the bridge worktree, data/ linked): uv run python -m anvil.runs launch --name tgtmask-agree \
 #   --dir data/runs/tgtmask-agree --launched-by '<ListAgents name> [<ref>]' --watch 'data/runs/tgtmask-agree-*' \
 #   --watch 'data/forkcheck/run-20261004-tgtmask' --stall-min 60 -- bash scripts/tgtmask_agree_queue.sh
+# TAG (e.g. 2) names a re-read: its run dir, forkcheck dir, purpose and store all carry the suffix, so the first
+# read's evidence stays beside it (the 10-04 first read: data/runs/tgtmask-agree, store tgtmask-agree).
 set -u
+TAG=${TAG:-}
 REPO=${REPO:-$(cd "$(dirname "$0")/.." && pwd)}; cd "$REPO"
-OUT=$REPO/data/runs/tgtmask-agree; mkdir -p "$OUT"
-JAR=${JAR:-$REPO/data/runs/tgtmask/forge-tgtmask.jar}
-FC=${FC:-$REPO/data/forkcheck/run-20261004-tgtmask}
+OUT=$REPO/data/runs/tgtmask-agree$TAG; mkdir -p "$OUT"
+JAR=${JAR:-$REPO/data/runs/tgtmask/forge-tgtmask$TAG.jar}
+FC=${FC:-$REPO/data/forkcheck/run-20261004-tgtmask$TAG}
 GAMES=${GAMES:-2000}; WORKERS=${WORKERS:-24}; SEEDBASE=${SEEDBASE:-20261004}
-STORE=$REPO/data/trajectories/tgtmask-agree
+STORE=$REPO/data/trajectories/tgtmask-agree$TAG
 export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}"
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 [[ -f "$JAR" ]] || { log "no jar at $JAR"; exit 1; }
 
 # (1) the forkcheck of the mask tip
 if [[ ! -f "$FC/compare.txt" ]]; then
-  log "forkcheck start jar=$JAR ($(cat "$REPO/data/runs/tgtmask/forge-tgtmask.commit" 2>/dev/null))"
+  log "forkcheck start jar=$JAR ($(cat "$REPO/data/runs/tgtmask/forge-tgtmask$TAG.commit" 2>/dev/null))"
   N_GAMES=500 SEED=20260703 JAR="$JAR" bash scripts/forkcheck/run_forkcheck.sh "$FC" | tee -a "$OUT/queue.log"
   pid=$(cat "$FC/run.pid")
   until [ ! -d /proc/$pid ] || { [ -f "$FC/results.jsonl" ] && [ "$(wc -l < "$FC/results.jsonl")" -ge 500 ]; }; do
@@ -43,9 +46,9 @@ if [[ ! -f "$OUT/gen.done" ]]; then
   log "agreement corpus: $GAMES games, $WORKERS workers, pool pairs, seed base $SEEDBASE"
   nice -n 19 uv run python -m anvil.bridge.harness launch --pool --pool-format dc --format Commander \
     --games "$GAMES" --games-per-pair 5 --workers "$WORKERS" --bridge local-random --bridge-seats 2 \
-    --census --obs --purpose tgtmask-agree --seed-base "$SEEDBASE" --jar "$JAR" >> "$OUT/gen.log" 2>&1 \
+    --census --obs --purpose "tgtmask-agree$TAG" --seed-base "$SEEDBASE" --jar "$JAR" >> "$OUT/gen.log" 2>&1 \
     || { log "generation FAILED"; exit 1; }
-  ls -dt data/runs/tgtmask-agree-2* | head -1 > "$OUT/gen.done"
+  ls -dt "data/runs/tgtmask-agree$TAG-2"* | head -1 > "$OUT/gen.done"
 fi
 RUN=$(cat "$OUT/gen.done"); log "corpus run dir $RUN"
 if [[ ! -d "$STORE" ]]; then

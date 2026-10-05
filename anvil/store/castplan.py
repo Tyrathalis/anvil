@@ -114,6 +114,16 @@ class ValidationReport:
     mask_targets_outside: int = 0
     mask_unfit_chosen: int = 0  # a cast on an option the fork flagged unfit
     mask_mode_targets_unchecked: int = 0  # mode targets live outside the decoder's label space
+    # a label ref on an option the engine says targets nothing ("tg":[] with
+    # "tn":0): a stale TargetChoices on the heuristic's SA, not a legal target
+    # the mask excluded — counted apart (a label-side defect), not an error
+    mask_refs_on_nontargeting: int = 0
+    # a label ref the ENGINE refused at record time ("ill":1 on the ref: the
+    # fork's canTarget verdict): the heuristic's own illegal pick (Explore
+    # onto a shrouded creature, divided damage at a hexproof player) — not a
+    # legal target the mask excluded; counted apart, listed by ability
+    mask_label_illegal: int = 0
+    mask_label_illegal_by_sa: dict = dataclasses.field(default_factory=dict)
     mask_unmasked_reasons: dict = dataclasses.field(default_factory=dict)
     mask_outside_by_sa: dict = dataclasses.field(default_factory=dict)
     errors: list[str] = dataclasses.field(default_factory=list)
@@ -143,8 +153,13 @@ class ValidationReport:
                 f"{self.mask_opts_unmasked} unmasked {dict(sorted(self.mask_unmasked_reasons.items()))}, "
                 f"{self.mask_opts_legacy} legacy; {self.mask_targets_checked} chosen targets checked, "
                 f"{self.mask_targets_outside} OUTSIDE the mask, {self.mask_unfit_chosen} casts on unfit "
-                f"options, {self.mask_mode_targets_unchecked} mode targets not in the label space"
+                f"options, {self.mask_mode_targets_unchecked} mode targets not in the label space, "
+                f"{self.mask_refs_on_nontargeting} label refs on non-targeting options (label-side), "
+                f"{self.mask_label_illegal} label refs the engine itself refused (the heuristic's illegal picks)"
             )
+            if self.mask_label_illegal_by_sa:
+                top = sorted(self.mask_label_illegal_by_sa.items(), key=lambda kv: -kv[1])[:10]
+                lines.append("  engine-illegal labels by ability: " + "; ".join(f"{k!r} x{v}" for k, v in top))
             if self.mask_outside_by_sa:
                 top = sorted(self.mask_outside_by_sa.items(), key=lambda kv: -kv[1])[:15]
                 lines.append("  outside by ability: " + "; ".join(f"{k!r} x{v}" for k, v in top))
@@ -211,8 +226,18 @@ def _check_mask(report: ValidationReport, g: int, seq: int, opt: dict[str, Any],
     refs = list(plan.targets)
     for sb in plan.subs:
         refs.extend(sb.get("tgt") or [])
+    if not tg and not opt.get("tn") and not opt.get("tz") and refs:
+        # the engine found no targeting node at all: the label's refs are
+        # stale TargetChoices (the realizer refuses any ref here), not targets
+        report.mask_refs_on_nontargeting += len(refs)
+        report.mask_mode_targets_unchecked += sum(len(m.targets) for m in plan.modes)
+        return
     for ref in refs:
         if not isinstance(ref, dict):
+            continue
+        if ref.get("ill"):
+            report.mask_label_illegal += 1
+            report.mask_label_illegal_by_sa[label] = report.mask_label_illegal_by_sa.get(label, 0) + 1
             continue
         if "e" in ref:
             ok = ref["e"] in ents

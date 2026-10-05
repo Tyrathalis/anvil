@@ -2306,3 +2306,33 @@ record.*
   was linked; every entry is linked now). The paired queue failed with it (no DONE) and was relaunched behind the
   chain at 20:25. Both relays reached this session (the launcher) through the bracketed ref — the first direct
   relays since the 10-04 fix.
+- **2026-10-04 (21:08) — THE AGREEMENT CHECK'S FIRST READ MISSED, ATTRIBUTABLY: 1,586 of 23,768 heuristic-chosen
+  targets outside the mask on 2,000 games (`data/runs/tgtmask-agree/validate.txt`, `classify.txt`, `inspect.txt`;
+  store `tgtmask-agree`), 7.27M options masked, 20,755 unmasked (all "x"), 44 casts on unfit options.** The classes,
+  by count: **(1) modal spells, 1,522 + ≈ 35** — a Charm's targets live in its modes until one is bound, the union
+  walked only the root chain, so every "Choose one / two" option carried `"tg":[]` and the label's mode targets fell
+  outside; **(2) a card in the stack zone, 12 unfit casts + a few outside** (Reprieve: the engine's own
+  `getAllCandidates` lists the spell CARD in the stack zone and the heuristic targets it as a card; the union had
+  skipped stack-zone cards for the stack-entry form); **(3) energy X, 19 unfit casts** (Chthonian Nightmare's
+  `Pay X {E}` with `cmcEQX`: the X test read mana X only); **(4) parent-defined restrictions, 3 + 3** (Searing
+  Blaze's second node: `Creature.ControlledBy ParentTarget` in the ValidTgts text, not a `TargetsWith*` param);
+  **(5) the heuristic's own illegal picks, 8 + 8 + 1** — the Map token's explore onto Spider-Man 2099 / True-Name
+  Nemesis wearing Clout of the Dominus (shroud), Fire's divided damage at a player who had cast Veil of Summer
+  (hexproof): the engine refuses these targets and the mask was right to; **(6) one stale label** (a target on
+  Luxior and Shadowspear's non-targeting ability). **Fixed on the fork (`e412dbb24d`):** the union walks every Charm
+  node's modes (refs only; the chain alone carries the minimums), `hasXInAnyCostPart`, the ParentTarget / Targeted
+  text test, stack-zone cards listed; and `Obs.targets` now marks a recorded label the engine itself refuses
+  (`"ill":1`, `!sa.canTarget` at record time) so the validator counts the heuristic's illegal picks apart — class
+  (5) becomes mechanical, not a judgment. The validator also counts a label ref on a non-targeting option apart
+  (class 6). Tests: `TargetUnionAgreementTest` 4 (Abrade's two modes, a Map token's explore, Chthonian "x" +
+  Searing Blaze "parent", Finale + Kozilek's Command offered with {C} sources) + the 4 earlier; the Python suite's
+  18 mask/validator tests. **Found beside it, routed (not the mask's): 87 heuristic casts whose host was not among
+  the scan's options** — King T'Challa's back face from the command zone (42), Dargo (16; the sacrifice cost
+  reduction, ADR-0005's known payability class), Kozilek's Command and other X spells (≈ 20), Brazen Borrower (4);
+  **0 such casts in 300 games of the pre-cast-mask store `settings-recovery-noanchor-i005`**, so the class is new
+  since `9c589c1ced` (the restrictions clause) or the exact-payability path on these shapes — attribute with a
+  commander-zone unit test before the launch ADR (the scan drops whole cards: a commander's back face and a
+  cost-reduced commander). **THE RE-READ LAUNCHED 21:30** (`tgtmask-agree2`, jar `forge-tgtmask2.jar` on
+  `e412dbb24d`: its own forkcheck `run-20261004-tgtmask2` first, then the 2,000-game corpus, store `tgtmask-agree2`;
+  `tgtmask-paired2` queued behind a cleared check). This is the pre-registered one re-read; a residual miss after it
+  drops the item to after the big run.
