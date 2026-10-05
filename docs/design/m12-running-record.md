@@ -2297,3 +2297,12 @@ record.*
   cast-mask read's unmasked arms) flags below −1.0pp or beyond 2 SE, `no_shape_fit` must fall, wall ≤ 45 min (the
   5% timing bar against the cast-mask read's 43 min). Coverage: both runs under `--launched-by` to this session,
   stall alarms 60 / 240 min; the session waits armed. ≈ 30 min forkcheck + ≈ 2 h corpus + ≈ 45 min read.
+- **2026-10-04 (20:22) — THE MASK TIP'S FORKCHECK PASSED: `run-20261004-tgtmask` 499/500, 20260969 the standing seed
+  (turns 28 vs 29), fidelity 451/48/1 = the merge baseline's; `5b54fbe6ef` is the pin** (fork master fast-forwarded and
+  pushed; lineage row, state table, map, ADR-0122 status). The option record's new field is recording-only on the
+  heuristic path, as argued and now proven. **The chain's corpus step FAILED at 20:23 and was RELAUNCHED 20:23
+  (generating since 20:24, 24 workers):** the harness refused `--pool` because the worktree's `data/pool` lacked the
+  `pool-cf2ca6ba.json` link (my earlier listing of the main checkout's pool dir was truncated, so only part of it
+  was linked; every entry is linked now). The paired queue failed with it (no DONE) and was relaunched behind the
+  chain at 20:25. Both relays reached this session (the launcher) through the bracketed ref — the first direct
+  relays since the 10-04 fix.
