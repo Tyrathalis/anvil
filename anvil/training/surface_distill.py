@@ -201,7 +201,10 @@ class SubRowFrames(IterableDataset):
         out = assemble(frame, header, perspective=p, history=hist)
         row_of = out["entity_row_of"]
         task = grp["task"]
-        surf = surface_fields(frame, row_of, self.abil, self.methods.id(frame["m"]), False)
+        surf = surface_fields(
+            frame, row_of, self.abil, self.methods.id(frame["m"]), False,
+            perspective=p, n_players=len(header["players"]),
+        )
         if surf is None or surf["task"] != task or surf["_n"] != grp["n"]:
             return None
         n = surf["_n"]

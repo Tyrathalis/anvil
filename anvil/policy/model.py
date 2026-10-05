@@ -524,6 +524,25 @@ class AnvilNet(nn.Module):
             out["surf_logp"] = logp
         return out
 
+    @staticmethod
+    def _tgt_pad(batch: dict, ent_out: torch.Tensor, n_players: int, cand: torch.Tensor) -> torch.Tensor:
+        """The target decoder's closed keys: the padding rows, plus (ADR-0122)
+        every key outside the chosen candidate's legal-target union when the
+        batch carries `tgt_allow` (absent = the pre-mask decoder exactly).
+        forward passes the label, act the sampled choice — one function, so
+        the mu recompute sees the distribution the pick was sampled from."""
+        B = ent_out.shape[0]
+        pad = torch.cat(
+            [~batch["ent_mask"], torch.zeros(B, n_players + 1, dtype=torch.bool, device=ent_out.device)],
+            dim=1,
+        )
+        allow = batch.get("tgt_allow")
+        if allow is not None:
+            idx = cand.clamp(min=0).view(B, 1, 1).expand(-1, 1, allow.shape[-1])
+            sel = allow.to(ent_out.device).gather(1, idx).squeeze(1)
+            pad = pad | ~sel
+        return pad
+
     def _pointer_logits(
         self,
         state: torch.Tensor,
@@ -789,15 +808,7 @@ class AnvilNet(nn.Module):
         vecs = torch.cat(
             [ent_out, p_keys, torch.zeros_like(p_keys[:, :1])], dim=1
         )  # STOP adds nothing
-        pad = torch.cat(
-            [
-                ~batch["ent_mask"],
-                torch.zeros(
-                    ent_out.shape[0], p_keys.shape[1] + 1, dtype=torch.bool, device=ent_out.device
-                ),
-            ],
-            dim=1,
-        )
+        pad = self._tgt_pad(batch, ent_out, p_keys.shape[1], batch["label"])
         tgt_logits = []
         prev = torch.zeros_like(src_vec)
         d = keys.shape[-1]
@@ -931,15 +942,7 @@ class AnvilNet(nn.Module):
             [self.tgt_key(ent_out), p_keys, self.stop_key.expand(ent_out.shape[0], 1, -1)], dim=1
         )
         vecs = torch.cat([ent_out, p_keys, torch.zeros_like(p_keys[:, :1])], dim=1)
-        kpad = torch.cat(
-            [
-                ~batch["ent_mask"],
-                torch.zeros(
-                    ent_out.shape[0], p_keys.shape[1] + 1, dtype=torch.bool, device=ent_out.device
-                ),
-            ],
-            dim=1,
-        )
+        kpad = self._tgt_pad(batch, ent_out, p_keys.shape[1], choice)
         d = keys.shape[-1]
         stop_idx = n_ent + p_keys.shape[1]
         prev = torch.zeros_like(src_vec)

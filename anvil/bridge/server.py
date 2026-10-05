@@ -41,6 +41,7 @@ from pathlib import Path
 import grpc
 
 from anvil.bridge.certify import CERTIFY_TAG, Certifier
+from anvil.encoder.target_mask import apply_target_mask
 from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 
@@ -314,6 +315,8 @@ class ModelBackend:
         max_batch: int = 16,
         window_ms: float = 3.0,
         stats_every: float = 60.0,
+        target_mask: bool = True,
+        prune_unfit: bool = False,
     ):
         import torch
 
@@ -393,6 +396,14 @@ class ModelBackend:
                 f"{len(self.feat.sa_vocab)} — serve/train vocab skew"
             )
         self.pass_delta = pass_delta
+        # ADR-0122: the target pointer masked to the chosen option's legal-
+        # target union (off = the paired read's control arm); the unfit prune
+        # drops candidates the fork says cannot fit. The prune is not composed
+        # with sched binding (bind() replaces cand_allow after it).
+        self.target_mask = target_mask
+        self.prune_unfit = prune_unfit
+        if prune_unfit and sched_binding != "off":
+            raise ValueError("--prune-unfit is not composed with --sched-binding (bind replaces cand_allow)")
         self.device = device
         self.counts: Counter[str] = Counter()
         self.batcher = _Batcher(
@@ -479,6 +490,7 @@ class ModelBackend:
             f"[server] model {ckpt_path} step={ckpt.get('step')} "
             f"pass_delta={pass_delta} device={device} "
             f"sample={sample} temperature={temperature} "
+            f"target_mask={target_mask} prune_unfit={prune_unfit} "
             f"sched_binding={sched_binding if self.carry_sched else 'n/a'} "
             f"micro-batch<= {self.batcher.max_batch} window {self.batcher.window_ms}ms"
         )
@@ -575,6 +587,7 @@ class ModelBackend:
             # the mu record and answer path need nothing special.
             self.counts["reask"] += 1
         ex, aux = self.feat.example(dec, header, task)
+        apply_target_mask(ex, aux, mask=self.target_mask, prune=self.prune_unfit)  # -> aux["tm"], the mu row
         plan_key, plan_emit = self._plan_inject(ex, header, dec)
         sched_ctx = None
         if self.sched_serve is not None and (
@@ -1237,6 +1250,16 @@ def main() -> None:
         "the mined ability table; binding WAITs for held-but-not-yet-legal "
         "slots; land-first off — the plan orders the drop)",
     )
+    ap.add_argument(
+        "--no-target-mask", dest="target_mask", action="store_false",
+        help="ADR-0122: serve the target decoder UNMASKED (the control arm of the mask's paired read); "
+        "default: the pointer is masked to the chosen option's legal-target union when the record carries it",
+    )
+    ap.add_argument(
+        "--prune-unfit", action="store_true",
+        help="ADR-0122: drop candidates whose required target node has no legal candidate (the fork's "
+        "tz flag) from the choice; not composed with --sched-binding",
+    )
     ap.add_argument("--abilities", default=None, help="ability table stem override (default: the ckpt config's; ADR-0110)")
     ap.add_argument(
         "--ability-table",
@@ -1311,6 +1334,8 @@ def main() -> None:
             pay_gate=args.pay_gate,
             serve_init_pay=args.serve_init_pay,
             mu_path=args.mu_out,
+            target_mask=args.target_mask,
+            prune_unfit=args.prune_unfit,
             instrument=args.fork_instrument,
             sched_binding=args.sched_binding,
             bind_trace=args.bind_trace,

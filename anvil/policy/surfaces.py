@@ -45,6 +45,8 @@ from typing import Any
 
 import numpy as np
 
+from anvil.encoder.transform import player_target_position
+
 SURF_TASK = {
     "entity_one": "surf_one",
     "entity_set": "surf_set",
@@ -154,6 +156,8 @@ def surface_fields(
     abil: AbilityCache | None,
     method_id: int,
     with_labels: bool,
+    perspective: int | None = None,
+    n_players: int | None = None,
 ) -> dict | None:
     """Option-set fields for one surface window; None = not a decision (one
     option, nothing to pick, a forced full set) or, with labels, an answer
@@ -234,7 +238,15 @@ def surface_fields(
                     ent_miss += 1
             elif "pi" in o:
                 opt_kind[i] = OPT_KINDS["player"]
-                opt_pi[i] = int(o["pi"])
+                pi = int(o["pi"])
+                # 10-04 (the ADR-0122 fold-in): the registered seat -> the
+                # model's self-first position (ADR-0116). The surface's player
+                # key gathers from the self-first player rows, so the raw seat
+                # keyed the OTHER player's features from seat 1. Legacy
+                # callers without a perspective keep the raw seat.
+                if perspective is not None and n_players and 0 <= pi < n_players:
+                    pi = player_target_position(pi, perspective, n_players)
+                opt_pi[i] = pi
     out = {
         "task": task,
         "opt_row": opt_row,

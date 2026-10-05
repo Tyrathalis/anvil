@@ -27,6 +27,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
+from anvil.encoder.target_mask import MASK_FLAG, PRUNE_FLAG
 from anvil.training.dataset import TASKS, collate, default_methods
 from anvil.training.search_join import (
     FORCED_BY,
@@ -519,6 +520,13 @@ def game_trajectories(
             # verbatim — the first windows' history includes parent-game
             # entries a reconstruction from this frame could never see
             ex, aux = feat.example(wire, traj.header, rec["task"])
+            # ADR-0122: the serve's target-mask rule, read back from the mu
+            # row — a pick sampled unmasked (an older server, --no-target-mask)
+            # is recomputed unmasked; the prune is ANDed after the sched allow
+            tm = int(rec.get("tm") or 0)
+            cand_unfit = ex.pop("cand_unfit", None)
+            if not tm & MASK_FLAG:
+                ex.pop("tgt_allow", None)
             srow = None
             if search and idx in row_at and rec.get("task") == "priority":
                 srow, o2d = row_at[idx]
@@ -593,6 +601,11 @@ def game_trajectories(
                         if 0 <= i < cw:
                             am[i] = True
                     ex["cand_allow"] = am
+            if tm & PRUNE_FLAG and cand_unfit is not None:
+                base = ex.get("cand_allow")
+                if base is None:
+                    base = torch.ones_like(cand_unfit)
+                ex["cand_allow"] = base & ~cand_unfit
             by_seat.setdefault(dec["p"], []).append((ex, rec, rej, ex_fv))
         prior.append(dec)
     if plan:

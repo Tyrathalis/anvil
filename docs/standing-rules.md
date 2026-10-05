@@ -234,6 +234,11 @@ reads).
   shuffle is a store-frame mark from the engine's own event, either seat, recording only; the ledger
   cleanses its poison, tuck and seen state on the mark, after the mark's own record, and stores without
   marks read as before ([ADR-0121](decisions/ADR-0121-shuffle-mark.md)).
+- **A legality mask on a learned pointer is proven on a corpus before it serves:** every expert-chosen
+  label inside the mask, the bar zero (the ADR-0005 lesson, now a gate); where the engine cannot
+  enumerate faithfully the option is declared unmasked, never given a wrong set; the mask field is
+  additive (older stores read unmasked) and the serve rule rides the mu row so the loader recomputes
+  under it ([ADR-0122](decisions/ADR-0122-union-target-mask.md)).
 
 - **Replaying a model-generated store requires the generating run's
   trajectory-perturbing flag set (-reask/-paytelemetry/... from ITS

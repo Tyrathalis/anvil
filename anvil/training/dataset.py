@@ -87,6 +87,7 @@ import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
 from anvil.encoder.stack_fields import STACK_FIELDS, stack_fields
+from anvil.encoder.target_mask import target_allow
 from anvil.encoder.transform import (
     HISTORY_K,
     assemble,
@@ -524,6 +525,7 @@ class PriorityWindows(IterableDataset):
             cand_rows = [-1]
             cand_sa = [-1]
             cand_kind = [-1]
+            cand_opts: list[list[int]] = [[]]  # ADR-0122: wire options per candidate
             ak_of_cand: dict[int, int] = {}  # Build 4: candidate index -> ability-table row
             label = 0
             label_row = -1
@@ -553,12 +555,13 @@ class PriorityWindows(IterableDataset):
                 # order; identical (row, normalized-sa) pairs collapse
                 opts = dec.get("opts") or []
                 key_of: dict[tuple[int, str], int] = {}
-                for o in opts:
+                for i, o in enumerate(opts):
                     r = row_of.get(o.get("e"))
                     if r is None:
                         continue
                     key = (r, norm_sa(o.get("sa", "")))
                     if key in key_of:
+                        cand_opts[key_of[key]].append(i)
                         continue
                     key_of[key] = len(cand_rows)
                     if self.abil is not None and o.get("ak"):
@@ -566,6 +569,7 @@ class PriorityWindows(IterableDataset):
                     cand_rows.append(r)
                     cand_sa.append(self.sa_vocab.id(key[1]))
                     cand_kind.append(KINDS.get(o.get("kind"), KINDS["other"]))
+                    cand_opts.append([i])
                 if ret is not None:
                     plan = ret[0] if isinstance(ret, list) and ret else {}
                     host = plan.get("e")
@@ -637,7 +641,10 @@ class PriorityWindows(IterableDataset):
                 num_label = max(num_lo, min(int(ret), num_hi))
                 forced = 1 if num_lo == num_hi else 0
             elif task in SURF_BUILT:
-                surf = surface_fields(dec, row_of, self.abil, self.methods.id(dec["m"]), True)
+                surf = surface_fields(
+                    dec, row_of, self.abil, self.methods.id(dec["m"]), True,
+                    perspective=p, n_players=len(traj.header["players"]),
+                )
                 if surf is None:
                     prior.append(dec)
                     continue
@@ -683,6 +690,17 @@ class PriorityWindows(IterableDataset):
             for ci, ar in ak_of_cand.items():
                 cand_ak[ci] = ar
             stack_ex = {k: torch.from_numpy(a) for k, a in stack_fields(out, self.abil, p).items()}
+            tgt_mask_ex: dict = {}
+            if task == "priority":
+                # ADR-0122: BC trains the target pointer under the record's
+                # union mask (older stores carry none -> unmasked, as before);
+                # pruning unfit candidates is a serve rule, never a label rule
+                ta = target_allow(
+                    dec.get("opts") or [], cand_opts, row_of, p,
+                    out["players"].shape[0], out["entities"].shape[0],
+                )
+                if ta is not None:
+                    tgt_mask_ex["tgt_allow"] = torch.from_numpy(ta[0])
             yield {
                 "entities": torch.from_numpy(out["entities"]),
                 "ent_emb": torch.tensor(
@@ -696,6 +714,7 @@ class PriorityWindows(IterableDataset):
                 "cand_kind": torch.tensor(cand_kind, dtype=torch.int64),
                 "cand_ak": torch.tensor(cand_ak, dtype=torch.int64),
                 **stack_ex,
+                **tgt_mask_ex,
                 "label": torch.tensor(label, dtype=torch.int64),
                 "label_row": torch.tensor(label_row, dtype=torch.int64),
                 "tgt_kind": torch.from_numpy(tgt_kind),
@@ -810,6 +829,23 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             a = x.get("cand_allow")
             allow[i, :ci] = a if a is not None else True
         out["cand_allow"] = allow
+    if any("tgt_allow" in x for x in batch):
+        # ADR-0122: the target pointer's per-candidate key mask, re-based onto
+        # the padded width ([0,n) entity rows, [n,n+p) player positions, n+p
+        # STOP — the class-id layout below). Items without one (older stores,
+        # an unmasked serve) allow every key; padded rows are closed either
+        # way by the decoder's padding mask.
+        p_ = batch[0]["players"].shape[0]
+        ta = torch.ones(b, c, n + p_ + 1, dtype=torch.bool)
+        for i, x in enumerate(batch):
+            a = x.get("tgt_allow")
+            if a is None:
+                continue
+            ci, ni = a.shape[0], x["entities"].shape[0]
+            ta[i, :ci, :ni] = a[:, :ni]
+            ta[i, :ci, ni:n] = False
+            ta[i, :ci, n:] = a[:, ni:]
+        out["tgt_allow"] = ta
     # target labels -> class ids over the padded batch: [0,n) entity rows,
     # [n, n+p) players, n+p = STOP; -1 stays "no slot" (loss ignore_index)
     p = batch[0]["players"].shape[0]

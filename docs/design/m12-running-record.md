@@ -2276,3 +2276,24 @@ record.*
   raw power statement, `payment-evalset-v2` re-certified, `CensusRun -certify` + `PayDirective` deleted) and
   the union target mask (item 2 of the 10-02 routing; ADR-0122). The close was relayed by the fallback (the cell
   carried the bare name; the ref fix landed after its launch).
+- **2026-10-04 (evening) — THE UNION TARGET MASK BUILT (ADR-0122); the gate chain LAUNCHED 19:49 (`tgtmask-agree`:
+  the forkcheck, then the agreement corpus) with the paired read queued behind a cleared check (`tgtmask-paired`).**
+  Session pickup: the box quiet, every pre-launch read closed; the 10-02 routing (mask before the launch ADR) kept
+  against the 10-04 devlog's flipped order, since the launch ADR pins the jar and the served decoder. **The fork
+  (`5b54fbe6ef`, branch `tgt-mask`, worktree `../forge-castmask`):** `TargetUnion` lists each priority option's
+  legal-target union on the opts entry (`tg` / `tn` / `tz`; `tg:null` + `tu` where the scan cannot enumerate
+  faithfully — related-property, parent-defined, X-dependent restrictions), written by `Obs.decPriority` only (the
+  logged + served windows; `peekPriority` unchanged), the stack loop beside `getAllCandidates` (which never lists
+  abilities on the stack), targets cleared and restored, scratch RNG armed, no census row (the loop tripline).
+  `TargetUnionTest` 4/4. **The Python side:** one builder (`anvil/encoder/target_mask.py`) for the featurizer and the
+  loader; `AnvilNet._tgt_pad` shared by forward (the label) and act (the choice); collate re-bases the player block +
+  STOP; the mu row's `tm` flags carry the serve rule to the RL loader; server flags `--no-target-mask` /
+  `--prune-unfit`; the validator's ADR-0122 branch (the agreement check: masked / unmasked-by-reason / legacy
+  options, chosen targets checked vs outside, unfit casts); the surface decoder's player key mapped to the self-first
+  position (the ADR-0116 class on the out-of-cast surfaces, found in the review). 11 new tests; the suite 344 pass /
+  43 data-skips. **Pre-registered (ADR-0122 §gates):** forkcheck identical but for 20260969 = PASS, pin `5b54fbe6ef`;
+  the agreement bar ZERO heuristic-chosen targets outside the mask among masked options (an attributable class →
+  unmask + one re-read; residual → after the run); the paired read (`iter-019`, seeds 20261003, masked vs the
+  cast-mask read's unmasked arms) flags below −1.0pp or beyond 2 SE, `no_shape_fit` must fall, wall ≤ 45 min (the
+  5% timing bar against the cast-mask read's 43 min). Coverage: both runs under `--launched-by` to this session,
+  stall alarms 60 / 240 min; the session waits armed. ≈ 30 min forkcheck + ≈ 2 h corpus + ≈ 45 min read.

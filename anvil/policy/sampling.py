@@ -103,6 +103,9 @@ def mu_record(g: int, s: int, task: str, ex: dict, aux: dict, out: dict) -> dict
     n_pad, stop = int(out["n_ent"]), int(out["stop_idx"])
     n_i = ex["entities"].shape[0]
     rec: dict = {"g": g, "s": s, "task": task}
+    tm = aux.get("tm") if aux else None
+    if tm:
+        rec["tm"] = int(tm)  # ADR-0122: the target-mask / prune flags the pick was sampled under
     lp: dict[str, float] = {}
     ent: dict[str, float] = {}
 

@@ -26,6 +26,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from anvil.encoder.target_mask import target_allow
 from anvil.encoder.transform import HISTORY_K, assemble, player_seats
 from anvil.training.dataset import (
     COMBAT_COUNT_MAX,
@@ -300,6 +301,7 @@ class Featurizer:
         cand_paykind = [-1]
         cand_ents: list[list[int]] = [[-1] * PAY_SET_K]  # evening 4: the goal's plan as an entity set
         cand_first_opt = [-1]  # per candidate: FIRST matching wire-option index
+        cand_opts: list[list[int]] = [[]]  # ADR-0122: the wire options collapsed into each candidate
         ctx_row = -1
         num_lo, num_hi = 0, X_CLASSES - 1
         cmb_rows: list[int] = []
@@ -318,6 +320,7 @@ class Featurizer:
                     continue
                 key = (r, norm_sa(o.get("sa", "")))
                 if key in key_of:
+                    cand_opts[key_of[key]].append(i)
                     continue
                 key_of[key] = len(cand_rows)
                 if self.abil is not None and o.get("ak"):
@@ -326,6 +329,7 @@ class Featurizer:
                 cand_sa.append(self.sa_vocab.id(key[1]))
                 cand_kind.append(KINDS.get(o.get("kind"), KINDS["other"]))
                 cand_first_opt.append(i)
+                cand_opts.append([i])
         elif task == "pay_class":
             # M9 §3c goal options (m9-payment-surface-spec §12a / rung-3 pins).
             # Option 0 = {"auto":true} rides the PASS slot. Each goal option
@@ -361,7 +365,10 @@ class Featurizer:
         elif task.startswith("surf_"):
             from anvil.policy.surfaces import surface_fields
 
-            surf = surface_fields(dec, row_of, self.abil, self.methods.id(dec["m"]), False)
+            surf = surface_fields(
+                dec, row_of, self.abil, self.methods.id(dec["m"]), False,
+                perspective=p, n_players=out["players"].shape[0],
+            )
             if surf is None:
                 # a trivial window (the fork never asks these) — loud decline
                 raise ValueError(f"surface {dec.get('m')}: nothing to decide")
@@ -453,6 +460,18 @@ class Featurizer:
                 for k in ("atk_label", "atk_tgt_kind", "atk_tgt_idx", "blk_label")
             },
         }
+
+        if task == "priority":
+            # ADR-0122: the union target mask + the unfit flags, straight from
+            # the record; the CONSUMER decides (the server by its flags, the
+            # RL loader by the mu row's "tm") through apply_target_mask
+            ta = target_allow(
+                dec.get("opts") or [], cand_opts, row_of, p,
+                out["players"].shape[0], out["entities"].shape[0],
+            )
+            if ta is not None:
+                ex["tgt_allow"] = torch.from_numpy(ta[0])
+                ex["cand_unfit"] = torch.from_numpy(ta[1])
 
         # ---- answer-translation maps ----
         if sched_opts is not None:

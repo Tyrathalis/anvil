@@ -319,6 +319,14 @@ per-minute `[server] stats` occupancy line. A `YIELD` file in a run dir stops ne
 launching without asking workers to exit (a foreign GPU job does the same automatically), and the
 load — workers × servers — is part of any search run's recipe: a paired read pins it on both arms.
 
+**The target mask ([ADR-0122](../decisions/ADR-0122-union-target-mask.md)).** Since fork `5b54fbe6ef` every
+priority option in a recorded window carries its legal-target union, and the model server points the cast
+decoder only inside the chosen option's set. Nothing to configure: a store without the field reads as before,
+and the server records which rule it applied in the mu row so the trainer recomputes under the same one.
+`--no-target-mask` serves the decoder unmasked (a control arm); `--prune-unfit` also drops options the engine
+says cannot fit (no legal target for a required one; default off, not combined with `--sched-binding`);
+`-Danvil.tgtmask=off` in `ANVIL_EXTRA_JVM_OPTS` makes the fork withhold the field.
+
 ## 7½. Running the long steps unattended
 
 Steps 4, 7 and 8 take hours. Do not run them as foreground commands in a terminal you might

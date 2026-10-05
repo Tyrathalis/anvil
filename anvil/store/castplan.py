@@ -103,6 +103,19 @@ class ValidationReport:
     windows_with_opts: int = 0  # decs that logged structured options
     obs_null: int = 0  # dec had no observation (serializer error)
     winner_mismatch: int = 0  # end.winner != games.jsonl winner (fork 06dd428313)
+    # ADR-0122 — the union target mask's AGREEMENT CHECK (the go/no-go): every
+    # heuristic-chosen target must lie inside its option's listed set. An
+    # outside target is an error (the gate is exactly zero); an option the
+    # fork declined to enumerate ("tg":null) is counted, not checked.
+    mask_opts_masked: int = 0
+    mask_opts_unmasked: int = 0
+    mask_opts_legacy: int = 0  # options without the field (pre-mask records)
+    mask_targets_checked: int = 0
+    mask_targets_outside: int = 0
+    mask_unfit_chosen: int = 0  # a cast on an option the fork flagged unfit
+    mask_mode_targets_unchecked: int = 0  # mode targets live outside the decoder's label space
+    mask_unmasked_reasons: dict = dataclasses.field(default_factory=dict)
+    mask_outside_by_sa: dict = dataclasses.field(default_factory=dict)
     errors: list[str] = dataclasses.field(default_factory=list)
     # frames that fail to decode (e.g. a hard-capped game killed mid-write):
     # quarantined — excluded from the corpus, reported loudly, but not label
@@ -124,6 +137,17 @@ class ValidationReport:
             f"{self.with_opt_costs} with optional costs); "
             f"{self.windows_with_opts} windows logged options",
         ]
+        if self.mask_opts_masked or self.mask_opts_unmasked:
+            lines.append(
+                f"target mask (ADR-0122): {self.mask_opts_masked} options masked, "
+                f"{self.mask_opts_unmasked} unmasked {dict(sorted(self.mask_unmasked_reasons.items()))}, "
+                f"{self.mask_opts_legacy} legacy; {self.mask_targets_checked} chosen targets checked, "
+                f"{self.mask_targets_outside} OUTSIDE the mask, {self.mask_unfit_chosen} casts on unfit "
+                f"options, {self.mask_mode_targets_unchecked} mode targets not in the label space"
+            )
+            if self.mask_outside_by_sa:
+                top = sorted(self.mask_outside_by_sa.items(), key=lambda kv: -kv[1])[:15]
+                lines.append("  outside by ability: " + "; ".join(f"{k!r} x{v}" for k, v in top))
         if self.obs_null:
             lines.append(f"WARNING: {self.obs_null} windows had obs:null")
         if self.winner_mismatch:
@@ -143,6 +167,68 @@ class ValidationReport:
         if len(self.errors) > 50:
             lines.append(f"  ... {len(self.errors) - 50} more")
         return "\n".join(lines)
+
+
+def _chosen_option(dec: dict[str, Any], opts: list, plan: CastPlan) -> dict[str, Any] | None:
+    """The option entry the plan realized: the exact "oi" when logged, else
+    the host's single option, else the host option whose text prefixes the
+    plan's (the loader's join order)."""
+    oi = dec.get("oi")
+    if oi is not None and 0 <= oi < len(opts) and isinstance(opts[oi], dict):
+        return opts[oi]
+    same = [o for o in opts if isinstance(o, dict) and o.get("e") == plan.host]
+    if len(same) == 1:
+        return same[0]
+    psa = plan.sa or ""
+    for o in same:
+        osa = o.get("sa") or ""
+        n = min(len(osa), len(psa))
+        if n and osa[:n] == psa[:n]:
+            return o
+    return None
+
+
+def _tally_mask_options(report: ValidationReport, opts: list) -> None:
+    for o in opts:
+        if not isinstance(o, dict) or "tg" not in o:
+            report.mask_opts_legacy += 1
+        elif o["tg"] is None:
+            report.mask_opts_unmasked += 1
+            why = str(o.get("tu", "?"))
+            report.mask_unmasked_reasons[why] = report.mask_unmasked_reasons.get(why, 0) + 1
+        else:
+            report.mask_opts_masked += 1
+
+
+def _check_mask(report: ValidationReport, g: int, seq: int, opt: dict[str, Any], plan: CastPlan) -> None:
+    """ADR-0122: the plan's root-chain targets (tgt + subs — the decoder's
+    label space; mode targets are counted, not checked) against the option's
+    union. Only called for an option that carries a non-null "tg"."""
+    tg = opt.get("tg") or []
+    ents = {r["e"] for r in tg if isinstance(r, dict) and "e" in r}
+    seats = {r["pi"] for r in tg if isinstance(r, dict) and "pi" in r}
+    label = (opt.get("sa") or plan.sa or "")[:60]
+    refs = list(plan.targets)
+    for sb in plan.subs:
+        refs.extend(sb.get("tgt") or [])
+    for ref in refs:
+        if not isinstance(ref, dict):
+            continue
+        if "e" in ref:
+            ok = ref["e"] in ents
+        elif "pi" in ref:
+            ok = ref["pi"] in seats
+        else:
+            continue  # "str" refs: unpointable, skipped by the label path too
+        report.mask_targets_checked += 1
+        if not ok:
+            report.mask_targets_outside += 1
+            report.mask_outside_by_sa[label] = report.mask_outside_by_sa.get(label, 0) + 1
+            report.error(g, seq, f"target {ref} outside the mask of {label!r} ({len(tg)} refs)")
+    report.mask_mode_targets_unchecked += sum(len(m.targets) for m in plan.modes)
+    if opt.get("tz"):
+        report.mask_unfit_chosen += 1
+        report.error(g, seq, f"cast on an option the fork flagged unfit: {label!r}")
 
 
 def _observed_ids(obs: dict[str, Any]) -> set[int]:
@@ -180,6 +266,7 @@ def validate_game(traj: GameTrajectory, report: ValidationReport) -> None:
         structured = opts is not None and (not opts or isinstance(opts[0], dict))
         if structured:
             report.windows_with_opts += 1
+            _tally_mask_options(report, opts)
 
         try:
             plans = parse_ret(dec.get("ret"))
@@ -211,6 +298,9 @@ def validate_game(traj: GameTrajectory, report: ValidationReport) -> None:
             if structured and plan.host is not None:
                 if plan.host not in {o.get("e") for o in opts}:
                     report.error(g, seq, f"chosen e={plan.host} not among {len(opts)} options")
+                opt = _chosen_option(dec, opts, plan)
+                if opt is not None and opt.get("tg") is not None:
+                    _check_mask(report, g, seq, opt, plan)
             pending_play.setdefault(dec.get("p"), []).append((seq, plan))
 
     for queue in pending_play.values():
