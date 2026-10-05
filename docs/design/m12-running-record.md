@@ -1590,6 +1590,21 @@ record.*
   event that voids tracked knowledge is a stream record. Next: on the pass's close, the forkcheck
   (PASS → the pin + the lineage row), then the Ante re-measure on the new jar with the anchored head,
   one read for both step-2 halves.
+- **2026-09-27 (session 3) — THE UPSTREAM SUBMISSION PLAN for the big run's waiting window** (the
+  user's ask; the first section of [upstream-worklist.md](upstream-worklist.md)). Every discussed
+  upstream item swept and re-checked against upstream master `2ccbbb0132`: the monarch fix is
+  upstream (Hanmac fixed the ternary 09-25) — struck; #11285 was stale-closed 09-14 with no verdict
+  and comes back as two PRs; #11457 stays parked; upstream's 09-24 cleanup reshaped
+  `AiBlockController` again, so talor's cache is rebuilt on the tip. The order: Tier 0 = five
+  stock-bug fixes under 30 lines (Cabal Coffers refund, the STATION guard, the quest all-colors
+  pool, the `ChooseSourceEffect` re-ask, the copier's effect-source links), one engine + one GUI PR
+  open at a time, each from a clean upstream worktree; Tier 1 = the `AiCache` series on TRT's
+  condition (the cache as the first user of the scope `AiCache`'s TODO names, re-measured; the
+  mana-source memo gated on a stock-heuristic read; the cross-game clear); Tier 2 = the
+  determinism hooks; Tier 3 = the playable GUI fixes as fillers; Tier 4 = the blessed Copier →
+  Snapshot consolidation in four PRs; Tier 5 = Discord-first design items. Nothing on the research
+  path changes; fixes return to the fork at the next boundary merge.
+
 - **2026-09-27 (evening) — the anchor cell's first update: the Spearman ROSE.** Iteration 0 (480 games in
   66 min incl. the heuristic-seat halves, training 249 s): the state-ranking Spearman 0.4214 ± 0.023
   against the day-zero 0.374 — the anchor's first update lifts the head above day-zero by ≈ 2 SE, where every
