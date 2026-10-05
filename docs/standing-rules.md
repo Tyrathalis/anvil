@@ -89,6 +89,13 @@ reads).
   calls per game (ADR-0101's budget unit), never left to the reader: the shakedown's best point estimate
   (alloc) was not its cheapest arm (shallow), and the clause read both ways
   ([ADR-0115](decisions/ADR-0115-m12-shakedown-scoping.md), the 09-27 verdict addendum).
+- **A control for a label-side check must contain the labelling seat.** A model
+  self-play store cannot miss its own options, so it reads as a clean control for
+  any option-coverage or label-vs-option check regardless of the engine under it;
+  read the store manifest's bridge / seats before citing a control
+  ([ADR-0122](decisions/ADR-0122-union-target-mask.md) addendum 10-05: the "0 in
+  300 games" control was vacuous; the heuristic-seat stores showed the class at the
+  corpus's rate).
 
 ## Training-loop design
 

@@ -2377,3 +2377,38 @@ record.*
   stale bound mode) is closed, and the prune's verification stays routed to the next labelled store. The mask item is
   CLOSED: built, proven recording-only three times, the agreement check cleared on the re-read, the paired read
   cleared on strength, the veto census and the wall. **Next: the launch ADR**, the option-mask class attributed first.
+- **2026-10-05 (10:21) — THE OPTION-MASK CLASS ATTRIBUTED: NOT NEW, NOT THE SCAN'S — the launch ADR is next.** The
+  routed item from the agreement corpus (57 of 107,247 heuristic casts whose host the priority option scan never
+  offered; `data/runs/tgtmask-agree2/validate2.txt`) was read per host against the engine's own path, with the
+  commander-zone unit test `OptionMaskCommandZoneTest` (fork `94229a0c8a`, test-only, master pushed; the jar and the
+  pin unchanged). **The 10-04 control was vacuous:** "0 such casts in 300 games of `settings-recovery-noanchor-i005`"
+  read a model self-play store (`bridge: grpc`, both seats the model), where every cast is one of the options by
+  construction; the same check on the two stores with a heuristic seat on the shuffle-mark jar
+  (`settings-recovery-noanchor-i005h0` / `h1`, pre-cast-mask) finds **4 of 6,240 heuristic casts**, and the corpus's
+  **57 of 107,247** is the same rate (0.06% vs 0.05%). The class predates the cast-mask jar. **By shape:** (1) **King
+  T'Challa's back face from the command zone, 10** — every miss at commander tax 2 (one at 3) with exactly six lands;
+  the front face costs 7 and the back face 10, and the scan and `ComputerUtilCost.canPayCost` on the real host agree
+  that neither is payable (the lab reproduces the window: tax 2, six lands → neither face offered, both unpayable). The
+  heuristic "cast" it anyway: `canPlayAndPayFor` swaps the spell's host to `Spell.getAlternateHost`'s LKI copy (the
+  back-face state), which carries no zone, so `calculateManaCost`'s cast-from dance finds nothing and the commander
+  tax never enters the AI's test; the real payment charges it and fails, and the card is left in the stack zone with
+  every land tapped and six mana floating. The corpus shows exactly that after all ten: the host in zone `stack` with
+  the stack list empty, zero untapped lands, `mana: {W: 3, U: 3}` in the pool (g904 shows it back in the command zone
+  a turn later). Phantom casts; the scan was right to withhold them; **an upstream forge-ai bug, routed to the
+  upstream-PR list beside the `canRegenerate` recursion** (two parts: the alternate host's missing zone in the
+  payability test, and the failed payment that is never unwound). (2) **Dargo from the command zone, 16** — exact
+  payability reads `{6}{R}` with no sacrifice chosen and refuses; the heuristic's `canPlaySa` picks X = 3 first and
+  pays `{R}` with one land: ADR-0005's late-payability class, now mechanical in the test. (3) **X spells and
+  conditional reductions, ≈ 20 singles** (Mind Twist, Hell to Pay, Nylea's Intervention, Entreat the Angels, Forth
+  Eorlingas!, Traumatic Critique, Pernicious Deed's X ability; Mystical Dispute, Not of This World, Baral + Petty Theft
+  ×4, Ghostfire Slice from exile) — the same ADR-0005 class. (4) **Equip {2}, 4** (Shadowspear ×3, Sword of Feast and
+  Famine) — both lands tapped at the window, the scan offered nothing, the equipment never attached: phantom labels.
+  (5) **Kozilek's Command, 7 of 59** — all at the seat's own upkeep on one colorless archetype's boards (Urza's lands,
+  Everflowing Chalice, City of Traitors, The Fantasticar); the lab offers it over plain and counter-scaled `{C}`
+  sources alike (X = 0 payability), so this residue is unattributed and stays inside the X class. **Verdict:** no scan
+  change, no fork change beyond the test, not a launch blocker. The model's capability gap here is ADR-0005's (no
+  cheap Dargo, no X spell at exact mana); the late-payability scan (the AI's X / sacrifice choice before the
+  payability test) stays routed as ADR-0005 left it — after the big run, priced against the per-candidate
+  target-setup cost. Routed small: the agreement validator's host-not-among rule counts phantom casts (an unpaid
+  attempt stranded in the stack zone) as misses — a next-window check would separate them, at the validator's next
+  touch. **Next: the launch ADR.**

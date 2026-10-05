@@ -149,3 +149,17 @@ reference under the mask: 0.534 ± 0.011 raw. Routed from the census: the remain
 share is the backstop's (cross-node refs, a STOP before the chain's minimum) — STOP masking by the
 minimum stays the first follow-up; `--prune-unfit` stays off until the next labelled store shows
 zero unfit casts under `5bd040351f`.
+
+## Addendum 2026-10-05: the option-mask class attributed — not new, not the scan's
+
+The 57 heuristic casts whose host the scan never offered (routed 10-04) are attributed by
+`OptionMaskCommandZoneTest` (fork `94229a0c8a`, test-only) and a corpus read; the running record
+(10-05) carries the per-shape evidence. The 10-04 control was vacuous: a model self-play store cannot
+miss its own options. The pre-cast-mask stores with a heuristic seat show the class at the corpus's
+rate (4 / 6,240 vs 57 / 107,247). King T'Challa's back face from the command zone (10) is a phantom
+cast: the heuristic's payability test runs on an alternate host with no zone and skips the commander
+tax, the real payment fails, and the card is stranded in the stack zone with the mana floating — an
+upstream forge-ai bug (PR routed); the scan and the engine's own `canPayCost` agree the cast was
+unpayable. Dargo (16) and the X-spell / conditional-reduction singles are ADR-0005's late-payability
+class; four Equip labels are phantoms; seven Kozilek's Command casts on one colorless archetype remain
+an unattributed residue inside the X class. No scan change. The launch ADR is next.
