@@ -2427,3 +2427,26 @@ record.*
   target-setup cost. Routed small: the agreement validator's host-not-among rule counts phantom casts (an unpaid
   attempt stranded in the stack zone) as misses — a next-window check would separate them, at the validator's next
   touch. **Next: the launch ADR.**
+
+- **2026-10-05 (session 2) — THE FINAL CHECK BEFORE THE BIG RUN: the repo assessed, the 09-27 upstream
+  plan landed and reviewed, #11285 reopened upstream.** Main clean and pushed; 357 tests pass (41 skip on
+  local data); ruff clean; lock current; the box quiet since 10-04 15:45; the kernel / driver / JDK pins in
+  place (171 other packages pending — one update + reboot before launch is the recommendation). Found and
+  landed: the 09-27 upstream submission plan had never reached main (it lived on the `cse_01XK89` worktree
+  branch; three doc conflicts, the worklist itself clean) — its worklist section, record entry and devlog
+  (as session 5) are on main now. The launcher's alert queue acked (82) and 48 terminal run records older
+  than two weeks pruned. Left for the user's hands (the session's permission mode refuses deletions): six
+  `anvil-wt-*` worktrees and nine session worktrees, all merged (≈ 75 GB of venvs); the four named merged
+  branches, eleven bridge branches, five merged remote branches, the stray `refs/remotes/local-main`;
+  `pr-4-review` and `talor-8` (superseded by hand-landed #4 / #8), `security/playable-multiplayer` (a
+  process record — tag it); the fork's dead worktrees. **Upstream: tool4ever reopened #11285 this morning
+  (`keep`, review requested from Hanmac); Hanmac's note is that the CardPool section becomes a
+  `Multiset`** — the plan's two-PR split is withdrawn in favour of answering on the thread and un-drafting;
+  the hunk sorts entries by key and survives the rework as "order the elements". Three engine bugs since
+  the plan joined it: the `canRegenerate` recursion (Tier 0.6, the 09-29 trace un-strikes it), the MDFC
+  command-zone phantom cast (Tier 0.7, part (a) only; the unwinding to Discord), the copier's token
+  mapping under simulation (Tier 4 evidence, filed with 4.3). Talor's Anvil PR #5 (device defaults through
+  `get_torch_device`) no longer applies (3 of 8 files); its intent is re-applied by hand and credited, the
+  #8 pattern. Open before launch, as the Now block lists: the launch ADR with its prerequisites, and one
+  launch script as the single source of the recipe of record (today it is quickstart prose plus four chain
+  scripts). The data/runs deletion pass stays at the milestone close (297 GB, 2.0 TB free).

@@ -197,6 +197,59 @@ fills the GUI slot throughout; Tier 4 begins when 1.1 lands. Mechanics: `../forg
 tracking `upstream/master`, one branch per PR pushed to `origin` (Tyrathalis/forge), PRs opened
 against Card-Forge/forge; the fork's `test-11161`-style verification branches are the model.
 
+### The 10-05 review — what changed since the plan was written
+
+**Verdict: Tier 2 collapses into keeping #11285 alive as one PR (the maintainers reopened it
+themselves); three engine bugs found since 09-27 join the queue — the `canRegenerate` recursion
+(now with a trace) and the MDFC command-zone phantom cast as Tier 0 items, the copier's token
+mapping as Tier 4 evidence; everything else in the plan stands.** Upstream master moved from
+`2ccbbb0132` to `837195889f` in the meantime; the per-item "state on the tip" column is re-swept on
+the first PR day, not here.
+
+- **#11285 was reopened by tool4ever on 10-05** (label `keep`, review requested from Hanmac at
+  12:24 UTC). Hanmac's one new comment (12:26): the CardPool section part "will probably be
+  reworked later anyway" — he wants `Map<Object, Integer>` to become a `Multiset<Object>`. The PR
+  is still a draft, mergeable against today's master, and upstream has not touched `Match.java`
+  or `MyRandom.java` since the PR's base, so no rebase is forced. What his rework means for the
+  hunk: the sort is `ordered.sort(Entry.comparingByKey())` over `Map.Entry<PaperCard, Integer>`; a
+  `Multiset`'s entries are `Multiset.Entry<E>` (`getElement` / `getCount`), so the hunk changes
+  shape with his change but not meaning (sort the elements by `PaperCard`). The plan's Tier 2
+  split into two PRs is withdrawn: **answer Hanmac on the thread (the sort survives the Multiset
+  as "order the elements"; offer to re-cut the hunk on his rework or let him fold it in), take the
+  PR out of draft, and leave the `InheritableThreadLocal` answer of 07-20 as the standing
+  position.** The `keep` label is read as the stale-bot exemption; rule 5's day-25 ping still
+  applies to the review itself.
+- **Tier 0.6 — the `canRegenerate` ↔ mana-payment recursion** (`StackOverflowError`, 09-29 trace;
+  the 09-27 plan struck this class as "no reproducing trace" — un-struck). The cycle:
+  `ComputerUtilMana.payManaCost → chooseManaAbility → checkForManaSacrificeCost →
+  chooseSacrificeType → shouldSacrificeThreatenedCard → predictCreatureWillDieThisTurn →
+  combatantWouldBeDestroyed → canDestroyBlockerBeforeFirstStrike → ComputerUtil.canRegenerate →
+  canPayCost → canPayManaCost → payManaCost`, 26 turns in the captured frames; the conjunction is a
+  first-strike combat with a sacrifice-for-mana source on the paying side (Spider-Man 2099 vs
+  Fantasticar). Upstream code, identical in both jars; ≈ 0.04% of games. The fix is a re-entrancy
+  guard in `ComputerUtil.canRegenerate` (or `shouldSacrificeThreatenedCard`) that answers the
+  conservative value when re-entered from a mana payment, with a test that builds the conjunction.
+  Under 30 lines; goes after 0.2 in the engine slot.
+- **Tier 0.7 — the MDFC commander back-face phantom cast** (10-05, the ADR-0122 agreement
+  corpus; fork test `OptionMaskCommandZoneTest`, `94229a0c8a`, is the evidence). Two parts:
+  (a) `canPlayAndPayFor` tests payability on `Spell.getAlternateHost`'s LKI copy, which carries no
+  zone, so `calculateManaCost`'s cast-from lookup finds nothing and the commander tax never enters
+  the test; (b) the real payment then charges the tax, fails, and is never unwound — the card
+  strands in the stack zone with every land tapped and the mana floating. Part (a) is the PR:
+  resolve the cast-from zone from the real host when the alternate host has none (one method,
+  one test from the fork's). Part (b) is a design question (where a failed cast's payment is
+  reversed) — Discord first, Tier 5.
+- **Tier 4 evidence — the copier cannot map tokens under simulation** (10-03, the baseline
+  reads' `simfull` arm: `GameCopier.find` "Couldn't map Construct Token", a `RuntimeException`
+  inside `simulateUpcomingCombatThisTurn`, 4 of 7 games; the other workers died of heap OOM).
+  `find` falls through to the exception whenever `cardMap` lacks the object, and the snapshot path
+  (`snapshot.find`) is the branch that would not. Not a Tier 0 fix: file it as the repro on the
+  Tier 4 thread when 4.3 opens (the switch to the snapshot path is what fixes it), not as its own
+  PR. Stock simulation AI is what upstream's users run, so the report carries weight on its own.
+- **Setup still owed:** `../forge-upstream` (rule 4) does not exist yet — create it from
+  `upstream/master` on the first PR day. Talor's Anvil PR #5 (device selection) is handled on the
+  Anvil side (adapted and credited, as #8 was), not here.
+
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 
 7 crashes in 50,000 games. All games' obs frames are readable; policy labels
