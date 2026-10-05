@@ -41,9 +41,9 @@ from pathlib import Path
 import grpc
 
 from anvil.bridge.certify import CERTIFY_TAG, Certifier
-from anvil.encoder.target_mask import apply_target_mask
 from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
+from anvil.encoder.target_mask import apply_target_mask
 
 # M12 Build 0 (ADR-0101 §1): the search-leaf value ask. The worker sends the
 # leaf window's peek record (obs + opts + the copy session's hist) under this
