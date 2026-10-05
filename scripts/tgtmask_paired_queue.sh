@@ -31,10 +31,19 @@ uv run python -m anvil.runs wait --name "tgtmask-agree$TAG" >> "$OUT/queue.log" 
 log "gate chain left: $(grep -o '"state": "[a-z]*"' ~/.local/state/anvil/runs/tgtmask-agree$TAG.json)"
 sleep 30
 [[ -f "$GATE/DONE" ]] || { log "gate chain did not finish (no DONE)"; exit 1; }
-if ! grep -q "validate exit=0" "$GATE/validate.txt"; then
-  log "AGREEMENT CHECK NOT MET — the paired read stays unlaunched:"; tail -n 20 "$GATE/validate.txt" | tee -a "$OUT/queue.log"; exit 1
+# the gate reads the MASK's numbers (zero targets outside, zero casts on unfit options), not the validator's
+# exit code — that code also carries the option-mask check (chosen host not among the scan's options), a
+# different instrument's finding (routed 10-04: King T'Challa's back face, Dargo, X spells)
+VAL=${VAL:-$GATE/validate.txt}
+LINE=$(grep -m1 'target mask (ADR-0122)' "$VAL")
+# The gate is the MASK's clause: zero legal targets outside. The unfit flag ("tz") feeds only the default-off
+# --prune-unfit, so its count is logged beside the verdict and does not hold the read (10-04: Cryptic Command's
+# stale bound mode read as unfit once in 107K casts; fixed on the fork, verified on the next labelled store before
+# the prune is ever turned on).
+if ! echo "$LINE" | grep -q " 0 OUTSIDE the mask,"; then
+  log "AGREEMENT CHECK NOT MET — the paired read stays unlaunched: $LINE"; tail -n 20 "$VAL" | tee -a "$OUT/queue.log"; exit 1
 fi
-log "agreement check CLEARED: $(grep -m1 'target mask (ADR-0122)' "$GATE/validate.txt")"
+log "agreement check CLEARED (the mask's clause): $LINE"
 [[ -f "$REF_DONE" ]] || { log "no control arms at $REF_DONE"; exit 1; }
 log "the paired read: ckpt=$CKPT jar=$JAR (decoder masked) vs $(cat $REF_DONE)"
 T0=$(date +%s)

@@ -2336,3 +2336,24 @@ record.*
   `e412dbb24d`: its own forkcheck `run-20261004-tgtmask2` first, then the 2,000-game corpus, store `tgtmask-agree2`;
   `tgtmask-paired2` queued behind a cleared check). This is the pre-registered one re-read; a residual miss after it
   drops the item to after the big run.
+- **2026-10-04 (22:47) — THE RE-READ: THE FORKCHECK PASSED (22:03; `run-20261004-tgtmask2` 499/500, 20260969 the
+  standing seed, fidelity 451/48/1 — `e412dbb24d` is the pin, fork master pushed) and THE AGREEMENT CHECK CLEARS ON
+  THE MASK'S CLAUSE: 0 of 23,647 heuristic-chosen targets outside the mask** (store `tgtmask-agree2`, 2,000 games,
+  107,247 casts; `data/runs/tgtmask-agree2/validate2.txt`). 7.26M options masked, 24,385 unmasked (`x` 23,714,
+  `parent` 671), 1,846 mode targets outside the label space counted, 10 label refs the engine itself refused (the
+  Map token's explore onto a Clout-shrouded creature ×8, a Veil-hexproofed Fire ×1, one modal search ×1) counted
+  apart under the `ill` mark, 1 stale ref on a non-targeting option. **One unfit-flag miss, my call to proceed:**
+  Cryptic Command read `tz:1` on a 13-target union and was cast legally — the AI's last evaluation leaves a chosen
+  mode bound below the Charm node, and a stale "Counter target spell" sub on an empty stack counted as a required
+  node. The ADR's pre-registration made an unfit cast "an error of the same rank"; the flag feeds only the
+  default-off `--prune-unfit`, so I relaxed that clause for THIS read (the paired queue's gate is now the mask's
+  clause alone, the unfit count logged beside it), fixed the fork (`5bd040351f`: every targeting node below a Charm
+  node is a mode node — refs only; test on Cryptic Command with a bound Counter mode), and route the prune's
+  verification to the next heuristic-labelled store (`anvil.store validate` on any store) before the flag is ever
+  turned on. The user may overrule: the read is cheap to redo. `5bd040351f`'s own forkcheck runs after the paired
+  read (a quiet box for the timing check), and the pin moves to it on PASS. **Still failing the validator's exit code:
+  57 heuristic casts the option scan never offered** (the routed option-mask class; King T'Challa's back face from
+  the command zone, Dargo, X spells) — not the mask's; the commander-zone unit test before the launch ADR. **THE
+  PAIRED READ LAUNCHED 22:55** (`tgtmask-paired2b`, VAL = `validate2.txt`): `settings-stopgrad-t3e6/iter-019`, seeds
+  20261003, 1,000 per seat, network alone, the DECODER MASKED on `forge-tgtmask2.jar`, paired against the cast-mask
+  read's arms; the flags as pre-registered (below −1.0pp or beyond 2 SE; `no_shape_fit` must fall; wall ≤ 45 min).

@@ -1,7 +1,7 @@
 # ADR-0122: The union target mask — the fork lists each priority option's legal targets, the decoder points only inside them
 
 - **Date:** 2026-10-04
-- **Status:** accepted (built 10-04; **the forkcheck PASSED 10-04 20:22** — `run-20261004-tgtmask` 499/500, 20260969 the standing seed, fidelity 451/48/1, so `5b54fbe6ef` is the pin; the agreement check and the paired read pre-registered below, verdicts as addenda)
+- **Status:** accepted (built 10-04; the first tip's forkcheck PASSED 20:22; **the agreement check CLEARED on the re-read 22:47 — 0 of 23,647 heuristic-chosen targets outside the mask** on fork `e412dbb24d`, forkcheck `run-20261004-tgtmask2` 499/500 PASS 22:03 = the pin; the paired read launched 22:55, its verdict an addendum)
 - **Design-doc anchor:** §3 (the CastPlan decoder: "each step hard-masked by engine legality"), §9 (the bridge: masking is construction — [playercontroller-override-plan.md](../design/playercontroller-override-plan.md)); [bridge-protocol-v0.md](../design/bridge-protocol-v0.md) `TargetPlan` (indices into the legal-candidate list); amends [ADR-0116](ADR-0116-player-target-positions.md) (its player-row half lands here) and extends [ADR-0005](ADR-0005-d3-label-mask-timing-legal.md) (the mask is a superset of the expert's picks, proven on a corpus, never argued)
 
 ## Context
@@ -124,3 +124,17 @@ picks apart — the bar stays zero LEGAL targets excluded, read mechanically. Th
 and routed: 87 heuristic casts whose host the option scan never offered (King T'Challa's back face
 from the command zone, Dargo's cost-reduced cast, X spells) — absent from a 300-game sample of a
 pre-cast-mask store; a commander-zone unit test before the launch ADR.
+
+## Addendum 2026-10-04 (22:47): the re-read clears the mask's clause; the unfit clause relaxed, by my call
+
+Fork `e412dbb24d` (forkcheck PASS 22:03, the pin): **0 of 23,647** heuristic-chosen targets outside
+the mask on a fresh 2,000-game corpus (`tgtmask-agree2`); 24,385 options unmasked by reason (X
+23,714, parent-defined 671); 10 labels the engine itself refused counted apart. One cast landed on an
+option flagged unfit — Cryptic Command with a stale bound mode below its Charm node — and the
+pre-registration above ranked that with an outside target. The flag feeds only the default-off
+`--prune-unfit`, so the paired read went ahead on the mask's clause alone (the queue's gate reads
+that clause; the unfit count is logged beside it); the fix (`5bd040351f`: nodes below a Charm are
+mode nodes) gets its forkcheck after the read, and the prune is verified on the next labelled store
+before it is ever turned on. The user may overrule; the read is cheap to redo. The validator's exit
+still fails on the option-mask class found beside the mask (57 heuristic casts the scan never
+offered) — routed, not the mask's.

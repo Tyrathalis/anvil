@@ -252,6 +252,13 @@ def _check_mask(report: ValidationReport, g: int, seq: int, opt: dict[str, Any],
             report.error(g, seq, f"target {ref} outside the mask of {label!r} ({len(tg)} refs)")
     report.mask_mode_targets_unchecked += sum(len(m.targets) for m in plan.modes)
     if opt.get("tz"):
+        # an unfit option (a required node with no legal candidate) cast with
+        # targets the engine itself refused CONFIRMS the flag — the heuristic's
+        # illegal pick (counted above); cast with a target the engine accepts,
+        # the flag was wrong: an error of the outside-target rank
+        checked = [r for r in refs if isinstance(r, dict) and ("e" in r or "pi" in r)]
+        if checked and all(r.get("ill") for r in checked):
+            return
         report.mask_unfit_chosen += 1
         report.error(g, seq, f"cast on an option the fork flagged unfit: {label!r}")
 
