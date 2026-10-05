@@ -35,6 +35,8 @@ import time
 from collections import Counter
 from pathlib import Path
 
+from anvil.torch.utils import get_torch_device
+
 REPO = Path(__file__).resolve().parents[2]
 CKPT = "data/training/m12-build3-e3/last.pt"
 ABIL = "data/embeddings/abil-cf2ca6ba-b4-qwen3"
@@ -197,7 +199,7 @@ def fit(a) -> None:
     from anvil.training.pay_distill import collate_pay, pay_distill_loss
     from anvil.training.surface_fit import load_net
 
-    device = "cuda"
+    device = get_torch_device()
     torch.manual_seed(a.seed)
     out_dir = REPO / a.out
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -290,7 +292,7 @@ def eval_only(a) -> None:
     from anvil.training.pay_distill import collate_pay
     from anvil.training.surface_fit import load_net
 
-    device = "cuda"
+    device = get_torch_device()
     out_dir = REPO / a.out
     out_dir.mkdir(parents=True, exist_ok=True)
     net, _ck = load_net(a.ckpt, device)

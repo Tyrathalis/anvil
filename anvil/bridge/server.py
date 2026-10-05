@@ -44,6 +44,7 @@ from anvil.bridge.certify import CERTIFY_TAG, Certifier
 from anvil.bridge.pb import anvil_bridge_pb2 as pb
 from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 from anvil.encoder.target_mask import apply_target_mask
+from anvil.torch.utils import get_torch_device
 
 # M12 Build 0 (ADR-0101 §1): the search-leaf value ask. The worker sends the
 # leaf window's peek record (obs + opts + the copy session's hist) under this
@@ -1155,7 +1156,7 @@ def main() -> None:
         default=0.0,
         help="PASS-logit offset (pass_calibration.json delta; arm knob)",
     )
-    ap.add_argument("--device", default="cuda")
+    ap.add_argument("--device", default=get_torch_device())
     ap.add_argument(
         "--servers", type=int, default=1,
         help="the fleet week (09-14): run N servers on ports --port..--port+N-1 behind one "

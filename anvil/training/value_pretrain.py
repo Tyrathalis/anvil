@@ -57,6 +57,8 @@ from pathlib import Path
 
 import numpy as np
 
+from anvil.torch.utils import get_torch_device
+
 REPO = Path(__file__).resolve().parents[2]
 CKPT = "data/training/d6-run11/iter-019/train/last.pt"
 LABELSET = "data/runs/labelset-c2-v3/dataset.jsonl"
@@ -607,7 +609,7 @@ def fit(args: argparse.Namespace) -> None:
     from anvil.training.dataset import collate
 
     out_dir = REPO / args.out
-    device = "cuda"
+    device = get_torch_device()
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
     tag = "build" if args.build else f"fold{args.fold}"

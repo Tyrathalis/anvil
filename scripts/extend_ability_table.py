@@ -18,6 +18,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from anvil.torch.utils import get_torch_device
+
 REPO = Path(__file__).resolve().parents[1]
 
 
@@ -54,7 +56,7 @@ def main() -> None:
         print(f"  + {k} {table[k]['host']} {table[k]['kind']}")
 
     kwargs = {"torch_dtype": torch.float16} if a.model == "qwen3" else {}
-    model = SentenceTransformer(MODELS[a.model], device="cuda", model_kwargs=kwargs)
+    model = SentenceTransformer(MODELS[a.model], device=get_torch_device(), model_kwargs=kwargs)
     revision = getattr(getattr(model[0], "auto_model", None), "config", None)
     revision = getattr(revision, "_commit_hash", None) or "unknown"
     if revision != meta.get("model_revision"):

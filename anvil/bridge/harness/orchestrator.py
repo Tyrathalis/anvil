@@ -562,7 +562,11 @@ def launch(a) -> Path:
         # workers forever (model-mirror run, 2026-07-12). The fork also
         # installs a headless uncaught handler; this is the JVM-level belt.
         "heap": getattr(a, "heap", None) or "2g",
-        "jvm_opts": ["-XX:ActiveProcessorCount=2", "-XX:+ExitOnOutOfMemoryError"],
+        "jvm_opts": [
+            "-XX:ActiveProcessorCount=2",
+            "-XX:+ExitOnOutOfMemoryError",
+            "-Dapple.awt.UIElement=true",  # macOS: no Dock icon per worker (Talor, #5); ignored elsewhere
+        ],
         "bridge": a.bridge,
         "yield_gpu": bool(
             getattr(a, "yield_gpu", True)

@@ -39,6 +39,8 @@ import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from anvil.torch.utils import get_torch_device
+
 REPO = Path(__file__).resolve().parents[2]
 CKPT = "data/training/m12-build1-stopstate/last.pt"
 ABIL = "data/embeddings/abil-cf2ca6ba-b4-qwen3"  # the merged jar's keys (ADR-0110); b3s2 rows byte-identical
@@ -212,7 +214,7 @@ def fit(a) -> None:
 
     from anvil.training.dataset import collate, default_methods
 
-    device = "cuda"
+    device = get_torch_device()
     torch.manual_seed(a.seed)
     out_dir = REPO / a.out
     out_dir.mkdir(parents=True, exist_ok=True)

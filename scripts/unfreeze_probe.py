@@ -41,6 +41,8 @@ from pathlib import Path
 
 import numpy as np
 
+from anvil.torch.utils import get_torch_device
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import frozen_probe as fp  # noqa: E402  (split/spearman of record)
 
@@ -188,7 +190,7 @@ def _cell(
     from anvil.training.dataset import collate
 
     torch.manual_seed(args.seed)
-    device = "cuda"
+    device = get_torch_device()
     ev = ValueEvaluator(CKPT)
     net = ev.net
     n_layers = len(net.trunk.layers)

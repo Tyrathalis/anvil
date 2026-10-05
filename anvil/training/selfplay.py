@@ -45,6 +45,7 @@ import time
 from pathlib import Path
 
 from anvil.bridge.fleet import bridge_addrs, servers_for, wait_ports
+from anvil.torch.utils import get_torch_device
 from anvil.training.notify import notify as _shared_notify
 from anvil.training.notify import watch_register as _watch_register
 from anvil.training.notify import watch_unregister as _watch_unregister
@@ -1238,7 +1239,7 @@ def main() -> None:
     # the run's torch device + autocast regime, forwarded to every server the
     # driver starts and to the rl step (the Mac users' mps / cpu loop —
     # community thread 09-09; the box's default is unchanged)
-    ap.add_argument("--device", default="cuda", help="torch device for the servers + the rl step")
+    ap.add_argument("--device", default=get_torch_device(), help="torch device for the servers + the rl step")
     ap.add_argument(
         "--no-autocast",
         action="store_true",
