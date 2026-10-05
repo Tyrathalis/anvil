@@ -1,7 +1,7 @@
 # ADR-0122: The union target mask — the fork lists each priority option's legal targets, the decoder points only inside them
 
 - **Date:** 2026-10-04
-- **Status:** accepted (built 10-04; the first tip's forkcheck PASSED 20:22; **the agreement check CLEARED on the re-read 22:47 — 0 of 23,647 heuristic-chosen targets outside the mask** on fork `e412dbb24d`, forkcheck `run-20261004-tgtmask2` 499/500 PASS 22:03 = the pin; the paired read launched 22:55, its verdict an addendum)
+- **Status:** accepted (built 10-04; the first tip's forkcheck PASSED 20:22; **the agreement check CLEARED on the re-read 22:47 — 0 of 23,647 heuristic-chosen targets outside the mask** on fork `e412dbb24d`, forkcheck `run-20261004-tgtmask2` 499/500 PASS 22:03; **the paired read CLEARED 23:42 — the decoder serves masked**; the unfit-flag fix `5bd040351f` PASSED its forkcheck 10-05 00:15 and is the pin)
 - **Design-doc anchor:** §3 (the CastPlan decoder: "each step hard-masked by engine legality"), §9 (the bridge: masking is construction — [playercontroller-override-plan.md](../design/playercontroller-override-plan.md)); [bridge-protocol-v0.md](../design/bridge-protocol-v0.md) `TargetPlan` (indices into the legal-candidate list); amends [ADR-0116](ADR-0116-player-target-positions.md) (its player-row half lands here) and extends [ADR-0005](ADR-0005-d3-label-mask-timing-legal.md) (the mask is a superset of the expert's picks, proven on a corpus, never argued)
 
 ## Context

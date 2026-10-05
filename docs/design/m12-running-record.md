@@ -2371,3 +2371,9 @@ record.*
   re-read of `iter-019` under the mask has its first look (0.534 ± 0.011 raw, −0.6pp vs unmasked, noise). The box is
   quiet; the unfit-fix tip `5bd040351f` builds its jar and runs its forkcheck now (`tgtmask-tzfix`); the pin moves on
   PASS. `data/runs/tgtmask-paired2/{paired.txt,census.md,wall.txt,tgtmask.read.json}`.
+- **2026-10-05 (00:15) — THE UNFIT-FIX TIP'S FORKCHECK PASSED: `run-20261004-tgtmask3` 499/500, 20260969 the standing
+  seed, fidelity 451/48/1; `5bd040351f` is the pin** (fork master pushed; lineage row, state table, map, ADR-0122
+  status). `forge-tgtmask3.jar` serves the next run; the `tz` flag's one known false positive (Cryptic Command's
+  stale bound mode) is closed, and the prune's verification stays routed to the next labelled store. The mask item is
+  CLOSED: built, proven recording-only three times, the agreement check cleared on the re-read, the paired read
+  cleared on strength, the veto census and the wall. **Next: the launch ADR**, the option-mask class attributed first.
