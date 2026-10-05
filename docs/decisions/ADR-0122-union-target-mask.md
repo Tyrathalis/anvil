@@ -138,3 +138,14 @@ mode nodes) gets its forkcheck after the read, and the prune is verified on the 
 before it is ever turned on. The user may overrule; the read is cheap to redo. The validator's exit
 still fails on the option-mask class found beside the mask (57 heuristic casts the scan never
 offered) — routed, not the mask's.
+
+## Addendum 2026-10-04 (23:42): the paired read clears — the decoder serves masked
+
+`iter-019` masked vs unmasked on the same seeds: **−0.61 ± 0.49pp** (t −1.25, 1,963 paired), inside the
+flag; `no_shape_fit` 1,170 / 1,101 → 692 / 724 (−38%, both seats), every other veto class unmoved;
+the generation wall 42.3 min against the 43-min reference (bar 45). The masked decoder is the served
+decoder from here; `forge-tgtmask2.jar` (`e412dbb24d`) serves the next run. The first look at the
+reference under the mask: 0.534 ± 0.011 raw. Routed from the census: the remaining `no_shape_fit`
+share is the backstop's (cross-node refs, a STOP before the chain's minimum) — STOP masking by the
+minimum stays the first follow-up; `--prune-unfit` stays off until the next labelled store shows
+zero unfit casts under `5bd040351f`.

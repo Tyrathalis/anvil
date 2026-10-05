@@ -2357,3 +2357,17 @@ record.*
   PAIRED READ LAUNCHED 22:55** (`tgtmask-paired2b`, VAL = `validate2.txt`): `settings-stopgrad-t3e6/iter-019`, seeds
   20261003, 1,000 per seat, network alone, the DECODER MASKED on `forge-tgtmask2.jar`, paired against the cast-mask
   read's arms; the flags as pre-registered (below −1.0pp or beyond 2 SE; `no_shape_fit` must fall; wall ≤ 45 min).
+- **2026-10-04 (23:42) — THE MASK'S PAIRED READ CLOSED: CLEARS on every pre-registered clause — the decoder serves
+  MASKED.** `settings-stopgrad-t3e6/iter-019`, seeds 20261003, 1,000 per seat, network alone, the decoder masked on
+  `forge-tgtmask2.jar` (`e412dbb24d`), paired game-for-game against the cast-mask read's unmasked arms: **A − B =
+  −0.61 ± 0.49pp** (t −1.25; 1,963 paired, 40 up / 52 down) — above the −1.0pp margin and inside 2 SE; raw 0.534 ±
+  0.011 (1,973 decisive, 5 crashes = the control's 5). **The census:** `no_shape_fit` 1,170 / 1,101 (control seats) →
+  **692 / 724** (−38% both seats), every other veto class unmoved (unpayable 91 / 222 → 91 / 210; after_stack, timing,
+  dangling_ref within a handful) — the mask removed the class it was built for; the remainder is the backstop's share
+  (cross-node refs, a STOP before the chain's minimum: the routed STOP-by-minimum item). **The timing check:** the
+  read's generation wall **2,539 s = 42.3 min** against the cast-mask read's 43 min on the same seeds and workers —
+  under the 45-min (5%) bar; the per-window enumeration is free at this load. **Consequences:** the served decoder is
+  masked from here (the server's default); `forge-tgtmask2.jar` / `e412dbb24d` serve the next run; the launch ADR's
+  re-read of `iter-019` under the mask has its first look (0.534 ± 0.011 raw, −0.6pp vs unmasked, noise). The box is
+  quiet; the unfit-fix tip `5bd040351f` builds its jar and runs its forkcheck now (`tgtmask-tzfix`); the pin moves on
+  PASS. `data/runs/tgtmask-paired2/{paired.txt,census.md,wall.txt,tgtmask.read.json}`.
