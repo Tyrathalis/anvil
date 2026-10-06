@@ -246,6 +246,11 @@ the first PR day, not here.
   (`snapshot.find`) is the branch that would not. Not a Tier 0 fix: file it as the repro on the
   Tier 4 thread when 4.3 opens (the switch to the snapshot path is what fixes it), not as its own
   PR. Stock simulation AI is what upstream's users run, so the report carries weight on its own.
+- **10-05 evening — #11285 answered and un-drafted** ([the comment](https://github.com/Card-Forge/forge/pull/11285#issuecomment-6007320163)):
+  the `Multiset` rework is Hanmac's to make (it changes `ItemPool`'s iteration type across ≈ 137 files
+  — not this PR's change under rule 1); the sort re-cuts as "entries by element"; the
+  `InheritableThreadLocal` reasoning restated with the swap offered. The PR is ready for review with
+  Hanmac and tool4ever requested; the review's day-25 ping (rule 5) counts from 10-05.
 - **Setup still owed:** `../forge-upstream` (rule 4) does not exist yet — create it from
   `upstream/master` on the first PR day. Talor's Anvil PR #5 (device selection) is handled on the
   Anvil side (adapted and credited, as #8 was), not here.

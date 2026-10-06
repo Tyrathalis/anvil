@@ -2450,3 +2450,21 @@ record.*
   #8 pattern. Open before launch, as the Now block lists: the launch ADR with its prerequisites, and one
   launch script as the single source of the recipe of record (today it is quickstart prose plus four chain
   scripts). The data/runs deletion pass stays at the milestone close (297 GB, 2.0 TB free).
+
+- **2026-10-05 (session 3, evening) — PROJECT REVIEW BEFORE THE LAUNCH ADR; #11285 ANSWERED AND UN-DRAFTED.** The
+  review found nothing new to read: every pre-launch read is closed, the box was updated and rebooted 17:57 with the
+  four pins the only packages held back (kernel 7.2.6, the open nvidia module, nvidia-utils, JDK 26.0.2), GPU idle,
+  2.0 TB free, main clean at `e93ac18`, two session worktrees left after the user's prune. **What is left before the
+  big run, in order:** the launch ADR (ADR-0123 is the next number; every item it needs has its read — the warm start
+  from `shakedown-alloc/iter-019` with the recovery read and the no-anchor control, the rung-2 value recipe over the
+  alloc search recipe, `forge-tgtmask3.jar` / `5bd040351f` with the decoder masked, reference 0.5348 and the first
+  masked look 0.534, the bar, the kill rule, the raw power statement, the two routed questions: the slow trunk lr's
+  strength cost and the 38% re-ask rescue census); `payment-evalset-v2` re-certified on the pin through the witness
+  pair; `scripts/big_run_chain.sh` as the recipe's single source; the `CensusRun -certify` + `PayDirective` deletion
+  (my recommendation: at the next boundary, not a new pin on launch day — dead code off the game path, but a tip
+  change still costs a jar and a forkcheck). **Upstream:** the reply to Hanmac on #11285 posted and the PR taken out
+  of draft (review requested from Hanmac and tool4ever). Decision with the user: the `Multiset` change is Hanmac's
+  refactor, not ours — `ItemPool` is iterated as `Map.Entry<T, Integer>` across ≈ 137 files, so making it inside a
+  9-line determinism hunk would break submission rule 1 and bury the review; the comment says the sort survives as
+  "entries by element", and restates why the thread-local is inheritable with the plain-`withInitial` swap offered.
+  Worklist review line, Now block, devlog.
