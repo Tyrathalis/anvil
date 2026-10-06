@@ -258,7 +258,11 @@ It is a one-step lookahead, not a tree search (not MCTS):
 copy could not play out (the engine refused it); it is skipped, not scored. *Surface*: one of the
 follow-up choices above. *Leaf*: where a copy stops and the value head scores it.
 
-**Turn it on** by adding `--search-recipe` to the §7 command, with our recipe. Its one definition
+**Turn it on** by adding `--search-recipe` to the §7 command, with our recipe. The full flag
+string of our recipe of record (the search recipe plus the loop's value-head settings,
+[ADR-0123](../decisions/ADR-0123-big-run-launch.md)) is the loop command in
+`scripts/big_run_chain.sh`, the big run's chain: read it for every flag the run of record passes.
+The search recipe's one definition
 is `scripts/recipe.sh` (`RECIPE`; also `SHALLOW` and `DEEP`, the shakedown's other arms), which
 the chain scripts source; today it reads:
 
