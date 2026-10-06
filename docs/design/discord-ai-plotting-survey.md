@@ -1422,3 +1422,30 @@ a noise-level Commander result keep it suggestive only. Not directly usable (Arg
 vocabulary and decomposition). **No action; kept in mind as a live project for a direct comparison
 once cross-engine match protocols mature** (Argentum is on Spellbench's future-engine list; the
 Spellbench entry is routed after the big run).
+
+### Draft replies (10-05; the user posts; nothing posted from here)
+
+To Kryptic (the target-mask thread, 10-01 → 10-02 — the mask is built and serving):
+
+> Following up on the target mask: it's in. Since 10-04 the fork lists, on every priority option,
+> the union of legal targets for that option (Forge's own `TargetRestrictions.getAllCandidates`
+> walked over every targeting node in the ability's chain, with a spell's modes walked too), and
+> the model's target decoder is restricted to the chosen option's set. Where the fork can't
+> enumerate faithfully (X costs that scale the target count, targets defined by a parent effect)
+> the option is served unmasked rather than wrongly masked.
+>
+> How it was checked, since mask gaps were the risk we both named: on a fresh 2,000-game corpus
+> of heuristic play, zero of 23,647 heuristic-chosen targets fell outside the mask. The first
+> read missed, and the miss is worth knowing if you build your own: modal spells (Charms,
+> Commands) — the union has to walk the modes, not just the top node — plus cards on the stack
+> as targets and a few parent-defined target texts. Then a paired 2,000-game read of the same
+> checkpoint masked vs unmasked: strength unchanged within noise (−0.6 ± 0.5pp), the
+> no-legal-target veto class down 38% both seats, every other veto class unmoved, and the
+> per-window enumeration under 5% of wall time.
+>
+> It's on Tyrathalis/forge master (the mask tip is 5bd040351f) and on anvil main; the server
+> masks by default and `--no-target-mask` is the control arm. Your unpayable vetoes should mostly
+> go with the exact-payability option mask from earlier; this one takes the target class. If you
+> do build an alternate mask, the useful comparison is the two masks' agreement on one labelled
+> corpus — `anvil.store validate` already counts chosen-targets-outside-the-mask, so it would
+> read yours too.

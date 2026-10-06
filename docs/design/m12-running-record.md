@@ -2467,4 +2467,6 @@ record.*
   refactor, not ours — `ItemPool` is iterated as `Map.Entry<T, Integer>` across ≈ 137 files, so making it inside a
   9-line determinism hunk would break submission rule 1 and bury the review; the comment says the sort survives as
   "entries by element", and restates why the thread-local is inheritable with the plain-`withInitial` swap offered.
-  Worklist review line, Now block, devlog.
+  Worklist review line, Now block, devlog. **Later the same evening:** Talor's
+  Anvil PR #5 closed as superseded by `e93ac18` (crediting comment, the PR #4 pattern); the reply to Kryptic on
+  the target mask drafted in the survey doc's 10-05 draft replies for the user to post.
