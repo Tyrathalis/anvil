@@ -1475,3 +1475,95 @@ Two items bear on our record:
 > comparison point. It counts chosen-targets-outside-the-mask, so running both masks on one labelled
 > heuristic corpus would show how often a union-legal choice is plan-illegal. The fork tip is
 > 5bd040351f, --no-target-mask is the control arm.
+
+### 10-03 → 10-05 follow-up: chrismaghuhn's deck scale-up and the combo census, the contribution-questions thread on frontends, Endstep's rollback offer, MostCromulent's perf ask, Anacleto's shared-wire proposal (read 10-05 evening from the user's paste; the draft replies below are the user's to post)
+
+**#ai-plotting (10-03 → 10-05):**
+
+- **chrismaghuhn (10-05 06:29, 07:47), answering the user's "one model on all combos?":** the
+  separate combo model is parked; one policy on many decks first. The next Argentum run uses ≈ 2,000
+  Standard tournament decks from the MTGO archive (2,054 distinct cards), so the combos real lists
+  play appear in training and PPO can learn them from wins. **His census against Commander
+  Spellbook:** 6,334 of its ≈ 113K combos use only cards his engine supports, ≈ 300 are
+  Standard-legal; his earlier 60 meta decks held no complete combo (≈ 150 cases one piece short).
+  Search "should find short combo kills by itself" in the real engine; a combo-hint model stays an
+  option. *Our record:* the same order we took (breadth before a specialist head); his census is a
+  20-minute check worth running on our pool once (Spellbook combos closed under the 1,701 cards,
+  and how many the 113 DC lists complete) — a Tutor-side curiosity, not scheduled. No reply owed;
+  the user's question was answered.
+- The Kryptic target-mask thread (22 messages) is covered by the 10-01 → 10-02 and 10-05 entries
+  above; the user's reply of this evening is the latest message in it.
+
+**#contribution-questions (10-01 08:21 → 10-03 15:07), continuing the 09-26 → 10-01 entry:**
+
+- **#12091 (khaliostr): TRT (10-01 08:21) calls the always-loaded Netty a recent regression** to be
+  killed; khaliostr added tests guarding the isolation boundary and the single-threaded path and
+  offered to drop them under the no-tests house rule; **TRT: "it depends, we've seen LLM add a lot
+  of redundant or trivial ones — this isolation may be worth guarding."** *Our record:* the test bar
+  stated by a maintainer — boundary-guarding tests welcome, per-method ones not. Our rule 3 ("one
+  focused test per fix") is inside it.
+- **adamcorvus87 (10-02 15:35): an Arena-inspired browser frontend** for Forge (a portable Windows
+  app dropped into the Forge folder; Forge runs every rule). itemfive asked for the tech and the
+  backend changes and pointed at the split efforts; **MostCromulent: "there are a bunch of these
+  floating around"** — his own forge-gui-web aims at minimal backend changes so it can become a Forge
+  module; in an ideal world Forge provides the protocol for downstream frontends, and a modern UI
+  should ship in Forge too. nikthem: keep it as fast as the current UI. *Our record:* the fourth
+  frontend fork this season (forge-gui-web, Manabrew, Endstep, now this); none touches the AI. The
+  playable fork stays on the stock GUI — nothing to do.
+- **Neur0nz (10-03 07:00), the Endstep developer, offers upstream whatever the core team wants:**
+  card-script testing, **universal rollback via checkpointing**, performance and stability
+  improvements; rollback would need work for vanilla Forge. khaliostr wants to look at the
+  checkpointing + rollback and the stability work ("we've done similar work independently").
+  **TRT (07:26): "a lot of LLM projects end up recreating stuff because they simply ignore existing
+  systems that could be reused / scoping tickets / PR in progress"; stability upstreamed if none of
+  that applies.** *Our record:* rollback-by-checkpoint is `GameSnapshot`'s territory — our Tier 4
+  (the maintainer-blessed Copier → Snapshot consolidation) and the search's game copies live there,
+  and our forkcheck instruments (the 500-game copy-vs-original digest, the twin determinism gate)
+  are the test such a system lacks upstream. A note-comparing reply is worth one message (draft
+  below); TRT's remark is rule 2 restated by a maintainer — quote it in the plan.
+- **MostCromulent (10-03 12:41): "if you've got performance improvements (particularly small diff
+  ones) I expect we'd be interested"; the biggest user-facing issue is the engine / AI slowdown on
+  go-wide token decks**, a few recent tweaks notwithstanding. *Our record:* **this is the Tier 1.1
+  opening.** The AI block-legality cache (talor's, fork `8044e36366` + `6f5e1643b2`) is exactly the
+  go-wide fix — blocker assignment re-tests pair legality per candidate per mutation, quadratic in
+  creatures, and tokens are where the count explodes; his 500-game read was −15.6% CPU, faster in
+  478 / 500, deterministic 500 / 500. TRT's 09-16 condition (rebuild on `AiCache`) and the stock-play
+  re-measure still apply; MostCromulent's ask is the maintainer-adjacent pull the item was waiting
+  for. The 09-14 perf trio (the LKI copy's full view per event, the copier's `CardFactory` rebuild,
+  the per-event replacement scan) is also go-wide-shaped and needs the stock profile first. Reply
+  (draft below), then sequence 1.1 ahead of Tier 0's tail rather than beside it.
+- **Anacleto (10-03 14:46): a shared, engine- and client-agnostic wire spec** across the open-source
+  Magic projects; Manabrew extends `PlayerController` so every callback emits a protocol signal;
+  upstream would rather see adapters at the `forge-gui` net layer, where translating Forge's prompts
+  into a common protocol is a small layer — Manabrew would still keep its lower harness for its own
+  UX. **TRT (15:07): consume from `ProtocolMethod` data and build on top; the enum could move out of
+  the net package or even out of gui; "shared spec sounds good either way."** *Our record:* the
+  position we hold (plan Tier 5): the hard part is Forge's ≈ 64 controller callbacks, some firing
+  inside legality probes, and any protocol has to answer them consistently — engine work either way.
+  Our bridge stays gRPC at the controller level for the big run; a shared spec is something to adopt
+  at a boundary, not to design now. itemfive's 09-28 objection (decompositions differ per engine)
+  still stands against the "engine-agnostic" half.
+
+### Draft replies (10-05 evening; the user posts; nothing posted from here)
+
+To MostCromulent (#contribution-questions, the go-wide perf ask):
+
+> On go-wide slowdowns: the biggest single piece we carry is talor's AI block-legality cache, which
+> is exactly that case — blocker assignment re-tests pair legality per candidate on every mutation,
+> so it goes quadratic in creatures and tokens are where the count explodes. His 500-game read on
+> our fork was −15.6% CPU, faster in 478/500 games, bit-identical play in 500/500. TRT asked in
+> September that it be rebuilt on the existing AiCache rather than new maps, which is the version
+> we'd offer; I'll re-measure it on stock heuristic play (not our harness) and bring it as a small PR
+> in the next few weeks, with talor as author. Behind it are three profile items from the same
+> class (the LKI copy recomputing a full view per event, the copier's CardFactory rebuild, the
+> per-event replacement scan) that need a stock-Forge profile before anyone should trust the
+> numbers.
+
+To Neur0nz (#contribution-questions, rollback via checkpointing):
+
+> Interested in the checkpointing design — we lean on Forge's game copies heavily (one-ply search
+> on copies during training, copy-vs-original digests over 500 games as the regression gate), and
+> tool4ever's direction after #11203 was to consolidate GameCopier onto the GameSnapshot path and
+> delete the duplicate. Is your rollback a snapshot/restore of the Game object, or an event-log
+> replay? If the former, the two efforts are the same seam and it'd be worth comparing what each
+> fails to restore (foretold state and effect-card links were the ones that bit us).

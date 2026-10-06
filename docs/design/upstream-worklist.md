@@ -251,6 +251,16 @@ the first PR day, not here.
   — not this PR's change under rule 1); the sort re-cuts as "entries by element"; the
   `InheritableThreadLocal` reasoning restated with the swap offered. The PR is ready for review with
   Hanmac and tool4ever requested; the review's day-25 ping (rule 5) counts from 10-05.
+- **10-05 evening, from the channel paste — Tier 1.1 has its pull:** MostCromulent (10-03) asked for
+  small-diff perf improvements and named the go-wide token-deck slowdown as Forge's biggest
+  user-facing issue; the block-legality cache is that fix. Sequence 1.1 ahead of Tier 0's tail
+  (the stock-play re-measure first, TRT's `AiCache` condition unchanged; talor author). **TRT's
+  10-03 remark is rule 2 in the maintainers' words:** "a lot of LLM projects end up recreating
+  stuff because they simply ignore existing systems that could be reused / scoping tickets / PR in
+  progress." **The test bar, from the #12091 thread (TRT 10-01):** boundary-guarding tests may be
+  worth it; redundant or trivial per-method ones are not — rule 3 sits inside it. **Endstep
+  (Neur0nz, 10-03) offers rollback-via-checkpointing upstream** — the same seam as Tier 4; compare
+  notes before 4.1 opens (draft in the survey).
 - **Setup still owed:** `../forge-upstream` (rule 4) does not exist yet — create it from
   `upstream/master` on the first PR day. Talor's Anvil PR #5 (device selection) is handled on the
   Anvil side (adapted and credited, as #8 was), not here.
