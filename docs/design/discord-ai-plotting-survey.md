@@ -1562,3 +1562,18 @@ To Neur0nz (#contribution-questions, rollback via checkpointing) — **posted by
 > direction was to consolidate GameCopier onto the GameSnapshot path and delete the duplicate. Is
 > your rollback a snapshot/restore of the Game object, or an event-log replay? We ran into some
 > issues with foretold state and effect-card links with the former.
+
+To Kryptic (#ai-plotting, "any performance impact from the target mask?") — **drafted 10-05 late evening; the user posts:**
+
+> Two kinds of impact, both measured on the same seeds before it went in. Compute: none we could
+> see — the legal-target union is enumerated once per priority-option scan, and a ~2,000-game read
+> took 42.3 min masked against 43 unmasked on the same 24 workers. Strength: basically flat without
+> retraining, maybe a hair negative — iter-019 masked vs unmasked was −0.6 ± 0.5pp on 1,963 paired
+> games, inside noise, while the target-shape vetoes dropped 38% (the remaining ones are a different
+> class, cross-node refs the union can't express). The slight negative makes sense to me: that
+> checkpoint was trained unmasked, so an illegal pick used to be vetoed and fall back to the
+> heuristic's targeting, and now the model's own legal pick resolves instead. Nothing has trained
+> under the mask yet — the big run warm-starts under it — so that is where any real effect shows up:
+> the policy stops spending gradient on targets the engine would refuse, and the mask rides on every
+> behaviour row so the learner sees exactly what the server saw. We'll have numbers at the first
+> weekly checkpoint.
