@@ -2469,4 +2469,9 @@ record.*
   "entries by element", and restates why the thread-local is inheritable with the plain-`withInitial` swap offered.
   Worklist review line, Now block, devlog. **Later the same evening:** Talor's
   Anvil PR #5 closed as superseded by `e93ac18` (crediting comment, the PR #4 pattern); the reply to Kryptic on
-  the target mask drafted in the survey doc's 10-05 draft replies for the user to post.
+  the target mask drafted in the survey doc's 10-05 draft replies for the user to post. **Later still:** Kryptic's GitHub fork found
+  (`lonely-neutrino`): his own target mask, a complete-plan enumerator committed 10-04 (exact at the sequence level
+  where it completes, falls back on modal spells, bounded; not default-on), and the ADR-0116 player-target class
+  found independently on 09-21. Read, compared and recorded in the Discord survey's 10-05 follow-up; the user
+  posted the reply. The two-mask agreement comparison (his jar on our tip, a fresh corpus, a validator adapter for
+  his `tc` / `tp` fields) is a maintenance-window item once the big run is up — routed by name in the survey entry.

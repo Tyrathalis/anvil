@@ -1423,29 +1423,55 @@ vocabulary and decomposition). **No action; kept in mind as a live project for a
 once cross-engine match protocols mature** (Argentum is on Spellbench's future-engine list; the
 Spellbench entry is routed after the big run).
 
-### Draft replies (10-05; the user posts; nothing posted from here)
+### 10-05 follow-up: Kryptic's fork found — his own target mask, and the ADR-0116 class found independently (read 10-05 evening; the user posted the target-mask reply below)
 
-To Kryptic (the target-mask thread, 10-01 → 10-02 — the mask is built and serving):
+**Kryptic is `lonely-neutrino` on GitHub** (an Anvil fork pushed 10-06 00:14 UTC; a forge fork off
+Austinio's, synced to our fork on 10-03 as `sync/tyrathalis-2026-10-03`). His Anvil main is 15 commits
+ahead of ours: the constructed-four pipeline and its RL extension, mono-green / mono-red recipes, an
+AMD ROCm setup (RX 7800 XT under WSL), fixed-deck and pair-schedule generation, a dual-checkpoint
+model-match evaluation, staggered worker launches and dual-server routing, counterfactual
+priority-candidate drills, an RL single-colour selection head (`feature/bridge-single-color-choices`).
+Two items bear on our record:
 
-> Following up on the target mask: it's in. Since 10-04 the fork lists, on every priority option,
-> the union of legal targets for that option (Forge's own `TargetRestrictions.getAllCandidates`
-> walked over every targeting node in the ability's chain, with a spell's modes walked too), and
-> the model's target decoder is restricted to the chosen option's set. Where the fork can't
-> enumerate faithfully (X costs that scale the target count, targets defined by a parent effect)
-> the option is served unmasked rather than wrongly masked.
+- **He built his own target mask on 10-04 04:14 UTC** (`feature/legal-target-plan-mask` on both repos,
+  ≈ 15 h before our gate chain launched), a different design from ADR-0122's union: a fork-side
+  `CastTargetPlanEnumerator` enumerates complete target plans per option — a depth-first search over
+  candidate sequences across every targeting node, X looped 0–16 into a per-plan X bitmask, must-target
+  statics and divided-damage counts checked, the realizer's `tryApply` shared for the final check —
+  bounded at 4 targets / 4,096 plans / 50,000 states per option; additive schema-v3 `tc` / `tp` fields
+  behind `-targetmask legal-plans`. The Python side masks candidate, target-prefix (slot by slot,
+  conditioned on the picks so far) and X decoding, shared by `act()` and `forward()`; an option whose
+  enumeration completes with zero plans is removed from the candidate mask. Fallback to the unmasked path
+  on any Charm node (modal), `TargetingPlayer`, and the three caps. Not default-on; his gate list is ours
+  (agreement scan, timing, flag-off forkcheck, replay parity, paired read); his smoke was one Constructed
+  game (2,474 options, max 8 plans per option). *Our read:* exact where it completes (it would take most
+  of the realizer residue our paired read left, ≈ 0.7 `no_shape_fit` per game per seat, and it masks X,
+  which we do not); on our pool the costs bind — modal spells were 1,522 of our first read's 1,586
+  misses, so a large slice of Commander's targeted casts would run unmasked under his design; the DFS ×
+  17 X values on 40-life boards is untimed; plans per option bloat the store where a union is one set;
+  and dropping an option on a wrong "complete, zero plans" is the ADR-0005 failure our agreement bar
+  guards against (the union never removes an option). The comparison worth running: both masks on one
+  labelled heuristic corpus — ours at record time needs his jar on our tip, a fresh corpus and a
+  validator adapter for `tc` / `tp` (half a day plus box time; a maintenance-window item once the big
+  run is up). Decision with the user: comment first, do not gate the message on testing his branch.
+- **He found the ADR-0116 player-target class independently on 09-21** — the same day as our ADR — from
+  the mono-red mirror (BC 23.5% vs the heuristic, RL ≈ 37%), written up as `self_first_registered_v1`
+  (`docs/player-target-indexing-fix.md` on `fix/player-target-indexing`): registered-seat refs in the
+  records vs self-first rows in the model, the bridge mapping back through the seat list, the convention
+  recorded in the checkpoint. An independent confirmation of the class and the fix.
+
+**The user's reply (10-05, posted):**
+
+> Okay, I've got a target mask in and tested. Ours is a per-option union: the fork walks every
+> targeting node in the ability's chain, calls TargetRestrictions.getAllCandidates on each, and lists
+> the union on the option; the decoder can only point inside it. I see you've got commits for one as
+> well, so it'll be good to compare them! Yours is exact at the sequence level where it completes;
+> ours is a superset, so it's cheaper on large boards and the realizer still vetoes the odd cross-node
+> sequence. It also looks like yours falls back on modal spells, which would bite more in my card pool
+> than yours. The other false eliminations we hit were targeting cards on the stack and some
+> parent-defined target texts, which may apply to your fallback cases, too.
 >
-> How it was checked, since mask gaps were the risk we both named: on a fresh 2,000-game corpus
-> of heuristic play, zero of 23,647 heuristic-chosen targets fell outside the mask. The first
-> read missed, and the miss is worth knowing if you build your own: modal spells (Charms,
-> Commands) — the union has to walk the modes, not just the top node — plus cards on the stack
-> as targets and a few parent-defined target texts. Then a paired 2,000-game read of the same
-> checkpoint masked vs unmasked: strength unchanged within noise (−0.6 ± 0.5pp), the
-> no-legal-target veto class down 38% both seats, every other veto class unmoved, and the
-> per-window enumeration under 5% of wall time.
->
-> It's on Tyrathalis/forge master (the mask tip is 5bd040351f) and on anvil main; the server
-> masks by default and `--no-target-mask` is the control arm. Your unpayable vetoes should mostly
-> go with the exact-payability option mask from earlier; this one takes the target class. If you
-> do build an alternate mask, the useful comparison is the two masks' agreement on one labelled
-> corpus — `anvil.store validate` already counts chosen-targets-outside-the-mask, so it would
-> read yours too.
+> Let me know your results when you're done testing! You might want to run our validator as a
+> comparison point. It counts chosen-targets-outside-the-mask, so running both masks on one labelled
+> heuristic corpus would show how often a union-legal choice is plan-illegal. The fork tip is
+> 5bd040351f, --no-target-mask is the control arm.
