@@ -1563,17 +1563,15 @@ To Neur0nz (#contribution-questions, rollback via checkpointing) — **posted by
 > your rollback a snapshot/restore of the Game object, or an event-log replay? We ran into some
 > issues with foretold state and effect-card links with the former.
 
-To Kryptic (#ai-plotting, "any performance impact from the target mask?") — **drafted 10-05 late evening; the user posts:**
+To Kryptic (#ai-plotting, "any performance impact from the target mask?") — **the user's version, 10-05 late evening (posted by the user):**
 
-> Two kinds of impact, both measured on the same seeds before it went in. Compute: none we could
-> see — the legal-target union is enumerated once per priority-option scan, and a ~2,000-game read
-> took 42.3 min masked against 43 unmasked on the same 24 workers. Strength: basically flat without
-> retraining, maybe a hair negative — iter-019 masked vs unmasked was −0.6 ± 0.5pp on 1,963 paired
-> games, inside noise, while the target-shape vetoes dropped 38% (the remaining ones are a different
-> class, cross-node refs the union can't express). The slight negative makes sense to me: that
-> checkpoint was trained unmasked, so an illegal pick used to be vetoed and fall back to the
-> heuristic's targeting, and now the model's own legal pick resolves instead. Nothing has trained
-> under the mask yet — the big run warm-starts under it — so that is where any real effect shows up:
-> the policy stops spending gradient on targets the engine would refuse, and the mask rides on every
-> behaviour row so the learner sees exactly what the server saw. We'll have numbers at the first
-> weekly checkpoint.
+> Not much impact on either compute or strength. Zero compute impact, the read with-mask took 42.3
+> minutes and the read without took 43. Strength was flat, or maybe a tiny bit down, with a 0.6pp
+> winrate decline, +/- 0.5pp. Meanwhile, the target-shape vetoes dropped 38%. The remaining ones are a
+> different class, cross-node refs the union can't express. The slight negative is probably because
+> those decisions were previously falling back to the heuristic, but now the model needs to understand
+> them itself. I'd expect to see the real impact once we start training with it.
+
+(The numbers: the ADR-0122 paired read, `iter-019` masked vs unmasked on the same seeds and fleet,
+−0.61 ± 0.49pp on 1,963 paired games; `no_shape_fit` −38%; wall 42.3 vs 43 min. The big run is the first
+training under the mask; the first weekly segment read is where an effect would show.)
