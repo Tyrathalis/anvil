@@ -379,6 +379,11 @@ reads).
   `--resume-on-gone`**; a job idle on purpose (a GPU yield, a VRAM park) heartbeats the run dir — the
   stall alarm and the FAILED push are for what went wrong, not for what was asked
   ([ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md) addendum 09-21).
+- **A long run is segmented by its wall budget, never by chained loops** — one loop, one state file,
+  one replay window, one drift series; launched with `--wall-hours` for the first segment, the loop's own
+  wall stop is the review point, the chain's reads run there, and the next segment is the same command
+  relaunched with the budget raised (a fresh loop per segment thins the mixture for its first iterations
+  and restarts the series the kill rule reads) ([ADR-0123](decisions/ADR-0123-big-run-launch.md)).
 
 - **Size every run to its effect**: a power statement (games needed to detect the target,
   games needed to produce it) precedes every launch; a gate that cannot resolve the effect it

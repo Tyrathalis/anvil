@@ -2475,3 +2475,30 @@ record.*
   found independently on 09-21. Read, compared and recorded in the Discord survey's 10-05 follow-up; the user
   posted the reply. The two-mask agreement comparison (his jar on our tip, a fresh corpus, a validator adapter for
   his `tc` / `tp` fields) is a maintenance-window item once the big run is up — routed by name in the survey entry.
+- **2026-10-05 (session 4, evening) — THE LAUNCH ADR WRITTEN ([ADR-0123](../decisions/ADR-0123-big-run-launch.md)).**
+  Nothing new was read; the ADR pins what the closed reads decided and what the chain reads from. **Decisions
+  (user, this session):** the warm start is the weights of `shakedown-alloc/iter-019` (`settings-recovery/iter-006`
+  considered and not taken: a read, not a run); the recipe of record is the alloc search recipe + the rung-2 value
+  recipe as the settings chain ran it, drills off, trunk lr 3e-6 as written (the attribution replays matched the
+  control's policy step, so it is not a third of alloc's); the jar `forge-tgtmask3.jar` / `5bd040351f` with the decoder
+  masked; the deletion of `CensusRun -certify` + `PayDirective` deferred to the next boundary. **Two `iter-019`s kept
+  apart:** the era reference `d6-run11/iter-019` (0.534 ± 0.011 masked, 10-04) is the promotion bar's base — ≥ 0.559
+  network-alone at 2,000 games — and the warm start (0.5394 ± 0.0070 unmasked) is the kill rule's base; the warm start
+  has never been read masked, so the chain's first step reads it on the launch jar (2,000 network-alone + 1,000
+  with-lookahead). **Shape: one loop in six weekly segments by its wall budget.** The user asked whether to segment the
+  run for natural review points or to pause and resume. Read from the loop: `pause` stops between iterations with
+  nothing lost (≤ 1.5 h away; iterations stay ≈ 1.5 h because the replay window is bounded — training time plateaus
+  at ≈ 700 s from iteration 3); a reboot regenerates only the batch in flight (≤ ≈ 35 min) and the wall budget
+  carries. Chained separate loops would cost a thinner mixture for each fresh loop's first iterations, a restarted
+  drift series and a split ladder, and would buy nothing (the optimizer is rebuilt per iteration anyway). So: ONE
+  loop launched with `--wall-hours 168`, the wall stop is the review point (the chain's 2,000 network-alone + 1,000
+  with-lookahead on one fixed seed set), the next segment is the same command relaunched with the budget raised by
+  168 h; six segments = the 1,008-h envelope; continuing is the user's go. The chain, not the loop, runs the segment
+  reads (the loop's `--paired-read` terminal key would skip on a relaunch; not used). **The Spearman guard floor:**
+  0.15 for segment 1 (a warm start from the drifted trunk reads 0.32 ± 0.026 after iteration 0 — the recovery cell —
+  so 0.30 would halt it falsely), 0.30 from segment 2. **Kill rules in numbers at segment 3's close:** with-lookahead
+  ≥ 2 SE above its masked start while network-alone within 1 SE of the warm start's masked read; the slope re-issued
+  at segment 1's close (≈ 53K games). Sizing from the rung-2 cadence: ≈ 110 iterations / 53K games per segment,
+  ≈ 670 / 320K at six; ≈ 440 GB of disk against 2.0 TB. Standing rule born (wall-budget segmentation). **Next, in
+  order:** `payment-evalset-v2` re-certified on the pin through the witness pair; `scripts/big_run_chain.sh` (the
+  start-point reads, the segment loop, the segment reads, the raised-budget relaunch); the launch.
