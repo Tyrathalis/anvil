@@ -89,7 +89,7 @@ Launched through `anvil.runs launch` with `--resume-on-gone`, `--watch` on the l
 - **A standing rule is born:** a long run is segmented by its wall budget, never by chained loops — the review point is the loop's own wall stop, the reads are the chain's, and the next segment is the same command with the budget raised.
 - The plan's Build 5 item reads from this ADR; its closeout (Build 6) is the standard 2,000-game read plus the paired close read, the ladder of own checkpoints, and the queue routed by name.
 
-## Addendum (2026-10-06, before the launch): the reference's masked read, the seed set, the segment-go
+## Addendum (2026-10-05, late evening, before the launch): the reference's masked read, the seed set, the segment-go
 
 - **Correction to §1 and §5.** The 0.534 ± 0.011 quoted as the era reference's masked read was the `tm2-stopgrad` arms of the mask's paired read (10-04 23:42): `settings-stopgrad-t3e6/iter-019` with the decoder masked, not `d6-run11/iter-019`. The era reference has never been read masked; its number of record (0.5348 ± 0.0110) is Ante-corrected on the merged jar of the 09-16 era, raw 0.5300, with the decoder unmasked. The resolution of record is raw and the reads are same-jar and same-serve, so the chain's first step reads the era reference network-alone at 2,000 games on the launch jar with the decoder masked, beside the warm start. **The promotion bar is +2.5pp over that read**; the 0.559 figure is withdrawn until the read lands and the bar's form stands.
 - **The seed set.** Seed base 20261006 for the start-point reads and every segment read: one fixed set, so every segment read pairs game-for-game against the reference and the warm start at no new games. The close read's fresh seeds are chosen at the close.

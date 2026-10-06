@@ -2508,3 +2508,22 @@ record.*
   tied to the `CensusRun -certify` deletion (ADR-0117: the M9 set re-certifies through the witness, which agreed on 4
   of 30 windows — a re-mining item, with no script of its own), and goes to the next boundary with the deletion.
   ADR-0123's prerequisite list is one item: `scripts/big_run_chain.sh`. **Next:** the chain script, then the launch.
+- **2026-10-05 (session 5, late evening) — THE CHAIN SCRIPT LANDED AND THE BIG RUN LAUNCHED 21:17.** Before the
+  script, the review found that ADR-0123's masked era reference (0.534 ± 0.011) was the stopgrad checkpoint's read:
+  the `tm2-stopgrad` arms of the mask's paired read (10-04 23:42) served `settings-stopgrad-t3e6/iter-019`, and
+  `d6-run11/iter-019` had never been read masked (its 0.5348 of record is Ante-corrected on the 09-16 merged jar,
+  raw 0.5300, unmasked). **Decisions (user):** the chain's first step reads the era reference masked on the launch
+  jar, network-alone at 2,000 games, and the promotion bar is +2.5pp over that read (the 0.559 figure withdrawn);
+  seed base 20261006 for every read of the series, so each segment read pairs game-for-game against the reference
+  and the warm start at no new games; the next segment is the user's relaunch (`echo N+1 > data/runs/big-run/segment`,
+  `anvil.runs relaunch --name big-run`) rather than a chain blocking on a go-file (which would trip the stall alert
+  every 3 h). ADR-0123 addendum. **The chain** (`scripts/big_run_chain.sh`, the recipe of record's single source;
+  the quickstart §7a points at it): the start-point reads (reference masked; warm start masked network-alone +
+  with-lookahead under RECIPE and the checkpoint's own alloc tau — `alloc_tau_of`, 0.02002 on the warm start, none on
+  the reference, so it gets no lookahead read), the segment loop (`--wall-hours 168 × N`, floor 0.15 then 0.30), the
+  segment reads with the paired columns, `seg-N.done` and exit; the close reads behind `CLOSE=1` on fresh seeds. Every
+  flag verified against the loop and the read scripts. **Launched** through `anvil.runs launch --name big-run --dir
+  data/runs/big-run --resume-on-gone --watch data/training/big-run --watch 'data/runs/br*' --stall-min 180`; the
+  coverage line: stall alarm 180 min on the three roots, sinks queue+desk, check-in claude (self-test OK), relay to
+  this session. The reference read is generating on two servers; the start-point reads land ≈ 23:30 and the loop
+  follows. The session wait and a babysit wait for the day-zero Spearman row are armed.
