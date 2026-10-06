@@ -1546,18 +1546,15 @@ Two items bear on our record:
 
 ### Draft replies (10-05 evening; the user posts; nothing posted from here)
 
-To MostCromulent (#contribution-questions, the go-wide perf ask):
+To MostCromulent (#contribution-questions, the go-wide perf ask) — **posted by the user 10-05 evening:**
 
-> On go-wide slowdowns: the biggest single piece we carry is talor's AI block-legality cache, which
-> is exactly that case — blocker assignment re-tests pair legality per candidate on every mutation,
-> so it goes quadratic in creatures and tokens are where the count explodes. His 500-game read on
-> our fork was −15.6% CPU, faster in 478/500 games, bit-identical play in 500/500. TRT asked in
-> September that it be rebuilt on the existing AiCache rather than new maps, which is the version
-> we'd offer; I'll re-measure it on stock heuristic play (not our harness) and bring it as a small PR
-> in the next few weeks, with talor as author. Behind it are three profile items from the same
-> class (the LKI copy recomputing a full view per event, the copier's CardFactory rebuild, the
-> per-event replacement scan) that need a stock-Forge profile before anyone should trust the
-> numbers.
+> @talor's AI block-legality cache from a while back is probably the most relevant one for go-wide
+> boards. predictNextCombatsRemainingLife re-walks static abilities for every attacker/blocker pair
+> on every assignment pass, so the cost grows with the square of the creature count. On our fork it
+> read as 15.6% less CPU over 500 Commander games on Anvil's cardpool, faster in 478 of them, with
+> play unchanged in all 500. TRT asked for a version built on AiCache instead of new maps. I can get
+> to that soon if you'd like it as a small performance PR, and there are a few other items of the
+> same class I can test out and profile as well.
 
 To Neur0nz (#contribution-questions, rollback via checkpointing):
 
