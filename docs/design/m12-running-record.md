@@ -2527,3 +2527,15 @@ record.*
   coverage line: stall alarm 180 min on the three roots, sinks queue+desk, check-in claude (self-test OK), relay to
   this session. The reference read is generating on two servers; the start-point reads land ≈ 23:30 and the loop
   follows. The session wait and a babysit wait for the day-zero Spearman row are armed.
+- **2026-10-05 (22:50) — THE START-POINT NUMBERS, ONE RELAUNCH.** The era reference `d6-run11/iter-019` read
+  **0.5380 ± 0.0111** masked on the launch jar (2,000 games, 1,989 decisive, 1 crash; 21:17–21:55), so **the
+  promotion bar is ≥ 0.563** network-alone at 2,000 games (its battery flags the self-target rate 0.482 — the
+  ADR-0116 class; the reference predates the player-position fix; exploratory). The warm start
+  `shakedown-alloc/iter-019` read **0.5560 ± 0.0111** masked (1,983 decisive, 2 crashes; 21:55–22:34; its 10-01
+  unmasked fresh read was 0.5394 ± 0.0070 — +1.7pp, ≈ 1.3 SE, inside noise; the masked read is the kill rule's
+  base). **The with-lookahead read FAILED at 22:35 after 20 s:** every worker exited with zero games on
+  `FATAL: -search requires -labels <out.jsonl>` — the loop passes `--labels` beside its forge args, the chain's read
+  call did not; the check-in attributed it. Fixed in the chain (`--labels` on the with-lookahead reads; commit
+  `ef23c74`) and relaunched in place at 22:36 (`anvil.runs relaunch`; the two network-alone reads kept on their
+  `.done` markers): 24 workers generating with labels, GPU 23%. The loop follows the read (≈ 23:10). The waits
+  re-armed on the state file (a wait keyed on the accumulated run.log tripped on the first attempt's FAILED line).
