@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# THE BIG RUN (ADR-0123, 10-05/10-06) — the single source of the recipe of record. One selfplay loop
+# THE BIG RUN (ADR-0123, 10-05 late evening) — the single source of the recipe of record. One selfplay loop
 # (`big-run`), warm-started from the WEIGHTS of shakedown-alloc/iter-019, under the alloc search recipe
 # (scripts/recipe.sh RECIPE + the allocation head) and the rung-2 value recipe (the head-only anchor at 0.1,
 # the value gradient stopped at the trunk, trunk lr 3e-6 / head lr 1e-4), drills OFF, 24 workers x 2 servers
@@ -9,10 +9,10 @@
 #
 # The chain, idempotent on every relaunch (a reboot's --resume-on-gone, a pause, the next segment):
 #   step 0 (once)  the START-POINT READS on the launch jar, decoder masked, one fixed seed set for the whole
-#                  series (SEED_BASE 20261006, the user's call 10-06): the ERA REFERENCE d6-run11/iter-019
+#                  series (SEED_BASE 20261006, the user's call 10-05): the ERA REFERENCE d6-run11/iter-019
 #                  network-alone at 2,000 games (the promotion bar's base = this read + 2.5pp; the 0.534 of
 #                  ADR-0123 §1 was the stopgrad checkpoint's tm2 read, misattributed — the reference had never
-#                  been read masked; ADR-0123 addendum 10-06), the WARM START shakedown-alloc/iter-019
+#                  been read masked; ADR-0123 addendum 10-05), the WARM START shakedown-alloc/iter-019
 #                  network-alone at 2,000 (the kill rule's "flat" base) and with-lookahead at 1,000 under
 #                  RECIPE + the ckpt's own alloc tau (the loop's search_forge_args derivation, so the read plays
 #                  the run's behavior policy).
@@ -67,6 +67,7 @@ read_na() {
   ls -dt "data/runs/br-${tag}arm-s0-"* | head -1 | tr -d '\n' > "$OUT/$tag.na.done"; echo -n "," >> "$OUT/$tag.na.done"; ls -dt "data/runs/br-${tag}arm-s1-"* | head -1 >> "$OUT/$tag.na.done"
 }
 # read_la <tag> <ckpt> : the with-lookahead read under the run's behavior policy, LA_GAMES per seat -> $OUT/<tag>.la.done
+#   (--labels beside the forge args: the fork refuses -search without -labels — the 10-05 22:35 failure; the loop passes it too)
 read_la() {
   local tag=$1 ckpt=$2 tau fa
   [[ -f "$OUT/$tag.la.done" ]] && return 0
@@ -74,7 +75,7 @@ read_la() {
   [[ -n "$tau" ]] && fa="$RECIPE -searchalloc $tau -searchfloor 0.1" || log "read $tag: NO alloc tau on $ckpt — the uniform rate"
   log "read $tag with-lookahead: ckpt=$ckpt games=$LA_GAMES/seat forge_args='$fa'"
   nice -n 19 uv run python scripts/final_read.py --ckpt "$ckpt" --name "brla-$tag" --games "$LA_GAMES" --games-per-pair 5 \
-    --seed-base "$SEED_BASE" --workers "$WORKERS" --port 50086 --servers 0 --jar "$JAR" --skip-ante --forge-args "$fa" >> "$OUT/$tag.la.log" 2>&1 \
+    --seed-base "$SEED_BASE" --workers "$WORKERS" --port 50086 --servers 0 --jar "$JAR" --skip-ante --forge-args "$fa" --labels >> "$OUT/$tag.la.log" 2>&1 \
     || { log "read $tag with-lookahead FAILED"; return 1; }
   ls -dt "data/runs/brla-${tag}arm-s0-"* | head -1 | tr -d '\n' > "$OUT/$tag.la.done"; echo -n "," >> "$OUT/$tag.la.done"; ls -dt "data/runs/brla-${tag}arm-s1-"* | head -1 >> "$OUT/$tag.la.done"
 }
