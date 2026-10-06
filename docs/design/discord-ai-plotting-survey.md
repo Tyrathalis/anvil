@@ -1556,11 +1556,9 @@ To MostCromulent (#contribution-questions, the go-wide perf ask) — **posted by
 > to that soon if you'd like it as a small performance PR, and there are a few other items of the
 > same class I can test out and profile as well.
 
-To Neur0nz (#contribution-questions, rollback via checkpointing):
+To Neur0nz (#contribution-questions, rollback via checkpointing) — **posted by the user 10-05 evening:**
 
-> Interested in the checkpointing design — we lean on Forge's game copies heavily (one-ply search
-> on copies during training, copy-vs-original digests over 500 games as the regression gate), and
-> tool4ever's direction after #11203 was to consolidate GameCopier onto the GameSnapshot path and
-> delete the duplicate. Is your rollback a snapshot/restore of the Game object, or an event-log
-> replay? If the former, the two efforts are the same seam and it'd be worth comparing what each
-> fails to restore (foretold state and effect-card links were the ones that bit us).
+> Anvil uses a lot of game copying, so checkpointing is relevant to me. After #11203, tool4ever's
+> direction was to consolidate GameCopier onto the GameSnapshot path and delete the duplicate. Is
+> your rollback a snapshot/restore of the Game object, or an event-log replay? We ran into some
+> issues with foretold state and effect-card links with the former.
