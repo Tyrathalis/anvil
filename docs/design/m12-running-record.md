@@ -2539,3 +2539,9 @@ record.*
   `ef23c74`) and relaunched in place at 22:36 (`anvil.runs relaunch`; the two network-alone reads kept on their
   `.done` markers): 24 workers generating with labels, GPU 23%. The loop follows the read (≈ 23:10). The waits
   re-armed on the state file (a wait keyed on the accumulated run.log tripped on the first attempt's FAILED line).
+- **2026-10-06 (00:09) — THE START-POINT READS COMPLETE; SEGMENT 1's LOOP STARTED.** The warm start's with-lookahead
+  read **0.5856 ± 0.0156** (1,000 games under RECIPE + its alloc tau 0.02002; 22:36–00:08, 92 min — the search's
+  ≈ 2.5× per game): +3.0pp over its own network-alone 0.5560, the kill rule's lookahead base. Paired on the same
+  seeds, the warm start − the reference = **+1.93 ± 1.14pp** (t 1.69; 272 up / 234 down). The loop opened iteration
+  0 at 00:09 from `shakedown-alloc/iter-019` with the day-zero state-ranking Spearman **0.2502 ± 0.028** (the drifted
+  trunk, as the recovery cell read it; the segment-1 floor 0.15). `data/runs/big-run/read.md` holds the table.
