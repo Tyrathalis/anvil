@@ -1,7 +1,7 @@
 # ADR-0123: The big run's launch — warm start, recipe of record, weekly segments, the bar and the kill rules
 
 - **Date:** 2026-10-05
-- **Status:** accepted (the launch itself follows the chain script and the two prerequisites named under Consequences)
+- **Status:** accepted (the launch itself follows the chain script, the one prerequisite named under Consequences)
 - **Design-doc anchor:** §3e (search as the behavior policy), §4 (value head), §6 (training pipeline); m12-plan Build order 5 (the big run) and 6 (the close); ADR-0115 (the shakedown's verdict), ADR-0118 / ADR-0119 (the value-head recipe), ADR-0122 (the served decoder)
 
 ## Context
@@ -84,7 +84,7 @@ Launched through `anvil.runs launch` with `--resume-on-gone`, `--watch` on the l
 
 ## Consequences
 
-- **Two prerequisites before the launch command, in order:** `payment-evalset-v2` re-certified on the pin through the witness pair; `scripts/big_run_chain.sh` written as the recipe's single source (the start-point reads, the segment loop, the segment reads, the relaunch with the raised budget). The `CensusRun -certify` + `PayDirective` deletion is deferred to the next boundary: dead code off the game path, and a tip change on launch day would cost a jar and a forkcheck.
+- **One prerequisite before the launch command:** `scripts/big_run_chain.sh` written as the recipe's single source (the start-point reads, the segment loop, the segment reads, the relaunch with the raised budget). The `CensusRun -certify` + `PayDirective` deletion is deferred to the next boundary: dead code off the game path, and a tip change on launch day would cost a jar and a forkcheck. **The `payment-evalset-v2` re-certification goes with it (user, 10-05 evening):** the recipe of record passes no `--pay-labels`, so nothing in the run trains on or reads the evalset; its re-certification was tied to the old certifier's deletion (ADR-0117: the M9 set re-certifies through the witness, new drills mine on AnvilRun's construction) and is a build-and-read item of its own, routed by name to the boundary that deletes the certifier.
 - **Routed, not blocking, stated here so they are not lost:** the 38% re-ask rescue rate (a census read); the slow trunk lr's own strength cost (read on the run's curve, not before it); the two-mask agreement comparison with Kryptic's enumerator (a maintenance window once the run is up); the amortized advantage head behind a critic upgrade (ADR-0119 step 4); Fork H (the Android ship of `iter-019`) on the playable branch during the run.
 - **A standing rule is born:** a long run is segmented by its wall budget, never by chained loops — the review point is the loop's own wall stop, the reads are the chain's, and the next segment is the same command with the budget raised.
 - The plan's Build 5 item reads from this ADR; its closeout (Build 6) is the standard 2,000-game read plus the paired close read, the ladder of own checkpoints, and the queue routed by name.

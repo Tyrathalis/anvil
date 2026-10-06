@@ -2502,3 +2502,9 @@ record.*
   ≈ 670 / 320K at six; ≈ 440 GB of disk against 2.0 TB. Standing rule born (wall-budget segmentation). **Next, in
   order:** `payment-evalset-v2` re-certified on the pin through the witness pair; `scripts/big_run_chain.sh` (the
   start-point reads, the segment loop, the segment reads, the raised-budget relaunch); the launch.
+  **Amendment (later the same evening, user):** the `payment-evalset-v2` re-certification is OFF the launch path.
+  The recipe of record passes no `--pay-labels` (the loop's only consumer of the evalset; neither the settings nor the
+  shakedown chain carries a payment flag), so the run trains on and reads nothing from it; the re-certification was
+  tied to the `CensusRun -certify` deletion (ADR-0117: the M9 set re-certifies through the witness, which agreed on 4
+  of 30 windows — a re-mining item, with no script of its own), and goes to the next boundary with the deletion.
+  ADR-0123's prerequisite list is one item: `scripts/big_run_chain.sh`. **Next:** the chain script, then the launch.

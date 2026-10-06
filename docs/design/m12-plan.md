@@ -217,7 +217,7 @@ whether teaching is happening. The milestone's product is one big training run, 
    mid-run ONLY for guards, the network-alone vs with-lookahead gap, and the state-ranking
    Spearman (the plateau-together tripline). The pivotality head regenerates from the run's own
    margins each cycle; the uniform floor stays on.
-   **LAUNCH ADR WRITTEN 10-05 ([ADR-0123](../decisions/ADR-0123-big-run-launch.md)):** the warm start `shakedown-alloc/iter-019`, the alloc + rung-2 recipe of record, `forge-tgtmask3.jar` with the decoder masked, ONE loop in six weekly wall-budget segments (the wall stop is the review point), the bar ≥ 0.559 network-alone against the masked reference 0.534 ± 0.011, the kill rules in numbers at segment 3, raw power. Before the launch command: `payment-evalset-v2` re-certified, `scripts/big_run_chain.sh`.
+   **LAUNCH ADR WRITTEN 10-05 ([ADR-0123](../decisions/ADR-0123-big-run-launch.md)):** the warm start `shakedown-alloc/iter-019`, the alloc + rung-2 recipe of record, `forge-tgtmask3.jar` with the decoder masked, ONE loop in six weekly wall-budget segments (the wall stop is the review point), the bar ≥ 0.559 network-alone against the masked reference 0.534 ± 0.011, the kill rules in numbers at segment 3, raw power. Before the launch command: `scripts/big_run_chain.sh` (the evalset re-certification routed to the next boundary with the certifier deletion — no consumer in the recipe).
 6. **Close by the standard 2,000-game read** vs 0.5279 ± 0.0110 (network alone; promote on
    cleared gate), with-lookahead alongside as the deployment ceiling, the ladder of own checkpoints
    updated (ADR-0101 §7), and the queue routed by name.
