@@ -1660,11 +1660,11 @@ training under the mask; the first weekly segment read is where an effect would 
 
 > Very neat, thanks for posting! If you have the inclination for a longer run, I'd be really
 > interested to see how well an LLM does against the Forge heuristic bot. A hundred-game winrate
-> for deepseek-flash would be great reference data, especially with logs so we could check things
-> like the agreement gap between the default AI and an LLM.
+> for deepseek-flash on each side of a pair of fixed decks would be great reference data,
+> especially with logs so we could check things like the agreement gap between the default AI and
+> an LLM.
 
-(If the number is to be reusable, the condition is worth a clause: 1v1, the same two decks each
-way. The thread's one measured point, mage-bench, is on XMage.)
+(The thread's one measured point, mage-bench, is on XMage; this would be the first on Forge.)
 
 *To TBSTeun (the earlier draft, superseded):* "Since the CLI mode can seat an LLM against the stock AI, the one number
 the thread would love is a 1v1 read: deepseek-flash vs the Forge AI on two fixed decks, ≈ 100 games
