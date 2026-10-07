@@ -193,7 +193,7 @@ volunteered 07-11.
   off by default. Not in it: blocks (ordered passes, not reason codes — a follow-up), a game-log entry type,
   any flag. Consumers: TBSTeun's LLM-vs-heuristic decision comparison (he offered to build it in `forge-llm`;
   the reply asks him to hold for the upstream PR), our agreement-gap read, Mentor's narration.
-  **BUILT 10-07 afternoon, branch `ai-decision-log` `f789beb249` (pushed), ready to open:** 61 / 35 lines in
+  **OPENED 10-07 as [#12180](https://github.com/Card-Forge/forge/pull/12180)** (branch `ai-decision-log` `f789beb249`; the engine slot; the station fix queues behind it): 61 / 35 lines in
   `AiController`, `AiAttackController`, `tinylog.properties`. Two things learned building it: tinylog's
   placeholders are `${ENV}` for environment variables and `#{prop}` for system properties, both with a
   `:default`; and a `file` writer creates its file at startup even at level `off`, so the stanza defaults
@@ -411,6 +411,8 @@ Notes (replay triage, 2026-07-06):
   cleanly to our fork: branch `test-11161` (verified building + playing).
 
 ## Open upstream PRs — monitor for maintainer feedback
+
+- **[#12180](https://github.com/Card-Forge/forge/pull/12180) AI decision log on IHasForgeLog (Tier 0.8) — OPEN 10-07**, engine slot; TRT nodded the design in `#ai-plotting` the same day; a benchmark offered in the thread (a few hundred `sim` games master vs branch) if asked.
 
 - **[#12162](https://github.com/Card-Forge/forge/pull/12162) mana refund all-or-nothing (Tier 0.1) — OPEN 10-06**, engine slot. **APPROVED 17:43 and MERGED 18:19 UTC by tool4ever**, merge `688ce8bc79`; one day from open to merge. tool4ever connected it to **[#4669](https://github.com/Card-Forge/forge/issues/4669)** (whitedreamsea, 2024-02-12, the same Coffers cancel sequence on Android, a second report after a partial fix; tehdiplomat's 2024-04 "try the new undo restore" pointer; stale-closed) — closed by the merge. The bug had a two-year-old user report upstream never found the cause of; the description's CR 728.1 framing is what carried it.
 - **[#12163](https://github.com/Card-Forge/forge/pull/12163) quest all-colors starting pool (Tier 0.3) — MERGED 10-07 17:59 UTC** by tehdiplomat ("Thanks for cleaning this up"), merge `a155b28a1b`; one day from open to merge. **The GUI slot is free: Tier 3.1 (the ItemManager context-menu offset) is next, after the fork-local copy is re-checked against the tip and under the amended rule 3 (no test class for a one-screen GUI fix; a before/after screenshot instead).** **Reviewed by Jetz72 10-07 (two inline nits, no verdict):** drop the test class, cut the comment. Trimmed the same day as a follow-up commit `2f1964816d` (amend + force-push is classifier-blocked in auto mode; a second commit is the normal PR shape anyway); the PR body's test paragraph removed. Net diff 4 / 1 in one file. The user replied 10-07: "Sounds good, I've dropped the test class and trimmed the comment. Thanks for the quick look!"
