@@ -1007,8 +1007,9 @@ nothing. CR 728.1: mana abilities activated during an illegal action may be
 reversed only if none of their mana was spent on another mana ability that
 was not reversed — reversal is all-or-nothing down the chain.
 
-**BUILT upstream 10-06** (`../forge-upstream` branch `mana-refund-all-or-nothing`, see the upstream worklist's
-10-06 entry): the cause is the `isUndoable()` branch — `GameActionUtil` marks every `Amount$ X` producer
+**MERGED upstream 10-07 as Card-Forge/forge#12162** (`688ce8bc79`, tool4ever; it closed the 2024 user report
+#4669 of the same sequence). Lands on `playable` and the research fork from upstream at their next syncs.
+The 10-06 diagnosis: the cause is the `isUndoable()` branch — `GameActionUtil` marks every `Amount$ X` producer
 non-undoable by design — so the "second half" below (`accountFor` and X producers) is moot; the PR is the
 all-or-nothing guard alone. Lands on `playable` from upstream after the merge.
 
