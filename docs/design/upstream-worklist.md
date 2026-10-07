@@ -37,6 +37,10 @@ What the record says the maintainers accept, from #11203's review (tool4ever, 07
    directions are the only abstractions this plan builds.
 3. **Small test surface.** One focused test per fix; the 221-line geometry test on the hit-test
    item is trimmed to the two cases that carry the bug before it is offered.
+   **Amended 10-07 (Jetz72 on #12163):** a trivial fix gets *no* test class ("not the kind of change that
+   necessitates a test class"), and the code carries no comment that only explains the bug just patched out
+   (one short line at most). Tests are for the engine-path fixes where the regression is non-obvious
+   (#12162's kind), not for a one-line GUI floor.
 4. **Every PR is authored on a clean upstream-master worktree** (`../forge-upstream`, the
    #11203 / #11285 / hardening pattern), never on the research fork or `playable`. The research
    fork is frozen for the big run; fixes return to it at the next boundary merge, when the
@@ -356,7 +360,7 @@ Notes (replay triage, 2026-07-06):
 ## Open upstream PRs — monitor for maintainer feedback
 
 - **[#12162](https://github.com/Card-Forge/forge/pull/12162) mana refund all-or-nothing (Tier 0.1) — OPEN 10-06**, engine slot.
-- **[#12163](https://github.com/Card-Forge/forge/pull/12163) quest all-colors starting pool (Tier 0.3) — OPEN 10-06**, GUI slot.
+- **[#12163](https://github.com/Card-Forge/forge/pull/12163) quest all-colors starting pool (Tier 0.3) — OPEN 10-06**, GUI slot. **Reviewed by Jetz72 10-07 (two inline nits, no verdict):** drop the test class, cut the comment. Trimmed the same day as a follow-up commit `2f1964816d` (amend + force-push is classifier-blocked in auto mode; a second commit is the normal PR shape anyway); the PR body's test paragraph removed. Net diff 4 / 1 in one file. Reply to the thread: the user's.
 
 - **[#11457](https://github.com/Card-Forge/forge/pull/11457) chat rate limiting — OPEN, parked** (mergeable; MostCromulent 08-03: a problem that does not exist in practice; tool4ever 08-04: maybe when lobbies are broader). Not chased (user, 08-31).
 - **[#11285](https://github.com/Card-Forge/forge/pull/11285) determinism hooks — CLOSED 09-14 by the stale bot**, no maintainer verdict (Hanmac's 07-19 question answered 07-20, then silence). Upstream still has neither half. Returns as the plan's Tier 2 (two PRs).
