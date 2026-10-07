@@ -23,6 +23,7 @@
 | **infinitecursive** (`benhunter/forge` PR #4) | "Simple AI" / multi-AI plumbing | Minimum-viable "None" AI (pass everything, first option) + GUI AI-picker spike; proposal: common interfaces shared by all AIs, tests for unenforced interface behaviors | Jan 2026; wants consensus before upstream PRs; wary of "refactors rejected due to unintended consequences" |
 | **PFR-Science** | Bitpacked game-record format + decoder model (Standard-only) | Game-state deltas, <1KB/game target, "1+ billion games on a retail SSD"; BC off Forge AI then self-play with noise/node-masking | Mostly talk (Aug 2025 era); described the BC→RL shape Anvil uses |
 | **Verinax** | Gemini-in-Forge | LobbyPlayerGemini/PlayerControllerGemini + GameStateSerializer→JSON→Gemini API; falls back to default AI on timeout | Working demo (Gemini Lite), May 2026 |
+| **TBSTeun** (`timboode/forge`, `forge-llm`) | LLM seats for Forge (10-06): an opt-in Maven profile, `PlayerControllerLlm` over `PlayerControllerAi`, no core edits | Model takes priority / attacks / blocks only from an engine-enumerated legal-action list with "cannot do" reasons; stock AI pays mana and mulligans; per-turn compaction; MCP card lookup; any OpenAI-compatible endpoint or opencode | Working; deepseek-v4.1-flash beat him in a 4-seat Commander pod ($0.87 / 50-turn game); not headed for mainline by him; distillation of a small local model next (§5 10-05 → 10-06) |
 | Others | int_matt/krafczyk `mtg_draft_ai` (JPype pack sampler, phone-inference interest); Eternalyze0 `mtg_bot`; MattDTO (PettingZoo/gym proposals, 10M-URL HF dataset); GreySim (Threadripper compute offers); xanxer6rB, itemfive, Fuzz (channel shepherd, monthly check-ins) | | |
 
 Adjacent XMage projects referenced: **MageZero** (WillWroble — AlphaZero-style, ~250 g/h with 300 MCTS sims/decision) and **Mage Bench** (mage-bench.com — LLMs play via XMage, $0.62–$40/game in tokens; HN thread mid-Feb 2026). MTG Bench (CallumFerg, HN 6/11/26) = LLM benchmark with **no rules engine** (noted disapprovingly by coda).
@@ -1575,3 +1576,88 @@ To Kryptic (#ai-plotting, "any performance impact from the target mask?") — **
 (The numbers: the ADR-0122 paired read, `iter-019` masked vs unmasked on the same seeds and fleet,
 −0.61 ± 0.49pp on 1,963 paired games; `no_shape_fit` −38%; wall 42.3 vs 43 min. The big run is the first
 training under the mask; the first weekly segment read is where an effect would show.)
+
+### 10-05 → 10-06 follow-up: TBSTeun's LLM seats for Forge (`timboode/forge`, `forge-llm`), the Queen chess-LM paper, chrismaghuhn's 5×5 matrix (read 10-06 evening from the user's paste; the user posted once, 10-06 06:22)
+
+**#ai-plotting (10-05 19:17 → 10-06 20:17):**
+
+- **TBSTeun (10-05 19:17 → 10-06 20:17): LLMs as Forge players, working, repo public 10-06 20:09:**
+  [timboode/forge](https://github.com/timboode/forge), module `forge-llm` behind an opt-in Maven
+  profile (`mvn -Pllm -pl forge-llm -am compile`; `forge-llm/scripts/llm.cmd play --seats
+  human,llm,llm,llm --deck1 <deck> --transcript <dir> --oc-model <id>`; Commander by default, other
+  formats via `RunOptions`). **The scaffold is the point, and it is the Argentum P1 split:** the
+  model takes three decisions only — priority actions, attacks, blocks — through a `DecisionAgent`;
+  mulligans, mana payment and the rest stay with the stock AI (`PlayerControllerLlm` extends
+  `PlayerControllerAi`; one coupling file, `bridge/AiBridge.java`; no core-file edits). The prompt
+  carries a numbered legal-action list from the engine (`PriorityActionEnumerator`,
+  `CombatActionEnumerator`) **with a parallel "cannot do right now" section giving the engine's
+  reason** (mana, timing, targeting); the agent answers by action id, an invalid answer gets
+  validation feedback in the same decision. Full prompt at the start of its turn (rules, decklist,
+  deck-minus-seen, log, board, card texts), delta prompts mid-turn, a per-turn compaction
+  (`previousTurnSummary`, `instantSummary`), a compact restart on overflow. Tools: an MCP card
+  server (`lookupCard`: oracle text, rulings) launched by hand before the game; rulebook search.
+  Providers: `opencode` (default; any model opencode serves) or
+  `raw-inference-openai-compatible` (`OPENAI_API_ENDPOINT` / `OPENAI_API_KEY`; OpenRouter tested;
+  per-provider validation quirks, "2 hours just getting qwen to work"). `--transcript` records
+  every prompt and answer. **Models:** deepseek-v4.1-flash fast and "a very good magic player"
+  (beat him in a 4-seat Commander pod with his best deck, one human + three LLM seats, 50 turns,
+  **$0.87 for the game**); glm-5.3-flash 3–4 min per action; qwen-3.8-omni-flash acceptable;
+  vibethinker 3b q8 plays legally but "misplayed everything". Each action is a few thousand input
+  tokens and a few hundred output; every turn a compaction step. His next: distil a teacher into a
+  small local model — **he asks the channel for transcripts of games played by capable models and
+  will fine-tune and share the result.** Not headed for mainline by him ("I don't know the forge
+  codebase that well"); one component of a bigger project; fixes will keep coming because he needs
+  it. **Fuzz (02:32, 17:19):** Ollama? (yes, any OpenAI-compatible endpoint); Android via ONNX?
+  (TBSTeun: too slow on-phone — thousands of input tokens per action; expose a home inference box
+  instead). **The user (06:22):** neat if LLMs play well with the right scaffold; "might also be
+  handy for dataset diversification"; looks forward to the setup.
+- **talor (10-05 21:03): the Queen paper** ([queen-project.github.io](https://queen-project.github.io/);
+  Adithya Bhaskar) — a 4B-parameter chess-language model playing at grandmaster level **and
+  explaining its moves**, trained by what the author calls a natural-language analogue of AlphaZero
+  (architectural + algorithmic changes; "applicable to many other domains"). talor asked TBSTeun
+  for a repo and the cost per game.
+- **chrismaghuhn (10-06 13:13): "my bot after 150K matches"** — a 5 × 5 model-deck × engine-deck
+  winrate matrix over the five mono-colour decks (Argentum, not Forge; the P1 lineage of the 10-03
+  entry). The cells sum to ≈ 3,600 games (33–480 per cell, ± 5–9pp), so 150K is the training count,
+  not the read. Diagonal (mirrors) 44 / 33 / 48 / 43 / 38 — **every mirror below parity**; his red
+  model is the strongest row (49–69%) and his blue the weakest (17–33%); the engine's red deck is
+  the hardest column for every model (17–43%). Read as "red is the easiest deck to play and the
+  hardest to beat" more than a model-skill signal. Compare Kryptic's four-deck Forge read (§5
+  09-17): there the red mirror was the one deficit and Blue Tempo the model's edge — the opposite
+  shape, on a different engine and loop.
+
+*Our record:*
+
+- **An LLM seat is the Verinax demo (May 2026) with the scaffold it lacked**, and the scaffold is
+  the whole result: legal actions from the engine, the heuristic for payment and mulligans, tooling
+  for text, compaction. That is a third confirmation (after Argentum P1 and Anvil's own pre-M2
+  stage) that the top-level-only decision surface is where a non-search player gets to "plays
+  sensibly" cheaply. His strength claim is one pod, unmeasured; mage-bench (the 10-01 Brad answer)
+  stays the measured reference until someone runs the obvious read (draft below).
+- **"Dataset diversification" (the user's post) is the heuristic-seats idiom with an LLM in the
+  seat:** an LLM opponent generates trajectories, never labels (the design invariant; the 09-10
+  MCP-thread verdict). It would plug in as a bridged seat, not through `forge-llm`'s controller,
+  so the labels and the search stay ours. Price: ≈ $0.3–0.9 per 50-turn game at deepseek-flash
+  rates for one LLM seat, so a 2,000-game diversification corpus is ≈ $600–1,800 and days of wall
+  (minutes per game, not seconds; the loop makes ≈ 300–350 g/h at zero marginal cost). Feasible
+  once as an opponent-distribution experiment after the big run, not before; **routed by name to
+  the big run's closeout scoping, with Spellbench and the cross-engine comparison.** His
+  transcripts (`--transcript`: prompt + answer per decision) are the data he wants for distillation;
+  nothing of ours is in that shape, so no data to offer.
+- **Queen is Mentor's shape in one model** — play and explain from the same weights — where fork H
+  keeps a structured policy and a narration layer over the bridge's callback stream (the 09-10
+  entry). A natural-language AlphaZero analogue is the alternative design for Mentor if the
+  explanation quality of a narration layer disappoints; worth a read of the paper before Mentor is
+  scoped, not now. The capability default (keep model capabilities unless dramatically weaker) does not reach
+  it: Mentor is a product surface, not the pilot.
+- **The Brad draft (10-01, "not strong") needs softening if it is ever reused:** deepseek-flash in
+  TBSTeun's scaffold beat a human in a pod; the per-game price and the per-action latency are the
+  standing objections for a phone, unchanged.
+
+### Draft reply (10-06; the user posts; nothing posted from here)
+
+*To TBSTeun (optional):* "Since the CLI mode can seat an LLM against the stock AI, the one number
+the thread would love is a 1v1 read: deepseek-flash vs the Forge AI on two fixed decks, ≈ 100 games
+each way (± 5pp, ≈ $40 at your per-game cost). mage-bench is the only measured point so far and it's
+on XMage. If you post a transcript dir I'd be curious how often the picked action id was the stock
+AI's own choice — that's the cheap imitation-gap read."

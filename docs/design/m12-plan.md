@@ -383,7 +383,7 @@ generative planner (retired, ADR-0096/0099); the turn-plan latent as a supervise
 head; match play; Tutor / Mentor as products; the Rust subset engine (re-priced only if the engine
 bundle leaves throughput binding at the big run's sizing); **the Pauper testbed** (fork G — the
 closeout, or early on the Build 5 mid-run kill); **training on a second format** (fork I — after
-the readiness lands, its own powered run); **a Spellbench entry** (user, 10-01 — after the big run and after a format and a card chunk have been added and tested; the route and its costs are in the Discord survey's 10-01 section); **the standing-rules prune** (the next documentation
+the readiness lands, its own powered run); **a Spellbench entry** (user, 10-01 — after the big run and after a format and a card chunk have been added and tested; the route and its costs are in the Discord survey's 10-01 section); **an LLM opponent seat as a diversification corpus** (10-06 — TBSTeun's `forge-llm` scaffold shows an LLM plays sensibly on a top-level action list; as a bridged seat it generates opponent trajectories, never labels; ≈ $600–1,800 and days of wall per 2,000 games; the big run's closeout scoping, beside Spellbench; the survey's 10-05 → 10-06 section); **the standing-rules prune** (the next documentation
 pass); **the certifier merge** (user, 09-09 session 2 — routed to Build 4½ or the closeout,
 whichever comes first after evening 5; the trigger = the first re-certification of existing
 drills on a new pin, or the first drill mined from network-played games — both likely at the big
