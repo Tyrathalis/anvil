@@ -1701,6 +1701,23 @@ training under the mask; the first weekly segment read is where an effect would 
 - **For Mentor:** the delta log + "text once per session" + grouped battlefield is a ready-made narration
   context shape; the `CANNOT DO` block with reasons is the coach's "why not" list for free.
 
+**10-07, after the posts — TRT nods; TBSTeun will patch the formatter and offered to build the log:** TRT (10:41):
+"extending / consolidating IHasForgeLog usage is possible" — the maintainer's named home for the AI decision log
+(rule 8 satisfied; rule 2 in his words: the `aiLog` tag already exists in `forge-core`). TBSTeun (11:53): "Dang,
+great catch. Hadn't noticed that yet. Will patch." (the commander in-Stack line); (11:54) "if the data is there
+and just needs printing I think it should be manageable" — he may build it in `forge-llm`; the reply below asks
+him to hold for the upstream PR. The design is in the upstream worklist (Tier 0.8).
+
+*To the thread — draft 10-07 (the user's to post):*
+
+> Thanks TRT, that's the right home for it. The AI tag on IHasForgeLog already exists and forge-ai doesn't use
+> it yet; the candidate loop in AiController even has the "Ai thinks ..." print commented out at the exact spot.
+> I'll draft it against master: the per-candidate opinion and the chosen ability at trace on the AI tag, the
+> per-card reason where it currently collapses to CantPlayAi, the attack aggression level in place of the
+> LOG_AI_ATTACKS constant, guarded so it costs nothing when off, and an AI writer stanza in tinylog.properties as
+> the opt-in, like the NETWORK one. Blocks are a follow-up since they're passes, not reason codes. Teun, hold off
+> building it in forge-llm; I'll have a PR up in the next day or two.
+
 *To TBSTeun — **posted by the user 10-07** (the maintainer question in the same message; if no maintainer
 checks in, the item stays on the upstream plan as Tier 5 for a later proposal, or goes on the fork as a
 logging-only change — ADR-0025-exempt in kind, still needing its forkcheck proof, built on a worktree jar

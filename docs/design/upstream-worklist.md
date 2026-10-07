@@ -179,7 +179,20 @@ volunteered 07-11.
 - **The 09-14 perf trio** (the LKI copy recomputing a full view per event; the copier's
   `CardFactory` rebuild; the per-event replacement scan in `cantHappenCheck`). Each needs a
   stock-Forge profile first (#11916's shape: cheap checks before expensive ones).
-- **An opt-in AI decision log** (10-07, TBSTeun's question in `#ai-plotting`): per candidate the `AiPlayDecision` reason code + rating and the chosen one, the `aiAggression` level at declare-attackers, under a system property or AI-profile flag, to the game log or stderr. Nothing of the kind exists on the tip (the switches are compile-time constants). Design-shaped: floated in the thread first; Mentor's narration is the second consumer.
+- **An opt-in AI decision log — MAINTAINER-NODDED 10-07 (TRT, `#ai-plotting` 10:41: "extending /
+  consolidating IHasForgeLog usage is possible"); promoted to Tier 0.8, the next engine PR after 0.2.**
+  The home: `forge-core`'s `IHasForgeLog` already holds `aiLog = Logger.tag("AI")` (tinylog 2.7), used once
+  (`PhaseHandler`'s loop warning); the rest of the interface is the network hardening's. The shape (≈ 30
+  lines, no new abstraction): `AiController` + `AiAttackController` implement it; the two commented-out
+  `System.out.printf("Ai thinks …")` lines at the candidate loops (`chooseSpellAbilityToPlayFromList` ≈ 1675,
+  the counterspell chooser ≈ 700) become `aiLog.trace` per candidate in walk order + `aiLog.debug` for the
+  chosen one; one trace line at `canPlaySa` ≈ 903 where the per-API `AiAbilityDecision` (rating + reason)
+  collapses to `CantPlayAi`; the attack aggression level + attacker set in place of the compile-time
+  `LOG_AI_ATTACKS` prints (deleted — the consolidation half); every call behind `isTraceEnabled()`; the
+  opt-in an AI writer stanza in `forge-gui/src/main/resources/tinylog.properties` beside the NETWORK one,
+  off by default. Not in it: blocks (ordered passes, not reason codes — a follow-up), a game-log entry type,
+  any flag. Consumers: TBSTeun's LLM-vs-heuristic decision comparison (he offered to build it in `forge-llm`;
+  the reply asks him to hold for the upstream PR), our agreement-gap read, Mentor's narration.
 - Features with user pull: the tap-angle preference, Android incremental asset updates (never
   say "delta" there), deck-site account sync, whose-action tracking.
 - **Game history + replays (the recording flywheel's v1; design §11, 2026-10-06):** a logger of
