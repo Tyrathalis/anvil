@@ -1706,7 +1706,7 @@ training under the mask; the first weekly segment read is where an effect would 
 (rule 8 satisfied; rule 2 in his words: the `aiLog` tag already exists in `forge-core`). TBSTeun (11:53): "Dang,
 great catch. Hadn't noticed that yet. Will patch." (the commander in-Stack line); (11:54) "if the data is there
 and just needs printing I think it should be manageable" — he may build it in `forge-llm`; the reply below asks
-him to hold for the upstream PR. The design is in the upstream worklist (Tier 0.8).
+him to hold for the upstream PR. The design is in the upstream worklist (Tier 0.8). **His fork checked 10-07 afternoon: nothing on it** — last push 04:26 UTC (before the thread); `timboode:master` vs upstream differs only in `forge-llm` (130 files) + the root pom; no forge-ai / forge-game / forge-core change on any branch. (Code search does not index forks; use the compare endpoint.)
 
 *To TRT — the user's version, 10-07 (supersedes the draft beneath it; it asks for the design's confirmation
 before the diff, rule 8's shape; the "Teun, hold off" line is left for a follow-up once TRT answers):*
