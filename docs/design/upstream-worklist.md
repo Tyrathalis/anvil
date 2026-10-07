@@ -57,9 +57,9 @@ What the record says the maintainers accept, from #11203's review (tool4ever, 07
 
 | # | Fix | Where it lives today | Diff | Test | State on upstream tip |
 |---|---|---|---|---|---|
-| 0.1 | **Cabal Coffers cancel-refund** (`ManaRefundService.refundManaPaid` ignores `am.undo()`'s result and recurses anyway; CR 728.1 says reversal is all-or-nothing down the chain) | unbuilt ([playable worklist item 10](playable-fork-worklist.md)) | ≈ 5 lines | in the existing `ManaRefundServiceTest` (Swamps + Coffers, cancel after chaining) | **BUILT 10-06** on `../forge-upstream` branch `mana-refund-all-or-nothing`, fail-first; awaiting push |
+| 0.1 | **Cabal Coffers cancel-refund** (`ManaRefundService.refundManaPaid` ignores `am.undo()`'s result and recurses anyway; CR 728.1 says reversal is all-or-nothing down the chain) | unbuilt ([playable worklist item 10](playable-fork-worklist.md)) | ≈ 5 lines | in the existing `ManaRefundServiceTest` (Swamps + Coffers, cancel after chaining) | **OPEN as [#12162](https://github.com/Card-Forge/forge/pull/12162)** (10-06; branch `mana-refund-all-or-nothing` on `../forge-upstream`) |
 | 0.2 | **`ComputerUtil.chooseTapType` STATION guard** (the power filter shrinks the list under `amount` after the size guard passed; IndexOutOfBounds) | fork `3fa6d200f4` | 7 lines | `StationTapCostTest` (fail-first, exists) | bug present at `ComputerUtil:701` |
-| 0.3 | **Quest all-colors starting pool is empty** (`BoosterUtils.populateBalancedFilters` multiplies by the non-selected colors) | playable `692d166633` | 9 lines | `QuestStartingPoolTest` (54 lines, exists) | **BUILT 10-06** on branch `quest-all-colors-starting-pool`, fail-first; awaiting push |
+| 0.3 | **Quest all-colors starting pool is empty** (`BoosterUtils.populateBalancedFilters` multiplies by the non-selected colors) | playable `692d166633` | 9 lines | `QuestStartingPoolTest` (54 lines, exists) | **OPEN as [#12163](https://github.com/Card-Forge/forge/pull/12163)** (10-06; branch `quest-all-colors-starting-pool`) |
 | 0.4 | **`ChooseSourceEffect` unbounded re-ask** on a controller that answers null (the AI's `NeedsPrevention` chooser outside combat; 150K asks, 65 min on the Build 2 arm) | fork `b482528552` | 20 lines | to write: a stub controller returning null | `do … while` still at `ChooseSourceEffect:131` |
 | 0.5 | **`GameCopier` effect-source links for every copied card** (command-zone Effect cards — Prepared spells, impulse grants — resolved `EffectSource*` empty in copies; the MayPlayPlayer `.get(0)` crash class) | fork `ffbecf7869` | 14 lines | `EffectSourceCopyTest` (exists) | bug present; a #11203 follow-up in the same file |
 
@@ -285,7 +285,7 @@ the first PR day, not here.
 **Verdict: the two openers are ready as branches on `../forge-upstream` (GUI slot 0.3 `quest-all-colors-starting-pool`
 `002df28e9c`; engine slot 0.1 `mana-refund-all-or-nothing` `2bb376a978`), each one change + one test, each test
 failing on the unfixed tip and green on the fix; the Tier 0 re-sweep against tip `c29d23dd42` strikes nothing.**
-The full desktop suite on the 0.1 branch: 751 run, 0 failures, 6 skipped (pre-existing). PR descriptions drafted; pushing and opening wait on the user's go (rule 6: one engine + one GUI).
+The full desktop suite on the 0.1 branch: 751 run, 0 failures, 6 skipped (pre-existing). **OPENED 10-06 evening on the user's go:** [#12162](https://github.com/Card-Forge/forge/pull/12162) (the mana refund, engine slot) and [#12163](https://github.com/Card-Forge/forge/pull/12163) (the quest pool, GUI slot); the rule-6 slots are both taken until one merges. Rule 5's day-25 ping counts from 10-06 for each.
 
 - **0.1's cause is the undoable flag, not `accountFor`.** `GameActionUtil.generatedMana` marks every mana ability
   whose `Amount` is not a number (Coffers' `Amount$ X`) non-undoable by design; `am.undo()` returns false and
@@ -346,6 +346,9 @@ Notes (replay triage, 2026-07-06):
   cleanly to our fork: branch `test-11161` (verified building + playing).
 
 ## Open upstream PRs — monitor for maintainer feedback
+
+- **[#12162](https://github.com/Card-Forge/forge/pull/12162) mana refund all-or-nothing (Tier 0.1) — OPEN 10-06**, engine slot.
+- **[#12163](https://github.com/Card-Forge/forge/pull/12163) quest all-colors starting pool (Tier 0.3) — OPEN 10-06**, GUI slot.
 
 - **[#11457](https://github.com/Card-Forge/forge/pull/11457) chat rate limiting — OPEN, parked** (mergeable; MostCromulent 08-03: a problem that does not exist in practice; tool4ever 08-04: maybe when lobbies are broader). Not chased (user, 08-31).
 - **[#11285](https://github.com/Card-Forge/forge/pull/11285) determinism hooks — CLOSED 09-14 by the stale bot**, no maintainer verdict (Hanmac's 07-19 question answered 07-20, then silence). Upstream still has neither half. Returns as the plan's Tier 2 (two PRs).
