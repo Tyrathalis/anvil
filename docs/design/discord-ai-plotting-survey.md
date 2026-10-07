@@ -1664,7 +1664,18 @@ training under the mask; the first weekly segment read is where an effect would 
 - **His question:** does the heuristic engine have debug logging rich enough to reconstruct its decision-making? "raw performance benchmarks are helpful, but in-depth decision making comparison capabilities even more so."
 - **The answer, from the upstream tip (10-07 archaeology):** no such log exists. Every candidate play gets an `AiAbilityDecision` (rating + one of ≈ 50 `AiPlayDecision` reason codes) from its `SpellAbilityAi`, and the controller takes the first willing candidate in comparator order (`AiController.chooseSpellAbilityToPlay`); attacks are the 0–6 `aiAggression` level, blocks ordered passes. None of it is written anywhere: `GameLogEntryType` has no AI entry; the only switches are compile-time (`LOG_AI_ATTACKS` final false, `SpellAbilityPicker.printOutput` private false, `GameSimulator.debugPrint` a public static for the simulation profile only); the one stock print is the eval-thread stack at an AI timeout. **An opt-in AI decision log is a small, design-shaped upstream item (Tier 5 of the submission plan: Discord first) — and it is what Mentor's narration wants too.** What the fork has instead: the per-window legal option list + the pick (the agreement instrument), not the heuristic's reasons.
 
-*To TBSTeun — draft 10-07 (the user's to post):*
+*To TBSTeun — the user's version, 10-07 (supersedes the longer draft beneath it; the maintainer question
+may go to `#contribution-questions` instead of the thread):*
+
+> Well, you can record a game log with the actions the heuristic actually took, and my fork records the
+> legal options at each window, but there isn't currently a way to record the heuristic's reasoning: which
+> candidates it considered and why it passed on each one.
+>
+> It doesn't look too hard to implement; the reason codes already exist at the decision point, they just
+> aren't written anywhere. I'd be interested in that data as well. Do any maintainers have thoughts on an
+> opt-in logging mode that records the reason for an AI player's decision?
+
+*To TBSTeun — the earlier, longer draft (superseded):*
 
 > Short answer: no, there's no decision log in the heuristic AI today. The information does exist at the decision point — every candidate play gets an AiPlayDecision reason code (WillPlay, WaitForMain2, CantAfford, TargetingFailed, MissingLogic, …) and the controller takes the first willing candidate in its sort order; attacks reduce to an aggression level 0–6 — but none of it is written anywhere, and the only switches are compile-time constants. The game log records plays, stack and combat, not reasons.
 >
