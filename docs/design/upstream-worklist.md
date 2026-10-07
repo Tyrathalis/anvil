@@ -171,6 +171,13 @@ volunteered 07-11.
   stock-Forge profile first (#11916's shape: cheap checks before expensive ones).
 - Features with user pull: the tap-angle preference, Android incremental asset updates (never
   say "delta" there), deck-site account sync, whose-action tracking.
+- **Game history + replays (the recording flywheel's v1; design §11, 2026-10-06):** a logger of
+  the `ProtocolMethod` stream per game (seed + decklists + decisions), replayable once the
+  determinism hooks (#11285) are in, with a local stats tab on top (per-deck results, mulligans,
+  screw / flood, turn counts). Floated as "game history and replays" in #contribution-questions
+  after #11285 lands — a thread takes no PR slot; the build waits for the big run's close. The
+  submit button (one press, one file, consent text, a receiver we host) is a separate later PR;
+  the word "telemetry" never appears.
 - Positions to hold, not PRs: evaluation-loop budgets (count-based, flag-gated, off by default);
   the host as an authoritative referee (multiplayer-hardening's open design question).
 
