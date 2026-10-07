@@ -56,6 +56,12 @@ What the record says the maintainers accept, from #11203's review (tool4ever, 07
    upstream's users see), not on our bridged scan.
 8. **Design-shaped items go to Discord `#contribution-questions` first** and become a PR only
    after a maintainer nods (the survey's house rule; issues are never the venue).
+9. **Scan the issue tracker before packaging an item** (10-07, the user's rule after tool4ever connected
+   #12162 to the two-year-old #4669): search by card name, exception text, method name and symptom, open
+   and closed, through the search API with a `repo:` qualifier (`gh api search/issues -f q='repo:Card-Forge/forge
+   <terms>'`; the `gh search issues` wrapper drops multi-word hits). A matching open issue goes in the
+   description as `Closes #N`; a closed or adjacent one as context; a maintainer's prior PR on the same
+   method is read before the diff is cut.
 
 ### Tier 0 — the warm-up: stock bugs under 30 lines, in this order
 
