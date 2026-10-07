@@ -1708,7 +1708,16 @@ great catch. Hadn't noticed that yet. Will patch." (the commander in-Stack line)
 and just needs printing I think it should be manageable" — he may build it in `forge-llm`; the reply below asks
 him to hold for the upstream PR. The design is in the upstream worklist (Tier 0.8).
 
-*To the thread — draft 10-07 (the user's to post):*
+*To TRT — the user's version, 10-07 (supersedes the draft beneath it; it asks for the design's confirmation
+before the diff, rule 8's shape; the "Teun, hold off" line is left for a follow-up once TRT answers):*
+
+> It looks like IHasForgeLog already has an AI tag that's mostly unused but would work great for this. I think
+> it would make sense to include the per-candidate opinion and the chosen ability at trace on the AI tag, the
+> per-card reason where it currently collapses to CantPlayAi, and the attack aggression level in place of the
+> LOG_AI_ATTACKS constant. It could have an AI writer stanza in tinylog.properties as the opt-in, like the
+> NETWORK tag. Does this sound right to you?
+
+*To the thread — the earlier draft (superseded):*
 
 > Thanks TRT, that's the right home for it. The AI tag on IHasForgeLog already exists and forge-ai doesn't use
 > it yet; the candidate loop in AiController even has the "Ai thinks ..." print commented out at the exact spot.
