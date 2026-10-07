@@ -322,6 +322,29 @@ The full desktop suite on the 0.1 branch: 751 run, 0 failures, 6 skipped (pre-ex
 - **Branches:** one per PR on the one worktree (switching is fine; test target dirs are shared, so suite runs are
   sequential). Push to `origin` (Tyrathalis/forge) and open against Card-Forge/forge on the user's go.
 
+### 10-07 — the second pair built: Tier 0.2 (engine) and Tier 3.1 (GUI), both on the post-merge tip
+
+**Verdict: both are branches on `../forge-upstream` from tip `688ce8bc79` (which carries our two merges), one
+change each, no test class (the amended rule 3); the station fix is verified fail-first on the tip with the
+fork's test as a scratch file that stays out of the PR; the menu fix compiles and waits on its before/after
+screenshots.** Rule 9's issue scan ran for both (the search-API form; the `gh search` wrapper missed the
+Coffers control).
+
+- **0.2 `ai-station-tap-guard` `836b84371e`:** the 7-line hunk from fork `3fa6d200f4` applies unchanged
+  (`chooseTapType` on the tip is the 08-11 shape; #12124's 10-05 change was in `ComputerUtilCost`, not here).
+  Scratch run of `StationTapCostTest` on the tip: the unfixed tip throws `Index 0 out of bounds for length 0`
+  at the decline case, the fix returns null, the preference case holds. Issue scan: #9038 (open, 2025-10:
+  "AI never stations") is willingness, not this crash — cited as related, not closed; #10087 (Agetian's
+  station AI, 2026-03) is the logic that reaches the path. Description drafted (`pr-station.md`).
+- **3.1 `itemmanager-menu-container-offset` `d5b708e317`:** playable `10c22003df` re-cut with a one-line
+  comment; `ItemManager` on the tip was last touched 09-10 (#11833) and the block is unchanged; `getContainer()`
+  is `FDropDown`'s. `forge-gui-mobile` compiles. Issue scan: nothing on the menu offset. **Blocked on the
+  screenshots:** the mobile-dev shell runs from the module dir (`cd forge-gui-mobile-dev && java
+  -Duser.home=<scratch> -jar <mobile-dev jar-with-dependencies>`; it finds `../forge-gui/res`; both jars are
+  built, after/before, in the session scratchpad) but the desktop was locked when the shell came up and the
+  box has no Xvfb; the capture needs the desktop unlocked (I drive it with xdotool + spectacle) or
+  `xorg-server-xvfb` installed. Description drafted (`pr-menu.md`, screenshot slot open).
+
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 
 7 crashes in 50,000 games. All games' obs frames are readable; policy labels
