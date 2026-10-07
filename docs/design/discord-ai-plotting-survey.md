@@ -1717,6 +1717,21 @@ before the diff, rule 8's shape; the "Teun, hold off" line is left for a follow-
 > LOG_AI_ATTACKS constant. It could have an AI writer stanza in tinylog.properties as the opt-in, like the
 > NETWORK tag. Does this sound right to you?
 
+**TRT confirms (13:36): "something like that"** — the one point raised: "for the static field we'd lose the compiler
+optimizing the calls away I guess 🤔 though not having to rebuild might be better anyway" (javac folds the
+`final boolean false` blocks out of the bytecode; a runtime guard stays in). The answer from the jar: tinylog 2.7's
+`TaggedLogger.isTraceEnabled()` reads a final boolean set from the config at startup and short-circuits there, so
+the per-candidate cost when off is one field load + a never-taken branch beside `canPlayAndPayFor`'s payment
+simulation. **Build started 10-07 afternoon** (branch `ai-decision-log` on `../forge-upstream`).
+
+*To TRT — draft 10-07 (the user's to post):*
+
+> Right, javac folds the final boolean away and the guard stays in the bytecode. In tinylog 2.7 the tagged
+> logger's isTraceEnabled() is a read of a final boolean set from the config at startup, short-circuiting there
+> when trace isn't covered — so a field load and a never-taken branch per candidate, next to a
+> canPlayAndPayFor that's doing real work. I'll guard every call so nothing is built when it's off, and put the
+> PR up against master.
+
 *To the thread — the earlier draft (superseded):*
 
 > Thanks TRT, that's the right home for it. The AI tag on IHasForgeLog already exists and forge-ai doesn't use
