@@ -285,7 +285,7 @@ the first PR day, not here.
 **Verdict: the two openers are ready as branches on `../forge-upstream` (GUI slot 0.3 `quest-all-colors-starting-pool`
 `002df28e9c`; engine slot 0.1 `mana-refund-all-or-nothing` `2bb376a978`), each one change + one test, each test
 failing on the unfixed tip and green on the fix; the Tier 0 re-sweep against tip `c29d23dd42` strikes nothing.**
-The full desktop suite on the 0.1 branch: 751 run, 0 failures, 6 skipped (pre-existing). **OPENED 10-06 evening on the user's go:** [#12162](https://github.com/Card-Forge/forge/pull/12162) (the mana refund, engine slot) and [#12163](https://github.com/Card-Forge/forge/pull/12163) (the quest pool, GUI slot); the rule-6 slots are both taken until one merges. Rule 5's day-25 ping counts from 10-06 for each.
+The full desktop suite on the 0.1 branch: 751 run, 0 failures, 6 skipped (pre-existing). **OPENED 10-06 evening on the user's go:** [#12162](https://github.com/Card-Forge/forge/pull/12162) (the mana refund, engine slot) and [#12163](https://github.com/Card-Forge/forge/pull/12163) (the quest pool, GUI slot); the rule-6 slots are both taken until one merges. Rule 5's day-25 ping counts from 10-06 for each. The user announced both in Discord `#contribution-questions` the same evening (one engine, one GUI; questions welcome).
 
 - **0.1's cause is the undoable flag, not `accountFor`.** `GameActionUtil.generatedMana` marks every mana ability
   whose `Amount` is not a number (Coffers' `Amount$ X`) non-undoable by design; `am.undo()` returns false and
