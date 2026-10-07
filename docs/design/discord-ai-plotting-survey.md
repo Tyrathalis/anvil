@@ -1694,6 +1694,10 @@ training under the mask; the first weekly segment read is where an effect would 
   (summoning sick) and the Commander line says "in Stack"; the same for Kalemne at turn 46. Likely the zone
   lookup reads a stale LKI/stack reference after the commander resolves. Worth a line in the thread; it is
   the kind of state-encoding defect the engine would never let a learned seat make (invariant 1).
+- *To TBSTeun — the formatter bug, posted by the user 10-07:* "I've looked over your LLM prompt logs. Thanks for
+  posting those! It looks like your formatter might have a bug where commanders that are on the battlefield
+  show up as being 'in Stack', which is confusing your models." (With the Leinore / Kalemne instances as the
+  pointer, if he asks.)
 - **For Mentor:** the delta log + "text once per session" + grouped battlefield is a ready-made narration
   context shape; the `CANNOT DO` block with reasons is the coach's "why not" list for free.
 
