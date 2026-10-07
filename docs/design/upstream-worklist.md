@@ -193,6 +193,17 @@ volunteered 07-11.
   off by default. Not in it: blocks (ordered passes, not reason codes — a follow-up), a game-log entry type,
   any flag. Consumers: TBSTeun's LLM-vs-heuristic decision comparison (he offered to build it in `forge-llm`;
   the reply asks him to hold for the upstream PR), our agreement-gap read, Mentor's narration.
+  **BUILT 10-07 afternoon, branch `ai-decision-log` `f789beb249` (pushed), ready to open:** 61 / 35 lines in
+  `AiController`, `AiAttackController`, `tinylog.properties`. Two things learned building it: tinylog's
+  placeholders are `${ENV}` for environment variables and `#{prop}` for system properties, both with a
+  `:default`; and a `file` writer creates its file at startup even at level `off`, so the stanza defaults
+  the writer to `console` and the level to `off` (`writerAi = #{forge.ai.log.writer:console}`,
+  `writerAi.level = #{forge.ai.log:off}`) — nothing written by default, `-Dforge.ai.log=trace|debug` turns
+  it on, `-Dforge.ai.log.writer=file` sends it to `ai-decisions.log`. Verified with `sim` on the tip: default
+  no file / 0 console lines; debug 18 console lines (plays, attacks); trace+file 2,220 lines, 0 on console.
+  Description `pr-ailog.md`. TRT's constant-folding point answered from the jar (`TaggedLogger.isTraceEnabled`
+  = a final-boolean read, short-circuiting). The one duplicate when enabled: the phase handler's existing
+  `aiLog.warn` prints on both writers — named in the description.
 - Features with user pull: the tap-angle preference, Android incremental asset updates (never
   say "delta" there), deck-site account sync, whose-action tracking.
 - **Game history + replays (the recording flywheel's v1; design §11, 2026-10-06):** a logger of
