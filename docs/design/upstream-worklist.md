@@ -169,6 +169,7 @@ volunteered 07-11.
 - **The 09-14 perf trio** (the LKI copy recomputing a full view per event; the copier's
   `CardFactory` rebuild; the per-event replacement scan in `cantHappenCheck`). Each needs a
   stock-Forge profile first (#11916's shape: cheap checks before expensive ones).
+- **An opt-in AI decision log** (10-07, TBSTeun's question in `#ai-plotting`): per candidate the `AiPlayDecision` reason code + rating and the chosen one, the `aiAggression` level at declare-attackers, under a system property or AI-profile flag, to the game log or stderr. Nothing of the kind exists on the tip (the switches are compile-time constants). Design-shaped: floated in the thread first; Mentor's narration is the second consumer.
 - Features with user pull: the tap-angle preference, Android incremental asset updates (never
   say "delta" there), deck-site account sync, whose-action tracking.
 - **Game history + replays (the recording flywheel's v1; design §11, 2026-10-06):** a logger of

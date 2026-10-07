@@ -1656,6 +1656,22 @@ training under the mask; the first weekly segment read is where an effect would 
 
 ### Reply (10-06; nothing posted from here)
 
+#### 10-07: TBSTeun's reply — a benchmark is coming, the hybrid is deliberate, and the one question is the heuristic's decision log
+
+- **He is planning the benchmark himself:** "a couple hundred games with forge ai included in the next couple of weeks"; numbers offered when he gets there. His framing: the stock AI is not bad per se, but on the cards it reports as poorly understood "it is not always the best for my use-cases".
+- **The hybrid is deliberate, and it is the handoff design:** the stock AI drives the cheap, play-degrading parts (tapping for mana, passing priority with nothing to do) and the LLM is handed control "only when it's really needed, when complex, strategic decisions have to be made". His next thought is ours in reverse: map where forge-ai excels and fails, make the failures detectable, hand off only then.
+- **Two files posted:** a screenshot of Forge prompting the LLM and its reasoning (worth downloading — the state framing and the model's reply bear on Mentor's narration format and on the handoff idea), and a 6× recording of a Commander game vs three LLM opponents (`anonfilesnew.com/s/awh7VTsdwB0`; low value for us).
+- **His question:** does the heuristic engine have debug logging rich enough to reconstruct its decision-making? "raw performance benchmarks are helpful, but in-depth decision making comparison capabilities even more so."
+- **The answer, from the upstream tip (10-07 archaeology):** no such log exists. Every candidate play gets an `AiAbilityDecision` (rating + one of ≈ 50 `AiPlayDecision` reason codes) from its `SpellAbilityAi`, and the controller takes the first willing candidate in comparator order (`AiController.chooseSpellAbilityToPlay`); attacks are the 0–6 `aiAggression` level, blocks ordered passes. None of it is written anywhere: `GameLogEntryType` has no AI entry; the only switches are compile-time (`LOG_AI_ATTACKS` final false, `SpellAbilityPicker.printOutput` private false, `GameSimulator.debugPrint` a public static for the simulation profile only); the one stock print is the eval-thread stack at an AI timeout. **An opt-in AI decision log is a small, design-shaped upstream item (Tier 5 of the submission plan: Discord first) — and it is what Mentor's narration wants too.** What the fork has instead: the per-window legal option list + the pick (the agreement instrument), not the heuristic's reasons.
+
+*To TBSTeun — draft 10-07 (the user's to post):*
+
+> Short answer: no, there's no decision log in the heuristic AI today. The information does exist at the decision point — every candidate play gets an AiPlayDecision reason code (WillPlay, WaitForMain2, CantAfford, TargetingFailed, MissingLogic, …) and the controller takes the first willing candidate in its sort order; attacks reduce to an aggression level 0–6 — but none of it is written anywhere, and the only switches are compile-time constants. The game log records plays, stack and combat, not reasons.
+>
+> It would be a small opt-in addition (a system property or AI profile flag that writes the reason code per candidate and the chosen one, plus the aggression level at declare-attackers, into the game log or stderr). I'd use it too — it's exactly the comparison you describe, and it's the kind of thing I'd rather float here before writing. If the maintainers are open to it I'm happy to draft it; if you'd rather carry it in your fork first, the hooks are AiController.chooseSpellAbilityToPlay and SpellAbilityAi.canPlayAIWithSubs.
+>
+> On the hybrid: that handoff split (stock AI for mana and empty priority, the model only for real decisions) is the right shape, and "make the failures detectable" is the interesting half. Looking forward to the numbers.
+
 *To TBSTeun — **posted by the user 10-06 evening** (supersedes the draft beneath it):*
 
 > Very neat, thanks for posting! If you have the inclination for a longer run, I'd be really
