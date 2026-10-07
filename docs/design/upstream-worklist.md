@@ -1,6 +1,6 @@
 # Upstream worklist
 
-**Doc status:** living · the submission plan (2026-09-27, first section) + queued upstream contributions + diagnosed engine classes
+**Doc status:** living · the submission plan (2026-09-27, first section; first PR day 10-06) + queued upstream contributions + diagnosed engine classes
 
 Seed-pinned, deterministically reproducible engine bugs harvested from Anvil
 runs, queued for upstream PRs to Card-Forge/forge (per ADR-0002: static-bug
@@ -57,9 +57,9 @@ What the record says the maintainers accept, from #11203's review (tool4ever, 07
 
 | # | Fix | Where it lives today | Diff | Test | State on upstream tip |
 |---|---|---|---|---|---|
-| 0.1 | **Cabal Coffers cancel-refund** (`ManaRefundService.refundManaPaid` ignores `am.undo()`'s result and recurses anyway; CR 728.1 says reversal is all-or-nothing down the chain) | unbuilt ([playable worklist item 10](playable-fork-worklist.md)) | ≈ 5 lines | in the existing `ManaRefundServiceTest` (Swamps + Coffers, cancel after chaining) | bug present, file untouched since the pin |
+| 0.1 | **Cabal Coffers cancel-refund** (`ManaRefundService.refundManaPaid` ignores `am.undo()`'s result and recurses anyway; CR 728.1 says reversal is all-or-nothing down the chain) | unbuilt ([playable worklist item 10](playable-fork-worklist.md)) | ≈ 5 lines | in the existing `ManaRefundServiceTest` (Swamps + Coffers, cancel after chaining) | **BUILT 10-06** on `../forge-upstream` branch `mana-refund-all-or-nothing`, fail-first; awaiting push |
 | 0.2 | **`ComputerUtil.chooseTapType` STATION guard** (the power filter shrinks the list under `amount` after the size guard passed; IndexOutOfBounds) | fork `3fa6d200f4` | 7 lines | `StationTapCostTest` (fail-first, exists) | bug present at `ComputerUtil:701` |
-| 0.3 | **Quest all-colors starting pool is empty** (`BoosterUtils.populateBalancedFilters` multiplies by the non-selected colors) | playable `692d166633` | 9 lines | `QuestStartingPoolTest` (54 lines, exists) | bug present, file untouched |
+| 0.3 | **Quest all-colors starting pool is empty** (`BoosterUtils.populateBalancedFilters` multiplies by the non-selected colors) | playable `692d166633` | 9 lines | `QuestStartingPoolTest` (54 lines, exists) | **BUILT 10-06** on branch `quest-all-colors-starting-pool`, fail-first; awaiting push |
 | 0.4 | **`ChooseSourceEffect` unbounded re-ask** on a controller that answers null (the AI's `NeedsPrevention` chooser outside combat; 150K asks, 65 min on the Build 2 arm) | fork `b482528552` | 20 lines | to write: a stub controller returning null | `do … while` still at `ChooseSourceEffect:131` |
 | 0.5 | **`GameCopier` effect-source links for every copied card** (command-zone Effect cards — Prepared spells, impulse grants — resolved `EffectSource*` empty in copies; the MayPlayPlayer `.get(0)` crash class) | fork `ffbecf7869` | 14 lines | `EffectSourceCopyTest` (exists) | bug present; a #11203 follow-up in the same file |
 
@@ -274,9 +274,35 @@ the first PR day, not here.
   worth it; redundant or trivial per-method ones are not — rule 3 sits inside it. **Endstep
   (Neur0nz, 10-03) offers rollback-via-checkpointing upstream** — the same seam as Tier 4; compare
   notes before 4.1 opens (draft in the survey).
-- **Setup still owed:** `../forge-upstream` (rule 4) does not exist yet — create it from
-  `upstream/master` on the first PR day. Talor's Anvil PR #5 (device selection) is handled on the
+- **Setup DONE 10-06:** `../forge-upstream` exists (rule 4), detached on upstream tip `c29d23dd42`, built
+  with `mvn -P windows-linux -pl forge-gui-desktop -am package -DskipTests` (≈ 1 min incremental); tests run
+  with `-o -Dtest=<Class> -Dsurefire.failIfNoSpecifiedTests=false` (the shared-profile prefs leak is logged
+  by `FModel.initialize`, non-fatal there). Talor's Anvil PR #5 (device selection) is handled on the
   Anvil side (adapted and credited, as #8 was), not here.
+
+### 10-06 — the first PR day: Tier 0.3 and 0.1 built on the tip, both fail-first
+
+**Verdict: the two openers are ready as branches on `../forge-upstream` (GUI slot 0.3 `quest-all-colors-starting-pool`
+`002df28e9c`; engine slot 0.1 `mana-refund-all-or-nothing` `2bb376a978`), each one change + one test, each test
+failing on the unfixed tip and green on the fix; the Tier 0 re-sweep against tip `c29d23dd42` strikes nothing.**
+The full desktop suite on the 0.1 branch: 751 run, 0 failures, 6 skipped (pre-existing). PR descriptions drafted; pushing and opening wait on the user's go (rule 6: one engine + one GUI).
+
+- **0.1's cause is the undoable flag, not `accountFor`.** `GameActionUtil.generatedMana` marks every mana ability
+  whose `Amount` is not a number (Coffers' `Amount$ X`) non-undoable by design; `am.undo()` returns false and
+  `refundManaPaid` recursed regardless. The playable-worklist item 10 "second half" (why `accountFor` misses X
+  producers) is moot: the X producer never reaches `accountFor`. One PR: recurse only into abilities whose
+  `undo()` succeeded, clear the rest's undo-stack entries as `MagicStack.undo` does (the success path unchanged,
+  two loops kept). After the fix a cancelled Coffers chain leaves Coffers AND the Swamps tapped with the black mana
+  floating — CR 728.1's answer, and what the description says up front. Whether X producers should be undoable at
+  all is a `GameActionUtil` policy question, named as out of scope in the PR.
+- **0.1's test drives the engine's own payment path** (`ComputerUtil.playNoStack` for the Coffers activation —
+  the AI payer taps the two Swamps — then `ManaPool.payManaFromAbility` for the spell, then the refund); the
+  fail-first failure is the Swamp-tapped assertion exactly, with the pool at 2 and Coffers tapped.
+- **0.3 ported from playable `692d166633` by `git show | git apply`** (the hunk applied at an offset; the
+  constructor and `getQuestStarterDeck` signatures unchanged on the tip); fail-first: the all-colors case fails,
+  the two controls pass.
+- **Branches:** one per PR on the one worktree (switching is fine; test target dirs are shared, so suite runs are
+  sequential). Push to `origin` (Tyrathalis/forge) and open against Card-Forge/forge on the user's go.
 
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 

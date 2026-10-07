@@ -1007,6 +1007,11 @@ nothing. CR 728.1: mana abilities activated during an illegal action may be
 reversed only if none of their mana was spent on another mana ability that
 was not reversed — reversal is all-or-nothing down the chain.
 
+**BUILT upstream 10-06** (`../forge-upstream` branch `mana-refund-all-or-nothing`, see the upstream worklist's
+10-06 entry): the cause is the `isUndoable()` branch — `GameActionUtil` marks every `Amount$ X` producer
+non-undoable by design — so the "second half" below (`accountFor` and X producers) is moot; the PR is the
+all-or-nothing guard alone. Lands on `playable` from upstream after the merge.
+
 **Fix (~5 lines + test):** in `refundManaPaid()`, recurse into an ability's
 payment only when its `undo()` returned true; when it did not, leave the
 ability activated (tapped, mana in pool) and clear its undo-stack entries, as
