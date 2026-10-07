@@ -1405,7 +1405,9 @@ shipping builds to other people's machines.
 > (Random Commander) silently overrides the whole starting-pool section.
 > Fix: floor the multiplier at one pass; `QuestStartingPoolTest` rides
 > `AITest`'s card-DB init (all-colors validated failing-first + two
-> controls, 3/3 green post-fix). Upstream candidate queued. Diagnostic
+> controls, 3/3 green post-fix). **Upstream MERGED 10-07 as Card-Forge/forge#12163** (merge `a155b28a1b`;
+> the test class dropped on review — Jetz72: not the kind of change that needs one). The playable copy
+> `692d166633` is superseded by upstream at the next sync. Diagnostic
 > lesson banked: the journal's `QuestDataIO` reflective-mutation warning
 > is the LOAD path — it dated the quest to an earlier session and kept the
 > hunt honest. Boosters-count-0 (silent empty pool) noted as an adjacent
