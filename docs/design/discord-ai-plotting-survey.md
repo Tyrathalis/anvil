@@ -1577,7 +1577,7 @@ To Kryptic (#ai-plotting, "any performance impact from the target mask?") — **
 −0.61 ± 0.49pp on 1,963 paired games; `no_shape_fit` −38%; wall 42.3 vs 43 min. The big run is the first
 training under the mask; the first weekly segment read is where an effect would show.)
 
-### 10-05 → 10-06 follow-up: TBSTeun's LLM seats for Forge (`timboode/forge`, `forge-llm`), the Queen chess-LM paper, chrismaghuhn's 5×5 matrix (read 10-06 evening from the user's paste; the user posted once, 10-06 06:22)
+### 10-05 → 10-06 follow-up: TBSTeun's LLM seats for Forge (`timboode/forge`, `forge-llm`), the Queen chess-LM paper, chrismaghuhn's 5×5 matrix (read 10-06 evening from the user's paste; the user posted twice, 10-06 06:22 and the evening reply below)
 
 **#ai-plotting (10-05 19:17 → 10-06 20:17):**
 
@@ -1654,9 +1654,9 @@ training under the mask; the first weekly segment read is where an effect would 
   TBSTeun's scaffold beat a human in a pod; the per-game price and the per-action latency are the
   standing objections for a phone, unchanged.
 
-### Draft reply (10-06; the user posts; nothing posted from here)
+### Reply (10-06; nothing posted from here)
 
-*To TBSTeun — the user's version, 10-06 evening (the one to post; supersedes the draft beneath it):*
+*To TBSTeun — **posted by the user 10-06 evening** (supersedes the draft beneath it):*
 
 > Very neat, thanks for posting! If you have the inclination for a longer run, I'd be really
 > interested to see how well an LLM does against the Forge heuristic bot. A hundred-game winrate
