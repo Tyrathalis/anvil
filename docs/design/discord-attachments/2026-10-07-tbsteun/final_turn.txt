@@ -1,0 +1,80 @@
+======== REQUEST ATTACK | session LLM-Coven Counters-T50-own ========
+# UPDATE (decision 7 of this session)
+## What happened since your last decision
+Whenever an opponent casts a spell, you may draw a card unless that player pays {1}. [Card: Riders of Gavony (333), Activator: LLM-Coven Counters, SpellAbility: Riders of Gavony - Creature 3 / 3]
+As Riders of Gavony enters, choose a creature type.
+Riders of Gavony - Creature 3 / 3
+LLM-Coven Counters triggered Champion of Lambholt
+Whenever another creature you control enters, put a +1/+1 counter on Champion of Lambholt. [Zone Changer: Riders of Gavony (333)]
+LLM-Coven Counters triggered Leinore, Autumn Sovereign targeting [Custodi Soulbinders (326)]
+LLM-Coven Counters triggered Dawnhart Wardens
+Coven — At the beginning of combat on your turn, if you control three or more creatures with different powers, creatures you control get +1/+0 until end of turn. [Phase: LLM-Coven Counters]
+Coven — At the beginning of combat on your turn, put a +1/+1 counter on target creature you control. Then if you control three or more creatures with different powers, draw a card. (Targeting: [[Custodi Soulbinders (326)]]) [Phase: LLM-Coven Counters]
+
+## Current state
+Turn 50 - LLM-Coven Counters's turn - Declare Attackers Step - priority: LLM-Coven Counters
+It is YOUR turn.
+Your available mana: 3 untapped mana sources: Canopy Vista (green/white), Sungrass Prairie (green/white), Plains (white)
+Lands played this turn: 1 of 1
+
+## Players
+
+### YOU: LLM-Coven Counters | life 60 | hand 5 | library 61 | graveyard 10 | exile 0
+Battlefield:
+  Creatures:
+    - Champion of Lambholt (#380) 8/7 [Creature - Human Warrior] untapped, counters: +1/+1 x6
+    - Dawnhart Wardens (#330) 4/3 [Creature - Human Warlock] untapped
+    - Heron's Grace Champion (#312) 4/3 [Creature - Human Knight] untapped
+    - Knight of the White Orchid (#307) 3/2 [Creature - Human Knight] untapped
+    - Custodi Soulbinders (#326) 9/8 [Creature - Human Cleric] untapped, summoning sick, counters: +1/+1 x8
+    - Leinore, Autumn Sovereign (#403) 1/4 [Legendary Creature - Human Noble] untapped, summoning sick
+    - Riders of Gavony (#333) 4/3 [Creature - Human Knight] untapped, summoning sick
+  Lands: Plains x11 (1 untapped), Selesnya Sanctuary x1 (0 untapped), Forest x3 (0 untapped), Canopy Vista x1 (1 untapped), Sungrass Prairie x1 (1 untapped)
+Graveyard: Shamanic Revelation (#361), Orzhov Advokist (#320), Krosan Verge (#348), Celebrate the Harvest (#345), Sigarda's Vanguard (#362), Cleansing Nova (#363), Ruinous Intrusion (#375), Unbreakable Formation (#317), Moonsilver Key (#321), Arcane Signet (#376)
+Commander: Leinore, Autumn Sovereign (#403) - in Stack, cast 1 time; casting it from the command zone costs {2} more
+Commander damage taken (21 from one commander is lethal): 2 from Rashmi, Eternities Crafter (Randy)
+
+### OPPONENT: Randy | life 17 | hand 7 | library 35 | graveyard 19 | exile 16
+Battlefield:
+  Creatures:
+    - Rashmi, Eternities Crafter (#100) 2/3 [Legendary Creature - Elf Druid] untapped
+    - Elvish Mystic (#19) 1/1 [Creature - Elf Druid] untapped
+    - Archmage Emeritus (#79) 2/2 [Creature - Human Wizard] untapped
+  Other permanents:
+    - Rhystic Study (#35) [Enchantment] untapped
+    - Utopia Sprawl (#1) [Enchantment - Aura] untapped, attached to Forest (48)
+    - Mystic Remora (#24) [Enchantment] untapped, counters: AGE x1
+  Lands: Tropical Island x1 (1 untapped), Boseiju, Who Endures x1 (1 untapped), Island x4 (3 untapped), Botanical Sanctum x1 (1 untapped), Forest x4 (4 untapped), Breeding Pool x1 (1 untapped), Rejuvenating Springs x1 (1 untapped), Flooded Grove x1 (1 untapped), Alchemist's Refuge x1 (1 untapped), Mystic Sanctuary x1 (1 untapped), Hinterland Harbor x1 (1 untapped)
+Graveyard: Tyvar's Stand (#90), Aetherize (#94), Perplexing Test (#6), Into the Roil (#3), Dig Through Time (#80), Pongify (#29), Counterspell (#30), Llanowar Elves (#40), Nature's Lore (#81), Delay (#38), Wild Growth (#32), Wilderness Reclamation (#98), Sol Ring (#18), Polluted Delta (#17), Bala Ged Recovery (#62), Impulse (#83), Blink of an Eye (#34), Cyclonic Rift (#8), Verdant Catacombs (#23)
+Exile: Misty Rainforest (#20), Island (#72), Harrow (#82), Rampant Growth (#86), Farseek (#77), Into the Flood Maw (#59), Repulse (#91), Eternal Witness (#5), Temporal Trespass (#27), Rapid Hybridization (#26), Capsize (#2), Brainstorm (#84), Wooded Foothills (#63), Ponder (#22), Unsubstantiate (#12), Hullbreaker Horror (#57)
+Commander: Rashmi, Eternities Crafter (#100) - in Graveyard, cast 2 times; casting it from the command zone costs {4} more
+Commander damage taken (21 from one commander is lethal): 2 from Leinore, Autumn Sovereign (LLM-Coven Counters); 5 from Kasla, the Broken Halo (LLM-Divine Convocation)
+
+## Your hand
+- Curse of Clinging Webs (#340) {2}{G} Enchantment - Aura Curse
+- Lifecrafter's Bestiary (#338) {3} Artifact
+- Death's Presence (#339) {5}{G} Enchantment
+- Elite Scaleguard (#336) {4}{W} Creature - Human Soldier
+- Fortified Village (#365) Land
+
+## Stack (top first)
+(empty)
+
+## Card text (cards not shown before in this session)
+- Fortified Village: Land | As Fortified Village enters, you may reveal a Forest or Plains card from your hand. If you don't, Fortified Village enters tapped. / {T}: Add {G} or {W}.
+
+# DECISION
+Declare attackers. Choose any number of the 'Attack' options below (at most one per creature), or NONE to not attack. Creatures you leave out stay home as potential blockers.
+
+## AVAILABLE ACTIONS (choose from these ids only)
+[1] Attack with Champion of Lambholt (#380) 8/7 -> player Randy
+[2] Attack with Dawnhart Wardens (#330) 4/3 -> player Randy
+[3] Attack with Heron's Grace Champion (#312) 4/3 -> player Randy
+[4] Attack with Knight of the White Orchid (#307) 3/2 -> player Randy
+
+## CANNOT DO RIGHT NOW (do not attempt)
+- Custodi Soulbinders (#326) cannot attack - summoning sick (it has not been under your control since your turn began)
+- Leinore, Autumn Sovereign (#403) cannot attack - summoning sick (it has not been under your control since your turn began)
+- Riders of Gavony (#333) cannot attack - summoning sick (it has not been under your control since your turn began)
+
+-------- ANSWER: [1, 2, 3, 4]  reasoning: Champion of Lambholt is 8/7, so all of Randy's creatures (power 1-2) can't block my attackers. Attacking with all four unblockable creatures deals 8+4+4+3 = 19 damage, lethal on Randy's 17 life.

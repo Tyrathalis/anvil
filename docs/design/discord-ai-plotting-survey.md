@@ -1664,6 +1664,39 @@ training under the mask; the first weekly segment read is where an effect would 
 - **His question:** does the heuristic engine have debug logging rich enough to reconstruct its decision-making? "raw performance benchmarks are helpful, but in-depth decision making comparison capabilities even more so."
 - **The answer, from the upstream tip (10-07 archaeology):** no such log exists. Every candidate play gets an `AiAbilityDecision` (rating + one of ≈ 50 `AiPlayDecision` reason codes) from its `SpellAbilityAi`, and the controller takes the first willing candidate in comparator order (`AiController.chooseSpellAbilityToPlay`); attacks are the 0–6 `aiAggression` level, blocks ordered passes. None of it is written anywhere: `GameLogEntryType` has no AI entry; the only switches are compile-time (`LOG_AI_ATTACKS` final false, `SpellAbilityPicker.printOutput` private false, `GameSimulator.debugPrint` a public static for the simulation profile only); the one stock print is the eval-thread stack at an AI timeout. **An opt-in AI decision log is a small, design-shaped upstream item (Tier 5 of the submission plan: Discord first) — and it is what Mentor's narration wants too.** What the fork has instead: the per-window legal option list + the pick (the agreement instrument), not the heuristic's reasons.
 
+**The two prompt files, read 10-07** (saved beside this doc in `discord-attachments/2026-10-07-tbsteun/`:
+`final_turn.txt` = the winning attack declaration of a 1-LLM-vs-stock-AI-ish pod at turn 50; `request_response.json`
+= one full opencode request/response at turn 46 of a 3-LLM pod, deepseek-flash, variant `high`):
+
+- **The prompt is a session with compaction, not a fresh state dump.** Header "decision N of this session";
+  "What happened since your last decision" is a delta log of triggers and casts since the LLM last held
+  control; the full state follows (players, battlefield grouped creatures / other permanents / lands with a
+  `Plains x11 (1 untapped)` compaction, graveyard and exile by name, commander zone + cast count + tax,
+  commander damage per source), then the hand, the stack, and **card text only for cards not shown before
+  in this session** — the token-economy trick. Decision 5 at turn 46 and decision 7 at turn 50: the LLM is
+  handed control a handful of times per game; the stock AI plays the rest.
+- **The action list is engine-enumerated ids** (`[1] Attack with X -> player Y`, one row per attacker ×
+  defender), with a **"CANNOT DO RIGHT NOW" block carrying the engine's reason** ("summoning sick") and a
+  rules-query action (`[11] Query MTG rules`). This is our legal-option enumeration with the veto label
+  attached, in prose. For the agreement-gap read his transcripts already hold the id list and the pick;
+  what is missing is the heuristic's own pick on the same list — the decision-log item, again.
+- **The price and latency of one decision (turn 46):** 31,097 tokens total, of which 28,928 cache reads,
+  1,591 fresh input, 494 reasoning, 84 output; **$0.00085**; 4.0 s wall. The $0.87 / 50-turn game of 10-06
+  is consistent with a few hundred such decisions. Cache reads carry the session.
+- **The reasoning quality, two samples.** Turn 50: correct and tight — Champion of Lambholt's 8 power
+  means Randy's 1–2-power creatures cannot block, 8+4+4+3 = 19 ≥ 17, swing with all four, lethal (it
+  ignores Randy's seven cards and sixteen open lands with Aetherize / Cyclonic Rift in the yard, but with
+  lethal on board and nothing better to do the attack is still right). Turn 46: a rambling 494-token
+  "Hmm / Actually" loop that lands on a defensible all-in at the higher-life opponent for the Curse of
+  Disturbance token; it mis-reads the formatter's commander line ("Kalemne in stack (suspended)").
+- **A formatter bug to tell him about:** the `Commander:` line reports `in Stack` for a commander that is
+  on the battlefield — `final_turn.txt` lists Leinore, Autumn Sovereign (#403) under the player's creatures
+  (summoning sick) and the Commander line says "in Stack"; the same for Kalemne at turn 46. Likely the zone
+  lookup reads a stale LKI/stack reference after the commander resolves. Worth a line in the thread; it is
+  the kind of state-encoding defect the engine would never let a learned seat make (invariant 1).
+- **For Mentor:** the delta log + "text once per session" + grouped battlefield is a ready-made narration
+  context shape; the `CANNOT DO` block with reasons is the coach's "why not" list for free.
+
 *To TBSTeun — **posted by the user 10-07** (the maintainer question in the same message; if no maintainer
 checks in, the item stays on the upstream plan as Tier 5 for a later proposal, or goes on the fork as a
 logging-only change — ADR-0025-exempt in kind, still needing its forkcheck proof, built on a worktree jar
