@@ -1664,16 +1664,19 @@ training under the mask; the first weekly segment read is where an effect would 
 - **His question:** does the heuristic engine have debug logging rich enough to reconstruct its decision-making? "raw performance benchmarks are helpful, but in-depth decision making comparison capabilities even more so."
 - **The answer, from the upstream tip (10-07 archaeology):** no such log exists. Every candidate play gets an `AiAbilityDecision` (rating + one of ≈ 50 `AiPlayDecision` reason codes) from its `SpellAbilityAi`, and the controller takes the first willing candidate in comparator order (`AiController.chooseSpellAbilityToPlay`); attacks are the 0–6 `aiAggression` level, blocks ordered passes. None of it is written anywhere: `GameLogEntryType` has no AI entry; the only switches are compile-time (`LOG_AI_ATTACKS` final false, `SpellAbilityPicker.printOutput` private false, `GameSimulator.debugPrint` a public static for the simulation profile only); the one stock print is the eval-thread stack at an AI timeout. **An opt-in AI decision log is a small, design-shaped upstream item (Tier 5 of the submission plan: Discord first) — and it is what Mentor's narration wants too.** What the fork has instead: the per-window legal option list + the pick (the agreement instrument), not the heuristic's reasons.
 
-*To TBSTeun — the user's version, 10-07 (supersedes the longer draft beneath it; the maintainer question
-may go to `#contribution-questions` instead of the thread):*
+*To TBSTeun — **posted by the user 10-07** (the maintainer question in the same message; if no maintainer
+checks in, the item stays on the upstream plan as Tier 5 for a later proposal, or goes on the fork as a
+logging-only change — ADR-0025-exempt in kind, still needing its forkcheck proof, built on a worktree jar
+while the big run holds the fork frozen):*
 
 > Well, you can record a game log with the actions the heuristic actually took, and my fork records the
-> legal options at each window, but there isn't currently a way to record the heuristic's reasoning: which
-> candidates it considered and why it passed on each one.
+> legal options at each window, but there isn't currently a way to record the heuristic's reasoning. The
+> heuristic works by running through candidates in a fixed order, but there's no way to log why it passes
+> on each.
 >
-> It doesn't look too hard to implement; the reason codes already exist at the decision point, they just
-> aren't written anywhere. I'd be interested in that data as well. Do any maintainers have thoughts on an
-> opt-in logging mode that records the reason for an AI player's decision?
+> It doesn't look too hard to implement. The reason codes already exist at the decision point, they just
+> aren't written anywhere, and I'd be interested in that data as well. Do any maintainers have thoughts on
+> an opt-in logging mode that records the reason for an AI player's decision?
 
 *To TBSTeun — the earlier, longer draft (superseded):*
 
