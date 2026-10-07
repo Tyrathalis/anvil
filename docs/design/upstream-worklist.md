@@ -251,6 +251,19 @@ the first PR day, not here.
   — not this PR's change under rule 1); the sort re-cuts as "entries by element"; the
   `InheritableThreadLocal` reasoning restated with the swap offered. The PR is ready for review with
   Hanmac and tool4ever requested; the review's day-25 ping (rule 5) counts from 10-05.
+- **10-06 — the `InheritableThreadLocal` question is settled; tool4ever's pool concern answered**
+  ([the comment](https://github.com/Card-Forge/forge/pull/11285#issuecomment-6030108073)): Hanmac
+  (07:46 UTC) came down on inheritable after reading up on it (`ScopedValue` noted as Java 21+; the
+  anonymous-subclass form is his only remaining nit, a named nested class or lazy init offered).
+  tool4ever's review comment (07:35 UTC, no verdict): seeds must reach children, but pool-thread
+  reuse makes the OS scheduler a nondeterminism source. The answer, from the fork checkout: every
+  seeded upstream path (`SimulateMatch`, `SpellAbilityPicker`, `AdventureEventData`) runs on its
+  seeding thread; the one in-game spawn is `AiController`'s joined "Game AI Eval" thread, which
+  shares the parent's `Random` object so the stream evolves in program order as master's global did;
+  the cached `Game-N` pool is reached only from GUI code, where nothing seeds. The one true gap, a
+  harness that seeds on thread A and then submits into the cached pool, is no upstream path today;
+  the one-line fix (capture the submitter's stream in `invokeInGameThread`) was offered, not pushed.
+  The day-25 ping now counts from 10-06.
 - **10-05 evening, from the channel paste — Tier 1.1 has its pull:** MostCromulent (10-03) asked for
   small-diff perf improvements and named the go-wide token-deck slowdown as Forge's biggest
   user-facing issue; the block-legality cache is that fix. Sequence 1.1 ahead of Tier 0's tail
