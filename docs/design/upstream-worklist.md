@@ -59,7 +59,13 @@ What the record says the maintainers accept, from #11203's review (tool4ever, 07
 9. **Scan the issue tracker before packaging an item** (10-07, the user's rule after tool4ever connected
    #12162 to the two-year-old #4669): search by card name, exception text, method name and symptom, open
    and closed, through the search API with a `repo:` qualifier (`gh api search/issues -f q='repo:Card-Forge/forge
-   <terms>'`; the `gh search issues` wrapper drops multi-word hits). A matching open issue goes in the
+   <terms>'`; the `gh search issues` wrapper drops multi-word hits).
+   **Also reproduce on a stock build before packaging a fix carried from `playable`** (10-07, Tier 3.1): the
+   playable shell differs from upstream's; a fix that is real there can be a no-op upstream. GUI screenshot
+   recipe: `Xvfb :99 -screen 0 1600x1000x24 &`, then from `forge-gui-mobile-dev/` run
+   `DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1 java -Duser.home=<scratch> -jar <mobile-dev jar-with-dependencies>`
+   (it finds `../forge-gui/res`), drive with `xdotool` (a single tap opens an ItemManager row's menu; a long
+   press is the card zoom), capture with `import -display :99 -window root out.png`. A matching open issue goes in the
    description as `Closes #N`; a closed or adjacent one as context; a maintainer's prior PR on the same
    method is read before the diff is cut.
 
@@ -135,7 +141,7 @@ noted. None touches the engine.
 
 | # | Fix | playable commit | Diff | Note |
 |---|---|---|---|---|
-| 3.1 | ItemManager context menu offset when the screen is embedded (mobile-dev shell; identity on phones) | `10c22003df` | 12 lines, no test | needs a before / after screenshot |
+| ~~3.1~~ | ~~ItemManager context menu offset when the screen is embedded~~ **STRUCK 10-07: not a stock bug.** On upstream's mobile-dev the screen fills the window, the menu's container (`FDropDown.getContainer()` = the current screen) sits at the origin, and the menu lands under the row — verified on an unfixed tip build on Xvfb (deck editor list view, single tap). The offset exists only on `playable`, whose resizable-window / live-rescale changes to `Forge.java` + `GameLauncher` embed the screen. Stays a playable fix; could ride a future live-rescale upstream PR (Tier 5). Branch `itemmanager-menu-container-offset` local only, unpushed. | `10c22003df` | — | — |
 | 3.2 | `FTextField` CHANGE fires per keystroke; the online chat sends a network message per event (per-keystroke chat is broken on master today) | `881207ed27` (half) | 16 lines + 8 opt-in call sites for the local search filters | split from 3.3 |
 | 3.3 | Net lobby team-selection echo (the wire listener drops the panel index; the server applies to the sender's slot) | `881207ed27` (half) | ≈ 25 lines | rebase over #11942 (disjoint hunks: icon refresh vs the team combo) |
 | 3.4 | `RestartUtil` never relaunches (one command string through `Runtime.exec(String)`: quoted binary, paths with spaces) | `57e345f922` | 133 lines + a 57-line test | the largest here; offer the minimal `ProcessBuilder` form and keep the test to the two failing shapes |
@@ -362,8 +368,8 @@ Coffers control).
   station AI, 2026-03) is the logic that reaches the path. Description drafted (`pr-station.md`).
 - **3.1 `itemmanager-menu-container-offset` `d5b708e317`:** playable `10c22003df` re-cut with a one-line
   comment; `ItemManager` on the tip was last touched 09-10 (#11833) and the block is unchanged; `getContainer()`
-  is `FDropDown`'s. `forge-gui-mobile` compiles. Issue scan: nothing on the menu offset. **Blocked on the
-  screenshots:** the mobile-dev shell runs from the module dir (`cd forge-gui-mobile-dev && java
+  is `FDropDown`'s. `forge-gui-mobile` compiles. Issue scan: nothing on the menu offset. **RESOLVED 10-07 evening — STRUCK, see the Tier 3 table:** the screenshots were taken and showed no bug on stock.
+  The original note: the mobile-dev shell runs from the module dir (`cd forge-gui-mobile-dev && java
   -Duser.home=<scratch> -jar <mobile-dev jar-with-dependencies>`; it finds `../forge-gui/res`; both jars are
   built, after/before, in the session scratchpad) but the desktop was locked when the shell came up and the
   box has no Xvfb; the capture needs the desktop unlocked (I drive it with xdotool + spectacle) or
