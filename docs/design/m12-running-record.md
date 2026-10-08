@@ -2545,3 +2545,13 @@ record.*
   seeds, the warm start − the reference = **+1.93 ± 1.14pp** (t 1.69; 272 up / 234 down). The loop opened iteration
   0 at 00:09 from `shakedown-alloc/iter-019` with the day-zero state-ranking Spearman **0.2502 ± 0.028** (the drifted
   trunk, as the recovery cell read it; the segment-1 floor 0.15). `data/runs/big-run/read.md` holds the table.
+- **2026-10-07 (18:00) — THE BIG RUN AT ITERATION 25 (41 h): a policy-step regime change at iteration 20, under
+  the guard.** kl_mu rose from the 0.005–0.010 band of iterations 0–19 to **0.020–0.035** at 20–24 (per-step mean
+  ×3; entropy 0.18 → 0.25 then 0.19–0.22; the guard 0.06 untripped). Read from the trainer rows: a sustained
+  level, not a spike; no discontinuity in the alloc tau, the searched-row counts or the store mix; `gn_pg` no larger;
+  the distill and alloc loss shares doubled at 20. Iteration 20 is past every prior cell's length (the rung-2 cell's
+  kl_mu never exceeded 0.015 in 20 iterations; the alloc arm touched 0.0235 once). The Spearman holds at
+  0.48 (the run's high). ADR-0123's rule stands: mid-run reads are for the guards, the gap and the Spearman — the
+  kl guard holds at 0.06, a session tripline is armed at 0.045, and the decision-delta read is routed to a
+  maintenance window if the level holds. The arms rows (the trend meter): 4: 0.5025 / 0.5225 · 9: 0.5225 / 0.560
+  · 14: 0.515 / 0.5475 · 19: 0.500 / 0.5325 (network-alone / with-lookahead, ± 0.025 each).
