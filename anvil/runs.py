@@ -7,8 +7,10 @@ construction, what the checklist used to ask each script to remember:
 
   detach      double-fork + setsid, stdin from /dev/null, the log in D
   buffering   PYTHONUNBUFFERED=1 in the child's environment
-  priority    nice (default 19); --memory-max wraps the child in a
-              systemd-run --user scope where systemd is present (Linux),
+  priority    nice (default 19); the child runs in its OWN systemd-run --user
+              scope where systemd is present (Linux; 10-10: own cgroup,
+              ManagedOOMPreference=avoid, outlives the launching app and the
+              sweep service) — --memory-max adds a MemoryMax cap to it,
               ignored with a note elsewhere
   state       runs/<N>.json under the state dir: running -> done | failed
               (exit code, the log tail). A failure is a RECORDED state, never
@@ -362,17 +364,35 @@ def claude_selftest(timeout: int = 120) -> tuple[bool, str, int]:
         return False, repr(e)[:160], int(time.time() - t0)
 
 
-def _child_cmd(cmd: list[str], nice: int, memory_max: str | None, name: str) -> tuple[list[str], str | None]:
+def _child_cmd(cmd: list[str], nice: int, memory_max: str | None, name: str,
+               scope: bool = True) -> tuple[list[str], str | None]:
     """The command the supervisor spawns; a note when a requested wrapper
-    is unavailable on this platform."""
+    is unavailable on this platform.
+
+    10-10: the child runs in its OWN systemd-run --user scope wherever
+    systemd is present, not only under --memory-max. The big run launched
+    from a Claude desktop session lived in that app's cgroup and died with
+    it when systemd-oomd killed the app (62 GB used, 60 GB of swap: the
+    run's 24 JVMs + the learner + the desktop in one unit); the sweep's
+    resume-on-gone relaunch then ran inside the oneshot sweep service's
+    cgroup and was killed 5 s later when the service ended. An own scope
+    outlives the launching app and the sweep, and ManagedOOMPreference=avoid
+    tells oomd to kill the desktop first. `scope=False` (--foreground, the
+    tests) spawns the bare command."""
     note = None
+    have_systemd = bool(shutil.which("systemd-run")) and sys.platform.startswith("linux")
+    if scope and have_systemd:
+        # Nice is not a scope property (systemd-run refuses "Nice=" on --scope);
+        # the supervisor's preexec nice is inherited by the scoped command
+        props = ["-p", "ManagedOOMPreference=avoid"]
+        if memory_max:
+            props += ["-p", f"MemoryMax={memory_max}"]
+        return (
+            ["systemd-run", "--user", "--scope", "--quiet", f"--unit=anvil-{name}-{os.getpid()}"]
+            + props + cmd,
+            None,
+        )
     if memory_max:
-        if shutil.which("systemd-run") and sys.platform.startswith("linux"):
-            return (
-                ["systemd-run", "--user", "--scope", "--quiet", f"--unit=anvil-{name}-{os.getpid()}",
-                 "-p", f"MemoryMax={memory_max}", "-p", f"Nice={nice}"] + cmd,
-                None,
-            )
         note = f"--memory-max {memory_max} ignored: no systemd-run on this platform"
     return cmd, note
 
@@ -384,7 +404,7 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     log = Path(a.log).resolve() if a.log else run_dir / "run.log"
     env = dict(os.environ, PYTHONUNBUFFERED="1", ANVIL_RUN_NAME=a.name)
-    real_cmd, note = _child_cmd(cmd, a.nice, a.memory_max, a.name)
+    real_cmd, note = _child_cmd(cmd, a.nice, a.memory_max, a.name, scope=not getattr(a, "foreground", False))
     stall_s = a.stall_sec if a.stall_sec is not None else a.stall_min * 60
     watch = [str(w) for w in (getattr(a, "watch", None) or [])]
 
@@ -410,7 +430,7 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     try:
         child = subprocess.Popen(
             real_cmd, stdout=logf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-            env=env, cwd=a.cwd or None, preexec_fn=preexec if not a.memory_max else None,
+            env=env, cwd=a.cwd or None, preexec_fn=preexec,
         )
     except Exception as e:  # noqa: BLE001
         st = {

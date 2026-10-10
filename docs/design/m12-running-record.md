@@ -2555,3 +2555,14 @@ record.*
   kl guard holds at 0.06, a session tripline is armed at 0.045, and the decision-delta read is routed to a
   maintenance window if the level holds. The arms rows (the trend meter): 4: 0.5025 / 0.5225 · 9: 0.5225 / 0.560
   · 14: 0.515 / 0.5475 · 19: 0.500 / 0.5325 (network-alone / with-lookahead, ± 0.025 each).
+- **2026-10-10 (15:50) — THE BIG RUN KILLED BY systemd-oomd AT ITERATION 60 (102 h); THE LAUNCHER GETS ITS OWN SCOPE.**
+  The run was launched from the Claude desktop session and lived in that app's cgroup; at 15:42 the box hit 62.5 /
+  67 GB and 60 GB of zram swap and oomd killed the app's scope (58.7 GB peak: the run's 24 JVMs at 2g + the learner +
+  the servers + the desktop's 5-day session + Firefox), taking the loop in iteration 60's training step. Nothing
+  is lost beyond that step: the state file holds iteration 60 / `iter-059` / 102.2 h, the three batches are on disk.
+  The sweep's resume-on-gone relaunch died with the sweep service's cgroup 9 s later (misrecorded `done rc=0`).
+  **Fix:** `anvil.runs launch` puts every detached command in its own `systemd-run --user --scope` with
+  `ManagedOOMPreference=avoid` (the desktop dies before a run; a relaunch outlives the sweep service); 20 tests
+  pass. The user updates the box (the LTS kernel trio joins the pins — its nvidia module needs the pinned
+  `nvidia-utils`) and reboots; then `anvil.runs relaunch --name big-run` resumes segment 1 under the new scope.
+  Rule of thumb born: the run tree alone peaks near 55 GB on this 62 GB box — keep the desktop light beside it.
