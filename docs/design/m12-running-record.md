@@ -2566,3 +2566,25 @@ record.*
   pass. The user updates the box (the LTS kernel trio joins the pins — its nvidia module needs the pinned
   `nvidia-utils`) and reboots; then `anvil.runs relaunch --name big-run` resumes segment 1 under the new scope.
   Rule of thumb born: the run tree alone peaks near 55 GB on this 62 GB box — keep the desktop light beside it.
+- **2026-10-13 (17:30) — SEGMENT 1 CLOSED: THE BAR READS AS CLEARED ON THE LETTER, AT ITS EDGE; THE CONFIRMING PAIRED
+  READ IS THE NEXT STEP.** 100 iterations, 166.9 productive hours (10.9 h yielded to ComfyUI excluded), 48,000 games;
+  the final checkpoint `big-run/iter-099`. The segment read on the chain's seeds (20261006), masked, raw: **network-alone
+  0.5640 ± 0.0111** (2,000 games, 1,981 decisive, 3 crashes) against the bar of 0.563 (the era reference's masked
+  0.5380 + 2.5pp); paired on the same seeds, **+2.74 ± 1.21pp vs the era reference** (t 2.26; 313 up / 259 down) and
+  **+0.81 ± 1.20pp vs the warm start** (t 0.68). **With-lookahead 0.6030 ± 0.0155** (1,000 games; the start point's
+  0.5856, +1.7pp ≈ 0.8 SE). Read against ADR-0123 §5: the promotion clause is met on the point estimate (0.564 ≥ 0.563)
+  and on the paired estimator (+2.74 ≥ +2.5), both at the edge; the ADR names the paired read at 2,500 games per seat
+  on fresh seeds as the confirming number — it is routed to the boundary (the user's call: now, ≈ 4 h, or at a later
+  boundary). The kill-rule shape (segment 3's clause) does not read: with-lookahead is +0.8 SE above its start, not 2.
+  **The slope re-issued from the run's own curve (§4):** +0.81 ± 1.20pp network-alone per 167-h segment from the warm
+  start — inside noise of zero, an order of magnitude under the alloc arm's 0.067 pp/h; the +2.74 over the reference is
+  the warm start's +1.93 plus this segment's +0.81. **The value head:** the Spearman peaked at 0.485 (20–29) and drifted
+  to **0.3975 ± 0.025** at the close, ≈ −0.011 per 10 iterations since 30, 1 SE above the day-zero build's 0.374; the
+  ADR-0118 tripline (> 2 SE below 0.374 with network-alone flat) does not fire, and segment 2's guard floor is 0.30 —
+  at the drift's rate the floor would halt the loop near iteration 190, segment 2's end; a halt is the pre-registered
+  response (a value-head pass), so the floor stands as the ADR wrote it. **The battery (exploratory):** the kl step at
+  20 (closed by 25); the behavioral delta vs the warm start on 20,224 windows — 32.5% of its cast decisions changed,
+  37% of them cast → pass (the anchor cell that lost 5pp: 69%; run13: 46%); the read's sign is positive. Veto rate on
+  the read 0.0282 (the start point's 0.0252). **The launcher's check-in could not find this session's ref** after the
+  10-10 app restart and routed to a fallback session (no record written there); the ref is re-read at the next launch.
+  `data/runs/big-run/read.md`; the battery `data/training/big-run/analysis/analysis.md`.
