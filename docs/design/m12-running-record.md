@@ -2588,3 +2588,18 @@ record.*
   the read 0.0282 (the start point's 0.0252). **The launcher's check-in could not find this session's ref** after the
   10-10 app restart and routed to a fallback session (no record written there); the ref is re-read at the next launch.
   `data/runs/big-run/read.md`; the battery `data/training/big-run/analysis/analysis.md`.
+- **2026-10-13 (22:25) — THE CONFIRMING PAIRED READ: +4.22 ± 0.79pp — `big-run/iter-099` PROMOTED TO THE CKPT OF
+  RECORD.** `big-run-confirm` (`scripts/big_run_confirm_read.sh`): `iter-099` **0.5776 ± 0.0070** and the era reference
+  `d6-run11/iter-019` **0.5348 ± 0.0071**, each 2,500 games per seat on fresh seeds (20261013), network-alone, masked,
+  raw, on the launch jar; paired game-for-game **+4.22 ± 0.79pp** (t 5.36; 853 up / 646 down; 4,909 paired). The
+  reference's fresh raw masked number matches its corrected number of record (0.5348) to the digit. ADR-0123 §5's
+  promotion clause is confirmed at 5.4 SE where the segment read had met it at its edge (+2.74 ± 1.21 on the chain's
+  seeds): the two seed sets differ by ≈ 1.5pp in the checkpoint's own level (0.5640 vs 0.5776; 1 SE of the smaller
+  read) and the paired gap is the number that carries. **Promoted under the standing default (promote on a cleared
+  gate unless the run is suspect; nothing marks it suspect — the Spearman drift is a value-head flag, the behavioral
+  delta's cast → pass share is the mildest on record):** the state table and the map now carry `big-run/iter-099` at
+  0.5640 ± 0.0111 (the standard read) with the confirmation beside it; `d6-run11/iter-019` stays the era reference for
+  the run's remaining segment reads (the bar's base does not move mid-run). The read took 3.6 h (410 g/h). The
+  launcher's relay fell back to `anvil-box` again (no live row carries this session's ref from a peer's view); the
+  peer wrote nothing. **Next: the user's go for segment 2** (`echo 2 > data/runs/big-run/segment`, `anvil.runs
+  relaunch --name big-run`; the floor 0.30).
