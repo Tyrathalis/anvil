@@ -2603,3 +2603,4 @@ record.*
   launcher's relay fell back to `anvil-box` again (no live row carries this session's ref from a peer's view); the
   peer wrote nothing. **Next: the user's go for segment 2** (`echo 2 > data/runs/big-run/segment`, `anvil.runs
   relaunch --name big-run`; the floor 0.30).
+- **2026-10-13 (22:34) — SEGMENT 2 LAUNCHED (the user's go):** the same loop resumed at iteration 100 (`anvil.runs relaunch`, the segment file at 2; `--wall-hours 336`, the Spearman floor 0.30, the game index continuing at 48,000) in the launcher's own scope; no reads beyond the registered ones (ADR-0123 §4: mid-run reads are for the guards, the gap and the Spearman). The session watch: kl ≥ 0.045, any guard, the Spearman below 0.33 (the ADR-0118 tripline level), the wall stop.
