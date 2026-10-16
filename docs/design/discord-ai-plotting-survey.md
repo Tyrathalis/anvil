@@ -1742,6 +1742,24 @@ simulation. **Build started 10-07 afternoon** (branch `ai-decision-log` on `../f
 > the opt-in, like the NETWORK one. Blocks are a follow-up since they're passes, not reason codes. Teun, hold off
 > building it in forge-llm; I'll have a PR up in the next day or two.
 
+**10-15 — Kryptic asks: frozen critic or value anchor?** The answer from the record (ADR-0118 / 0119 / 0123):
+neither label fits. The value head trains live on V-trace targets from the policy's own rollouts; the frozen
+full-vis critic (`d4-critic-fullvis`) is evaluation and the Ante ledger only, never a bootstrap target; the anchor
+is a weight-0.1 replay term on the Build 1 banks (pre-action states with K=8 rollout winrates, search leaves scored
+by the full-vis critic), head-only, with the value gradient stopped at the trunk (trunk lr 3e-6 / head 1e-4). The
+evidence: Spearman 0.374 → 0.256 over 16 iterations unanchored; the head-swap read put the drift in the trunk; the
+no-anchor control stayed at 0.25 while the anchored cell climbed to 0.44; big-run iteration 124 reads 0.394. Kept
+out of the reply: the ladder's era-bound winrate costs.
+
+*To Kryptic — posted by the user 10-15:*
+
+> Sort of partway for both. The value head trains live from the policy's own rollouts, but we also keep a frozen
+> full-visibility critic for evaluation only. There's also a small low-weight anchor on the head to hold it against
+> drift: a replay term on fixed rollout-labelled banks. Without it the head's state-ranking against fresh rollouts
+> drifted from 0.37 to 0.25 over a few dozen iterations, and a head-swap read put the drift in the trunk's
+> representation rather than the head, so the value gradient is now stopped at the trunk and the anchor holds the
+> head. Let me know if you need any detail!
+
 *To TBSTeun — **posted by the user 10-07** (the maintainer question in the same message; if no maintainer
 checks in, the item stays on the upstream plan as Tier 5 for a later proposal, or goes on the fork as a
 logging-only change — ADR-0025-exempt in kind, still needing its forkcheck proof, built on a worktree jar
