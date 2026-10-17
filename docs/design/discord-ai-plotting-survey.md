@@ -1883,3 +1883,9 @@ warning is for the new run, not a diagnosis of the posted ones; the early warnin
 > Thanks for the monitor. I don't think the anchor will fix this one. When we ran without it, kl_mu sat in the same band as the anchored run; the slow trunk set the policy step and the anchor only held the value ranking.
 >
 > What stands out to me is that kl climbs from the very first iteration, 0.003 to 0.08 by iteration 7, while entropy goes up rather than down, and casts per game climb right along with it while reward falls. So the policy is casting more, the casts are succeeding, and it's losing more. A per-card cast count at iterations 0, 7 and 14 would show whether that's one card (BTE?) or a general shift. If it's general, I'd try halving the base lr on the heads next. Since you're running search-off against the heuristic, kl_mu is reading your update size directly, so a kl guard around 0.05 would have caught this at iteration 6.
+
+*To Kryptic — **the user's final version (10-17), to post** (supersedes the draft above):*
+
+> Hm, I don't think the anchor will fix this one. When we ran without an anchor, kl_mu was in the same band as on the anchored run. But you've got kl climbing right from the first iteration, while entropy is also rising, as are casts. So your model is successfully casting more, but losing strength. Might be worth checking per-card cast counts? Maybe it's a side effect of integrating in new cards that were unplayable before. Otherwise you might need a lower learning rate.
+
+**Routed (the user, 10-17): check in on dama's GitHub after the big run** — `adams-shaun/gorge` and the new `gorge-compliance` (the core / compliance split, the semver seat interfaces, any whole-game comparison, which of his 10–15 bugs were Forge's). It rides with the gorge item and the gen-split profile.

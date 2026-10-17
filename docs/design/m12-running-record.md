@@ -2624,3 +2624,6 @@ record.*
   expired OAuth session until the CLI is logged in again (the session waits cover the run meanwhile). Segment 2 to
   iteration 138: the Spearman in a 0.37–0.40 band since 99 (137 at 0.373, the day-zero level; the floor 0.30), kl_mu
   0.007–0.028, the arms rows paired vs `iter-099` within ±2pp but for the one-row dip at 119 (−7.1; recovered at 124).
+- **2026-10-17 — added to the boundary agenda's after-the-big-run list:** check in on dama's GitHub
+  (`adams-shaun/gorge`, the new `gorge-compliance` split) before the gorge question is taken up; with the gen-split
+  profile (Forge vs inference / search inside gen) as its first step. Survey 10-17.
