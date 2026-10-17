@@ -1825,6 +1825,15 @@ AI's own choice — that's the cheap imitation-gap read."
 
 ### Draft replies (10-16; the user posts; nothing posted from here)
 
+*To Kryptic — the instability and BTE, **the user's final version (10-16), to post** (supersedes the rewrite below;
+dropped from it: the early-warning line, the per-card cast count, the rolling-back guard):*
+
+> That's neat that you've got such a clear instance of the mask enabling it to learn a spell it wouldn't otherwise cast! Is the color head conditioned on the opponent's colors directly, or does it read them off the board?
+>
+> As a heads-up for the new run, if your similar settings include stopping the value gradient at the trunk, you probably want to lower the trunk's learning rate too. With the value gradient gone, AdamW scales the trunk's step to the policy gradient alone, so the same lr becomes a much bigger policy step. We had good results with --trunk-lr 3e-6 against a base of 1e-5, with the value head at 1e-4, which kept the kl_mu level from running away.
+>
+> And on those two runs, they look like the same event to me. Entropy drifts down, then kl breaks together with a burst of extra casts. In the unmasked run the burst came with the veto spike and in the masked run it came without one, so I'd say the vetoes are a symptom.
+
 *To Kryptic — the instability and BTE (one message; rewritten 10-16 with the two caveats: the stop-grad
 warning is for the new run, not a diagnosis of the posted ones; the early warning shows in one run of two):*
 
