@@ -2604,3 +2604,17 @@ record.*
   peer wrote nothing. **Next: the user's go for segment 2** (`echo 2 > data/runs/big-run/segment`, `anvil.runs
   relaunch --name big-run`; the floor 0.30).
 - **2026-10-13 (22:34) — SEGMENT 2 LAUNCHED (the user's go):** the same loop resumed at iteration 100 (`anvil.runs relaunch`, the segment file at 2; `--wall-hours 336`, the Spearman floor 0.30, the game index continuing at 48,000) in the launcher's own scope; no reads beyond the registered ones (ADR-0123 §4: mid-run reads are for the guards, the gap and the Spearman). The session watch: kl ≥ 0.045, any guard, the Spearman below 0.33 (the ADR-0118 tripline level), the wall stop.
+- **2026-10-16 — segment-2 boundary agenda (the user: pause and think at the wall stop).** Items queued to discuss
+  there, not built: (1) **a rolling-back guard action**: on a guard breach, restore the last accepted checkpoint and
+  continue at a reduced lr instead of exiting (≈ 30 lines in `selfplay.py`'s halt site). Prompted by Kryptic's
+  relaxed-guard runs (survey 10-16): a halt costs idle hours. (2) **Is the lr too high? Not on the evidence
+  (read 10-16 over iterations 0–137):** kl_mu sits at 0.006–0.014 with no trend across both segments (guard
+  0.05); entropy holds at 0.16–0.20 with no collapse; neither the KL-break signature (entropy floor → kl spike →
+  cast burst) nor a rising decode CE is present. The lone oscillation is the 119 dip (−8.4pp vs 109 on the meter,
+  recovered by 124). The candidates the boundary should weigh instead: (a) **rho_clip at 0.40–0.77 every
+  iteration**, so most steps' importance ratios are truncated at rho_bar (search-acted mu plus `--replay 4`
+  staleness) and the PG signal is the clipped correction's; (b) **the Spearman's slide 0.48 (iteration 20) →
+  0.37–0.40** under the anchor, a degrading leaf for the search that generates the data; (c) the run's own gain
+  is unproven: segment 1 closed +0.81 ± 1.20pp over its warm start (the promotion was over the era reference),
+  so "flat in segment 2" may be "flat since the start". A discriminating read, if wanted: two equal-wall arms
+  from the segment's close checkpoint at lr ×0.5 and ×2, paired.
