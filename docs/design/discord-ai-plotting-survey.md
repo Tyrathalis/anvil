@@ -1846,11 +1846,11 @@ warning is for the new run, not a diagnosis of the posted ones; the early warnin
 >
 > Also, for what it's worth, our guard halt rejects the checkpoint rather than accepting it, so a halt overnight only costs the idle time. A guard that rolls back and continues at a lower lr would get you both, and I'm thinking about adding one.
 
-*To dama and Kryptic — gorge, **the user's final version (10-16), to post** (supersedes the draft below):*
+*To dama and Kryptic — gorge, **posted by the user 10-16** (supersedes the draft below):*
 
 > @dama, I had a look at the compliance pipeline, and the per-card scenarios against XMage with Forge as a third oracle are a nice setup. Have you done any whole-game comparisons, like one game's decisions replayed through both engines?
 >
-> @kryptic, I'm definitely bottlenecked on compute right now, so I'm very happy to consider faster engines. The speed and the ability to preserve the card vocabulary here both look very promising, though of course verifying that any comparisons are valid could be tricky. I'll look into it after my current big training run. Speeding up search would open up a lot of additional options.
+> @kryptic, I'm definitely bottlenecked on compute right now, so I'm very happy to consider faster engines. The speed and the ability to preserve the card vocabulary here both look very promising, though of course verifying that the two engines play the same game could be tricky. I'll look into it after my current big training run. Speeding up search would open up a lot of additional options.
 
 *To Kryptic — gorge:*
 
