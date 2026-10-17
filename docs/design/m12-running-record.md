@@ -2618,3 +2618,9 @@ record.*
   is unproven: segment 1 closed +0.81 ± 1.20pp over its warm start (the promotion was over the era reference),
   so "flat in segment 2" may be "flat since the start". A discriminating read, if wanted: two equal-wall arms
   from the segment's close checkpoint at lr ×0.5 and ×2, paired.
+- **2026-10-16 (20:40) — THE BOX REBOOTED AT ITERATION 139; THE RUN RESUMED 20:34.** The run survived a desktop
+  interruption in its own scope; the user's update + reboot stopped it at 20:31 with the state intact (iteration 139,
+  231.5 h) and the pins held; `relaunch` resumed it in a fresh scope. The launcher's `claude -p` check-in fails on an
+  expired OAuth session until the CLI is logged in again (the session waits cover the run meanwhile). Segment 2 to
+  iteration 138: the Spearman in a 0.37–0.40 band since 99 (137 at 0.373, the day-zero level; the floor 0.30), kl_mu
+  0.007–0.028, the arms rows paired vs `iter-099` within ±2pp but for the one-row dip at 119 (−7.1; recovered at 124).
