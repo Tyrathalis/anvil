@@ -1798,7 +1798,7 @@ each way (± 5pp, ≈ $40 at your per-game cost). mage-bench is the only measure
 on XMage. If you post a transcript dir I'd be curious how often the picked action id was the stock
 AI's own choice — that's the cheap imitation-gap read."
 
-### 10-07 → 10-16 follow-up: #12180 posted, gorge, Kryptic's iteration-60 instability and the Brave the Elements read, contribution-questions housekeeping (read 10-16 from the user's paste; the draft replies below are the user's to post)
+### 10-07 → 10-16 follow-up: #12180 posted, gorge, Kryptic's iteration-60 instability and the Brave the Elements read, contribution-questions housekeeping (read 10-16 from the user's paste; the user posted both replies below)
 
 **#ai-plotting.**
 - **#12180, the AI decision log (posted by the user 10-07 16:03):** every call sits behind the level check; tinylog 2.7's tagged `isTraceEnabled()` is a read of a final boolean; a few-hundred-game sim benchmark offered. TRT (10-07 13:36): "something like that", noting that a runtime switch loses the compile-time elimination of the static field, and that not having to rebuild might be better anyway. **TBSTeun (10-08):** he will pull it into his fork once it merges. *State 10-16:* OPEN, no reviews or comments since 10-07; rule 5's day-25 ping applies from 10-07 (≈ 11-01).
@@ -1824,9 +1824,9 @@ AI's own choice — that's the cheap imitation-gap read."
 
 **#contribution-questions (10-06 → 10-16): nothing for us to answer.** Madwand / TRT on the sound PRs (#11137 vs #11798; TRT reviews #11798 first); allentiak's regression-test ask; VigilantSera's red CI was the fork's push run, not the PR's (friarsol: "finicky tests … fixed recently"); **TRT on what a merge needs (#12086): "no merge conflicts (and time)"** — consistent with our one-engine-one-GUI pacing; MostCromulent (10-16): the channel is for code contributors, not developer Q&A. No reply yet to the user's 10-05 block-cache offer to MostCromulent (Tier 1.1 stays queued behind #12180's slot).
 
-### Draft replies (10-16; the user posts; nothing posted from here)
+### Replies (10-16; both posted by the user; the drafts kept beneath them)
 
-*To Kryptic — the instability and BTE, **the user's final version (10-16), to post** (supersedes the rewrite below;
+*To Kryptic — the instability and BTE, **posted by the user 10-16** (supersedes the rewrite below;
 dropped from it: the early-warning line, the per-card cast count, the rolling-back guard):*
 
 > That's neat that you've got such a clear instance of the mask enabling it to learn a spell it wouldn't otherwise cast! Is the color head conditioned on the opponent's colors directly, or does it read them off the board?
