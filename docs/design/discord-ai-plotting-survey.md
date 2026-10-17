@@ -1825,15 +1825,16 @@ AI's own choice — that's the cheap imitation-gap read."
 
 ### Draft replies (10-16; the user posts; nothing posted from here)
 
-*To Kryptic — the instability and BTE (one message):*
+*To Kryptic — the instability and BTE (one message; rewritten 10-16 with the two caveats: the stop-grad
+warning is for the new run, not a diagnosis of the posted ones; the early warning shows in one run of two):*
 
-> That BTE result is really cool! A card the heuristic can't play going from never-cast to cast-and-mostly-right is exactly the kind of thing the mask should unlock, and an aggregate winrate read would never show it. Is the color head conditioned on the opponent's colors directly, or does it have to read them off the board?
+> That BTE result is really cool! Going from never cast to cast every time, with the color choice climbing well above chance, is exactly what I'd hope a mask unlocks, and an aggregate winrate read would never show it. Is the color head given the opponent's colors directly, or does it have to read them off the board?
 >
-> On the instability: if your "similar settings" includes stopping the value gradient at the trunk, also drop the trunk's learning rate. When we turned the stop-grad on, the value gradients leaving the trunk handed AdamW's whole step to the policy, and kl_mu went 0.007 → 0.068 in four iterations. --trunk-lr 3e-6 (with the head at 1e-4) put it back at the control's level.
+> One heads-up for the new run: if your "similar settings" includes stopping the value gradient at the trunk, lower the trunk's learning rate too. With the value gradient gone, AdamW scales the trunk's step to the policy gradient alone, so the same lr becomes a much bigger policy step. When we first turned it on, kl_mu went 0.007 → 0.068 in four iterations. --trunk-lr 3e-6 (with the value head at 1e-4) put it back at the control's level. That won't explain the runs you posted, since they predate it, but it would bite this one.
 >
-> Your two monitors look like the same event to me: entropy drifts to its floor, then kl breaks together with a burst of extra casts. In the unmasked run the sched decode CE on live rows starts climbing about eight iterations before the break, so that might be your early warning. A per-card cast count at the spike iterations would tell you whether it's one card looping or a general shift.
+> On those two runs, they look like the same event to me: entropy drifts down to a floor, then kl breaks together with a burst of extra casts. In the unmasked run the burst came with the veto spike and in the masked run it came without one, so I'd read the vetoes as a symptom. In the unmasked run, at least, the sched decode CE on live rows starts climbing about eight iterations before the break, so it might work as an early warning, though it doesn't do that in the masked run. A per-card cast count at the spike iterations would tell you whether it's one card being cast in a loop or the policy shifting across the board.
 >
-> Also, for what it's worth, our guard halt rejects the checkpoint rather than accepting it, so a halt overnight only costs the idle time. A guard that rolls back and continues at a lower lr would get you both, and I'm thinking of adding one.
+> Also, for what it's worth, our guard halt rejects the checkpoint rather than accepting it, so a halt overnight only costs the idle time. A guard that rolls back and continues at a lower lr would get you both, and I'm thinking about adding one.
 
 *To Kryptic — gorge:*
 
