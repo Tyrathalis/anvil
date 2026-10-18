@@ -49,6 +49,12 @@ REF=${REF:-data/training/d6-run11/iter-019/train/last.pt}              # the era
 BANK=${BANK:-data/runs/m12-build1}                                      # the state bank + the value anchor's terms
 SEED_BASE=${SEED_BASE:-20261006}; SEG_HOURS=${SEG_HOURS:-168}
 WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}; LA_GAMES=${LA_GAMES:-500}
+# 10-17: the learner's DataLoader workers each open the WHOLE replay window (rl.py RlTrajectories: every store, sharded by game),
+# ≈ 4.5 GB apiece at this window — 12 of them (the settings cells' value) put the training step at ≈ 58 GB and systemd-oomd
+# killed the run twice (10-10 at iteration 60, 10-17 at 150) once the box's other residents took the slack. 6 halves it
+# (≈ 34 GB with the learner); the loader's parallelism and the per-epoch interleave of the same seeded schedule change, the
+# recipe does not (a different draw of the same data). RL_WORKERS=12 restores the old value.
+RL_WORKERS=${RL_WORKERS:-6}
 SEGMENT=$(cat "$OUT/segment" 2>/dev/null || echo 1)
 . "$REPO/scripts/recipe.sh"   # RECIPE — the one definition of the search recipe
 export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}"
@@ -128,7 +134,7 @@ if [[ $WALL_DONE -eq 0 ]]; then
   log "segment $SEGMENT: the loop to --wall-hours $WALL (spearman floor $FLOOR); resumes from $LOOP/loop_state.json if present"
   uv run python -m anvil.training.selfplay --name "$NAME" --ckpt "$START" --iterations 2000 --wall-hours "$WALL" \
     --games 480 --games-per-pair 2 --workers "$WORKERS" --chunk 30 --port 50063 --seed-base 20260921 \
-    --temperature 1.0 --replay 4 --fresh-weight 1.0 --replay-weight 0.33 --rl-workers 12 --epochs 1 --lr 1e-5 \
+    --temperature 1.0 --replay 4 --fresh-weight 1.0 --replay-weight 0.33 --rl-workers "$RL_WORKERS" --epochs 1 --lr 1e-5 \
     --ent-weight 0.003 --ent-floor 0.08 --rl-seg 128 --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult 1.5 \
     --guard-casts-floor 0.8 --penalty 0.02 --heur-frac 0.5 --value-weight 0.5 --traj-per-step 4 \
     --arms-every 5 --arms-pairs data/runs/d5arm-d0-s0-20260714-143546/pairs.txt --arms-games 200 --arms-seed-base 20260710 --arms-lookahead on \
