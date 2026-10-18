@@ -53,8 +53,10 @@ WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}; LA_GAMES=${LA_GAMES:-500
 # ≈ 4.5 GB apiece at this window — 12 of them (the settings cells' value) put the training step at ≈ 58 GB and systemd-oomd
 # killed the run twice (10-10 at iteration 60, 10-17 at 150) once the box's other residents took the slack. 6 halves it
 # (≈ 34 GB with the learner); the loader's parallelism and the per-epoch interleave of the same seeded schedule change, the
-# recipe does not (a different draw of the same data). RL_WORKERS=12 restores the old value.
-RL_WORKERS=${RL_WORKERS:-6}
+# recipe does not (a different draw of the same data). RL_WORKERS=12 restores the old value. 18:05: 6 workers peaked at
+# 47.9 GB (≈ 6.8 GB apiece — the per-worker size is the whole window decompressed, not a share) with 8.9 GB to spare beside
+# an idle ComfyUI (16 GB); 4 ≈ 34 GB leaves room for a ComfyUI generation. The step took 483 s at 6 (670 s at 12, swapping).
+RL_WORKERS=${RL_WORKERS:-4}
 SEGMENT=$(cat "$OUT/segment" 2>/dev/null || echo 1)
 . "$REPO/scripts/recipe.sh"   # RECIPE — the one definition of the search recipe
 export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}"
