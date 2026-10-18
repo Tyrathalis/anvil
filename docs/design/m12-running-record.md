@@ -2627,3 +2627,14 @@ record.*
 - **2026-10-17 — added to the boundary agenda's after-the-big-run list:** check in on dama's GitHub
   (`adams-shaun/gorge`, the new `gorge-compliance` split) before the gorge question is taken up; with the gen-split
   profile (Forge vs inference / search inside gen) as its first step. Survey 10-17.
+- **2026-10-17 (18:00) — THE SECOND OOM KILL ATTRIBUTED: THE LEARNER'S 12 DATALOADER WORKERS EACH HOLD THE WHOLE REPLAY
+  WINDOW (≈ 58 GB at the training step); `--rl-workers 6` from the relaunch.** systemd-oomd killed the run's own
+  scope at 17:44 during iteration 150's training step (58 GB resident + 47 GB swapped — the 10-10 kill's profile).
+  The stores are normal; the sampler on the rerun showed the twelve `pt_data_worker` processes at 51 GB after one
+  minute and climbing (`RlTrajectories` opens every store of the window in every worker, sharding by game). The
+  training step has needed ≈ 58 GB all along and survived on zram until the box's other residents (ComfyUI's 16 GB,
+  the desktop) took the slack. Halving the workers halves the footprint; the recipe's data, losses and schedule are
+  unchanged (the interleave of the seeded schedule differs — a different draw of the same data). The learner was
+  killed before a thrash; its orphaned workers were cleared by stopping the dead scope; relaunched 18:02 at
+  iteration 150. Routed: the loader opening only its shard (a code fix at the next boundary); the zram sizing and
+  ComfyUI's residency are the user's box items.
