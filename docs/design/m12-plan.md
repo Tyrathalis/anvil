@@ -415,6 +415,8 @@ the design doc's §3d′ ledger to the current coverage table, the history to th
 `/consolidate-memory` over the memory entries that repeat CLAUDE.md (the three launch entries into
 one; the ADR-collision and check-git-log entries are already in the wrap-up checklist).
 
+**Routed 10-17 (user), from the big run's two OOM kills — the learner's memory, for the next boundary (after the run, or a pause if a third kill forces it):** (1) a one-hour profile of one DataLoader worker's RSS against games processed on a copy of a replay window (the store reader is lazy per game, so the ≈ 7 GB per worker is decode state and glibc fragmentation, not the window duplicated); (2) if fragmentation: `MALLOC_ARENA_MAX=2` in the learner's environment + `malloc_trim` per game, or jemalloc; (3) **the decode change**: frames decoded straight to compact tensors in `anvil/store/trajectories.py` / `rl.py`'s `RlTrajectories` instead of lists of dicts, fewer games prefetched per worker, tensors handed to the main process through shared memory — restores `--rl-workers 12` and shortens the training step by ≈ 3–4 min of ≈ 8 (the handoff was the main process unpickling whole games); (4) the chain's retry at a halved `RL_WORKERS` on a watchdog trip (`scripts/memory_sampler.sh` writes `WATCHDOG-TRIP`; the chain half lands at an iteration boundary). The bridge in the run: `RL_WORKERS=4` and the watchdog.
+
 ## Running record
 
 The session-by-session record lives in **[m12-running-record.md](m12-running-record.md)** (split out

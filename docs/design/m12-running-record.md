@@ -2638,3 +2638,10 @@ record.*
   killed before a thrash; its orphaned workers were cleared by stopping the dead scope; relaunched 18:02 at
   iteration 150. Routed: the loader opening only its shard (a code fix at the next boundary); the zram sizing and
   ComfyUI's residency are the user's box items.
+- **2026-10-17 (18:50) — THE MEMORY WATCHDOG ARMED (user): `scripts/memory_sampler.sh` as the user unit `anvil-memsampler`**
+  (20-s samples; the trip: MemAvailable < 2 GB for two consecutive samples while a learner is up → the learner and its
+  whole forkserver tree terminated together, the trip recorded in the sample and in `data/runs/big-run/WATCHDOG-TRIP`;
+  the step reruns on a relaunch). Dry-run verified on a fake learner tree. The chain's retry at a halved `RL_WORKERS`
+  on a trip waits for an iteration boundary. **Routed by name (the plan's routed section):** the worker profile, the
+  allocator fix, the decode-to-tensors change (≈ 3–4 min of the 8-min training step; restores 12 workers), the
+  chain's retry. Iteration 151 generating at 44 GB used / 20 GB available with `rl_workers 4`.
