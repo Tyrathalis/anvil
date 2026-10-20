@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: pyproject.toml
+          python-version: "3.14"  # pinned 10-20: `python-version-file` resolved requires-python >=3.11 to the runners' new 3.15.0, which torch 2.12.1 has no wheel for (the box runs 3.14)
 
       - name: Install dev dependencies
         run: uv sync --group dev
