@@ -2645,3 +2645,23 @@ record.*
   on a trip waits for an iteration boundary. **Routed by name (the plan's routed section):** the worker profile, the
   allocator fix, the decode-to-tensors change (≈ 3–4 min of the 8-min training step; restores 12 workers), the
   chain's retry. Iteration 151 generating at 44 GB used / 20 GB available with `rl_workers 4`.
+- **2026-10-21 (15:10) — SEGMENT 2 CLOSED: NETWORK-ALONE 0.5745 ± 0.0111, +1.1pp OVER SEGMENT 1 AND +4.2pp OVER THE
+  ERA REFERENCE; THE LOOKAHEAD GAP CLOSED TO +1pp; THE SPEARMAN 0.359.** 203 iterations, 337.1 h (8.0 h yielded),
+  97,440 games; the final checkpoint `big-run/iter-202`. The segment read on the chain's seeds, masked, raw:
+  **network-alone 0.5745 ± 0.0111** (1,973 decisive, 5 crashes); paired on the same seeds **+4.23 ± 1.22pp vs the era
+  reference** (t 3.48), **+2.09 ± 1.19pp vs the warm start** (t 1.76), **+1.12 ± 1.16pp vs segment 1's `iter-099`**
+  (t 0.96). **With-lookahead 0.5840 ± 0.0156**: +0.41 ± 1.68 vs its start-point read, −1.54 ± 1.62 vs segment 1's
+  0.6030. The lookahead gap over network-alone: +3.0 at the start, +3.9 at segment 1, **+1.0 now** — the network has
+  absorbed most of what the one-step search offered, and the leaf it searches with ranks states at 0.359 (the
+  quarter means over the segment 0.396 → 0.385 → 0.376 → 0.366, ≈ −0.01 per 25 iterations; the floor 0.30 is ≈ 160
+  iterations out at that rate). **Against the registered rules:** the promotion clause stands cleared (+4.2 paired);
+  the segment-3 kill shape does NOT read (with-lookahead +0.4 ± 1.7 vs its start, not ≥ 2 SE; network-alone +2.1 ± 1.2
+  vs the warm start, above 1 SE); the ADR-0118 tripline does not fire (0.359 is 0.6 SE below the day-zero build's
+  0.374, the line is 2 SE); no guard tripped. **The slope of record:** +0.8 then +1.1pp per segment network-alone
+  (+2.1 ± 1.2 over two) — real but slow, ≈ 1.75 SE after 400 wall-hours. **The battery (exploratory):** vs the warm
+  start 47% of its cast decisions changed, 41% cast → pass (segment 1: 32% / 37%); the hold-then-cast rate 0.226 →
+  0.252. **The ckpt of record:** `iter-099` stays — `iter-202` is +1.1 ± 1.2 over it on the same seeds, inside
+  noise, and the promotion gate is against the era reference, not the standing ckpt; the run's close read picks the
+  ladder's best (my recommendation; the user's call). **Landed at the boundary:** the chain's retry on a watchdog
+  trip (`big_run_chain.sh`: a loop exit with `WATCHDOG-TRIP` newer than the loop's start reruns the loop with
+  `RL_WORKERS` halved, floor 2). The run is `done` and idle; segment 3 (the kill-rule segment) is the user's go.

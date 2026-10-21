@@ -133,6 +133,8 @@ WALL_DONE=$(python3 -c "import json,os; s=json.load(open('$LOOP/loop_state.json'
 if [[ $WALL_DONE -eq 0 ]]; then
   # a previous segment's WALL-STOP marker: the loop reads only its budget, the marker is for the chain
   [[ -f "$LOOP/WALL-STOP" ]] && mv "$LOOP/WALL-STOP" "$LOOP/WALL-STOP.seg$((SEGMENT-1))"
+  while :; do
+  T_LOOP=$(date +%s)
   log "segment $SEGMENT: the loop to --wall-hours $WALL (spearman floor $FLOOR); resumes from $LOOP/loop_state.json if present"
   uv run python -m anvil.training.selfplay --name "$NAME" --ckpt "$START" --iterations 2000 --wall-hours "$WALL" \
     --games 480 --games-per-pair 2 --workers "$WORKERS" --chunk 30 --port 50063 --seed-base 20260921 \
@@ -145,6 +147,14 @@ if [[ $WALL_DONE -eq 0 ]]; then
     --value-anchor "$BANK" --anchor-weight 0.1 --value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4 \
     --grad-norm-every 50 >> "$OUT/seg-$SEGMENT.loop.log" 2>&1
   rc=$?
+  # 10-21: the watchdog's retry — a learner the memory watchdog terminated (scripts/memory_sampler.sh; WATCHDOG-TRIP
+  # newer than this loop's start) fails the iteration's training step and the loop; rerun the same loop (it resumes
+  # from loop_state, the batches reused) with RL_WORKERS halved, floor 2, so the step fits instead of needing a hand.
+  if [[ $rc -ne 0 && -f "$OUT/WATCHDOG-TRIP" && $(stat -c %Y "$OUT/WATCHDOG-TRIP") -ge $T_LOOP && $RL_WORKERS -gt 2 ]]; then
+    RL_WORKERS=$((RL_WORKERS / 2)); log "segment $SEGMENT: the memory watchdog tripped during the loop — rerunning with --rl-workers $RL_WORKERS"; continue
+  fi
+  break
+  done
   if [[ -f "$LOOP/STOP" ]]; then log "segment $SEGMENT paused (STOP present) — the chain exits; relaunch resumes"; exit 0; fi
   if [[ $rc -ne 0 && ! -f "$LOOP/WALL-STOP" ]]; then log "segment $SEGMENT loop FAILED rc=$rc (a guard halt or a crash; read $OUT/seg-$SEGMENT.loop.log)"; exit 1; fi
   [[ -f "$LOOP/WALL-STOP" ]] || { log "segment $SEGMENT: the loop exited without WALL-STOP (iterations exhausted?) rc=$rc"; exit 1; }
