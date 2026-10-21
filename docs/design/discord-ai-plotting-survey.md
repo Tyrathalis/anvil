@@ -1948,3 +1948,10 @@ warning is for the new run, not a diagnosis of the posted ones; the early warnin
   - **A back-of-envelope from the big run's monitor (iteration 137):** 480 games, 782,332 bridged decisions, gen 4,254 s at 24 workers ≈ **0.13 s of worker wall per bridged decision**, ≈ 1,630 bridged decisions per Commander game. That includes the search leaves, the model round-trip and Forge's own AI for unbridged seats. So it is not comparable to khaliostr's 40–60 ms engine-only figure, though it sits in the same order of magnitude.
   - **Their checkpointing figure matters to us:** ≈ 30 ms of a ≈ 110 ms decision is the Forge snapshot. Our search pays a `GameCopier` copy per leaf, the cost dama's µs clone attacks.
   - The gen-split profile on the after-the-big-run list is the read that turns this into numbers for our own loop: Forge execution vs copy vs bridge round-trip vs inference vs search per decision. Nothing new routed.
+
+**Kryptic (10-21 15:21): his throughput** on a 16-core CPU + AMD GPU (ROCm): ≈ 3,000–4,000 games/h model vs heuristic on Forge, ≈ 6,000 games/h heuristic vs heuristic. He believes ours is "a fair bit faster", same order of magnitude. **Ours, read from the logs 10-21** (Ryzen 9 7950X, 16 cores / 32 threads, RTX 4090; 24 workers × 2 servers; Commander, 40 life, the 1,701-card pool, median ≈ 21 turns vs his 12–13):
+- model vs heuristic, network-alone (the 2,000-game reads): **3,306–3,422 g/h** (`big-run/ref.na`, `seg1.na`);
+- the same with search on (the with-lookahead reads): **651 g/h** (`seg1.la`);
+- the training loop's generation (search on): ≈ 400 g/h (iteration 137: 480 games / 4,254 s), ≈ 350 g/h with training included;
+- heuristic seats with the option scan recording (the ADR-0122 agreement corpus, `-b local-random`): **≈ 2,900 g/h**. That is not a clean heuristic-vs-heuristic number: the recording does work his doesn't.
+So per game we are level with him. Per turn we are ≈ 1.7× faster, on longer Commander games.
