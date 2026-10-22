@@ -418,6 +418,24 @@ prompt as a fallback for a machine with the desktop app but no CLI. `--memory-ma
 child through `systemd-run` on Linux and is ignored with a note elsewhere. `STOP` files still
 work: the driver exits cleanly and the launcher records `done`.
 
+### 7¾. Memory on a long run (10-21)
+
+Two things the big run taught that the launcher now does for you, and one you size yourself:
+
+- **A detached run gets its own cgroup.** `anvil.runs launch` wraps the command in a `systemd-run --user`
+  scope with `ManagedOOMPreference=avoid`, so the run outlives the terminal or desktop session that
+  launched it and `systemd-oomd` kills other things first. Before this, a run launched from a desktop
+  session died with the session's cgroup when the box ran out of memory.
+- **Size `--rl-workers` by memory, not cores.** Each DataLoader worker of the learner holds several GB
+  of decoded-game state (≈ 7 GB at the self-play loop's 12-store replay window) regardless of how the
+  games are sharded, so the training step needs about `rl_workers × 7 GB` on top of the learner's own
+  ≈ 7 GB. On a 64 GB box run 4; on 128 GB, 12. A step that swaps is slower than a step with fewer workers.
+- **A memory watchdog beside the loop.** `scripts/memory_sampler.sh <out.jsonl> 20` (run it as a user
+  unit; the header shows how) samples the box and the run's process classes every 20 s and, when
+  available memory stays under 2 GB for two samples while a learner is up, terminates the learner and its
+  worker tree before the box thrashes. The iteration's training step reruns on the next relaunch; the big
+  run's chain halves `RL_WORKERS` on a trip and reruns by itself.
+
 ## 8. Read the result
 
 ```bash
