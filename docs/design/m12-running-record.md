@@ -2729,3 +2729,30 @@ record.*
   queue+desk, check-in none, relay to this session. The session watch: the registered guards, kl_mu ≥ 0.03, two
   consecutive cast spikes above 420 per game, the Spearman at 0.324 (the ADR-0118 line), the wall stop (≈ 168
   productive hours ≈ 10-29, plus any GPU yields).
+- **2026-10-21 (late evening, a side session) — THE PER-CARD CAST CENSUS (exploratory; no verdict):** `data/runs/cast-census/read.md`.
+  The question from the boundary review: breadth or sharpening behind segment 2's +1.1pp. The answer in cast counts:
+  **neither is visible in the repertoire the warm start already played, and all of the net growth sits on the cards the
+  heuristic never casts.** Instrument: a streaming re-implementation of the 07-16 never-cast audit over the segment
+  reads' raw worker frames (the same 2,000 seeds for the warm start, `iter-099`, `iter-202` and the era reference; a cast
+  = a priority window answered with a kind-`spell` CastPlan; the heuristic seat is the control, the same policy in every
+  read). **Two degenerate `iter-202` games first:** Peer Through Depths picked 1,998 times in one main phase and never
+  paid for — a phantom cast (Arcane spell, a splice candidate in hand: `chooseCardsForSplice`, ten static-ability prompts,
+  no `payManaCost`, the card back in hand, the option scan re-offers, the policy re-picks; ADR-0005's late-payability
+  class in the 10-05 King T'Challa shape) — and a genuine Emry + Paradox Engine + Urza's Bauble infinite loop with no
+  payoff that the window cap ended as a draw. They hold 2,197 of `iter-202`'s 28,610 casts; the battery's `casts/game`
+  row (30.1 → 32.4) carried them. Loop-excluded: 25,029 → 25,942 → 26,413 casts (+3.6% then +1.8%); cards the warm
+  start already cast moved −205 net in segment 2 (−341 at a ≥ 5-cast threshold), cards it never cast +676; the
+  heuristic's 156 blind-spot cards (never cast by the heuristic seat in 8,000 games while held as castable options)
+  alone **62 → 903 → 1,655 casts** (32 → 113 → 132 distinct cards; 0.05% → 0.9% → 2.7% of offered windows; the era
+  reference 25), everything else −281. Per card, 15 of 770 moved beyond 2.5 Poisson SE between the segment checkpoints
+  (the control seat: 2 of 668) and 11 of the 15 are blind-spot cards (Gitaxian Probe 2 → 105, Peek 0 → 74, Intuition
+  1 → 55, Mystic Confluence, Sauron's Ransom, Disruptor Flute, Tithe, Toxic Deluge, Turnabout, Beast Within, Urza's
+  Bauble); segment 1's 33 above-noise movers were 28 blind-spot cards (the zero-cost artifacts and the mana
+  enchantments). So the Brave-the-Elements pattern is present and monotone in our own data, at 0.4 casts per game — far
+  too small to carry a win rate. **Hypotheses, not conclusions:** segment 2's gain, if real, is timing and target choice
+  on the same cards (counts cannot see it; a per-card win-correlation or hold-then-cast read is the next instrument);
+  the loop learns the heuristic's blind spots slowly from its own play (ADR-0122's thesis). **Routed by name:** (1) a
+  per-phase identical-pick guard in the harness for the stranded-card class, and the engine-side attribution of the
+  Arcane-splice abort (fork or upstream; the 10-05 phantom-cast PR's neighbour); (2) the infinite-combo-without-a-win
+  shape as a Grindstone / value-target item; (3) the battery's `casts/game` row read loop-excluded (a per-game
+  concentration column). None touches the recipe of record or segment 3.
