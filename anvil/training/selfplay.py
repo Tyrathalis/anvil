@@ -1212,6 +1212,55 @@ def _rl_summary(train_dir: Path) -> dict:
     }
 
 
+# ---- 10-21: the rolling-back guard (the segment-2 boundary review's convenience
+# item; the design note is in the m12 running record, 10-21). ADR-0118 / ADR-0123
+# register the HALT as the response to a guard breach; --guard-action rollback is
+# the unattended alternative for the one-off kl echo (Kryptic's three kl breaks on
+# the Forge Discord, our own at iterations 198-202): the breached iteration is
+# rejected exactly as under halt (REJECTED, the ckpt and the critic not advanced)
+# and the loop continues from the last accepted ckpt with the learner's lr groups
+# multiplied by --guard-lr-mult (the base --lr floored at --guard-lr-floor). A
+# second breach within --guard-rollback-window iterations of the last rollback
+# halts as today. The multiplier rides loop_state (lr_mult) for the rest of the
+# loop; it never rises. The halt path is byte-identical with the flag off. ----
+def guard_decision(
+    guards: list[str],
+    action: str,
+    iteration: int,
+    last_rollback: int | None,
+    window: int,
+    lr: float,
+    lr_mult: float,
+    mult: float,
+    floor: float,
+) -> tuple[str, float, dict | None]:
+    """The pure decision over one iteration's guard outcome. Returns
+    (kind, lr_mult_after, monitor_entry): kind is 'accept' (no breach), 'halt'
+    (a breach under action=halt, or a second breach within `window` iterations
+    of the rollback at `last_rollback`) or 'rollback'; the entry is the row's
+    `guard_rollback` value (None unless rolling back). The new multiplier is
+    lr_mult * mult, clamped so lr * lr_mult never falls below `floor` (floor
+    <= 0 = no floor); at the floor a rollback still rejects the iteration and
+    continues, with the lr unchanged."""
+    if not guards:
+        return "accept", lr_mult, None
+    if action != "rollback":
+        return "halt", lr_mult, None
+    if last_rollback is not None and iteration - last_rollback <= window:
+        return "halt", lr_mult, None
+    new_mult = lr_mult * mult
+    if floor > 0 and lr * new_mult < floor:
+        new_mult = min(lr_mult, floor / lr)
+    entry = {
+        "iteration": iteration,
+        "rule": "; ".join(guards),
+        "lr_before": lr * lr_mult,
+        "lr_after": lr * new_mult,
+        "lr_mult": new_mult,
+    }
+    return "rollback", new_mult, entry
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="V-trace self-play loop (M2 D6)")
     ap.add_argument("--name", required=True, help="loop name (dirs key off it)")
@@ -1604,6 +1653,21 @@ def main() -> None:
         default=0.05,
         help="halt if an iteration's mean KL(pi||mu) exceeds this",
     )
+    # 10-21: the rolling-back guard (guard_decision above)
+    ap.add_argument("--guard-action", choices=("halt", "rollback"), default="halt",
+                    help="on a guard breach: 'halt' (the registered response: REJECTED, exit 3, "
+                         "loop_state unchanged) or 'rollback' (REJECTED, then continue from the "
+                         "last accepted ckpt with the learner's lrs x --guard-lr-mult; a second "
+                         "breach within --guard-rollback-window iterations halts)")
+    ap.add_argument("--guard-lr-mult", type=float, default=0.5,
+                    help="--guard-action rollback: the factor on the learner's lr groups (--lr, "
+                         "--pay-lr, --trunk-lr, --value-head-lr) after a breach; persists in "
+                         "loop_state (lr_mult) for the rest of the loop")
+    ap.add_argument("--guard-lr-floor", type=float, default=1e-7,
+                    help="--guard-action rollback: the base --lr never falls below this; 0 = no floor")
+    ap.add_argument("--guard-rollback-window", type=int, default=5,
+                    help="--guard-action rollback: a second breach within this many iterations of "
+                         "the last rollback halts as under 'halt'")
     ap.add_argument(
         "--guard-ent-mult",
         type=float,
@@ -1947,6 +2011,9 @@ def main() -> None:
         k = state["iteration"]
         it_dir = out / f"iter-{k:03d}"
         it_dir.mkdir(exist_ok=True)
+        # 10-21: the rolling-back guard's lr multiplier (1.0 unless a rollback
+        # cut it; x1.0 leaves every lr string byte-identical)
+        lr_mult = float(state.get("lr_mult", 1.0))
         print(f"\n[selfplay] ===== iteration {k}: ckpt={state['ckpt']} ===== {_stamp()} "
               f"(wall used {wall_used() / 3600:.2f} h)")
 
@@ -2172,8 +2239,8 @@ def main() -> None:
                     args.device,
                     *(["--no-autocast"] if args.no_autocast else []),
                     "--lr",
-                    str(args.lr),
-                    *(["--pay-lr", str(args.pay_lr)] if args.pay_lr is not None else []),
+                    str(args.lr * lr_mult),
+                    *(["--pay-lr", str(args.pay_lr * lr_mult)] if args.pay_lr is not None else []),
                     # D6 plan latent (m9-d6-plan-latent-spec): carry + joint
                     # aux; w_plan calibrated once at iteration 0 and carried
                     # via loop_state (the --seq-w lesson)
@@ -2290,8 +2357,8 @@ def main() -> None:
                       if args.value_anchor else []),
                     "--grad-norm-every", str(args.grad_norm_every),
                     *(["--value-stopgrad-trunk"] if args.value_stopgrad_trunk else []),
-                    *(["--trunk-lr", str(args.trunk_lr)] if args.trunk_lr is not None else []),
-                    *(["--value-head-lr", str(args.value_head_lr)] if args.value_head_lr is not None else []),
+                    *(["--trunk-lr", str(args.trunk_lr * lr_mult)] if args.trunk_lr is not None else []),
+                    *(["--value-head-lr", str(args.value_head_lr * lr_mult)] if args.value_head_lr is not None else []),
                     "--traj-per-step",
                     str(args.traj_per_step),
                     "--seg",
@@ -2422,6 +2489,10 @@ def main() -> None:
             state_spearman=state_rank["spearman"] if state_rank else None,
             spearman_floor=args.guard_spearman_floor,
         )
+        guard_kind, lr_mult_after, rollback_entry = guard_decision(
+            guards, args.guard_action, k, state.get("guard_last_rollback"),
+            args.guard_rollback_window, args.lr, lr_mult, args.guard_lr_mult, args.guard_lr_floor,
+        )
         search_row = None
         if args.search_recipe:
             sj = train_dir / "search_join.json"
@@ -2448,6 +2519,7 @@ def main() -> None:
             "rl": rl,
             "flags": flags,
             "guard": guards,
+            **({"guard_rollback": rollback_entry} if rollback_entry else {}),
         }
         # ---- M9 D4 payment probe readouts (pins 6-7): head movement from its
         # known init, and the drill accuracy of the ckpt this iteration
@@ -2522,6 +2594,28 @@ def main() -> None:
             print(f"[selfplay] battery anomalies iteration {k}: {battery_an}")
         if flags:
             print(f"[selfplay] !!! ANOMALY FLAGS iteration {k}: {flags}")
+        if guards and guard_kind == "rollback":
+            # 10-21: the rolling-back guard — the iteration rejected as under
+            # halt (REJECTED; neither ckpt nor critic advances), the loop
+            # continues from the accepted ckpt at the cut lr; the rejected
+            # iteration's games stay in the replay window (the accepted ckpt
+            # played them) and the next iteration draws fresh seeds
+            (it_dir / "REJECTED").write_text("\n".join(guards) + "\n")
+            msg = (f"ckpt NOT accepted; continuing from {state['ckpt']} with lr x{lr_mult_after:.4g} "
+                   f"({rollback_entry['lr_before']:.3g} -> {rollback_entry['lr_after']:.3g}); a second "
+                   f"breach within {args.guard_rollback_window} iterations halts")
+            print(f"[selfplay] !!! GUARD ROLLBACK iteration {k}: {guards}\n[selfplay] {msg}")
+            _notify(f"anvil {args.name}: GUARD ROLLBACK iter {k}", "; ".join(guards) + " — " + msg)
+            state.setdefault("guard_rollbacks", []).append(rollback_entry)
+            state.update(
+                iteration=k + 1, start_index=state["start_index"] + args.games,
+                wall_used_s=wall_used(), lr_mult=lr_mult_after, guard_last_rollback=k,
+            )
+            state_path.write_text(json.dumps(state, indent=2))
+            continue
+        if guards and args.guard_action == "rollback":
+            print(f"[selfplay] guard breach within {args.guard_rollback_window} iterations of the "
+                  f"rollback at iteration {state.get('guard_last_rollback')} — halting")
         if guards:
             (it_dir / "REJECTED").write_text("\n".join(guards) + "\n")
             print(
