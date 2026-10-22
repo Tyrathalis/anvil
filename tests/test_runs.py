@@ -265,6 +265,32 @@ def test_pause_records_paused_not_failed_and_relaunch_resumes(state):
     assert st["cmd"] == cmd
 
 
+def test_relaunch_launched_by_overrides_the_recorded_session(state):
+    """10-21: a relaunch from a new session re-points the run's owner; without the
+    flag the recorded session stays (the relay would otherwise fall back on a dead ref)."""
+    rc = _launch(state, "lb", ["sh", "-c", "exit 0"], launched_by="old-session [aaaaaa]")
+    assert rc == 0 and runs.read_run("lb")["launched_by"] == "old-session [aaaaaa]"
+    assert _relaunch_args_of("lb").launched_by == "old-session [aaaaaa]"
+    assert _relaunch_args_of("lb", "new-session [bbbbbb]").launched_by == "new-session [bbbbbb]"
+    assert runs.main(["relaunch", "--name", "lb", "--no-selftest", "--launched-by", "new-session [bbbbbb]"]) == 0
+    _wait_done("lb")
+    assert runs.read_run("lb")["launched_by"] == "new-session [bbbbbb]"
+    assert runs.main(["relaunch", "--name", "lb", "--no-selftest"]) == 0
+    _wait_done("lb")
+    assert runs.read_run("lb")["launched_by"] == "new-session [bbbbbb]"
+
+
+def _relaunch_args_of(name, launched_by=None):
+    return runs._relaunch_args(runs.read_run(name), True, launched_by)
+
+
+def _wait_done(name, timeout=30):
+    deadline = time.time() + timeout
+    while time.time() < deadline and (runs.read_run(name) or {}).get("state") in ("running", "stalled"):
+        time.sleep(0.2)
+    assert runs.read_run(name)["state"] == "done", runs.read_run(name)
+
+
 def test_pause_on_a_finished_run_is_refused(state):
     assert _launch(state, "fin", ["true"]) == 0
     assert runs.main(["pause", "--name", "fin"]) == 3
