@@ -278,7 +278,10 @@ the first PR day, not here.
   guard in `ComputerUtil.canRegenerate` (or `shouldSacrificeThreatenedCard`) that answers the
   conservative value when re-entered from a mana payment, with a test that builds the conjunction.
   Under 30 lines; goes after 0.2 in the engine slot.
-- **Tier 0.7 — the MDFC commander back-face phantom cast** (10-05, the ADR-0122 agreement
+- **Tier 0.7 — STRUCK 10-21: fixed upstream by liamiak 10-17 as [#12283](https://github.com/Card-Forge/forge/pull/12283)
+  ("AI: count commander tax when casting a modal card's back face from the command zone"), part (a) below;
+  part (b), the un-reversed payment of a failed cast, stays a Tier 5 design question. Reaches the fork at the
+  next sync. The original entry, kept for the record:** the MDFC commander back-face phantom cast (10-05, the ADR-0122 agreement
   corpus; fork test `OptionMaskCommandZoneTest`, `94229a0c8a`, is the evidence). Two parts:
   (a) `canPlayAndPayFor` tests payability on `Spell.getAlternateHost`'s LKI copy, which carries no
   zone, so `calculateManaCost`'s cast-from lookup finds nothing and the commander tax never enters

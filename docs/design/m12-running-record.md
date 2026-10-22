@@ -2665,3 +2665,67 @@ record.*
   ladder's best (my recommendation; the user's call). **Landed at the boundary:** the chain's retry on a watchdog
   trip (`big_run_chain.sh`: a loop exit with `WATCHDOG-TRIP` newer than the loop's start reruns the loop with
   `RL_WORKERS` halved, floor 2). The run is `done` and idle; segment 3 (the kill-rule segment) is the user's go.
+- **2026-10-21 (evening) — THE SEGMENT-2 BOUNDARY REVIEW: THE RUN IS WORKING, SLOWLY; SEGMENT 3 RUNS AS REGISTERED
+  FROM `iter-202`, NO RECIPE CHANGE; THE LEAF IS THE BINDING CONSTRAINT.** The review read the two segment reads, the
+  loop's 203 monitor rows, the 40 arms rows, upstream Forge since the pin and the Discord record since 10-07.
+  **The shape:** network-alone +2.09 ± 1.19pp over the warm start after 400 productive hours (≈ 1.75 SE; +0.8 then +1.1
+  per segment), while the with-lookahead gap over network-alone fell from +3.0 (start) and +3.9 (segment 1) to **+1.0**
+  — the policy has absorbed most of what one-roll search over this leaf teaches — and the state-ranking Spearman slid
+  every quarter since iteration 25 (quarter means 0.469 → 0.450 → 0.421 → 0.396 → 0.385 → 0.376 → 0.367 → 0.358;
+  ≈ −0.01 per 25 iterations, slowing slightly). The arms rows agree: network-alone 0.51 in the first quarter, 0.55 in
+  the last two; the lookahead gap +3.7pp over iterations 0–74, ≈ +1.1pp over 75–199. The value head's optimism widened
+  (v0 − realized reward −0.01 in the first quarter, +0.02 to +0.03 in the last three). **No registered rule fires:**
+  the segment-3 kill shape is the inverse of what we see; "both flat with the Spearman flat" fits neither series;
+  the ADR-0118 third shape (Spearman falling, network-alone flat) is the nearest, and at the current slide its
+  tripline level (0.374 − 2 × 0.025 = 0.324) lands near iteration 300 — segment 3's close — with the 0.30 floor near
+  iteration 350. **Stability:** kl_mu 0.007–0.011 for 175 iterations with no trend, entropy 0.17–0.19, no guard, the
+  veto rate 0.093 → 0.069. The 10-16 agenda's rho_clip worry is withdrawn: with `--rho-bar 1.0` about half the ratios
+  exceed 1 by construction and rho_mean is 0.976, so the data is near on-policy. **One watch item:** iterations
+  198–202 ran kl_mu 0.015–0.022 with a casts-per-game spike to 451 at iteration 200 (band 330–400) — the first stage of
+  the shape Kryptic's runs broke on (kl rising with a cast burst), at a tenth of his scale and under the 0.06 guard.
+  **Why not halt now:** segment 3 is the pre-registered adjudication point; a recipe change voids that read; the slope
+  is positive; and the two candidate interventions need segment 3's numbers to choose between them.
+  **Why `iter-202` and not a rollback to `iter-099` (the user's question):** the loop is one run (ADR-0123 §3); a
+  rollback discards the AdamW moments, the replay window and the allocation tau as well as the weights; `iter-202` is
+  ahead of `iter-099` on every meter (+1.12 ± 1.16 paired; the arms rows' sign agrees) and nothing marks it worse; a
+  week from `iter-099` under the same recipe would be expected to reproduce segment 2, arriving where `iter-202` is a
+  week later; and the leaf slide is a property of the trunk's trajectory under this recipe, so `iter-099` would slide
+  the same way. `iter-099` stays the ckpt of record (the gate is a read of record against the standing ckpt, which
+  `iter-202` did not clear — a statement about the read's resolution, not the checkpoint's strength); the run's close
+  picks the ladder's best on fresh seeds.
+  **PRE-REGISTERED FOR SEGMENT 3 (before the loop started):** (1) the registered reads and rules stand as ADR-0123 §4–5
+  wrote them. (2) **The session watch adds:** kl_mu ≥ 0.03 on any iteration, or casts-per-game above 420 on two
+  consecutive iterations, is a stop-and-look (not a halt). (3) **Two interventions, decided by segment 3's close and
+  not before:** if the Spearman reaches the ADR-0118 tripline (0.324) while network-alone still rises, the response is
+  the value-head pass as the ADR names it — the head-only anchor weight stepped 0.1 → 0.3 (under the stop-grad it
+  cannot touch the policy step; the recovery read lifted a 0.25 head to 0.44 under this recipe); if the Spearman holds
+  but the lookahead gap stays ≈ +1, the response is a search-budget bump (`-searchrolls 2 → 4`) to re-open the
+  teaching channel, at a generation cost measured on its first iterations. Either is a new arm from segment 3's final
+  checkpoint, read paired against a continuation of the recipe of record. (4) **Built during segment 3, smoked at its
+  boundary, not in this loop:** the rolling-back guard (restore the last accepted checkpoint and continue at a lower
+  lr instead of exiting; the 10-16 agenda item, now with Kryptic's three breaks and our mild kl echo as its case). (5)
+  **Exploratory, cheap:** the per-card cast census of `iter-099` vs `iter-202` (Kryptic's Brave the Elements result:
+  the mask made a never-cast card learnable where the aggregate saw nothing; the 07-16 never-cast audit is the
+  instrument) — breadth or sharpening.
+  **Upstream Forge since the pin (462 commits; 31 forge-ai, 75 forge-game; 113 of the pool's 1,701 cards have changed
+  scripts):** nothing merges mid-run — the merge is a dataset boundary at the run's close with the era reference
+  re-read on the new jar. When it comes: the heuristic opponent's mana play improved (Signets and filter lands #12149,
+  self-funding mana abilities #12179, required multi-mana sources first #12119) so the baseline moves; **Tier 0.7 (the
+  MDFC command-zone commander tax) was fixed upstream by liamiak 10-17 as #12283 — off the upstream worklist**; rules
+  changes in simultaneous entry (#12121, #12171, #12188), mandatory-trigger loops now draw the game (#12127), empty-
+  library draws (#11974); the 09-18/19 board-scan speed-ups (#11946, #11951, #11956, #11961, #11963); the batched
+  `GameEventForwarder` (#12189) to check against the bridge. **Discord since 10-07:** Kryptic's two kl breaks and his
+  flat low-lr rerun are the case for a kl-responsive guard rather than a lower lr; dama's search-saturation row and the
+  gorge throughput figures put the faster leaf after this run, not a recipe change during it; nothing argues for a
+  halt. Segment 3 launched from `iter-202` (the segment file 3; `--wall-hours 504`, the floor 0.30) — the launch line
+  follows.
+- **2026-10-21 (20:14) — SEGMENT 3 LAUNCHED (the user's go) from `iter-202`:** the same loop resumed at iteration 203
+  (`anvil.runs relaunch`, the segment file at 3; `--wall-hours 504`, the Spearman floor 0.30, the game index continuing
+  at 97,440) in the launcher's own scope (`anvil-big-run-28927.scope`); the memory watchdog re-armed first (the
+  transient `anvil-memsampler` unit does not survive a reboot — it had stopped with the 18:35 reboot; a chain or
+  launcher step that arms it is a convenience item). The run's `launched_by` was pointed at this session in the state
+  file before the relaunch (`relaunch` has no `--launched-by`; the recorded ref was a dead session's), so the relay
+  reaches the session that owns the close. Coverage line: stall alarm 180 min on the run dir + the loop root, sinks
+  queue+desk, check-in none, relay to this session. The session watch: the registered guards, kl_mu ≥ 0.03, two
+  consecutive cast spikes above 420 per game, the Spearman at 0.324 (the ADR-0118 line), the wall stop (≈ 168
+  productive hours ≈ 10-29, plus any GPU yields).
