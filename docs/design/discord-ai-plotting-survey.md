@@ -1956,3 +1956,18 @@ warning is for the new run, not a diagnosis of the posted ones; the early warnin
 - heuristic seats with the option scan recording (the ADR-0122 agreement corpus, `-b local-random`): **≈ 2,900 g/h**. That is not a clean heuristic-vs-heuristic number: the recording does work his doesn't.
 So per game we are level with him. Per turn we are ≈ 1.7× faster, on longer Commander games.
 - **Measured 10-21 (`heur-throughput`, the user's ask; the box idle after segment 2's close):** heuristic vs heuristic, no search (`final_read.py --heuristic-control`, 2 × 400 games, 24 workers, `forge-tgtmask3.jar`, seed base 20261021): **≈ 2,240 g/h in-session** (≈ 2,130 g/h wall, 800 games in 22.7 min including server start), median 22 turns, 6 draws per arm. **The all-heuristic mirror is slower than model vs heuristic (3,306–3,422 g/h)**, because the heuristic is the slow seat in Commander: replacing one heuristic seat with a batched GPU model *raises* throughput. Kryptic's ordering is the reverse (6,000 heuristic-only vs 3,000–4,000 with the model): on his 12-turn 60-card decks the heuristic is cheap and his model seat costs more.
+
+### 10-21 afternoon follow-up: throughput comparisons, gorge docs, dama's interface offer (read 10-21 from the user's paste; nothing posted from here)
+
+- **dama (15:41):** gorge docs at <https://adams-shaun.github.io/gorge/>; "blink and it'll all be different next week". If someone carves out an interface it can go on the "should work … probably" list. **(16:36):** anyone who wants to try common interface implementations can borrow an environment from him. **(16:29) "can you drive 6000g/s"** — Kryptic: no, we are ≈ 1000× slower.
+- **khaliostr (15:49):** Kryptic's numbers are faster than he expected. Are they full games with the standard Forge heuristic, or a modified engine / AI path, and how much overhead is the harness? Kryptic (16:13): full games, standard heuristic, aggregate over parallel cores; he believes the engine is unmodified but defers to us.
+- *The facts for that question, from our record:*
+  - **The rules engine is upstream's** (`97535e047f`, the 09-16 sync). The fork adds the recording / bridge hooks, the determinism hooks (#11285) and the option scan, and one AI-side performance change: talor's block-legality cache (fork `8044e36366` + `6f5e1643b2`; −15.6% CPU over 500 Commander games, play unchanged in all 500). Kryptic's forge fork synced to ours on 10-03, so he likely has the cache too.
+  - **Per core:** Kryptic's 6,000 g/h on 16 cores is ≈ 6 games/min/core on 12-turn 60-card games, inside khaliostr's 3–8 estimate. Ours, measured today, is ≈ 2,240 g/h over 24 workers on a 16-core / 32-thread 7950X: ≈ 1.6 games/min/worker on 22-turn Commander games at 40 life.
+  - **Harness overhead** is unmeasured on our side: the store recording and the per-window option scan run in every game. The gen-split profile on the after-the-big-run list would price it.
+
+### Draft reply (10-21; the user posts; nothing posted from here)
+
+*To khaliostr (and Kryptic):*
+
+> The rules engine in my fork is stock upstream. What's added is the recording and bridge hooks, the determinism hooks, and one AI-side performance change: talor's block-legality cache, which cut CPU by about 15% on our Commander games without changing play. I believe Kryptic's fork has it too since he synced to mine. For comparison, I measured heuristic vs heuristic today at about 2,200 games/h over 24 workers on a 7950X, but those are 40-life Commander games running about 22 turns, so it's slower per game. I haven't measured how much of that is the harness's recording overhead yet.
