@@ -209,6 +209,18 @@ What the flags mean, in the order you would change them:
   re-asked with that option removed instead of passing. Keep it on.
 - **`--penalty 0.01 --penalty-grouping first`**: the small cost on vetoed attempts that keeps the
   veto rate from drifting; `--guard-veto-mult 4.0` halts the run if it drifts 4× anyway.
+- **`--guard-action rollback`** (10-21; default `halt`): what a guard breach (kl, entropy, veto,
+  casts, Spearman, the share guards) does. `halt` is the registered response: the iteration is
+  marked `REJECTED`, the loop exits 3 with `loop_state.json` unchanged and a human reads it.
+  `rollback` rejects the iteration the same way, then continues from the last accepted checkpoint
+  with the learner's lrs (`--lr`, `--trunk-lr`, `--value-head-lr`, `--pay-lr`) multiplied by
+  **`--guard-lr-mult`** (0.5; the base lr floored at **`--guard-lr-floor`**, 1e-7). The multiplier
+  rides `loop_state.json` (`lr_mult`) for the rest of the loop and never rises; the event is the
+  row's `guard_rollback` (`iteration, rule, lr_before, lr_after, lr_mult`) and `loop_state`'s
+  `guard_rollbacks`; the rejected iteration's games stay in the replay window (the accepted
+  checkpoint played them) and the next iteration draws fresh seeds. A second breach within
+  **`--guard-rollback-window`** iterations (5) of the last rollback halts as under `halt`. For
+  the one-off kl echo on an unattended run; a breach that keeps coming back still stops the loop.
 - **`--arms-every 5`**: a 200-game read vs the heuristic every 5 iterations, per seat. It is a
   trend instrument (±2.5pp); do not quote it.
 - **`--rl-seg 64`** bounds learner memory; raise it on a bigger card.
