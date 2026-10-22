@@ -98,6 +98,19 @@ fs=sorted(glob.glob('$LOOP/iter-*/state-ranking.json'))
 r=json.load(open(fs[-1])) if fs else {}
 print(f\"{r.get('spearman')} ± {r.get('se_boot')} ({fs[-1].split('/')[-2]})\" if fs else 'n/a')" 2>/dev/null; }
 row() { printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n' "$@" >> "$OUT/read.md"; }
+# 10-21: the memory watchdog (scripts/memory_sampler.sh, its header's systemd-run line) is a TRANSIENT user unit — it died
+# with the 10-21 reboot and nothing re-armed it (ADR-0123 addendum 10-21). The chain arms it before every loop start:
+# an active unit is left alone; an inactive one (a failed remnant reset first) is started with the header's args.
+MEMSAMPLER_UNIT=${MEMSAMPLER_UNIT:-anvil-memsampler}
+arm_memsampler() {
+  if systemctl --user is-active --quiet "$MEMSAMPLER_UNIT"; then log "memory watchdog $MEMSAMPLER_UNIT: active"; return 0; fi
+  systemctl --user reset-failed "$MEMSAMPLER_UNIT" 2>/dev/null
+  local rc
+  systemd-run --user --unit="$MEMSAMPLER_UNIT" -p MemoryMax=500M -p WorkingDirectory="$REPO" \
+    /usr/bin/bash "$REPO/scripts/memory_sampler.sh" "$OUT/memory.jsonl" 20 >> "$OUT/queue.log" 2>&1; rc=$?
+  if [[ $rc -eq 0 ]]; then log "memory watchdog $MEMSAMPLER_UNIT: ARMED (was inactive; $OUT/memory.jsonl every 20 s)"
+  else log "memory watchdog $MEMSAMPLER_UNIT: FAILED to arm (systemd-run rc=$rc) — the loop runs unwatched"; fi
+}
 
 # ---- the close (CLOSE=1, the user's call at the run's end): the number of record on FRESH seeds + the paired
 #      read vs the reference at 2,500 per seat on those seeds (ADR-0123 §4) ----
@@ -135,6 +148,7 @@ if [[ $WALL_DONE -eq 0 ]]; then
   [[ -f "$LOOP/WALL-STOP" ]] && mv "$LOOP/WALL-STOP" "$LOOP/WALL-STOP.seg$((SEGMENT-1))"
   while :; do
   T_LOOP=$(date +%s)
+  arm_memsampler
   log "segment $SEGMENT: the loop to --wall-hours $WALL (spearman floor $FLOOR); resumes from $LOOP/loop_state.json if present"
   uv run python -m anvil.training.selfplay --name "$NAME" --ckpt "$START" --iterations 2000 --wall-hours "$WALL" \
     --games 480 --games-per-pair 2 --workers "$WORKERS" --chunk 30 --port 50063 --seed-base 20260921 \
