@@ -2756,3 +2756,10 @@ record.*
   Arcane-splice abort (fork or upstream; the 10-05 phantom-cast PR's neighbour); (2) the infinite-combo-without-a-win
   shape as a Grindstone / value-target item; (3) the battery's `casts/game` row read loop-excluded (a per-game
   concentration column). None touches the recipe of record or segment 3.
+- **2026-10-21 (late evening) — the Peer Through Depths phantom cast ROUTED (the user's ask):** the census read
+  attributed it but routed it nowhere. Now Tier 0.9 in [upstream-worklist.md](upstream-worklist.md) (the 10-05 review
+  list), in two halves: (a) the engine abort after the splice prompts with no payment — reproduce on the stock jar from
+  the census's seed and game; stock ⇒ an upstream PR in the T'Challa / #12283 shape; (b) the fork's option scan
+  re-offering an engine-refused cast in the same window — an `ill` mark or a per-window re-pick cap, built at the
+  segment-3 boundary with its forkcheck. The Emry + Paradox Engine + Urza's Bauble loop is a genuine rules-legal loop
+  with no payoff (the window cap drew it); not a bug, a policy item the value head should price — recorded, not routed.

@@ -290,6 +290,26 @@ the first PR day, not here.
   resolve the cast-from zone from the real host when the alternate host has none (one method,
   one test from the fork's). Part (b) is a design question (where a failed cast's payment is
   reversed) — Discord first, Tier 5.
+- **Tier 0.9 — the Arcane / splice phantom cast** (routed 10-21 from the segment-2 cast census,
+  `data/runs/cast-census/read.md` §1; running record 10-21 evening). Peer Through Depths was picked 1,998
+  times in one main phase and never paid for: `chooseSpellAbilityToPlay` → `playChosenSpellAbility` →
+  `chooseCardsForSplice` (one candidate, Desperate Ritual in hand) → ten `chooseSingleStaticAbility`
+  prompts (`possibleReplacers` 2, 1, 2, 1, …; answered by the stock default, not the bridge) → no
+  `payManaCost`, the card back in hand; the option scan re-offers it and the policy re-picks until it
+  samples `pass`. Repro handle: `br-seg2arm-s0-20261021-125542` game 151, seed 1761270002676343326,
+  deck dc-864377 (Ral, Monsoon Mage) vs dc-864170, turn 27 MAIN1; the harness logged 842 windows. Two
+  halves, read in this order:
+  (a) **engine / forge-ai, the upstream candidate:** why the cast aborts after the splice prompts with no
+  payment — the same ADR-0005 late-payability class as the King T'Challa back face (a payability test
+  that passes, a real cast that fails and is never unwound; the T'Challa half was #12283). Reproduce on
+  the stock jar first (the fork's bridge answered none of the static-ability prompts, so the abort is
+  likely stock); a stock repro makes it a Tier 0 PR, a fork-only repro makes it ours.
+  (b) **fork, independent of (a):** the option scan re-offers a cast the engine just refused in the
+  same window, forever. Mitigation in the ADR-0122 shape: after an abort, mark that option `ill` for
+  the rest of the window (or cap re-picks of one option per priority window) so the decoder cannot
+  loop; the two loop games held 2,197 of `iter-202`'s 28,610 casts and carried the battery's
+  casts-per-game row, so this also makes the cast-spike watch readable. Build at the segment-3 boundary
+  (a fork tip, so a forkcheck; not mid-run).
 - **Tier 4 evidence — the copier cannot map tokens under simulation** (10-03, the baseline
   reads' `simfull` arm: `GameCopier.find` "Couldn't map Construct Token", a `RuntimeException`
   inside `simulateUpcomingCombatThisTurn`, 4 of 7 games; the other workers died of heap OOM).
