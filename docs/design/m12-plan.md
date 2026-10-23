@@ -428,7 +428,12 @@ vector swapped for a fixed random one of its width) to see whether the text carr
 information or only identity; (2) a learned encoder over the Forge scripts, trained during
 pre-training, against the Qwen3 table; (3) no ability encoding at all, names only. Why it is worth
 considering: one network, a smaller project, and a reproduction that needs no external text model.
-A swap changes the model's inputs, so it is a new era and a refit of every surface.
+The migration need not be a cold swap (user, 10-23): add the new encoder beside the old table, its
+projection zero-initialized so day zero is byte-identical (the pattern every Build 3/4 head used), train
+it in place, then retire the old path once a paired read with the old vectors zeroed sits within a
+pre-registered margin of the both-paths model. Path dropout on the old vector, ramped up, makes the model
+carry the information through the new path before the cut. The removal is still an input change, so
+its paired read is the bridge across it.
 
 ## Running record
 
