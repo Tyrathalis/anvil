@@ -2763,3 +2763,10 @@ record.*
   re-offering an engine-refused cast in the same window — an `ill` mark or a per-window re-pick cap, built at the
   segment-3 boundary with its forkcheck. The Emry + Paradox Engine + Urza's Bauble loop is a genuine rules-legal loop
   with no payoff (the window cap drew it); not a bug, a policy item the value head should price — recorded, not routed.
+- **2026-10-22 (19:44 → 19:55) — maintenance pause and relaunch (the user's package update + reboot):** `pause --wait`
+  stopped the loop at the iteration-215 boundary (state at 216, 359.3 h used). While the chain was down, its
+  watchdog-arming step landed on main from the rollback-guard branch (`5b77536`; the guard commits stay on the
+  branch for the boundary). The pins held through the update (kernel 7.2.6, driver 615.71.09, JDK 26.0.2). Relaunched
+  19:54 with the relay re-pointed at this session's new ref; **the chain armed `anvil-memsampler` itself** ("ARMED (was
+  inactive)" in `queue.log`) and resumed at iteration 216 in scope `anvil-big-run-6923.scope`. Segment 3 rows 203–215:
+  the Spearman 0.35–0.38, kl_mu 0.010–0.014, no guard; the arms rows at 204 / 209 read 0.5775 / 0.5925 network-alone.
