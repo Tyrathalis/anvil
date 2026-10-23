@@ -417,6 +417,19 @@ one; the ADR-collision and check-git-log entries are already in the wrap-up chec
 
 **Routed 10-17 (user), from the big run's two OOM kills — the learner's memory, for the next boundary (after the run, or a pause if a third kill forces it):** (1) a one-hour profile of one DataLoader worker's RSS against games processed on a copy of a replay window (the store reader is lazy per game, so the ≈ 7 GB per worker is decode state and glibc fragmentation, not the window duplicated); (2) if fragmentation: `MALLOC_ARENA_MAX=2` in the learner's environment + `malloc_trim` per game, or jemalloc; (3) **the decode change**: frames decoded straight to compact tensors in `anvil/store/trajectories.py` / `rl.py`'s `RlTrajectories` instead of lists of dicts, fewer games prefetched per worker, tensors handed to the main process through shared memory — restores `--rl-workers 12` and shortens the training step by ≈ 3–4 min of ≈ 8 (the handoff was the main process unpickling whole games); (4) the chain's retry at a halved `RL_WORKERS` on a watchdog trip (`scripts/memory_sampler.sh` writes `WATCHDOG-TRIP`; the chain half lands at an iteration boundary). The bridge in the run: `RL_WORKERS=4` and the watchdog.
 
+**Routed 10-23 (user), low priority, after the big run (the from-scratch recipe-trimming stage):** a
+learned, in-model ability encoding in place of the frozen external text encoder. Today each ability's
+vector comes from Qwen3 over its text (`abil-cf2ca6ba-b4s-qwen3`) and sits in the model as a fixed
+buffer; only the projections that read it train. The encoding is a warm start on learning what cards
+do: the model could instead learn cards purely from experiencing them in games after seeing their
+names. LordOfThePigs's effect model (survey 10-23) shows a script encoder trained on what abilities
+do in Forge works in practice. The tests: (1) the random-vector rung on our current table (each
+vector swapped for a fixed random one of its width) to see whether the text carries effect
+information or only identity; (2) a learned encoder over the Forge scripts, trained during
+pre-training, against the Qwen3 table; (3) no ability encoding at all, names only. Why it is worth
+considering: one network, a smaller project, and a reproduction that needs no external text model.
+A swap changes the model's inputs, so it is a new era and a refit of every surface.
+
 ## Running record
 
 The session-by-session record lives in **[m12-running-record.md](m12-running-record.md)** (split out
