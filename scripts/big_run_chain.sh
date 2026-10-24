@@ -57,6 +57,11 @@ WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}; LA_GAMES=${LA_GAMES:-500
 # 47.9 GB (≈ 6.8 GB apiece — the per-worker size is the whole window decompressed, not a share) with 8.9 GB to spare beside
 # an idle ComfyUI (16 GB); 4 ≈ 34 GB leaves room for a ComfyUI generation. The step took 483 s at 6 (670 s at 12, swapping).
 RL_WORKERS=${RL_WORKERS:-4}
+# 10-24 (iteration 239, segment 3): the alloc-share guard halted on a denominator event — the batch's policy-gradient
+# magnitude fell to half its band while the alloc weight and loss were unchanged (the share = w*raw/|PG|; the
+# distill share doubled in step). The carried weights are iteration-0 calibrated and |PG| has drifted down 18% over
+# the run, so the 3x (0.06) margin had eroded. Guard raised to 0.10 (5x) for the rest of the run; GUARD_ALLOC_SHARE
+# overrides. Not a learning change. Running record 10-24.
 SEGMENT=$(cat "$OUT/segment" 2>/dev/null || echo 1)
 . "$REPO/scripts/recipe.sh"   # RECIPE — the one definition of the search recipe
 export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}"
@@ -154,7 +159,7 @@ if [[ $WALL_DONE -eq 0 ]]; then
     --games 480 --games-per-pair 2 --workers "$WORKERS" --chunk 30 --port 50063 --seed-base 20260921 \
     --temperature 1.0 --replay 4 --fresh-weight 1.0 --replay-weight 0.33 --rl-workers "$RL_WORKERS" --epochs 1 --lr 1e-5 \
     --ent-weight 0.003 --ent-floor 0.08 --rl-seg 128 --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult 1.5 \
-    --guard-casts-floor 0.8 --penalty 0.02 --heur-frac 0.5 --value-weight 0.5 --traj-per-step 4 \
+    --guard-casts-floor 0.8 --guard-alloc-share "${GUARD_ALLOC_SHARE:-0.10}" --penalty 0.02 --heur-frac 0.5 --value-weight 0.5 --traj-per-step 4 \
     --arms-every 5 --arms-pairs data/runs/d5arm-d0-s0-20260714-143546/pairs.txt --arms-games 200 --arms-seed-base 20260710 --arms-lookahead on \
     --reask --jar "$JAR" --search-recipe "$RECIPE" --search-alloc head --search-floor 0.1 \
     --distill-carry-w --alloc-carry-w --state-bank "$BANK" --guard-spearman-floor "$FLOOR" \
