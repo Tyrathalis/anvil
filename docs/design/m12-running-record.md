@@ -2790,3 +2790,14 @@ record.*
   interleave. **The read:** the second step's |PG|, shares and kl beside the first's — the same shape says the batch,
   a normal step says the loader's draw. **The watch tightens:** a second iteration with kl_mu ≥ 0.03 is a pause and
   a read, not a note.
+- **2026-10-24 (14:50) — the retrained step REPRODUCED the first to four decimals; iteration 239 ACCEPTED under the
+  raised guard; the loop is at 240.** First vs second step: alloc_share 0.0608 / 0.0605 (median 0.0644 / 0.0642), distill
+  share 0.0724 / 0.0720, |PG| per trajectory 0.00634 both, kl_mu 0.0196 / 0.0194 with the same within-step path (0.004
+  → 0.037 → 0.032 final), entropy 0.1437 / 0.1439, the gradient norms identical. So the training step is a deterministic
+  function of the iteration's stores (the loader's seeded schedule at the same `RL_WORKERS` gives the same interleave),
+  and the weak policy gradient and the kl climb are in iteration 239's DATA, not the draw. The comparison answered a
+  different question than intended, but it answered it: the step reflects its batch. Under the 0.10 guard the step is
+  accepted (Spearman 0.358 ± 0.027 on the new checkpoint, in the segment's band); iteration 240 generates from it. **The
+  tightened watch stands:** iteration 240's kl_mu back in the 0.007–0.014 band closes the event as one weak batch; a
+  second iteration at ≥ 0.03 pauses the run for a read of the batch (which games, which seats, the advantage
+  distribution) before any further step.
