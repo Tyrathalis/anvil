@@ -2818,3 +2818,31 @@ record.*
   persisted lr multiplier), per-iteration aux-weight recalibration as ADR-0057's default instead of the frozen carry,
   and the arms server's warm-up deadline (poisoned-bridge discards in the first arm's first games). The hypotheses and
   the hyperparameter-vs-architecture read are in this session's devlog.
+- **2026-10-25 — DESIGN THREAD (the user + this session; a candidate ADR for the closeout, recorded here so it does not
+  live only in chat): the value head as the center of the next milestone, trained structurally through a full-vis
+  teacher on real games.** The reasoning: the win rate against the heuristic saturates near 0.6 and stops informing;
+  a value function's accuracy is bounded only by hidden information and future randomness, not by the opponent, and it
+  compounds (the search leaf, the advantage baseline, the Ante critic). **The shape:** (1) a full-vis critic (both hands,
+  the libraries) with truncated search / rollouts inside scores every recorded window — rollouts played by REAL-vis
+  policies, the hidden information only in the evaluator; (2) a real-vis value head with its own capacity and its own
+  offline trainer regresses onto those scores, after the games are complete; (3) measured on a high-K bank or by log
+  loss against outcomes — the K=8 bank's Spearman caps near 0.75 for a perfect predictor, so the current metric cannot
+  show the gain; (4) the same critic is the Ante ledger's instrument (its corr 0.16–0.20 is what failed the 1.5× bar).
+  **No randomized hidden cards in training:** the real game's hidden state is one draw from the true posterior given
+  the observation, including the opponents' tells (a held-up card is more often a counterspell because of how
+  opponents play); regressing onto the teacher across games integrates over it, so the student converges to the
+  real-vis value under the data's opponents; a uniform re-deal would flatten the posterior and destroy the tells. **The
+  one exclusion:** the full-vis object evaluates states and supplies baselines and never chooses actions a trajectory
+  the policy learns from (a value averages correctly over hidden states; an imitation target does not — a mixture of
+  cheating choices is not the real-vis optimum). The mid-game leak (weights updated on the current game's teacher
+  values, then used in that game) is excluded by construction: training follows completed games. The teacher should
+  condition on the observation as well as the true state (the asymmetric-critic bias otherwise). **Belief sampling
+  stays the SEARCH's problem** (the engine needs a concrete hidden state to roll out from at play time), separable and
+  later, buildable the same structural way (a head predicting the opponent's hidden cards, supervised from the
+  stores). **Known costs:** the student inherits the teacher's calibration (the teacher is measured first, on its own
+  bank); the tells are the training opponents' tells (the heuristic's and its own) — human games through Forge fix
+  that, and only Forge-hosted games carry full-vis records (third-party logs are real-vis: student data, never teacher
+  data); coverage off the data's trajectories is the usual learned-value weakness. The critic is bulk-offline-trainable
+  on every store ever recorded (the big run alone ≈ 120K games on one jar), with recency weighting across policy eras.
+  Routed to the M12 closeout scoping as the candidate center of the next milestone (the ADR-0119 critic upgrade made
+  the milestone rather than a prerequisite), beside the segment-3 boundary reads (the swap-head lookahead, rolls 4).
