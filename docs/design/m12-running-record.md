@@ -2801,3 +2801,20 @@ record.*
   tightened watch stands:** iteration 240's kl_mu back in the 0.007–0.014 band closes the event as one weak batch; a
   second iteration at ≥ 0.03 pauses the run for a read of the batch (which games, which seats, the advantage
   distribution) before any further step.
+- **2026-10-25 (00:30) — the iteration-239 event CLOSES WITHOUT A PAUSE: the 244 arms row reads 0.5600 ± 0.025
+  network-alone (with-lookahead 0.6025), inside the segment's 0.5625–0.5925 range; the kl trend broke at 243.** The
+  event's course after the guard halt: kl_mu means 0.020 / 0.016 / 0.022 / 0.027 / 0.019 / 0.020 over 239–244 (finals
+  up to 0.036; the pre-registered 0.03 pause line never crossed on the mean), entropy 0.144 → 0.199 at 243 then 0.175
+  at 244, the kl-per-unit-gradient ratio 0.45 at 239 and 0.47 at 242 then back in its 0.06–0.13 band at 243–244, the
+  policy-gradient magnitude back in band from 242, rho_mean 0.984 → 0.972 (the replay window drifting off-policy as
+  the policy moved faster), the Spearman flat at 0.35, the games ordinary throughout. **Reading:** a step-to-signal
+  excursion (AdamW's normalized step on a batch with half the usual gradient, the fixed-weight aux terms carrying a
+  larger share for one step) that diffused the policy for three iterations and self-limited; it did not cost
+  strength on the arms meter (239's 0.5225 row carried eight poisoned-bridge games in its first arm — the arms
+  server's warm-up deadline, also 11 at iteration 234 — and reads as the outlier). **No pause, no rollback; the run
+  continues under the 0.10 alloc-share guard with the tightened watch** (kl_mu ≥ 0.03 on an iteration mean, or
+  entropy > 0.20, or an arms row ≤ 0.54 → pause and read). **Routed to the boundary, from this event:** a kl-targeted
+  lr (scale the step to hold kl_mu near a set value; not in the trainer today — ≈ 30–50 lines on the rollback branch's
+  persisted lr multiplier), per-iteration aux-weight recalibration as ADR-0057's default instead of the frozen carry,
+  and the arms server's warm-up deadline (poisoned-bridge discards in the first arm's first games). The hypotheses and
+  the hyperparameter-vs-architecture read are in this session's devlog.
