@@ -2846,3 +2846,17 @@ record.*
   on every store ever recorded (the big run alone ≈ 120K games on one jar), with recency weighting across policy eras.
   Routed to the M12 closeout scoping as the candidate center of the next milestone (the ADR-0119 critic upgrade made
   the milestone rather than a prerequisite), beside the segment-3 boundary reads (the swap-head lookahead, rolls 4).
+- **2026-10-26 (07:45) — THE PRE-REGISTERED PAUSE LINE FIRED: the 259 arms row 0.5400 network-alone; the run is
+  PAUSING at the iteration-260 boundary for the read.** The four arms rows since the iteration-239 event: 0.5600,
+  0.5600, 0.5525, **0.5400** (mean 0.553 over 1,600 games, SE ≈ 1.25pp) against the seven rows before it at 0.578
+  (SE 0.93) — −2.5 ± 1.6pp, 1.6 SE, monotone. The with-lookahead rows did NOT slide (0.6025, 0.5575, 0.5600, 0.5875;
+  mean 0.577), so the lookahead gap re-opened to ≈ +2.4pp over the four rows: the network's own policy lost sharpness
+  while search over it still finds the moves — the signature of the diffusion the kl / entropy excursion produced,
+  arriving on the strength meter with a lag. The trainer meters themselves normalized by 257–259 (kl_mu 0.012–0.020,
+  entropy 0.167, the Spearman 0.35–0.36). Wall 432.6 h of 504. **The read, pre-registered before it runs:** (1) a
+  paired network-alone read on the arms pairs, `iter-259` vs `iter-238` (the last pre-event checkpoint), 1,000 games
+  each on the same seeds — **the slide is real if iter-259 − iter-238 ≤ −1.5pp**; (2) the per-card cast census 238 vs
+  259 on the loop's own stores for where the policy moved. **The responses, pre-registered:** real → roll back to
+  `iter-238` (the 239–260 stores moved aside so the loop regenerates) and resume under a step fix — the lr halved as the
+  flag-only option, the kl-targeted lr if built by then — with the 0.10 alloc-share guard kept; noise → resume as is,
+  the watch unchanged. Either way the event's checkpoints stay on disk for the boundary's reads.
