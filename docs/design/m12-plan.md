@@ -435,6 +435,17 @@ pre-registered margin of the both-paths model. Path dropout on the old vector, r
 carry the information through the new path before the cut. The removal is still an input change, so
 its paired read is the bridge across it.
 
+**Noted 10-26 (user), a possibility, not a plan:** learned dynamics as a *search* accelerator, never a
+game generator. If the learned ability encoding above is trained on real game observations and works
+well, extending it into a world model that dreams short search lookaheads would make search much
+cheaper: ≈ 0.14 ms per batched transition in LordOfThePigs's benchmark, against tens of ms per Forge
+simulation. The engine still plays every recorded move, so no invalid game is ever recorded. The
+residual risk is search bias from model errors, and the monitor for it is the gap between the dreamed
+lookahead's value and the engine-played returns (invariant 4's audit). Full-game dreaming is not safe
+at any plausible accuracy. It needs about 1 invalid game in 10,000, which is ≈ 6e-8 per transition
+at ≈ 1,600 decisions per Commander game; four nines per transition would leave ≈ 15% of dreamed games
+invalid.
+
 ## Running record
 
 The session-by-session record lives in **[m12-running-record.md](m12-running-record.md)** (split out
