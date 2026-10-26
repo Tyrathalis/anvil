@@ -2860,13 +2860,13 @@ record.*
   `iter-238` (the 239–260 stores moved aside so the loop regenerates) and resume under a step fix — the lr halved as the
   flag-only option, the kl-targeted lr if built by then — with the 0.10 alloc-share guard kept; noise → resume as is,
   the watch unchanged. Either way the event's checkpoints stay on disk for the boundary's reads.
-- **2026-10-26 (12:00) — THE EVENT READ: NOISE. iter-259 − iter-238 = −0.36 ± 1.14pp paired (t −0.31; 244 up / 251
+- **2026-10-26 (10:35) — THE EVENT READ: NOISE. iter-259 − iter-238 = −0.36 ± 1.14pp paired (t −0.31; 244 up / 251
   down; 1,000 games per seat each on fresh seeds 20261026, network-alone, masked, raw; `data/runs/event-read/read.md`,
   `scripts/event_read_chain.sh`). iter-259 0.5940 ± 0.0110, iter-238 0.5985 ± 0.0110 on that seed set (levels are
   seed-set-bound; the paired difference is the number). Against the pre-registered line (real if ≤ −1.5pp): the
   arms rows' −2.5 ± 1.6pp slide does not reproduce at 2.4× the games; the four post-event rows were a 1.6-SE draw.
   **The pre-registered response: resume as is**, the watch unchanged (kl_mu ≥ 0.03, entropy > 0.20, a guard, or an
-  arms row ≤ 0.54 → pause and read); relaunched 12:0x from the loop's state at 261 (the pause cost ≈ 2.9 h of box
+  arms row ≤ 0.54 → pause and read); relaunched 10:34 from the loop's state at 261 (the pause cost ≈ 2.9 h of box
   time, 2.8 h of it the read). **The census 238 → 259 on the loop's own stores (CPU, during the wait):** the model
   seat's per-card movement is ≈ 2× the heuristic control's noise floor (gross |Δ| 3,631 vs 1,810; 16 cards beyond 2.5
   SE vs 8 for the control; spells flat 9,967 → 9,888, distinct cards 1,088 → 1,125), spread across many cards in both
