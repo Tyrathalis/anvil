@@ -445,6 +445,14 @@ lookahead's value and the engine-played returns (invariant 4's audit). Full-game
 at any plausible accuracy. It needs about 1 invalid game in 10,000, which is ≈ 6e-8 per transition
 at ≈ 1,600 decisions per Commander game; four nines per transition would leave ≈ 15% of dreamed games
 invalid.
+Sizing (10-26, order of magnitude, not measured): holding Forge's rules content takes ≈ 20–50M
+parameters (≈ 5–10 MB compressed at ≈ 2 bits per parameter). Search-grade accuracy (≈ 1e-4 per
+transition) probably takes ≈ 1–10B, scaling Othello-GPT's ≈ 25M at 1e-4 by Magic's rules complexity.
+Full-game precision is out of reach by scaling. **So even inside search the shape is hybrid** (the
+user, 10-26): the model takes the common, confident transitions, the engine takes rare or
+low-confidence ones (speculative execution), and the value audit catches the rest. Fully dreamed
+low-error training is not viable on a home machine. The first measurement, once an effect model
+exists: transition error against parameter count on our pool.
 
 ## Running record
 
