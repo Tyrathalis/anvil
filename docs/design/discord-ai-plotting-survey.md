@@ -2020,3 +2020,9 @@ So per game we are level with him. Per turn we are ≈ 1.7× faster, on longer C
   - **His imitation critique is why the recipe leaves BC behind.** BC is the warm start; the RL loop with search explores options the teacher never takes. Brave the Elements in Kryptic's masked run is the cleanest example.
   - **Kryptic's MuZero framing:** his model is a supervised world model. Ours has no learned dynamics at all; Forge is the model.
 - **#contribution-questions:** Dhraz opened his filter-chaining work as a PR against MostCromulent's fork (#12357's branch) until that merges. jonatas_abreu proposed a sandbox / scenario mode; monky640 and friarsol pointed to dev mode (add cards, change state, save / load state) and Fuzz to Puzzles. Nothing for us.
+- **Asked by the user 10-26: does Forge already track win rates or goldfish a deck?** From the fork's source (upstream 09-16):
+  - **Results are kept per game, in memory.** `GameOutcome` and `PlayerStatistics` hold the winner, turns played, opening hand size and mulligans.
+  - **Persistent records exist only inside modes:** Quest stats, Gauntlet, Planar Conquest records, Adventure's `PlayerStatistic`, limited win / lose, achievements.
+  - **No cross-game win-rate ledger for ordinary constructed matches.** The CLI `sim` prints one "Game Result: Game N ended in X ms. P has won!" line per game to stdout, with no tally and no file.
+  - **No goldfish or mana-probability tool.** The deck editor's Statistics panel counts card types, colours and mana values with percentages. Its Probabilities panel is a shuffled sample order ("SAMPLE HAND"); the per-card percentage calculation is commented out in `CProbabilities`.
+  - Dhraz's goldfisher would be the first. It is also a natural Mentor / Tutor-side product: our stores already hold mana-by-turn and per-deck results for every game played.
