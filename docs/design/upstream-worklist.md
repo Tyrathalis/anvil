@@ -219,6 +219,15 @@ volunteered 07-11.
   after #11285 lands — a thread takes no PR slot; the build waits for the big run's close. The
   submit button (one press, one file, consent text, a receiver we host) is a separate later PR;
   the word "telemetry" never appears.
+  **10-26 (user): the stats page can lead.** Forge has no cross-game results ledger for constructed
+  play (results live per game in `GameOutcome` / `PlayerStatistics`; only Quest, Gauntlet, Conquest and
+  Adventure persist records; `sim` prints per-game winners to stdout). So the stats tab is useful before
+  blunder detection or replays exist. Two shapes: (a) a preliminary PR, a local results ledger + stats
+  page from what `GameOutcome` / `PlayerStatistics` already hold, with no recording and no dependency on
+  #11285; or (b) the headline user-facing feature of the full recording patch. Pick at the post-run
+  scoping; (a) is the smaller first step and stands on its own. **Goldfish statistics** (mana by turn,
+  flood / screw) are adjacent, not core Anvil: kept as a possible later addition if no one else ships
+  one (Dhraz's goldfisher, 10-23), and as intermediate data for Tutor.
 - Positions to hold, not PRs: evaluation-loop budgets (count-based, flag-gated, off by default);
   the host as an authoritative referee (multiplayer-hardening's open design question).
 
