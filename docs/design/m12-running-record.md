@@ -2878,3 +2878,11 @@ record.*
   trend at 1.6 SE and did not survive a 4,000-game paired read. The arms rows are the trend meter the ADR says they
   are; a pause line on them should be ≥ 2 SE of the row mean, not a single row's level — amended for the rest of the
   segment: a pause on the arms meter needs the mean of the last four rows ≥ 2 SE below the segment's prior mean.
+- **2026-10-26 (22:08) — MAINTENANCE PAUSE AND RELAUNCH (the user's package update + reboot).** `pause --wait` at 20:25;
+  the loop finished iteration 267 and stopped at its boundary at 21:34 (loop state 268); no run process survived the
+  stop. Relaunched 22:07 after the reboot: the chain armed the memory watchdog itself (`anvil-memsampler` ARMED, was
+  inactive after the reboot — the 10-22 wiring works unattended), STOP files cleared, the loop resumed from
+  `iter-267`. Box after the update: kernel 7.2.6-1-cachyos, driver 615.71.09, JDK 26.0.2 — the pinned trio unchanged.
+  The 264 arms row (0.5475 / 0.5775) read above the amended pause line (last-four mean 0.5500 vs prior mean 0.5700,
+  line 0.5450); rows 261–267 kl 0.012–0.020, entropy 0.154–0.184, Spearman 0.342–0.367, no guard. Wall spent ≈ 446 of
+  504 h; the stop lands ≈ 10-29 morning near iteration 290. The watch is re-armed through the 269 arms row.
