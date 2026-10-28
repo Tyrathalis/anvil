@@ -2886,3 +2886,21 @@ record.*
   The 264 arms row (0.5475 / 0.5775) read above the amended pause line (last-four mean 0.5500 vs prior mean 0.5700,
   line 0.5450); rows 261–267 kl 0.012–0.020, entropy 0.154–0.184, Spearman 0.342–0.367, no guard. Wall spent ≈ 446 of
   504 h; the stop lands ≈ 10-29 morning near iteration 290. The watch is re-armed through the 269 arms row.
+- **2026-10-28 (14:56) — THE KL WATCH LINE FIRED: iteration 291 kl_mu 0.0314 (line 0.03); the run is PAUSING at the
+  iteration-292 boundary for the read.** The shape, from the per-step rows: both trainings climbed monotonically over
+  their replay passes — iteration 290 from 0.011 to 0.067 at its last step, iteration 291 from 0.016 to 0.048 — where
+  iteration 289 held 0.005–0.017 throughout; rho_clip rose 0.62 → 0.80 across 291's steps as the policy left the
+  stored behaviour policy, the policy-gradient term sat near zero, and entropy went 0.158 → 0.223 over 290 (the 0.20
+  line, at its final step) then 0.220 → 0.149 over 291. The value head's optimism read +0.059 on 291. No guard (the
+  loop's kl guard is 0.06 on the iteration mean). The preceding stretch 285–289 was the segment's median band (kl
+  0.011–0.014) after the 281–284 excursion (0.022–0.029, two rows a hair under the line); the 289 arms row 0.5625 /
+  0.5700. Wall 487.2 h of 504 at the trip (≈ 11 iterations left). **The read, pre-registered before it runs:** (1) a
+  paired network-alone read, `iter-291` vs `iter-289` (the last quiet checkpoint), 1,000 games per seat each on
+  fresh seeds 20261028 (`scripts/event_read2_chain.sh`, `data/runs/event-read2/`; the 10-26 chain re-pointed) —
+  **the slide is real if iter-291 − iter-289 ≤ −1.5pp**; (2) the per-card cast census 289 vs 291 on the loop's own
+  stores (CPU, during the wait). **The responses, pre-registered:** real → roll back to `iter-289` (the 290–291
+  stores and train dirs moved aside so the loop regenerates) and finish the segment's remaining box hours under the lr
+  halved (`--lr 5e-6`, the flag-only step fix; the chain's `--lr 1e-5` becomes an env default — edited only once the
+  chain's process has exited), the 0.10 alloc-share guard kept; noise → resume as is for the remaining ≈ 11
+  iterations, the watch unchanged. Either way the within-iteration kl climb over the replay passes is a boundary
+  item beside the denominator mechanism: the kl-targeted lr would have held both.
