@@ -2969,3 +2969,18 @@ record.*
   segment's seeds, paired against `brla-seg3`): the search's worth with a better leaf on the same trunk, in games.
   Both exploratory, for the anchor-arm ADR; pre-registered expectation: the gap over network-alone (+1.7 with the own
   head) widens with the transplanted head if the leaf is what caps the search.
+- **2026-10-29 (15:04) — THE CONFIRMING PAIRED READ CLEARS: +6.32 ± 0.79pp over the era reference; `big-run/iter-301`
+  PROMOTED to the ckpt of record.** `big-run-confirm3` (ADR-0123 §4; fresh seeds 20261029, 2,500 / seat, network-alone,
+  masked, raw, the launch jar): `iter-301` **0.5972 ± 0.0069** vs `d6-run11/iter-019` 0.5350 ± 0.0071, paired
+  **+6.32 ± 0.79pp** (t 7.97, 916 up / 607 down); `data/runs/big-run-confirm/confirm.md`, the row in
+  `data/runs/big-run/read.md`. The era reference reads the same on both confirm seed sets (0.5348 / 0.5350), so the
+  two confirms are on one scale: segment 1 +4.22 → segment 3 +6.32, a +2.1pp gain over 200 iterations on fresh seeds
+  (the segment-close reads on 20261006 put the same gap at +2.75 ± 1.2 — consistent). **Promoted under the standing
+  default** (promote on a cleared gate unless the run is suspect; the segment's three events each read as noise on
+  fresh-seed paired reads, the battery is clean, no guard halt masked a drift): the state table and the map carry
+  `iter-301`; `iter-099` is the segment-1 mark; the era reference is unchanged for the run's remaining segments. The
+  relay reached this session through the `anvil-box` peer (the launcher's ref moved on the 10-26 relaunch; the
+  check-in's pointer is a known ADR-0107 gap). **Still on the box, in order:** the rolls-4 with-lookahead read on
+  `iter-301` (started on the confirm's DONE), then the head-transplant with-lookahead read — both exploratory, for the
+  anchor-arm ADR. **Segment 4 is the user's go**, and its shape — the continuation, the anchor arm at 0.3, or the
+  transplant — waits on those two reads.
