@@ -2904,3 +2904,19 @@ record.*
   chain's process has exited), the 0.10 alloc-share guard kept; noise → resume as is for the remaining ≈ 11
   iterations, the watch unchanged. Either way the within-iteration kl climb over the replay passes is a boundary
   item beside the denominator mechanism: the kl-targeted lr would have held both.
+- **2026-10-28 (17:36) — THE KL-TRIP READ: NOISE. iter-291 − iter-289 = −0.72 ± 0.94pp paired (t −0.76; 161 up /
+  175 down; 1,000 games per seat each on fresh seeds 20261028, network-alone, masked, raw; `data/runs/event-read2/
+  read.md`).** iter-291 0.6160 ± 0.0109, iter-289 0.6215 ± 0.0108 on that seed set (seed-set-bound levels; the paired
+  difference is the number). Against the pre-registered line (real if ≤ −1.5pp): the climb cost nothing measurable at
+  1,000 pairs. **The pre-registered response: resume as is**; relaunched 17:36 from the loop's state at 293 (the pause
+  cost ≈ 2.6 h of calendar time, 1.3 h of it the read; the wall budget frozen at 488.5 h of 504 — ≈ 11 iterations
+  left). Iteration 292, trained before the STOP took effect, climbed the same way (per-step kl 0.007 → 0.057, mean
+  0.0309; entropy at its final step 0.153 — the 290 entropy spike did not recur): three consecutive trainings with the
+  within-iteration climb over the replay passes. **The census 289 → 291 on the loop's own stores** reads as the 238 →
+  259 one: the model seat's per-card movement 1.9× the heuristic control's noise floor (gross |Δ| 4,851 vs 2,542; 23
+  cards beyond 2.5 SE vs 14), both directions, spells 9,660 → 9,824, lands 5,693 → 5,798, distinct spells 1,095 →
+  1,102, model windows +4.7% — diffusion, not a habit, not a cast burst. **The watch amended for the rest of the
+  segment (the same logic as the 10-26 arms amendment):** a single kl row at 0.03 has now been read twice as noise, so
+  the kl pause line becomes two consecutive rows ≥ 0.04 on the iteration mean (the loop's own 0.06 guard halts above
+  that); entropy > 0.20, any guard and the arms four-row mean stay as they were. The segment's closing reads adjudicate
+  the whole; the within-iteration climb is a boundary item (the kl-targeted lr, the per-iteration aux recalibration).
