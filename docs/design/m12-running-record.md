@@ -2920,3 +2920,34 @@ record.*
   the kl pause line becomes two consecutive rows ≥ 0.04 on the iteration mean (the loop's own 0.06 guard halts above
   that); entropy > 0.20, any guard and the arms four-row mean stay as they were. The segment's closing reads adjudicate
   the whole; the within-iteration climb is a boundary item (the kl-targeted lr, the per-iteration aux recalibration).
+- **2026-10-29 (11:58) — SEGMENT 3 CLOSED at the wall stop (505.0 h, iteration 302, 144,960 games; the chain's
+  reads on `iter-301`, seed base 20261006, masked, raw): network-alone 0.5930 ± 0.0110, with-lookahead 0.6100 ±
+  0.0154 (the gap +1.7pp, from +1.0 at segment 2's close); paired on the same seeds +6.07 ± 1.23pp vs the era
+  reference (t 4.92), +3.99 ± 1.22 vs the warm start, +3.32 ± 1.19 vs `iter-099` (t 2.78), +1.95 ± 1.13 vs
+  `iter-202` (t 1.72); the last Spearman 0.3263 ± 0.0273.** The battery (`br-seg3-analysis`, `brla-seg3-analysis`):
+  no anomalies, seed halves inside their flags, 5 + 2 NullPointerException crashes in 3,000 games, the model's
+  self-target rate 0.149 / 0.140. **The kill rules (ADR-0123 §5), adjudicated:** the teaching-channel kill needs
+  with-lookahead ≥ 2 SE above its start (0.6100 vs 0.5856: +2.4pp, 1.6 SE) AND network-alone within 1 SE of the warm
+  start (0.5930 vs 0.5560: +3.7pp, 3.4 SE) — does not fire; the leaf tripline needs both series flat across the
+  segment — network-alone rose +1.85pp and with-lookahead +2.6pp from segment 2's close — does not fire; the third
+  shape needs network-alone flat while the Spearman falls > 2 boot SE below 0.374 — the Spearman is 1.75 SE below
+  and network-alone rose — does not fire. **The promotion bar (≥ 0.563 network-alone at 2,000 games) is cleared by
+  3.0pp; the confirming paired read on fresh seeds 20261029 (2,500 / seat vs the era reference,
+  `scripts/big_run_confirm_read.sh`, run `big-run-confirm3`) is RUNNING since 12:35** — the promotion of `iter-301`
+  over `iter-099` is the user's call on it (the standing default: promote on a cleared gate). **The segment's
+  trajectory, by quarter:** kl median 0.011 / 0.013 / 0.014 / 0.015, entropy 0.162 / 0.169 / 0.158 / 0.173, the
+  Spearman 0.362 / 0.354 / 0.354 / 0.346 (0.375 at the start, 0.326 at the close; −0.005 per 25 iterations, half the
+  segment-2 slope; the ADR-0118 line 0.324 reached near iteration 300 as the 10-21 review projected), the value head's
+  optimism +0.027 → +0.036, alloc_share 0.037–0.042 under the 0.10 guard. Three events, each read as noise on a paired
+  fresh-seed read (above). The arms meter over the segment: 0.5626 network-alone / 0.5725 with-lookahead across
+  twenty rows (gap +1.0). **The pre-registered intervention is the ANCHOR ARM** (the head-only anchor 0.1 → 0.3 from
+  `iter-301`, a new arm paired against a continuation): its condition — the Spearman reaches 0.324 while
+  network-alone still rises — is met on the letter (0.326 ± 0.027) and the spirit (the series fell every quarter);
+  the rolls-4 arm's condition (the Spearman holds, the gap ≈ +1) is not. **Boundary reads on the quiet box:** the
+  head-swap Spearman read (`iter-301`'s trunk under the `iter-099`, warm-start and recovery heads; CPU minutes) and
+  the rolls-4 with-lookahead read on `iter-301` (1,000 games, queued behind the confirm read) — both exploratory, for
+  the anchor-arm ADR. Routed to the boundary and still open: the rolling-back guard branch (merge + smoke), the
+  kl-targeted lr (now two cases: the 239 denominator event and the 290–292 within-iteration climb), the per-iteration
+  aux-weight recalibration, the arms-server warm-up deadline, Tier 0.9's fork half, the per-pair split of the arms
+  meter's post-event level shift (−1.3 ± 1.1pp, not reproduced on fresh seeds), the `CensusRun -certify` deletion with
+  the payment evalset re-certification, and the upstream merge (at the run's close, not the segment's).
