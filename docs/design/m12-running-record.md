@@ -2933,7 +2933,7 @@ record.*
   shape needs network-alone flat while the Spearman falls > 2 boot SE below 0.374 — the Spearman is 1.75 SE below
   and network-alone rose — does not fire. **The promotion bar (≥ 0.563 network-alone at 2,000 games) is cleared by
   3.0pp; the confirming paired read on fresh seeds 20261029 (2,500 / seat vs the era reference,
-  `scripts/big_run_confirm_read.sh`, run `big-run-confirm3`) is RUNNING since 12:35** — the promotion of `iter-301`
+  `scripts/big_run_confirm_read.sh`, run `big-run-confirm3`) is RUNNING since 18:47** — the promotion of `iter-301`
   over `iter-099` is the user's call on it (the standing default: promote on a cleared gate). **The segment's
   trajectory, by quarter:** kl median 0.011 / 0.013 / 0.014 / 0.015, entropy 0.162 / 0.169 / 0.158 / 0.173, the
   Spearman 0.362 / 0.354 / 0.354 / 0.346 (0.375 at the start, 0.326 at the close; −0.005 per 25 iterations, half the
@@ -2951,3 +2951,21 @@ record.*
   aux-weight recalibration, the arms-server warm-up deadline, Tier 0.9's fork half, the per-pair split of the arms
   meter's post-event level shift (−1.3 ± 1.1pp, not reproduced on fresh seeds), the `CensusRun -certify` deletion with
   the payment evalset re-certification, and the upstream merge (at the run's close, not the segment's).
+- **2026-10-29 (12:15) — THE HEAD-SWAP READ: the segment's Spearman loss lives in the HEAD, and a six-iteration
+  anchor-trained head ranks this trunk ABOVE day-zero.** On the bank (`value_pretrain eval --swap-head`,
+  `data/runs/big-run/swaphead-seg3.jsonl`): `iter-301`'s trunk under its own head 0.3263 ± 0.0273; under
+  `iter-099`'s head 0.3253 (no change); under the warm start's head 0.3490; under **`settings-recovery/iter-006`'s
+  head 0.4087 ± 0.0231** (+8.2pp over its own; above the day-zero build's 0.374). The converse: `iter-099`'s trunk
+  under `iter-301`'s head 0.3078 (from 0.3975, −9.0pp); under the warm start's head 0.3468. Reading: with the value
+  gradient stopped at the trunk, the trunk is the policy gradient's alone and its representation still ranks (the
+  recovery head, which never saw this trunk, ranks it at 0.409); the 300 iterations of V-trace targets under the
+  0.1 anchor degraded the head itself — the opposite attribution to the 09-24 read on the un-anchored shakedown
+  (there the drift was the trunk's). This is the anchor arm's mechanism in the clear: the anchor holds the head's
+  ranking and the V-trace term erodes it, so the ratio is the lever. **A head transplant is also on the table as a
+  boundary move** — `iter-301` with the recovery head swapped in (`data/training/big-run/iter-301-rechead/train/
+  last.pt`, config `head_transplant`; the bank read on it reproduces 0.4087) — network-alone identical by
+  construction (the value head does not act), the search leaf better-ranked at once. **Its with-lookahead read is
+  queued behind the rolls-4 read** (`scripts/rechead_read_chain.sh`, run `rechead-read`; 500 games / seat on the
+  segment's seeds, paired against `brla-seg3`): the search's worth with a better leaf on the same trunk, in games.
+  Both exploratory, for the anchor-arm ADR; pre-registered expectation: the gap over network-alone (+1.7 with the own
+  head) widens with the transplanted head if the leaf is what caps the search.
