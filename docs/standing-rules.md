@@ -173,6 +173,11 @@ reads).
   serves as the search's leaf is **anchored to that truth** — outcome targets alone pull it off it
   (the shakedown's 0.374 → 0.256 in 16 iterations;
   [ADR-0118](decisions/ADR-0118-value-head-drift-under-the-loop.md)).
+- **An anchor bank is read on its training rows beside its holdout** — a growing train − holdout gap is
+  the anchor memorizing, and a memorized anchor holds nothing (the big run: 0.84 on all rows vs 0.33 on
+  the holdout at 301 iterations, ≈ 1,170 passes over 8,403 rows, the holdout sliding from iteration 25);
+  size the bank and the draw budget so one iteration stays under a pass, and never raise the anchor
+  weight to fix a sliding holdout ([ADR-0124](decisions/ADR-0124-anchor-bank-refresh.md)).
 - **Adding or removing a loss on a shared trunk re-sizes every other loss's step under AdamW** —
   the per-parameter scaling hands the freed (or taken) gradient budget to whatever remains, so a
   recipe tuned with the value gradient on the trunk runs the policy ≈ 10× faster once it is off

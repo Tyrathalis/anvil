@@ -3011,3 +3011,17 @@ record.*
   ideally on current-policy states), fewer anchor draws per iteration (under one pass), head regularization, or
   periodic head reset (the transplant is one form). The arm design is the user's call; this entry is the finding.
   The loop's per-iteration Spearman row is on the holdout and stays honest; the ADR-0118 line and the floors stand.
+- **2026-10-29 (16:45) — ADR-0124 WRITTEN: the anchor bank refresh; the 0.3 anchor arm RETIRED unrun (the user's
+  call).** The user's read of the 16:10 finding: the head is converging, not to where we want; is it misconfigured?
+  Yes, in the anchor's data and schedule — [ADR-0124](../decisions/ADR-0124-anchor-bank-refresh.md) carries the
+  attribution and the pre-registration. The plan, agreed: segment 3's self-play states as the source of a new
+  rollout-truth bank (≥ 40,000 states, game-hash holdout ≥ 10%, K=8 rollouts served by `iter-301`; priced first by
+  `scripts/bench_labeler.py`), the head refit offline on it with the trunk frozen (early-stopped on the new holdout;
+  bars in the ADR), the online anchor re-pointed at the new bank at ≤ 0.25 pass per iteration via a new
+  `--anchor-every` flag, a train-vs-holdout memorization meter on every loop with a pause line at a gap of 0.15,
+  and the Spearman floors re-based on the new bank's day-zero. Not an offline fit of outcome targets on the
+  segment-3 games: that is V-trace's own objective (gamma 1, terminal reward), already at its flat 0.37 loss, and
+  V-trace alone lands near 0.25 on the bank (the 10-04 no-anchor control). The leaf family is retained unchanged
+  and routed for its own read. Sequencing: the transplant read decides whether the work precedes segment 4 or runs
+  beside it; nothing launches until the two queued reads finish. Standing rule added (the memorization meter); the
+  map's ADR index row; the Now block.
