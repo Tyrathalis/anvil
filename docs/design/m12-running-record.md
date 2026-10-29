@@ -2984,3 +2984,30 @@ record.*
   `iter-301` (started on the confirm's DONE), then the head-transplant with-lookahead read — both exploratory, for the
   anchor-arm ADR. **Segment 4 is the user's go**, and its shape — the continuation, the anchor arm at 0.3, or the
   transplant — waits on those two reads.
+- **2026-10-29 (16:10) — THE ANCHOR IS MEMORIZING ITS BANK: the value head's holdout slide is attributable to the
+  anchor term overfitting 8,403 training rows, not to V-trace alone.** Two meters, read together. The anchor's own
+  training loss (`anchor_state_step`, RankNet + 0.05 BCE on the bank's non-holdout rows) fell monotonically across
+  the run — 0.69 (iteration 1) → 0.53 (25) → 0.37 (100) → 0.29 (200) → 0.19 (300) — while the holdout Spearman
+  peaked at 0.48 (iteration 25) and slid to 0.33. The bank scored on ALL rows (`eval --split all`, n 9,600, 87% of
+  them the anchor's training rows) against the frozen holdout (n 1,197):
+
+  | ckpt | anchored iterations | holdout ρ | all-rows ρ |
+  |---|---|---|---|
+  | `shakedown-alloc/iter-019` (the warm start; never anchored) | 0 | 0.250 | 0.255 |
+  | `settings-recovery/iter-006` | 6 | 0.439 | 0.457 |
+  | `big-run/iter-099` | 99 | 0.398 | 0.714 |
+  | `big-run/iter-301` | 301 | 0.326 | 0.840 |
+
+  The un-anchored checkpoint scores the same on both splits; the anchored ones open a gap that grows with exposure
+  (≈ 0.90 on the training rows alone at `iter-301`). Exposure: 340 optimizer steps per iteration × 96 rows = 3.9
+  passes over the bank per iteration, ≈ 1,170 passes over the run, on a 263k-parameter head over a near-frozen
+  feature map (stop-grad, trunk lr 3e-6). The leaf family shows the same direction more slowly (799 windows,
+  ≈ 0.4 pass per iteration; loss 0.97 → 0.75). Reading: the anchor satisfies its loss by memorizing the bank and
+  stops constraining the head's generalization, so V-trace sets the holdout ranking from about iteration 25 on;
+  the recovery cell looked good because 24 passes had not yet memorized. **Consequence for the registered boundary
+  arm:** the anchor-weight 0.1 → 0.3 intervention assumed an under-weighted anchor; on this attribution a heavier
+  weight should memorize faster, not hold better — the prediction is recorded here before any arm runs. The
+  remedies are of the data and the schedule, not the weight: a much larger anchor bank (fresh rollout truth,
+  ideally on current-policy states), fewer anchor draws per iteration (under one pass), head regularization, or
+  periodic head reset (the transplant is one form). The arm design is the user's call; this entry is the finding.
+  The loop's per-iteration Spearman row is on the holdout and stays honest; the ADR-0118 line and the floors stand.
