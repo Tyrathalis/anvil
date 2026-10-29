@@ -2933,7 +2933,7 @@ record.*
   shape needs network-alone flat while the Spearman falls > 2 boot SE below 0.374 — the Spearman is 1.75 SE below
   and network-alone rose — does not fire. **The promotion bar (≥ 0.563 network-alone at 2,000 games) is cleared by
   3.0pp; the confirming paired read on fresh seeds 20261029 (2,500 / seat vs the era reference,
-  `scripts/big_run_confirm_read.sh`, run `big-run-confirm3`) is RUNNING since 18:47** — the promotion of `iter-301`
+  `scripts/big_run_confirm_read.sh`, run `big-run-confirm3`) is RUNNING since 12:05** — the promotion of `iter-301`
   over `iter-099` is the user's call on it (the standing default: promote on a cleared gate). **The segment's
   trajectory, by quarter:** kl median 0.011 / 0.013 / 0.014 / 0.015, entropy 0.162 / 0.169 / 0.158 / 0.173, the
   Spearman 0.362 / 0.354 / 0.354 / 0.346 (0.375 at the start, 0.326 at the close; −0.005 per 25 iterations, half the
