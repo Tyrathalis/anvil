@@ -3204,3 +3204,8 @@ record.*
   299), with-lookahead 0.615 ± 0.024 (0.6025 at 299), so the lookahead gap over network-alone reads +6.0pp where 299's
   read +3.5 — at 400 games the SE of that difference is ≈ 3.5pp; exploratory, a watch item for the segment's close read
   (where the with-lookahead gap was +1.7 at segment 3's close and +2.7 on the transplant read).
+- **2026-10-30 (community watch) — the segment-3 result announced in `#ai-plotting`** (the user's post, facts checked here
+  first: ≈ 60% vs the stock heuristic over 2,000-game reads, ~115 decks / ~1,700 cards, Commander only, Kryptic's
+  Constructed runs, 76M parameters ≈ 100 MB quantized). Two corrections made before posting: the architecture has never run
+  Pauper (Kryptic's two runs were Forge Constructed on 60-card decks; Talor's 08-12 Pauper smoke report was his own
+  pipeline), and the pool holds 115 decks, not 117. Replies are the next community-watch read.
