@@ -278,16 +278,19 @@ def _yielded_s(dirs) -> float:
     return total
 
 
-def _state_ranking(ckpt, bank: str, fmt: str, out_json: Path) -> "dict | None":
+def _state_ranking(ckpt, bank: str, fmt: str, out_json: Path, splits: str = "holdout") -> "dict | None":
     """The state-ranking Spearman of `ckpt`'s value head on the Build 1
     frozen holdout (value_pretrain eval; ADR-0118: the per-iteration battery
     row + guard). A CPU subprocess (≈ 25 s) so it never trips the GPU yield;
-    None when the bank is absent or the eval fails (logged, never fatal)."""
+    None when the bank is absent or the eval fails (logged, never fatal).
+    ADR-0124: `splits` "holdout,train" adds the memorization meter — the
+    anchor's training rows (a fixed seeded sample) scored beside the holdout,
+    `gap` = train − holdout (a growing gap is the anchor memorizing)."""
     bank_pt = Path(bank) / "bank-state.pt"
     if not bank_pt.exists():
         return None
     cmd = [sys.executable, "-m", "anvil.training.value_pretrain", "eval", "--out", bank,
-           "--ckpt", str(ckpt), "--fmt", fmt, "--device", "cpu", "--write", str(out_json)]
+           "--ckpt", str(ckpt), "--fmt", fmt, "--device", "cpu", "--split", splits, "--write", str(out_json)]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
     except subprocess.TimeoutExpired:
@@ -296,8 +299,59 @@ def _state_ranking(ckpt, bank: str, fmt: str, out_json: Path) -> "dict | None":
     if r.returncode != 0 or not out_json.exists():
         print(f"[selfplay] state-ranking eval failed on {ckpt} (rc {r.returncode}): {r.stdout[-400:]}")
         return None
-    row = json.loads(out_json.read_text().splitlines()[-1])
-    return {k: row.get(k) for k in ("spearman", "se_boot", "n", "wall_s")}
+    names = [x.strip() for x in splits.split(",") if x.strip()]
+    rows = [json.loads(line) for line in out_json.read_text().splitlines()[-len(names):]]
+    by = {row.get("split", "holdout"): row for row in rows}
+    ho = by.get("holdout") or rows[-1]
+    out = {k: ho.get(k) for k in ("spearman", "se_boot", "n", "wall_s")}
+    tr = by.get("train")
+    if tr and out["spearman"] is not None and tr.get("spearman") is not None:
+        out.update(train_spearman=tr["spearman"], train_se_boot=tr.get("se_boot"), train_n=tr.get("n"),
+                   gap=round(tr["spearman"] - out["spearman"], 4))
+    return out
+
+
+def _ranking_meter(args, ckpt, out_json: Path) -> "dict | None":
+    """ADR-0118's holdout row + ADR-0124's memorization meter in one dict. The
+    meter reads the ANCHOR's bank (its training rows are what memorizes): one
+    eval with both splits when the anchor draws from the standing state bank;
+    otherwise the standing holdout row plus a second eval on the anchor's bank
+    (under `anchor_bank`, its `gap` lifted to the top). No anchor: holdout only."""
+    if not args.state_bank:
+        return None
+    anchor = getattr(args, "value_anchor", None)
+    same = bool(anchor) and Path(anchor).resolve() == Path(args.state_bank).resolve()
+    row = _state_ranking(ckpt, args.state_bank, args.state_bank_fmt, out_json,
+                         splits="holdout,train" if same else "holdout")
+    if row is None or not anchor or same:
+        return row
+    ab = _state_ranking(ckpt, anchor, args.state_bank_fmt,
+                        out_json.with_name(out_json.stem + "-anchor-bank.json"), splits="holdout,train")
+    if ab:
+        row["anchor_bank"] = ab
+        if ab.get("gap") is not None:
+            row["gap"] = ab["gap"]
+    return row
+
+
+# ADR-0124: the memorization PAUSE line. A guard breach rejects the iteration;
+# this does not — the iteration is accepted, then the loop stops before the next
+# one (STOP, self-written and self-cleared on the relaunch) so a human reads the
+# meter. One-shot per level: after a pause at gap g the line sits at g + rebase.
+SELF_STOP_MARK = "pause line (self-written by the loop)"
+
+
+def anchor_gap_pause(gap, line, last_pause_gap, rebase: float = 0.05) -> "str | None":
+    """The pause reason, or None. `gap` = the anchor bank's train − holdout
+    Spearman this iteration; `line` the flag (0/None = off); `last_pause_gap`
+    the gap at the loop's last pause (loop_state `anchor_gap_pause`)."""
+    if gap is None or not line or gap <= line:
+        return None
+    if last_pause_gap is not None and gap <= last_pause_gap + rebase:
+        return None
+    return (f"pause line: anchor memorization gap {gap} > {line}"
+            + (f" (the last pause was at {last_pause_gap}; the line re-based to {round(last_pause_gap + rebase, 4)})"
+               if last_pause_gap is not None else ""))
 
 
 def _paired_run_dir(log: Path) -> "str | None":
@@ -1819,6 +1873,15 @@ def main() -> None:
     ap.add_argument("--anchor-weight", type=float, default=0.5)
     ap.add_argument("--anchor-families", default="state,leaf")
     ap.add_argument("--anchor-leaf-cap", type=int, default=96)
+    # ADR-0124: the anchor's draw budget + the memorization meter's pause line
+    ap.add_argument("--anchor-every", type=int, default=1,
+                    help="rl.py --anchor-every: one anchor mini-batch every K optimizer steps (size K so one "
+                         "iteration's draws stay under a quarter pass of the bank); 1 = every step (pre-ADR-0124)")
+    ap.add_argument("--guard-anchor-gap", type=float, default=0.15,
+                    help="ADR-0124's PAUSE line (not a guard): the anchor bank's training-row Spearman minus its "
+                         "holdout Spearman above this pauses the loop after the iteration is ACCEPTED (STOP written, "
+                         "read, then the user's call; a relaunch resumes and the line re-bases +0.05 above the "
+                         "pausing gap). Reads only with --value-anchor; 0 = off")
     ap.add_argument("--grad-norm-every", type=int, default=50,
                     help="rl.py --grad-norm-every: the per-term trunk gradient-norm row cadence; 0 = off")
     ap.add_argument("--trunk-lr", type=float, default=None, help="rl.py --trunk-lr (ADR-0119 rung 2 attribution)")
@@ -1988,12 +2051,17 @@ def main() -> None:
     # ADR-0118: the day-zero state-ranking row (the run's own reference for
     # the battery's drift read), once
     if args.state_bank and state.get("state_ranking_dayzero") is None and state["iteration"] == 0:
-        sr0 = _state_ranking(state["ckpt"], args.state_bank, args.state_bank_fmt, out / "state-ranking-dayzero.json")
+        sr0 = _ranking_meter(args, state["ckpt"], out / "state-ranking-dayzero.json")
         if sr0:
             state["state_ranking_dayzero"] = sr0
             state_path.write_text(json.dumps(state, indent=2))
             print(f"[selfplay] day-zero state-ranking spearman {sr0['spearman']} ± {sr0['se_boot']}")
 
+    if (out / "STOP").exists() and (out / "STOP").read_text().startswith(SELF_STOP_MARK):
+        # ADR-0124: a STOP the loop wrote at a pause line is cleared by the relaunch
+        print(f"[selfplay] clearing the loop's own pause STOP ({(out / 'STOP').read_text().strip()[:160]}) — "
+              f"resuming on the relaunch {_stamp()}")
+        (out / "STOP").unlink()
     while state["iteration"] < args.iterations:
         if (out / "STOP").exists():
             print(f"[selfplay] STOP file present — exiting between iterations {_stamp()}")
@@ -2353,7 +2421,8 @@ def main() -> None:
                     "--value-weight",
                     str(args.value_weight),
                     *(["--value-anchor", args.value_anchor, "--anchor-weight", str(args.anchor_weight),
-                       "--anchor-families", args.anchor_families, "--anchor-leaf-cap", str(args.anchor_leaf_cap)]
+                       "--anchor-families", args.anchor_families, "--anchor-leaf-cap", str(args.anchor_leaf_cap),
+                       "--anchor-every", str(args.anchor_every)]
                       if args.value_anchor else []),
                     "--grad-norm-every", str(args.grad_norm_every),
                     *(["--value-stopgrad-trunk"] if args.value_stopgrad_trunk else []),
@@ -2400,14 +2469,13 @@ def main() -> None:
             raise RuntimeError(f"training produced no checkpoint at {new_ckpt}")
         print(f"[selfplay] iteration {k}: training {round(t_train)} s {_stamp()}")
         # ADR-0118: the produced ckpt's state-ranking Spearman (CPU, ≈ 25 s)
-        state_rank = (
-            _state_ranking(new_ckpt, args.state_bank, args.state_bank_fmt, it_dir / "state-ranking.json")
-            if args.state_bank else None
-        )
+        state_rank = _ranking_meter(args, new_ckpt, it_dir / "state-ranking.json")
         if state_rank:
             dz = (state.get("state_ranking_dayzero") or {}).get("spearman")
             print(f"[selfplay] iteration {k}: state-ranking spearman {state_rank['spearman']} "
-                  f"± {state_rank['se_boot']}" + (f" (day zero {dz})" if dz is not None else ""))
+                  f"± {state_rank['se_boot']}" + (f" (day zero {dz})" if dz is not None else "")
+                  + (f"; anchor train {state_rank['train_spearman']} gap {state_rank['gap']}"
+                     if state_rank.get("gap") is not None else ""))
 
         # ---- monitor row + anomaly flags (accept ckpt AFTER writing it) ----
         census = _census_tallies(run_dirs)
@@ -2493,6 +2561,11 @@ def main() -> None:
             guards, args.guard_action, k, state.get("guard_last_rollback"),
             args.guard_rollback_window, args.lr, lr_mult, args.guard_lr_mult, args.guard_lr_floor,
         )
+        # ADR-0124: the memorization pause line (reads only with the anchor on)
+        pause_reason = anchor_gap_pause(
+            (state_rank or {}).get("gap"), args.guard_anchor_gap if args.value_anchor else 0,
+            state.get("anchor_gap_pause"),
+        )
         search_row = None
         if args.search_recipe:
             sj = train_dir / "search_join.json"
@@ -2520,6 +2593,7 @@ def main() -> None:
             "flags": flags,
             "guard": guards,
             **({"guard_rollback": rollback_entry} if rollback_entry else {}),
+            **({"pause": [pause_reason]} if pause_reason else {}),
         }
         # ---- M9 D4 payment probe readouts (pins 6-7): head movement from its
         # known init, and the drill accuracy of the ckpt this iteration
@@ -2727,6 +2801,18 @@ def main() -> None:
                     _watch_unregister(args.name)
                     sys.exit(4)
         state_path.write_text(json.dumps(state, indent=2))
+        if pause_reason and not guards:
+            # ADR-0124: accepted, then STOP before the next iteration — the chain
+            # reads STOP as a pause and exits; `anvil.runs relaunch` resumes and the
+            # loop clears its own mark on startup (the relaunch is the user's ack)
+            state["anchor_gap_pause"] = (state_rank or {}).get("gap")
+            state.setdefault("pause_lines", []).append({"iteration": k, "reason": pause_reason, "at": _stamp()})
+            state_path.write_text(json.dumps(state, indent=2))
+            (out / f"PAUSE-iter-{k:03d}.txt").write_text(pause_reason + "\n")
+            (out / "STOP").write_text(f"{SELF_STOP_MARK} iteration {k}: {pause_reason}\n")
+            print(f"[selfplay] !!! PAUSE LINE iteration {k}: {pause_reason} — ckpt accepted; STOP written, the loop "
+                  f"exits before the next iteration (read, then relaunch to continue)")
+            _notify(f"anvil {args.name}: PAUSE LINE iter {k}", pause_reason)
 
         # ---- arms (argmax serve, paired seeds, both seat assignments) ----
         if args.arms_every and (k + 1) % args.arms_every == 0 and args.arms_pairs:

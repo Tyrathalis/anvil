@@ -1135,6 +1135,11 @@ def main() -> None:
                          "rollout truth while V-trace trains it; off by default")
     ap.add_argument("--anchor-weight", type=float, default=0.5, help="the anchor term's weight (the value term's own scale)")
     ap.add_argument("--anchor-batch", type=int, default=96, help="state-bank rows per anchor step")
+    ap.add_argument("--anchor-every", type=int, default=1,
+                    help="ADR-0124: one anchor mini-batch every K optimizer steps — the draw budget. Size it so one "
+                         "iteration's draws stay under a quarter pass of the bank (the big run's 3.9 passes per "
+                         "iteration memorized 8,403 rows: all-rows rho 0.84 vs holdout 0.33 at iter-301); 1 = every "
+                         "step, the pre-ADR-0124 recipe")
     ap.add_argument("--anchor-leaf-cap", type=int, default=96,
                     help="leaf rows per anchor step (one window's leaves, capped); 0 = the state bank only")
     ap.add_argument("--anchor-families", default="state,leaf", help="csv of state,leaf")
@@ -1620,6 +1625,7 @@ def main() -> None:
                 "value_anchor",
                 "anchor_weight",
                 "anchor_batch",
+                "anchor_every",
                 "anchor_leaf_cap",
                 "anchor_families",
                 "grad_norm_every",
@@ -2505,9 +2511,10 @@ def main() -> None:
                     acc["follow_raw"] = acc.get("follow_raw", 0.0) + raw
                     follow_share_raw += raw
                     follow_share_steps += 1
-            if anchor is not None:
+            if anchor is not None and step % max(1, args.anchor_every) == 0:
                 # ADR-0118 item 3: one bank mini-batch per optimizer step, its
-                # gradient added to the step's own before the clip
+                # gradient added to the step's own before the clip; ADR-0124:
+                # every --anchor-every steps (the draw budget)
                 a_loss, a_parts = anchor.loss(net, _amp(dev))
                 if a_loss is not None:
                     a_term = args.anchor_weight * a_loss

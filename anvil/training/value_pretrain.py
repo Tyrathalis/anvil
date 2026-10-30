@@ -949,6 +949,26 @@ def widen_globals(examples: list, n_global: int, fmt: str) -> list:
     return [{**e, "globals": widen(e["globals"])} for e in examples]
 
 
+def eval_split_rows(meta: list, split: str, train_sample: int = 2000, seed: int = 0) -> np.ndarray:
+    """ADR-0124: the bank rows a state-ranking eval scores. `holdout` = the
+    frozen holdout (the audit's row, ADR-0118); `all` = every row; `train` = a
+    FIXED seeded sample of the anchor's training rows (the non-holdout rows the
+    anchor draws from) — the memorization meter's other side: read beside the
+    holdout, a growing train − holdout gap is the anchor memorizing its bank
+    (the big run: all-rows 0.84 vs holdout 0.33 at iter-301)."""
+    ho = np.array([bool(m["holdout"]) for m in meta])
+    if split == "all":
+        return np.arange(len(meta))
+    if split == "holdout":
+        return np.where(ho)[0]
+    if split == "train":
+        tr = np.where(~ho)[0]
+        if train_sample and len(tr) > train_sample:
+            tr = np.sort(np.random.default_rng(seed).choice(tr, train_sample, replace=False))
+        return tr
+    raise ValueError(f"--split {split!r}: holdout | all | train")
+
+
 def eval_ckpts(args: argparse.Namespace) -> None:
     """The state-ranking read on any checkpoint: the frozen holdout of the
     state benchmark (1,197 rows — ADR-0103's cell, reference 0.27–0.48, the
@@ -961,7 +981,8 @@ def eval_ckpts(args: argparse.Namespace) -> None:
     out_dir = _p(args.out)
     state = torch.load(out_dir / "bank-state.pt", weights_only=False)
     sm = state["meta"]
-    s_te = np.arange(len(sm)) if args.split == "all" else np.where([m["holdout"] for m in sm])[0]
+    splits = [x.strip() for x in str(args.split).split(",") if x.strip()]
+    s_te_of = {x: eval_split_rows(sm, x, getattr(args, "train_sample", 2000), args.seed) for x in splits}
     s_idx = np.array([m["idx"] for m in sm])
     s_y = np.array([m["wr"] for m in sm], dtype=np.float32)
     rng = np.random.default_rng(args.seed)
@@ -978,7 +999,6 @@ def eval_ckpts(args: argparse.Namespace) -> None:
         if not swap_state:
             raise ValueError(f"--swap-head {args.swap_head}: no value_head.* tensors")
     for ck_path in args.ckpt:
-        t0 = time.time()
         net, ck = load_net_from(ck_path, args.device)
         if swap_state:
             missing, unexpected = net.load_state_dict(swap_state, strict=False)
@@ -986,38 +1006,41 @@ def eval_ckpts(args: argparse.Namespace) -> None:
                 raise ValueError(f"--swap-head: unexpected {list(unexpected)}")
             net.eval()
         exs = widen_globals(state["examples"], net.assemble.n_global, args.fmt)
-        sc = scores(net, exs, s_idx[s_te], args.device, args.eval_batch)
-        y = s_y[s_te]
-        rho = spearman(sc, y)
-        boots = [
-            spearman(sc[b], y[b])
-            for b in (rng.integers(0, len(y), len(y)) for _ in range(args.boot))
-        ]
-        row = {
-            "ckpt": ck_path,
-            "split": args.split,
-            "n": int(len(y)),
-            "spearman": round(rho, 4),
-            "se_boot": round(float(np.std(boots)), 4),
-            "iteration": ck.get("iteration"),
-            **({"swap_head": args.swap_head} if swap_state else {}),
-            "device": args.device,
-            "wall_s": round(time.time() - t0, 1),
-            "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        }
-        rows.append(row)
-        print(
-            f"[eval] {ck_path}: state-ranking {row['spearman']} ± {row['se_boot']} "
-            f"(n {row['n']}, {row['wall_s']}s)",
-            flush=True,
-        )
-        if args.write:
-            with _p(args.write).open("a") as f:
-                f.write(json.dumps(row) + "\n")
+        for split in splits:
+            t0 = time.time()
+            s_te = s_te_of[split]
+            sc = scores(net, exs, s_idx[s_te], args.device, args.eval_batch)
+            y = s_y[s_te]
+            rho = spearman(sc, y)
+            boots = [
+                spearman(sc[b], y[b])
+                for b in (rng.integers(0, len(y), len(y)) for _ in range(args.boot))
+            ]
+            row = {
+                "ckpt": ck_path,
+                "split": split,
+                "n": int(len(y)),
+                "spearman": round(rho, 4),
+                "se_boot": round(float(np.std(boots)), 4),
+                "iteration": ck.get("iteration"),
+                **({"swap_head": args.swap_head} if swap_state else {}),
+                "device": args.device,
+                "wall_s": round(time.time() - t0, 1),
+                "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            }
+            rows.append(row)
+            print(
+                f"[eval] {ck_path} [{split}]: state-ranking {row['spearman']} ± {row['se_boot']} "
+                f"(n {row['n']}, {row['wall_s']}s)",
+                flush=True,
+            )
+            if args.write:
+                with _p(args.write).open("a") as f:
+                    f.write(json.dumps(row) + "\n")
         del net
-    print("\n| ckpt | state-ranking ρ | boot SE | n |\n|---|---|---|---|")
+    print("\n| ckpt | split | state-ranking ρ | boot SE | n |\n|---|---|---|---|---|")
     for r in rows:
-        print(f"| {r['ckpt']} | {r['spearman']} | {r['se_boot']} | {r['n']} |")
+        print(f"| {r['ckpt']} | {r['split']} | {r['spearman']} | {r['se_boot']} | {r['n']} |")
 
 
 def read(args: argparse.Namespace) -> None:
@@ -1150,7 +1173,11 @@ def main() -> None:
     p.add_argument("--device", default="cpu")
     p.add_argument("--eval-batch", type=int, default=64)
     p.add_argument("--fmt", default="Commander", help="the bank's format (its format scalars)")
-    p.add_argument("--split", default="holdout", choices=("holdout", "all"))
+    p.add_argument("--split", default="holdout",
+                   help="csv of holdout | all | train (one row per split; train = a fixed seeded sample of "
+                        "--train-sample non-holdout rows — ADR-0124's memorization meter beside the holdout)")
+    p.add_argument("--train-sample", type=int, default=2000,
+                   help="rows in the train split's fixed sample (0 = every training row)")
     p.add_argument("--boot", type=int, default=500, help="bootstrap resamples for the SE")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--write", default=None, help="append one JSON row per checkpoint")
