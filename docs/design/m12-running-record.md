@@ -3189,3 +3189,10 @@ record.*
   `loop_state.json.seg3-close` is the backup of the segment-3 close. Pre-registered (ADR-0124 addendum): the Spearman
   starts near 0.41 and ends the segment within one SE with the gap under 0.15; the first rows' `gap` is the check that the
   meter is live. Also noted at this boundary, not acted on: rule 5's day-25 pings on #11285 (≈ 10-30) and #12180 (≈ 11-01).
+- **2026-10-30 (01:00) — segment 4's first row: the transplant head starts at 0.4205 ± 0.0231 on the holdout, the
+  meter is live and reads no gap.** Iteration 302 (the first trained under hold mode): the state-ranking row carries
+  `train_spearman` 0.4067 ± 0.0196 (2,000 training rows) beside the holdout's 0.4205, `gap` −0.014 — the transplant head
+  has not seen the bank's training rows as a memorizer would show (the run's own head read 0.84 on them); the anchor's
+  state-term loss at the step is 0.62, back near the run's iteration-1 value (0.69) from `iter-301`'s 0.19. The training
+  config records `anchor_every 16`, the anchor weight 0.1, stop-grad, trunk lr 3e-6 / head 1e-4; kl_mu 0.017, in band.
+  The pre-registered start (near 0.41) holds; the segment's question is the end point.
