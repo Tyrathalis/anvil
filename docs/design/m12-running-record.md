@@ -3033,3 +3033,15 @@ record.*
   per-game cost for no gain. Reading: more samples through a mis-ranked leaf do not help, which is what ADR-0124's
   attribution predicts, and the rolls-4 arm stays retired with the anchor arm (its condition unmet, its read flat).
   The transplant read (`rechead-read`) starts on this read's DONE — the first read where the leaf itself changes.
+- **2026-10-29 (19:13) — THE TRANSPLANT READ: NOISE, leaning positive — a leaf that ranks the bank 8pp better does
+  not measurably widen the lookahead gap.** `rechead-read` (exploratory, ADR-0124 §6): `iter-301` with the recovery
+  cell's value head (bank Spearman 0.409) with-lookahead **0.6200 ± 0.0153** vs its own head (0.326; `brla-seg3`)
+  0.6100 ± 0.0154, paired **+0.82 ± 1.20pp** (t 0.68, 73 up / 65 down; 500 games per seat, seeds 20261006, rolls 2,
+  masked, raw); `data/runs/rechead-read/read.md`. Network-alone is identical by construction, so the gap over it
+  reads +2.7 with the transplanted head against +1.7 with the run's own — inside one SE of no change at this
+  precision. Reading: the bank's ranking is not what caps the search at the 1pp level; the value-head work of
+  ADR-0124 is hygiene for the loop's leaf and meter, not the binding constraint on strength, which is the
+  sequencing clause's second branch — segment 4 may continue under the draw budget alone, or wait for the bank and
+  the refit; the user's call. Three boundary reads, one verdict each: rolls 4 flat (−1.2 ± 0.8), the transplant
+  flat (+0.8 ± 1.2), the anchor arm retired on attribution. **The box is clear (19:14):** no run in a live state,
+  no jar or server, the GPU idle — the user's maintenance reboot follows; nothing to relaunch after it.
