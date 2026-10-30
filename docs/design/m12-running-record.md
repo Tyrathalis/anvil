@@ -3133,3 +3133,18 @@ record.*
   twice, then one more; the known crash class at ≈ 0.1% of games played, rollouts included) read as a systemic failure.
   Fix: reset the counter on every exit that completed its span (the guard then means what it says); built in the
   anchor-every worktree after the smoke. The bank's price is the day's decision input for segment 4's shape.
+- **2026-10-29 (21:11) — THE ANCHOR-EVERY SMOKE PASSES; the worktree is MERGED to main (942b376); the ParallelGC A/B
+  is RUNNING on the relaunched chain.** `ae-smoke` (two passes of an 8-game, 2-iteration loop on the Build 4 ckpt with
+  the Build 1 bank as the anchor, `--anchor-every 4`, the pause line at 0.0001 so it fires on any positive gap): pass 1
+  ran iteration 0 — the row's state-ranking carries holdout 0.3735, train 0.426, gap 0.0525 — the pause line fired, the
+  ckpt was accepted, `PAUSE-iter-000.txt` and the self-marked STOP were written, the loop exited at the top of iteration
+  1 (exit 0); pass 2 (the relaunch) cleared its own STOP, ran iteration 1 (gap 0.0532, below the re-based line at
+  0.1025, no pause) and ended at `--iterations 2`; loop_state holds `anchor_gap_pause 0.0525` and the one `pause_lines`
+  entry; no STOP left behind. `--anchor-every 4` is on the trainer's command line and in its config record; at 8 games
+  the trainer runs ≈ 2 optimizer steps, under its logging window, so the metrics rows are empty as in the 10-21 rollback
+  smoke (the anchor-step cadence is checked by the unit test, not the smoke). The launcher's watchdog arm printed its
+  "active (armed by seg3-boundary)" branch on the smoke's launch. **Merged to main:** the anchor-every branch (the draw
+  budget, the meter, the pause line, the launcher's arm, the quickstart) and the harness abort-counter fix; 370 tests
+  in the worktree (41 skipped for data), 405 on main before the merge. **The A/B:** the chain's verdict step fixed
+  (PASS = only 20260969 differs) and the chain relaunched at 21:12 with `ab.done` cleared — network-alone then
+  with-lookahead, control then ParallelGC, 200 games / seat per arm on seeds 20261029; ≈ 1.5 h.
