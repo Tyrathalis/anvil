@@ -3148,3 +3148,24 @@ record.*
   in the worktree (41 skipped for data), 405 on main before the merge. **The A/B:** the chain's verdict step fixed
   (PASS = only 20260969 differs) and the chain relaunched at 21:12 with `ab.done` cleared — network-alone then
   with-lookahead, control then ParallelGC, 200 games / seat per arm on seeds 20261029; ≈ 1.5 h.
+- **2026-10-29 (late evening) — THE VALUE-HEAD DESIGN CALL: the fixed bank is RETIRED unbuilt; the track is rollout
+  truth as a STREAM + the full-vis critic + the distilled head, deferred to the big run's closeout
+  ([ADR-0125](../decisions/ADR-0125-value-head-track.md), proposed).** The discussion that got there, for the record:
+  (1) the draw budget and the meter fix what made the head get worse (memorization), not what would make it better —
+  under this recipe the head's ceiling is the bank's ranking, ≈ 0.41–0.44, where the recovery head already sits, so
+  segment 4 should hold, not improve; the open risk is the other way (one anchor step in sixteen may hold too weakly
+  against V-trace's drift — unmeasured; the meter and the floor tell). (2) The fixed bank is the weakest form of the
+  right idea: its two failures (memorized within a run, stale as the policy's states move) both come from being
+  fixed. (3) The better design is the stream — generation forks a fraction of its own games and plays K rollouts to
+  the end; a rolling anchor window + a frozen per-segment holdout; ≈ 19 worker-seconds per rollout, so one K=4 label
+  per four games is ≈ +9% generation for 12,000 fresh rows a segment. (4) Its benefit to the policy is indirect: the
+  audit (invariant 4 made continuous), the precondition for ever spending more on search (rolls 4 and the transplant
+  were flat because the leaf is weak in absolute terms), the Ante decomposition and Grindstone's decision-sensitive
+  states; as a teaching channel it is 650× sparser than the one-roll search and does not matter. (5) The interaction
+  with the full-vis teacher is the clarifying point: a fork copies the hidden state, so a rollout mean is a
+  Monte-Carlo FULL-VIS value — the Build 1 bank was always full-vis truth, and the stream IS the 10-25 teacher design
+  with a Monte-Carlo teacher; the learned critic amortizes it (dense, cheap, calibration-bound) and the stream is its
+  training set and its audit. **The user's call:** design it now as the current best proposal, defer it by name to
+  after the big run (a boundary item with a forkcheck inside generation). The big run's remaining segments run the
+  head in hold mode; the user leans to the recovery-head transplant for segment 4. ADR-0124's status line, the plan's
+  routed section, the map's ADR row and the Now block carry it.

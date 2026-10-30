@@ -1,7 +1,7 @@
 # ADR-0124: The anchor bank refresh — the value anchor memorizes its bank; segment 3's states under fresh rollout truth, the offline head refit, the anchor draw budget; the 0.3 anchor arm retired
 
 - **Date:** 2026-10-29
-- **Status:** accepted (pre-registered; the bank, the refit and the reads follow the segment-3 boundary reads)
+- **Status:** accepted; **§2–3 (the fixed segment-3 bank, the offline refit) superseded 10-29 evening by [ADR-0125](ADR-0125-value-head-track.md)** (rollout truth as a stream, the full-vis critic, the distilled head; after the big run) — §1, §4 and §5 stand
 - **Design-doc anchor:** §3e (the value head under the loop), §7 (the value function audited against rollouts); amends [ADR-0123](ADR-0123-big-run-launch.md)'s boundary interventions and [ADR-0118](ADR-0118-value-head-drift-under-the-loop.md)'s anchor
 
 ## Context
