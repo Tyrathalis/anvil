@@ -35,8 +35,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from anvil.training.notify import notify  # noqa: E402
 from anvil.bridge.fleet import bridge_addrs  # noqa: E402
+from anvil.training.notify import notify  # noqa: E402
 from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server, batch_chunk  # noqa: E402
 
 CKPT = "data/training/d6-run11/iter-019/train/last.pt"

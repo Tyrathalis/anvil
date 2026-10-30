@@ -408,6 +408,11 @@ class Run:
                 done = set(self.completed()) | self.skipped()
                 todo = [i for i in range(span[0], span[0] + span[1]) if i not in done]
                 if not todo:
+                    # 10-29: a completed span resets the systemic-failure counter too —
+                    # it reset only on a PARTIAL exit, which a one-game span (the labeler
+                    # bench's chunk) can never produce, so three crashed workers anywhere in
+                    # a 160-game run read as "3 consecutive" and aborted it at 85 games
+                    zero_progress_exits = 0
                     continue
                 if self.stop_file.exists() and rc == 0:
                     continue  # graceful partial exit; remainder re-issued on resume

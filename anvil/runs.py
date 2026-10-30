@@ -397,6 +397,53 @@ def _child_cmd(cmd: list[str], nice: int, memory_max: str | None, name: str,
     return cmd, note
 
 
+MEMSAMPLER_UNIT = os.environ.get("ANVIL_MEMSAMPLER_UNIT", "anvil-memsampler")
+
+
+def arm_memsampler(name: str, run_dir: Path, run=subprocess.run) -> str:
+    """10-29 (the user's question at the segment-3 boundary): the memory
+    sampler + watchdog (scripts/memory_sampler.sh) is a TRANSIENT user unit —
+    it dies with every reboot, and every long run depends on it (two oomd kills
+    of the big run before it existed; it was re-armed by hand on 10-21 and
+    forgotten after the 10-29 reboot). So the launcher arms it, not a hand or a
+    chain: a checklist item as code (ADR-0107). Active and armed by a run that
+    is still live (or by this run: a relaunch) → left alone — one unit, one
+    box; active for a run that has finished, or inactive → (re)started with
+    this run's dir as its output (<dir>/memory.jsonl; <dir>/WATCHDOG-TRIP is
+    what the big-run chain's retry reads). Returns the coverage phrase and
+    never raises: a box without systemd runs unwatched, and the line says so.
+    ANVIL_MEMSAMPLER=0 turns it off (tests, Macs)."""
+    if os.environ.get("ANVIL_MEMSAMPLER", "1") == "0":
+        return "memory watchdog: off (ANVIL_MEMSAMPLER=0)"
+    if not shutil.which("systemd-run") or not sys.platform.startswith("linux"):
+        return "memory watchdog: unavailable (no systemd on this platform)"
+    script = Path(__file__).resolve().parents[1] / "scripts" / "memory_sampler.sh"
+    if not script.exists():
+        return f"memory watchdog: unavailable ({script} missing)"
+    rec_p = state_dir() / "memsampler.json"
+    try:
+        rec = json.loads(rec_p.read_text())
+    except (OSError, json.JSONDecodeError):
+        rec = {}
+    active = run(["systemctl", "--user", "is-active", "--quiet", MEMSAMPLER_UNIT], capture_output=True).returncode == 0
+    if active:
+        owner = rec.get("run")
+        own = read_run(owner) if owner and owner != name else None
+        if owner == name or (own and own.get("state") in ("running", "stalled") and _alive(own.get("supervisor_pid"))):
+            return f"memory watchdog: active (armed by {owner} -> {rec.get('out')})"
+        run(["systemctl", "--user", "stop", MEMSAMPLER_UNIT], capture_output=True)
+    run(["systemctl", "--user", "reset-failed", MEMSAMPLER_UNIT], capture_output=True)
+    out = run_dir / "memory.jsonl"
+    r = run(["systemd-run", "--user", f"--unit={MEMSAMPLER_UNIT}", "-p", "MemoryMax=500M",
+             "-p", f"WorkingDirectory={script.parents[1]}", "/usr/bin/bash", str(script), str(out), "20"],
+            capture_output=True, text=True)
+    if r.returncode != 0:
+        err = (getattr(r, "stderr", "") or "").strip()[:120]
+        return f"memory watchdog: FAILED to arm (systemd-run rc {r.returncode}: {err}) — the run is unwatched"
+    _write_json(rec_p, {"run": name, "out": str(out), "armed": _now()})
+    return f"memory watchdog: ARMED -> {out}"
+
+
 def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     """Runs in the detached grandchild: spawn the command, tick the stall
     check, write the terminal state, alert on every transition."""
@@ -555,6 +602,9 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
     a.checkin_resolved = mode
     if a.foreground:
         return supervise(a, cmd)
+    # 10-29: the memory watchdog is armed by every detached launch (relaunch included)
+    mem_note = ("memory watchdog: off (--no-memsampler)" if getattr(a, "no_memsampler", False)
+                else arm_memsampler(a.name, run_dir))
     # double fork: the supervisor outlives the launching shell / app
     pid = os.fork()
     if pid == 0:
@@ -590,6 +640,7 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
         + (f" + {' '.join(a.watch)}" if a.watch else "") + f", sinks {'+'.join(sinks)}, "
         f"check-in {checkin_note}, relay to "
         + (f"{st['launched_by']}" if st.get("launched_by") else "UNSET (any live anvil session; pass --launched-by)")
+        + f", {mem_note}"
         + (f"; note: {st['note']}" if st.get("note") else ""),
         flush=True,
     )
@@ -912,6 +963,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="the LLM check-in on failed / stalled / gone / long done (auto = claude when the CLI "
                          "is on PATH; $ANVIL_CHECKIN overrides)")
     la.add_argument("--no-selftest", action="store_true", help="skip the launch-time claude -p self-test")
+    la.add_argument("--no-memsampler", action="store_true",
+                    help="do not arm the memory sampler + watchdog user unit for this launch (10-29: every detached "
+                         "launch arms it; ANVIL_MEMSAMPLER=0 is the environment's off switch)")
     la.add_argument("--launched-by", default=os.environ.get("ANVIL_LAUNCHED_BY") or None, metavar="SESSION",
                     help="the launching Claude session as ListAgents names it to ITSELF, name and ref: "
                          "'<name> [<ref>]' (10-03/10-04). The check-in relays the run's events to the session "

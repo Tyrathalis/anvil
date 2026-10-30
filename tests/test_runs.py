@@ -19,6 +19,7 @@ def state(tmp_path, monkeypatch):
     monkeypatch.setenv("ANVIL_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("ANVIL_NOTIFY_SILENT", "1")
     monkeypatch.setenv("ANVIL_CHECKIN", "none")  # never the real CLI from a test
+    monkeypatch.setenv("ANVIL_MEMSAMPLER", "0")  # never the box's user unit from a test
     monkeypatch.delenv("ANVIL_NOTIFY_CMD", raising=False)
     return tmp_path
 
@@ -387,3 +388,55 @@ def test_pause_default_scope_writes_stop_to_loop_roots_only(state):
     assert st["state"] == "paused"
     assert sorted(st["stop_files"]) == sorted([str(d / "STOP"), str(loop / "STOP")])
     assert not (gen / "STOP").exists()
+
+
+class _Fake:
+    """A systemctl / systemd-run stand-in: `active` answers is-active; every call is logged."""
+
+    def __init__(self, active: bool, rc: int = 0):
+        self.active, self.rc, self.calls = active, rc, []
+
+    def __call__(self, cmd, **kw):
+        self.calls.append(cmd)
+        if cmd[:3] == ["systemctl", "--user", "is-active"]:
+            return subprocess.CompletedProcess(cmd, 0 if self.active else 3)
+        if cmd[0] == "systemctl" and cmd[2] == "stop":
+            self.active = False
+        return subprocess.CompletedProcess(cmd, self.rc if cmd[0] == "systemd-run" else 0, "", "boom")
+
+
+def test_memsampler_arms_when_inactive_and_records_the_owner(state, monkeypatch):
+    monkeypatch.setenv("ANVIL_MEMSAMPLER", "1")
+    fake = _Fake(active=False)
+    note = runs.arm_memsampler("r1", state / "r1", run=fake)
+    assert note.startswith("memory watchdog: ARMED") and str(state / "r1" / "memory.jsonl") in note
+    assert any(c[0] == "systemd-run" for c in fake.calls)
+    rec = json.loads((runs.state_dir() / "memsampler.json").read_text())
+    assert rec["run"] == "r1" and rec["out"].endswith("r1/memory.jsonl")
+
+
+def test_memsampler_left_alone_for_a_live_owner_and_retaken_from_a_dead_one(state, monkeypatch):
+    monkeypatch.setenv("ANVIL_MEMSAMPLER", "1")
+    runs._write_json(runs.state_dir() / "memsampler.json", {"run": "owner", "out": "x/memory.jsonl"})
+    # the owner is live: left alone, no systemd-run
+    runs._write_json(runs._run_file("owner"), {"name": "owner", "state": "running", "supervisor_pid": os.getpid()})
+    fake = _Fake(active=True)
+    assert runs.arm_memsampler("r2", state / "r2", run=fake).startswith("memory watchdog: active (armed by owner")
+    assert not any(c[0] == "systemd-run" for c in fake.calls)
+    # the same run relaunching: left alone too
+    assert "active" in runs.arm_memsampler("owner", state / "owner", run=_Fake(active=True))
+    # the owner finished: stopped and re-armed toward the new run
+    runs._write_json(runs._run_file("owner"), {"name": "owner", "state": "done", "supervisor_pid": os.getpid()})
+    fake = _Fake(active=True)
+    note = runs.arm_memsampler("r2", state / "r2", run=fake)
+    assert note.startswith("memory watchdog: ARMED")
+    assert ["systemctl", "--user", "stop", runs.MEMSAMPLER_UNIT] in fake.calls
+    assert json.loads((runs.state_dir() / "memsampler.json").read_text())["run"] == "r2"
+
+
+def test_memsampler_failure_is_a_phrase_not_an_exception(state, monkeypatch):
+    monkeypatch.setenv("ANVIL_MEMSAMPLER", "1")
+    note = runs.arm_memsampler("r3", state / "r3", run=_Fake(active=False, rc=1))
+    assert "FAILED to arm" in note and "unwatched" in note
+    monkeypatch.setenv("ANVIL_MEMSAMPLER", "0")
+    assert runs.arm_memsampler("r3", state / "r3", run=_Fake(active=False)) == "memory watchdog: off (ANVIL_MEMSAMPLER=0)"

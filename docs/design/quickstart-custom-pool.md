@@ -396,6 +396,16 @@ is scored on the frozen state-ranking holdout (`--state-bank`, CPU, ≈ 25 s; th
 0 = off), and `--value-anchor data/runs/m12-build1` adds the Build 1 replay term to the trainer so
 the head stays on rollout truth (`--anchor-weight`, `--anchor-families state,leaf`). Both need the
 Build 1 banks, which are ours — without them the row is skipped and the anchor is off.
+Since 10-29 ([ADR-0124](../decisions/ADR-0124-anchor-bank-refresh.md)) the anchor has a draw budget and a
+memorization meter: `--anchor-every K` runs one bank mini-batch every K optimizer steps (1 = every
+step, the recipe before 10-29 — which memorized an 8,403-row bank in ≈ 25 iterations; size K so one
+iteration's draws stay under a quarter pass of the bank), and with the anchor on the state-ranking row
+also scores a fixed sample of the anchor bank's training rows (`train_spearman`, `gap` = train −
+holdout; `value_pretrain eval --split holdout,train` is the same read by hand, `--split all` scores every
+row). `--guard-anchor-gap 0.15` (0 = off) is a PAUSE line, not a guard: a gap above it accepts the
+iteration, then stops the loop before the next one (a self-written `STOP` the next `anvil.runs relaunch`
+clears; the reason in `PAUSE-iter-NNN.txt` and the row's `pause`), and the line re-bases 0.05 above the
+pausing gap so a relaunch does not pause again on the same reading.
 `--value-stopgrad-trunk` (10-01, ADR-0119 ladder rung 2) makes the value head read a detached trunk
 read-out, so every value-side term trains the head alone and the trunk is the policy's; the
 gradient-norm row's `gn_v` / `gn_anchor` read 0 under it. Off by default. With it, two lr groups keep
@@ -434,6 +444,13 @@ work: the driver exits cleanly and the launcher records `done`.
 
 Two things the big run taught that the launcher now does for you, and one you size yourself:
 
+- **A detached run arms the memory watchdog.** Every detached `anvil.runs launch` (and relaunch) starts the
+  memory sampler + watchdog user unit (`scripts/memory_sampler.sh`: a JSON line of the box's memory every
+  20 s in the run dir's `memory.jsonl`, and a learner whose box runs out of memory is terminated with its
+  loader workers before oomd acts) unless it is already armed by a run that is still live; the coverage
+  line says `ARMED`, `active (armed by <run>)` or why not. `--no-memsampler` skips it for one launch,
+  `ANVIL_MEMSAMPLER=0` for an environment without systemd (a Mac). The unit is transient — it dies with a
+  reboot, which is why the launcher and not a hand arms it (10-29).
 - **A detached run gets its own cgroup.** `anvil.runs launch` wraps the command in a `systemd-run --user`
   scope with `ManagedOOMPreference=avoid`, so the run outlives the terminal or desktop session that
   launched it and `systemd-oomd` kills other things first. Before this, a run launched from a desktop
