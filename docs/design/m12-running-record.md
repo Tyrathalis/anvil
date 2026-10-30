@@ -3109,3 +3109,14 @@ record.*
   toward this run's dir, where the chain's trip file is read; the coverage line says ARMED / active (armed by …) /
   why not; `--no-memsampler`, `ANVIL_MEMSAMPLER=0`). The chain's own arm stays as a second belt. Quickstart §7 and
   the launcher section carry the flags. The verdicts follow as they land.
+- **2026-10-29 (20:21) — THE PARALLELGC FORKCHECK PASSES: identical but for the standing seed.** The launch jar
+  under `-XX:+UseParallelGC` on the standing 500 seeds (`data/forkcheck/run-20261029-parallelgc`, 32 min):
+  main-trace hashes identical **499/500** against the pin's own forkcheck (`run-20261004-tgtmask3`, the same jar)
+  and 499/500 against the 09-16 baseline; the one difference is seed 20260969 in both — the standing non-deterministic
+  seed (three hashes across the three JVM launches: the baseline's, the pin run's, this run's; the ADR-0025 proof has
+  read "identical but for 20260969" since 10-03). Fork fidelity identical to the pin's (451 clean / 48 divergence / 1
+  outcome mismatch). A collector is not a game-path change, as expected; the flag is behaviour-neutral on this jar.
+  **The chain's own verdict step misread the comparer** (its grep wanted "identical N", the comparer prints
+  "identical: N/500"; an empty count read as a miss) and skipped the timed A/B, moving on to the labeler re-price,
+  which is running. Fixed in the chain (the verdict = every differing seed is 20260969); **the A/B runs on a relaunch
+  after the labeler bench and the anchor-every smoke have the box** — it needs the box quiet.
