@@ -3078,3 +3078,34 @@ record.*
   compaction moves the ref, so every relay today missed the launching session and arrived through the `anvil-box`
   peer — patch `launched_by` after a compaction; the fix (the relay keyed on the session id or title, the ref as a
   hint) joins the ADR-0107 convenience list. Open for the user: segment 4's shape (ADR-0124 §6).
+- **2026-10-29 (evening) — THE SEGMENT-3 BOUNDARY WORK STARTS (the user's call after the boundary review: the cheap
+  items now, the bank PRICED before it is built; the memory watchdog becomes the launcher's job).** The review's
+  shape, agreed: the value-head work is hygiene, not the lever on strength (the two 19:13 reads), but a plain
+  continuation runs the anchor quiet (memorized; V-trace alone lands near 0.25) toward a 0.30 floor halt near
+  iteration 400–430 whose cause is already known — so the draw budget and the meter precede segment 4 regardless,
+  the bank's price decides whether the bank and the refit do. **Landed on main (63eb32b):** the rolling-back guard
+  branch merged as routed (`--guard-action rollback`, `relaunch --launched-by`, the chain's own watchdog arm; the halt
+  stays the registered response, the chain does not pass the flag; 405 tests). **On the box (`seg3-boundary`, one
+  launch, in the order that keeps the timed read quiet; `scripts/seg3_boundary_chain.sh`):** (1) the ParallelGC
+  forkcheck — the launch jar under `-XX:+UseParallelGC` on the standing 500 seeds, compared against the pin's own
+  forkcheck (the same jar: identical on all 500 is the bar — a collector is not a game-path change) and the 09-16
+  baseline; (2) the timed A/B on `iter-301` for both loop workloads (network-alone and with-lookahead under RECIPE +
+  the alloc tau), 200 games / seat per arm, control then ParallelGC on the same seeds — the read is the per-game ms
+  paired on seed, the arm wall and the outcome agreement (0 up / 0 down = identical play); skipped if the forkcheck
+  differs; (3) the labeler re-price for ADR-0124's bank (`bench_labeler` on `iter-301`, the launch jar, K=8, 24
+  workers behind two servers — the bench gained `--jar` / `--servers`). **Built in the `anchor-every` worktree
+  (branch `anchor-every`, 91ef94b + 6c75260; the smoke `ae-smoke` queued behind the chain):** `--anchor-every K` in
+  the trainer and the loop (one anchor mini-batch every K optimizer steps; 1 = the old recipe; recorded in the rl
+  config); the memorization meter — `value_pretrain eval --split holdout,train` (the train split a fixed seeded
+  sample of 2,000 of the anchor's non-holdout rows, one row per split), the loop's state-ranking row gaining
+  `train_spearman` and `gap` = train − holdout, read on the ANCHOR's bank (a second eval under `anchor_bank` when
+  it is not the standing state bank); the pause line `--guard-anchor-gap 0.15` — not a guard: the iteration is
+  accepted, then the loop writes its own STOP (the chain reads it as a pause; the next `relaunch` resumes and the
+  loop clears the mark it wrote), the reason in `PAUSE-iter-NNN.txt`, the row's `pause` and loop_state's
+  `pause_lines`; one-shot per level (the line re-bases 0.05 above the pausing gap). **The memory watchdog (the
+  user's question — integrate or keep manual? integrate):** the transient `anvil-memsampler` unit died with every
+  reboot and the box depended on a hand (10-21, 10-29); `anvil.runs launch` now arms it on every detached launch
+  and relaunch (`arm_memsampler`: active for a live run → left alone; a finished owner or inactive → re-armed
+  toward this run's dir, where the chain's trip file is read; the coverage line says ARMED / active (armed by …) /
+  why not; `--no-memsampler`, `ANVIL_MEMSAMPLER=0`). The chain's own arm stays as a second belt. Quickstart §7 and
+  the launcher section carry the flags. The verdicts follow as they land.
