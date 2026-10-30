@@ -3025,3 +3025,11 @@ record.*
   and routed for its own read. Sequencing: the transplant read decides whether the work precedes segment 4 or runs
   beside it; nothing launches until the two queued reads finish. Standing rule added (the memorization meter); the
   map's ADR index row; the Now block.
+- **2026-10-29 (17:25) — THE ROLLS-4 READ: NOISE, leaning negative — doubling the rollouts over this leaf buys
+  nothing.** `rolls4-read` (exploratory; the arm's condition was never met): `iter-301` with-lookahead at
+  `-searchrolls 4` **0.5920 ± 0.0155** vs the segment read's rolls 2 (`brla-seg3`) 0.6100 ± 0.0154, paired
+  **−1.23 ± 0.83pp** (t −1.48, 27 up / 39 down; 500 games per seat, seeds 20261006, masked, raw);
+  `data/runs/rolls4-read/read.md`. Price: 2 h 19 min for 1,000 games against ≈ 1¼ h at rolls 2 — about twice the
+  per-game cost for no gain. Reading: more samples through a mis-ranked leaf do not help, which is what ADR-0124's
+  attribution predicts, and the rolls-4 arm stays retired with the anchor arm (its condition unmet, its read flat).
+  The transplant read (`rechead-read`) starts on this read's DONE — the first read where the leaf itself changes.
