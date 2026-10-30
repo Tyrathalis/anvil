@@ -3169,3 +3169,23 @@ record.*
   after the big run (a boundary item with a forkcheck inside generation). The big run's remaining segments run the
   head in hold mode; the user leans to the recovery-head transplant for segment 4. ADR-0124's status line, the plan's
   routed section, the map's ADR row and the Now block carry it.
+- **2026-10-29 (23:33) — ParallelGC CLEARS; SEGMENT 4 LAUNCHED in hold mode from the transplant.** The timed A/B
+  (`seg3-boundary`, `data/runs/seg3-boundary/ab.md`; `iter-301` on the launch jar, 200 games / seat per arm, seeds 20261029,
+  G1 vs `-XX:+UseParallelGC` on the same games): the paired per-game cost is lower under ParallelGC on both workloads —
+  network-alone 0.959 (median 25.7 s vs 26.5 s a game; wall 703 s vs 775 s), with-lookahead 0.984 (49.3 s vs 50.2 s; the
+  wall 3,493 s vs 3,356 s, longer despite the cheaper games — the straggler tail on 400 games, not the collector). The
+  forkcheck (499/500, the standing seed) is the identity proof; the A/B's outcome column (6 and 11 flips of ≈ 390 paired
+  games, balanced up / down) is at the rate the serving fleet's batch numerics produce between any two runs and carries
+  no GC attribution (no control-vs-control arm was run). The pre-registered read was the paired ms ratio; it clears; the
+  gain in the loop is a few percent. **The marker `data/runs/big-run/parallelgc` written; the chain adds the flag to the
+  worker JVMs** (verified on the live JVM command lines). **Segment 4 relaunched 23:33** (`anvil.runs relaunch --name
+  big-run --launched-by 'Segment 3 review and next steps [7f9800]'`; coverage: stall alarm 180 min on the run dir +
+  `data/training/big-run` + `data/runs/br*`, sinks queue + desk, check-in none, relay to this session, memory watchdog
+  ARMED at `data/runs/big-run/memory.jsonl` by the launcher): `--wall-hours 672`, the floor 0.30, the loop resumed at
+  iteration 302 from `loop_state.json` with `ckpt` = `iter-301-rechead/train/last.pt` — both servers serve the transplant,
+  `--anchor-every 16` / `--guard-anchor-gap 0.15` on the trainer's command line, `iter-302` generating. The transplant
+  checkpoint was verified against `iter-301` before the launch: the four `value_head.*` tensors differ and nothing else,
+  the config differs only by the `head_transplant` record, the alloc tau 0.0519 in both, the search-join sidecar present;
+  `loop_state.json.seg3-close` is the backup of the segment-3 close. Pre-registered (ADR-0124 addendum): the Spearman
+  starts near 0.41 and ends the segment within one SE with the gap under 0.15; the first rows' `gap` is the check that the
+  meter is live. Also noted at this boundary, not acted on: rule 5's day-25 pings on #11285 (≈ 10-30) and #12180 (≈ 11-01).

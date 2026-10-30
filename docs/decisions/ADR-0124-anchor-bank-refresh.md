@@ -143,3 +143,5 @@ hold mode under §4–5, with the head-reset option taken:
   gap = memorization at a quarter pass (the pause line fires; read, then the user's call). Neither is a kill rule;
   ADR-0123's rules, floor (0.30) and reads stand unchanged on the old holdout.
 - The track that could make the head *better* is ADR-0125's, after the run.
+- **Launched 10-29 23:33** (the running record): the timed A/B cleared (paired ms ratio 0.959 / 0.984), ParallelGC on the workers;
+  the loop resumed at iteration 302 from the transplant, both servers serving it, the meter's flags on the trainer's command line.
