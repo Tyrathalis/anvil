@@ -123,6 +123,12 @@ Tier 3 GUI item, and so on under rule 6.
 still has neither half: `MyRandom` is a static `SecureRandom`, `Match.preparePlayerZone` still
 builds the library in `CardPool` iteration order before the shuffle.
 
+**Status 10-30:** the PR had gone CONFLICTING on #12226 (the UndoManager's `CountingRandom` draw counter, merged
+10-13); rebased onto master in `../forge-dethooks` (head `608e5255d0`): the counter rides on the per-thread stream
+(`callCount()` reads the current thread's; one game's draws cannot trip another's undo barrier), the inheritance
+test compares streams, a third test pins the per-thread counter; 17 tests green locally (the two PR classes +
+`MagicStackIllegalTargetTest`). Force-pushed and the rule-5 check-in posted the same day; MERGEABLE.
+
 - **2.1 The pre-shuffle sort** (`Match.preparePlayerZone`, 9 lines + `PreShuffleDeterminismTest`).
   Behavior-invariant (a uniform shuffle of sorted input); the argument is upstream's own
   `sim -s <seed>` (#11365): a seeded run should not depend on a hash map's iteration order
