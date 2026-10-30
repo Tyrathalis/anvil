@@ -3120,3 +3120,16 @@ record.*
   "identical: N/500"; an empty count read as a miss) and skipped the timed A/B, moving on to the labeler re-price,
   which is running. Fixed in the chain (the verdict = every differing seed is 20260969); **the A/B runs on a relaunch
   after the labeler bench and the anchor-every smoke have the box** — it needs the box quiet.
+- **2026-10-29 (21:04) — THE LABELER RE-PRICE (ADR-0124 §2, `bench_labeler` on `iter-301`, the launch jar, K=8, 4 points,
+  24 workers behind two servers, census off): ≈ 650 labels per box-hour at steady state — the 40,000-state bank is
+  ≈ 2.5–3.5 box-days.** The bench aborted at 85 of 160 mainlines (43 min; `data/runs/labelbench-w24-20261029-202126`)
+  and its own summary came back empty, so the price is read from the partial data: 343 label rows (339 scored) from 85
+  mainlines; a fork block (one point's K=8 rollouts to the games' ends) p50 152 s, p90 260 s, max 797 s; 133 worker-seconds
+  per label, so 24 workers make ≈ 650 labels/h once the fleet is full (the run-span rate including the 20-minute ramp
+  was 484/h, 20.2 per worker-hour — 1.2× the ADR-0015 figure of 17); 120 mainline games/h. Campaign arithmetic: 40k
+  states at K=8 ≈ 62 h steady (≈ 83 h at the observed rate); 20k or K=4 halve it. **The abort is a harness bug, not
+  the engine's:** the "3 consecutive workers exited with ZERO games" guard resets only on a partial-progress exit, which
+  a one-game span (the labeler's chunk here) can never produce — so three crashed workers anywhere in the run (game 11
+  twice, then one more; the known crash class at ≈ 0.1% of games played, rollouts included) read as a systemic failure.
+  Fix: reset the counter on every exit that completed its span (the guard then means what it says); built in the
+  anchor-every worktree after the smoke. The bank's price is the day's decision input for segment 4's shape.

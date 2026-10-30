@@ -100,3 +100,22 @@ memorize within a segment, on the states and under the rollout policy the leaf n
   the bank's refresh cadence (one per run, or per segment — decided at segment 4's close on the
   memorization meter); the kl-targeted lr and the per-iteration aux recalibration stay routed from the
   segment-3 close. The M12 closeout's value-head design thread folds this in.
+
+## Addendum (2026-10-29 evening) — the price, the draw budget and the meter built
+
+- **The labeler price (§2's first step):** ≈ 650 labels per box-hour steady state on `iter-301` with the launch jar at
+  K=8 (133 worker-seconds per label over 24 workers; a fork block p50 152 s) — the 40,000-state bank is ≈ 2.5–3.5
+  box-days (62 h steady, 83 h at the observed rate with the fleet's ramp); 20,000 states or K=4 halve it. Read from a
+  partial bench (85 of 160 mainlines; a harness abort guard misfired on one-game spans, fixed beside it).
+- **§4 built (the `anchor-every` worktree, 10-29):** `--anchor-every K` in the trainer and the loop; the memorization
+  meter — the loop's state-ranking row carries `train_spearman` (a fixed seeded sample of 2,000 of the anchor bank's
+  training rows) and `gap` = train − holdout, read on the anchor's bank; the pause line `--guard-anchor-gap 0.15` accepts
+  the iteration, writes a STOP the next relaunch clears, and re-bases 0.05 above the pausing gap (one-shot per level).
+  `value_pretrain eval --split holdout,train` is the same read by hand. Smoked on a tiny loop (the running record).
+- **Sequencing (§6) after the price:** the transplant read did not widen the gap, so the bank is hygiene, not the
+  binding constraint; at ≈ 3 box-days it is not "about a day". The user's call: the bank and the refit before segment 4
+  (≈ 3 idle-box days plus the refit's reads), or segment 4 now from `iter-301` under the draw budget and the meter — with
+  the run's own head or the recovery head transplanted (the head-reset option routed above; its read +0.82 ± 1.20pp
+  with-lookahead, network-alone identical) — and the bank built at segment 4's close. Either way the floors re-base only
+  when the refit head exists; until then the ADR-0123 floor (0.30) and the ADR-0118 line stand on the old holdout.
+
