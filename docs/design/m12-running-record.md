@@ -3209,3 +3209,9 @@ record.*
   Constructed runs, 76M parameters ≈ 100 MB quantized). Two corrections made before posting: the architecture has never run
   Pauper (Kryptic's two runs were Forge Constructed on 60-card decks; Talor's 08-12 Pauper smoke report was his own
   pipeline), and the pool holds 115 decks, not 117. Replies are the next community-watch read.
+- **2026-10-30 14:35 — segment 4 through iteration 309: the hold holds.** Holdout Spearman 0.4304 → 0.4344 → 0.4351
+  (iterations 307–309; SE ≈ 0.023), train 0.413–0.418, the gap −0.016 to −0.018, no guard, no pause; memory peaked at
+  41.2 GB used with ≥ 22.8 GB free over the six hours (in band). Nine rows in, every holdout value sits in 0.42–0.44, the
+  pre-registered "near 0.41, not rising" shape. The iteration-309 arms row: network-alone 0.535 ± 0.025, with-lookahead
+  0.560 ± 0.025, the lookahead gap +2.5pp (304's +6.0 was the 400-game noise it was flagged as; the segment's close read
+  decides). Iterations run ≈ 1.3 h apart; the every-5 arms row adds ≈ 1.6 h. Nothing material.
