@@ -752,14 +752,16 @@ def pause(a: argparse.Namespace) -> int:
     return 0
 
 
-def _relaunch_args(r: dict, no_selftest: bool = False) -> argparse.Namespace:
+def _relaunch_args(r: dict, no_selftest: bool = False, launched_by: str | None = None) -> argparse.Namespace:
+    # 10-21: `launched_by` overrides the recorded session (a relaunch from a new session: the
+    # recorded ref is a dead session's and the check-in relay would fall back); None keeps it
     return argparse.Namespace(
         name=r["name"], dir=r["dir"], log=r.get("log"), cwd=r.get("cwd"),
         stall_min=60, stall_sec=r.get("stall_sec"), tick_sec=r.get("tick_sec", 120.0),
         nice=r.get("nice", 19), memory_max=r.get("memory_max"), tag=r.get("tag", "anvil"),
         foreground=False, checkin=r.get("checkin"), no_selftest=no_selftest, watch=r.get("watch") or [],
         resume_on_gone=bool(r.get("resume")), resume_max=r.get("resume_max", 3),
-        resume_count=r.get("resume_count", 0), launched_by=r.get("launched_by"),
+        resume_count=r.get("resume_count", 0), launched_by=launched_by or r.get("launched_by"),
     )
 
 
@@ -780,9 +782,11 @@ def relaunch(a: argparse.Namespace) -> int:
             Path(f).unlink()
         except FileNotFoundError:
             pass
-    ra = _relaunch_args(r, getattr(a, "no_selftest", False))
+    ra = _relaunch_args(r, getattr(a, "no_selftest", False), getattr(a, "launched_by", None))
     if r.get("launch_cwd"):
         os.chdir(r["launch_cwd"])
+    if ra.launched_by != r.get("launched_by"):
+        print(f"[runs] RELAUNCH {a.name}: launched_by {r.get('launched_by')!r} -> {ra.launched_by!r}", flush=True)
     print(f"[runs] RELAUNCH {a.name} (was {r.get('state')}): {' '.join(r['cmd'])}", flush=True)
     return launch(ra, list(r["cmd"]))
 
@@ -932,6 +936,9 @@ def main(argv: list[str] | None = None) -> int:
     rl = sub.add_parser("relaunch", help="re-run a paused / gone / failed / done run's recorded command in place (STOP files removed)")
     rl.add_argument("--name", required=True)
     rl.add_argument("--no-selftest", action="store_true")
+    rl.add_argument("--launched-by", default=None, metavar="SESSION",
+                    help="re-point the run's launching session (its ListAgents name [ref]) before the relaunch — "
+                         "the check-in relays to it and it owns the close (ADR-0107); default: the recorded one")
     st = sub.add_parser("status")
     st.add_argument("--json", action="store_true")
     wa = sub.add_parser("wait")

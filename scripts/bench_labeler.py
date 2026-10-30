@@ -36,6 +36,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from anvil.training.notify import notify  # noqa: E402
+from anvil.bridge.fleet import bridge_addrs  # noqa: E402
 from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server, batch_chunk  # noqa: E402
 
 CKPT = "data/training/d6-run11/iter-019/train/last.pt"
@@ -64,7 +65,8 @@ def run_arm(a, purpose: str, games: int, workers: int, points: int, k: int) -> d
         "--chunk",
         str(chunk),
         "--bridge",
-        f"grpc:localhost:{a.port}",
+        bridge_addrs(a.port, a.servers),
+        *(["--jar", a.jar] if a.jar else []),
         "--obs",
         "--reask",
         "--rollout-k",
@@ -144,6 +146,9 @@ def main() -> None:
     ap.add_argument("--ckpt", default=CKPT)
     ap.add_argument("--seed-base", type=int, default=20260805)
     ap.add_argument("--out", default="data/runs/labeler-bench.json")
+    # ADR-0124 (10-29): the segment-3 bank's re-price runs on the launch jar behind the loop's fleet
+    ap.add_argument("--jar", default=None, help="the harness --jar (a snapshot jar; default: target/'s newest)")
+    ap.add_argument("--servers", type=int, default=1, help="model servers on consecutive ports from --port (the fleet)")
     ap.add_argument(
         "--smoke",
         action="store_true",
@@ -160,7 +165,7 @@ def main() -> None:
 
     log = Path(a.out).with_suffix(".server.log")
     print(f"[bench] server: argmax {a.ckpt} :{a.port}")
-    server = _start_server(a.ckpt, a.port, log, sample=False)
+    server = _start_server(a.ckpt, a.port, log, sample=False, servers=a.servers)
     try:
         res = run_arm(a, purpose, games, workers, points, k)
     finally:

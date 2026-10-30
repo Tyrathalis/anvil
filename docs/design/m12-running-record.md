@@ -2729,6 +2729,29 @@ record.*
   queue+desk, check-in none, relay to this session. The session watch: the registered guards, kl_mu ≥ 0.03, two
   consecutive cast spikes above 420 per game, the Spearman at 0.324 (the ADR-0118 line), the wall stop (≈ 168
   productive hours ≈ 10-29, plus any GPU yields).
+- **2026-10-21 (evening, a worktree session) — THE ROLLING-BACK GUARD built, with two launcher conveniences; not
+  merged until segment 3's boundary.** The design note lives here, not in an ADR: ADR-0118 and ADR-0123 register the
+  HALT as the response to a guard breach and that stays the default and the registered posture; `--guard-action
+  rollback` (`selfplay.py`, default `halt`, the halt path byte-identical with the flag off) is the unattended
+  alternative for the one-off kl echo (Kryptic's three kl breaks on the Forge Discord and his flat low-lr rerun; our
+  own mild echo at iterations 198–202), where today's deterministic halt costs idle hours until a human re-launches.
+  What it does: the breached iteration is rejected exactly as under halt (`REJECTED`, neither the ckpt nor the critic
+  advances), then the loop continues from the last accepted checkpoint with the learner's lr groups (`--lr`,
+  `--trunk-lr`, `--value-head-lr`, `--pay-lr`) multiplied by `--guard-lr-mult` (0.5; the base lr floored at
+  `--guard-lr-floor` 1e-7). The multiplier rides `loop_state.json` (`lr_mult`) for the rest of the loop and never
+  rises — a run that rolled back is a run at a lower lr from there on, which the close's read must say. A second breach
+  within `--guard-rollback-window` iterations (5) of the last rollback halts as today: a breach that keeps coming
+  back is not an echo. The event is the monitor row's `guard_rollback` (`iteration, rule, lr_before, lr_after,
+  lr_mult`) and `loop_state`'s `guard_rollbacks`; the rejected iteration's games stay in the replay window (the
+  accepted checkpoint played them — the data is on-policy, the step was too big) and the next iteration draws fresh
+  seeds (`start_index` advances; the wall is charged). The decision is a pure function (`guard_decision`) with its unit
+  test; the quickstart §7 carries the flags. **Not in the chain:** `scripts/big_run_chain.sh` does not pass
+  `--guard-action` — whether the big run's remaining segments run under rollback is the user's call at the segment-3
+  boundary (a change to the registered response mid-run would need its own addendum). Beside it: `anvil.runs relaunch
+  --launched-by` re-points a run's owning session before a relaunch (the 10-21 relaunch had to edit the state file by
+  hand), and the chain arms the transient `anvil-memsampler` watchdog before every loop start (active → left alone;
+  inactive → the header's `systemd-run` line; one queue.log line either way). Smoked on a tiny loop in the worktree
+  (the devlog `2026-10-21-rollback-guard.md` quotes the rows); the real smoke and the merge at the boundary (≈ 10-29).
 - **2026-10-21 (late evening, a side session) — THE PER-CARD CAST CENSUS (exploratory; no verdict):** `data/runs/cast-census/read.md`.
   The question from the boundary review: breadth or sharpening behind segment 2's +1.1pp. The answer in cast counts:
   **neither is visible in the repertoire the warm start already played, and all of the net growth sits on the cards the
