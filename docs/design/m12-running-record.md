@@ -3045,3 +3045,13 @@ record.*
   the refit; the user's call. Three boundary reads, one verdict each: rolls 4 flat (−1.2 ± 0.8), the transplant
   flat (+0.8 ± 1.2), the anchor arm retired on attribution. **The box is clear (19:14):** no run in a live state,
   no jar or server, the GPU idle — the user's maintenance reboot follows; nothing to relaunch after it.
+- **2026-10-29 (19:40) — the segment-3 boundary is fully written: the day's three reads' batteries read, nothing
+  anomalous.** `bc-seg3` (the confirm read: seed halves 0.609 / 0.603, flag at 0.028; 13 NPE games of 5,000, the
+  known class), `brla-seg3r4` (halves 0.613 / 0.600, 2 NPE of 1,000) and `brla-seg3rh` (0.624 / 0.636, 2 NPE of
+  1,000): all inside their flags. Closed on main in order: the segment close (2f7afd6), the head-swap read and the
+  transplant checkpoint (ec21990), the confirm read and the promotion (095f081), the memorization finding (ac91cb1),
+  ADR-0124 with its standing rule (92d82d7), the rolls-4 read (f30bbd9), the transplant read (e4808ab). **One
+  operational gap routed:** the launcher's check-in relays to the ListAgents ref recorded at launch, and a context
+  compaction moves the ref, so every relay today missed the launching session and arrived through the `anvil-box`
+  peer — patch `launched_by` after a compaction; the fix (the relay keyed on the session id or title, the ref as a
+  hint) joins the ADR-0107 convenience list. Open for the user: segment 4's shape (ADR-0124 §6).
