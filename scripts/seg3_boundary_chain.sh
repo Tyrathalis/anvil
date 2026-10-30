@@ -36,13 +36,23 @@ if [[ ! -f "$OUT/forkcheck.done" ]]; then
   uv run python scripts/forkcheck/compare.py "$FC" | tee "$FC/compare.txt" | tee -a "$OUT/queue.log"
   echo OK > "$OUT/forkcheck.done"
 fi
-# the pin comparison's verdict: "identical N / differing M" — all 500 identical or the A/B does not run
-IDENT=$(grep -o "identical [0-9]*" "$FC/compare-vs-pin.txt" | head -1 | awk '{print $2}')
-if [[ "${IDENT:-0}" -lt 500 ]]; then
-  log "forkcheck vs the pin: identical ${IDENT:-?} / 500 — ParallelGC is NOT trace-identical on this jar; the A/B is skipped"
+# the pin comparison's verdict (compare.py prints "main-trace hashes identical: N/500" and one "  DIFF seed S" line per
+# miss): PASS = every differing seed is the standing non-deterministic seed 20260969 (it differs between the pin's own
+# run and the baseline too — three hashes across three JVM launches; the ADR-0025 proof reads "identical but for
+# 20260969"). The first launch's grep missed the colon and skipped the A/B on an empty count (fixed 20:30).
+VERDICT=$(python3 - "$FC/compare-vs-pin.txt" <<'PV'
+import re, sys
+t = open(sys.argv[1]).read()
+m = re.search(r"identical: (\d+)/(\d+)", t); diffs = re.findall(r"DIFF seed (\d+)", t)
+ok = m and set(diffs) <= {"20260969"} and int(m.group(1)) + len(diffs) == int(m.group(2))
+print(("PASS" if ok else "FAIL") + f" identical {m.group(1) if m else '?'}/{m.group(2) if m else '?'} diffs {diffs}")
+PV
+)
+if [[ "$VERDICT" != PASS* ]]; then
+  log "forkcheck vs the pin: $VERDICT — ParallelGC is NOT trace-identical on this jar; the A/B is skipped"
   echo SKIPPED > "$OUT/ab.done"
 else
-  log "forkcheck vs the pin: identical $IDENT / 500 — ParallelGC is trace-identical; the A/B runs"
+  log "forkcheck vs the pin: $VERDICT — ParallelGC is trace-identical but for the standing seed; the A/B runs"
 fi
 
 # ---- 2. the timed A/B ----
