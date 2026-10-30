@@ -3196,3 +3196,11 @@ record.*
   state-term loss at the step is 0.62, back near the run's iteration-1 value (0.69) from `iter-301`'s 0.19. The training
   config records `anchor_every 16`, the anchor weight 0.1, stop-grad, trunk lr 3e-6 / head 1e-4; kl_mu 0.017, in band.
   The pre-registered start (near 0.41) holds; the segment's question is the end point.
+- **2026-10-30 (08:30) — segment 4 through iteration 306: the hold holds.** Holdout Spearman 0.4205 → 0.4243 → 0.4402 →
+  0.4368 → 0.4232 (iterations 302–306; SE ≈ 0.023), the gap −0.014 to −0.023 throughout, no pause; memory at the
+  training step peaks at 34.6 GB RSS with ≥ 23 GB free (in band). The NPE crash status (1–3 games of 480) is the standing
+  class — 182 of 308 iterations carry it, at the same rate before and after ParallelGC. The iteration-304 arms row (the
+  standing every-5 cadence, ≈ 1.5 h) is the first under the transplant head: network-alone 0.555 ± 0.025 (0.5675 at
+  299), with-lookahead 0.615 ± 0.024 (0.6025 at 299), so the lookahead gap over network-alone reads +6.0pp where 299's
+  read +3.5 — at 400 games the SE of that difference is ≈ 3.5pp; exploratory, a watch item for the segment's close read
+  (where the with-lookahead gap was +1.7 at segment 3's close and +2.7 on the transplant read).
