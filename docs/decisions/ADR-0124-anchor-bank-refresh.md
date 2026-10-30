@@ -119,3 +119,27 @@ memorize within a segment, on the states and under the rollout policy the leaf n
   with-lookahead, network-alone identical) — and the bank built at segment 4's close. Either way the floors re-base only
   when the refit head exists; until then the ADR-0123 floor (0.30) and the ADR-0118 line stand on the old holdout.
 
+
+## Addendum (2026-10-29 late evening) — segment 4 in HOLD mode (the user's go)
+
+With §2–3 superseded by [ADR-0125](ADR-0125-value-head-track.md), the big run's remaining segments run the value head in
+hold mode under §4–5, with the head-reset option taken:
+
+- **The start checkpoint is `iter-301` with the recovery cell's value head transplanted** (`settings-recovery/iter-006`'s
+  `value_head.*` tensors; bank Spearman 0.409 vs 0.326; with-lookahead +0.82 ± 1.20pp paired, network-alone identical by
+  construction — the 10-29 head-swap and transplant reads). The four value-head tensors are the only difference; the
+  trunk, every other head, the carries and the alloc tau are `iter-301`'s. The loop resumes at iteration 302 from its
+  `loop_state.json` with `ckpt` re-pointed at the transplant (the optimizer is rebuilt every iteration, so no moments
+  are discarded); the replay window, `start_index`, `alloc_w` / `distill_w` and the wall ledger continue unchanged.
+- **The recipe gains two flags and no other change:** `--anchor-every 16` (≈ 21 anchor steps an iteration × 96 rows =
+  2,040 rows ≈ 0.24 pass of the 8,403-row Build 1 bank; ≈ 24 passes a segment — the recovery cell's total exposure, which
+  had not memorized) and `--guard-anchor-gap 0.15` (the pause line; the row's `gap` is the meter). The anchor weight stays
+  0.1 (one change at a time). `-XX:+UseParallelGC` joins the worker JVMs only if the timed A/B clears (a marker file the
+  chain reads; the forkcheck already passed).
+- **Pre-registered expectation:** the Spearman starts near 0.41 and ends segment 4 within one SE (≈ 0.025) of its start
+  with the gap under 0.15; strength is unaffected (the transplant read). **The two misses and their readings:** a
+  Spearman drifting toward 0.35 with the gap near zero = the draw budget's hold is too weak against V-trace (the next arm
+  is the frequency / weight trade at the same pass budget: `--anchor-every 8`, or a heavier anchor step at 16); a growing
+  gap = memorization at a quarter pass (the pause line fires; read, then the user's call). Neither is a kill rule;
+  ADR-0123's rules, floor (0.30) and reads stand unchanged on the old holdout.
+- The track that could make the head *better* is ADR-0125's, after the run.

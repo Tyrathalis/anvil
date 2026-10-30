@@ -64,7 +64,15 @@ RL_WORKERS=${RL_WORKERS:-4}
 # overrides. Not a learning change. Running record 10-24.
 SEGMENT=$(cat "$OUT/segment" 2>/dev/null || echo 1)
 . "$REPO/scripts/recipe.sh"   # RECIPE — the one definition of the search recipe
-export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}"
+# 10-29 (the segment-3 boundary): ParallelGC is behaviour-neutral on the launch jar (forkcheck 499/500, the standing seed
+# the one difference); the marker file $OUT/parallelgc (written after the timed A/B clears) adds it to the worker JVMs —
+# a file, not an env var, because `anvil.runs relaunch` re-runs the recorded command without the launch's environment.
+PGC=""; [[ -f "$OUT/parallelgc" ]] && PGC=" -XX:+UseParallelGC"
+export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}$PGC"
+# 10-29 (ADR-0124 §4, ADR-0125): the value head runs in HOLD mode from segment 4 — the anchor's draw budget (one bank
+# mini-batch every ANCHOR_EVERY optimizer steps: 16 ≈ 0.24 pass of the Build 1 bank per iteration) and the memorization
+# meter's pause line (train − holdout Spearman > ANCHOR_GAP pauses the loop after an ACCEPTED iteration; relaunch resumes).
+ANCHOR_EVERY=${ANCHOR_EVERY:-16}; ANCHOR_GAP=${ANCHOR_GAP:-0.15}
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 [[ -f "$OUT/read.md" ]] || printf '# The big run (ADR-0123) — the start-point and segment reads\n\nAll reads: the launch jar (forge-tgtmask3.jar, 5bd040351f), the decoder masked, seed base %s, network-alone 2,000 games / with-lookahead 1,000 under RECIPE + the checkpoint'"'"'s alloc tau; raw. Paired columns: game-for-game on the same seeds (paired_arms.py).\n\n| point | wall h | iterations | games | ckpt | network-alone | with-lookahead | vs reference (paired) | vs warm start (paired) | last Spearman |\n|---|---|---|---|---|---|---|---|---|---|\n' "$SEED_BASE" > "$OUT/read.md"
 
@@ -163,7 +171,8 @@ if [[ $WALL_DONE -eq 0 ]]; then
     --arms-every 5 --arms-pairs data/runs/d5arm-d0-s0-20260714-143546/pairs.txt --arms-games 200 --arms-seed-base 20260710 --arms-lookahead on \
     --reask --jar "$JAR" --search-recipe "$RECIPE" --search-alloc head --search-floor 0.1 \
     --distill-carry-w --alloc-carry-w --state-bank "$BANK" --guard-spearman-floor "$FLOOR" \
-    --value-anchor "$BANK" --anchor-weight 0.1 --value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4 \
+    --value-anchor "$BANK" --anchor-weight 0.1 --anchor-every "$ANCHOR_EVERY" --guard-anchor-gap "$ANCHOR_GAP" \
+    --value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4 \
     --grad-norm-every 50 >> "$OUT/seg-$SEGMENT.loop.log" 2>&1
   rc=$?
   # 10-21: the watchdog's retry — a learner the memory watchdog terminated (scripts/memory_sampler.sh; WATCHDOG-TRIP
