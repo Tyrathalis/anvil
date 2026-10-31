@@ -2059,6 +2059,11 @@ Recorded for the perspectives, not for anything routed. Most of it talks past wh
 Forge: no developer is going to let an LLM rewrite the AI with no human review, ship one bot per deck or bundle a local
 LLM as an opponent. That is presumably why the developers have mostly let the thread run.
 
+- **The opening (10-30 03:49 → 06:02):** Senji (not a programmer) asked why Forge scripts its AI instead of
+  using "true AI". Senji's brother built one for his own MTG game that learns fast, takes player reports and fixes most
+  mistakes on its own. **MostCromulent:** then the brother should submit it to Forge, but it is surely not that simple;
+  `#ai-plotting` has a whole thread on the problem and it is not solved. Senji: the brother might, if Forge's
+  developers shared how they make so many varied decks (his game has few). friarsol: "...".
 - **The "true AI" objections (10-30):** Ducky: it would raise the system requirements and make the game less
   accessible. VigilantSera: the processing cost alone makes it infeasible, and an AI that is not the best player is a
   feature. **Lowjohn (22:24), the long form:** LLMs are expensive and bad at this task, a decent one adds hundreds of
@@ -2087,4 +2092,6 @@ LLM as an opponent. That is presumably why the developers have mostly let the th
     on our pool at all (`GameCopier.find` mapping failures), and the hybrid probe played 48 games at 0.458 ± 0.072 at
     1.4× the heuristic's time per window. Anvil's own lookahead is one-roll search over real Forge copies.
   - **Lowjohn's Reanimate and Phyrexian Tower examples** are the self-harm class the engine allows and a learned policy
-    has to learn not to do. Self-play outcomes punish them directly.
+    has to learn not to do. Self-play outcomes punish them directly. **The Phyrexian Tower half is not ground truth:**
+    the user recalls a recent upstream patch that flipped the heuristic from sacrificing anything to the Tower to never
+    sacrificing (unverified here; check at the next upstream merge before citing either behaviour).

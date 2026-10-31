@@ -3256,7 +3256,8 @@ record.*
   intelligence tiers, 44–64% agreement with Forge's AI, decision chains with breakpoints, and a first distillation
   after ≈ 100 games. He wants a cross-system benchmark and router. The agreement rate does not show which side plays
   better on a disagreement, and he has not measured that yet. Nothing else routed.
-- **2026-10-31 (community watch) — `#ai-dumb-not-cheating`, recorded for the perspectives** (survey §5). Players
+- **2026-10-31 (community watch) — `#ai-dumb-not-cheating`, recorded for the perspectives** (survey §5). Senji
+  asked why Forge does not use a self-correcting "true AI" like Senji's brother's (MostCromulent: submit it, then). Players
   objected to a "true AI" in Forge: cost, download size, hardware, licences, and that a weaker AI is a feature. Senji
   proposed an AI that rewrites the AI scripts from play and bug reports. galoomba asked whether Forge looks ahead. The
   thread argues past anything Forge would ship (no review-free LLM rewrites, no per-deck bots, no bundled LLM). Our
