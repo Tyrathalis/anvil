@@ -3263,3 +3263,21 @@ record.*
   thread argues past anything Forge would ship (no review-free LLM rewrites, no per-deck bots, no bundled LLM). Our
   note: Anvil is not an LLM, so the size objection does not carry over. Forge's opt-in simulation AI exists, but it
   cannot run on our pool (the 10-03 baseline reads). Nothing routed.
+- **2026-10-31 14:50 — segment 4 through iteration 321: the hold holds; ComfyUI is stalling the run through the GPU
+  yield.** Holdout Spearman 0.4518 / 0.4369 (iterations 320–321), the gap +0.002 / +0.006 (the pause line 0.15), no
+  guard, no pause. The arms row at 319 (na 0.5875, la 0.590) stands; 324 is the next. **Iteration 321 yielded 8,323 s
+  (2.3 h) of generation** (`iter-321/yield.json`): the harness yields the GPU whenever a foreign process holds VRAM
+  (`python[1767]` = ComfyUI at 15.8–18.6 GB) and resumes on "gpu quiet" — and ComfyUI's dynamic VRAM loading keeps the
+  model staged while idle, so the harness sat yielding from ≈ 10:45 to ≈ 13:35 at `sm 0%` with no prompt running. The
+  wall budget excludes yielded seconds, so the segment's end moves later by the yielded time; the loop is yielding
+  again at 14:46 (ComfyUI cycling 0.2 → 20 GB per prompt). **Host memory:** the low mark 7.5 GB available (10:15:
+  java 27 GB + comfy 18 GB + other 4.8 GB) and 8.5 GB (14:33: comfy 20.8 GB, other 8.3 GB) — above the 2 GB trip line,
+  PSI full-stall 0.6% over five minutes (mild, not thrash), swap 15–19 GB. **The exposure is a training step under a
+  loaded ComfyUI:** the learner's standing 34.5–36 GB plus ComfyUI's 18–21 GB plus the desktop's 8–9 GB exceeds the
+  64 GB box, so that step would run into swap and plausibly to the trip line — the registered response (the watchdog
+  terminates the learner tree, the chain retries the step at RL_WORKERS halved) holds, and the trainer's segment
+  autotune reads free VRAM, so it would train smaller and slower beside ComfyUI's 16 GB. Every training step so far ran
+  with ComfyUI unloaded (37 samples since 08:40, min 15.5 GB available). Told the user; the convenience item (a
+  host-memory wait before the training step, like the GPU yield) is proposed for the segment-5 relaunch — no tree
+  edits under the running loop. ComfyUI runs as `comfyui.service` in `app.slice` (oomd pressure `auto`); the run's scope
+  is `avoid`.
