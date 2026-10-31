@@ -3,7 +3,9 @@
 # training step — the run's own scope at 58 GB resident + 47 GB swapped; the learner's DataLoader workers ≈ 7 GB
 # apiece of decode state, see the 10-17 devlog). Every INTERVAL seconds, one JSON line with the box's free/swap and
 # the RSS + swap + count of each process class in the run (java workers, the model servers, the learner rl.py and its
-# forkserver DataLoader workers, the loop driver, the harness).
+# forkserver DataLoader workers, the loop driver, the harness), plus the box's cotenants: `comfy` (a resident ComfyUI,
+# the one GPU cotenant that has run beside the big run; 10-31) and `other` (every other process with a command line —
+# the desktop, the browser, kopia, the app — so the unattributed share is a named number, not a gap).
 #
 # THE WATCHDOG (user, 10-17): when MemAvailable stays under AVAIL_MIN_MB for TRIP_SAMPLES consecutive samples WHILE a
 # learner is up, it terminates the learner and its whole forkserver tree together (rl.py, the forkserver, every
@@ -29,7 +31,7 @@ def meminfo():
     for l in open('/proc/meminfo'):
         k,v=l.split(':'); d[k]=int(v.split()[0])//1024
     return d
-classes=('java','server','rl','rl_worker','loop','harness','other_py')
+classes=('java','server','rl','rl_worker','loop','harness','other_py','comfy','other')
 rss={k:0 for k in classes}; swp={k:0 for k in classes}; cnt={k:0 for k in classes}; pids={k:[] for k in classes}
 for p in glob.glob('/proc/[0-9]*'):
     try:
@@ -47,7 +49,8 @@ for p in glob.glob('/proc/[0-9]*'):
     elif 'anvil.training.selfplay' in cmd: k='loop'
     elif 'anvil.bridge.harness' in cmd: k='harness'
     elif 'python' in a0 and 'Anvil/.venv' in a0: k='other_py'
-    else: continue
+    elif 'ComfyUI' in cmd: k='comfy'
+    else: k='other'
     rss[k]+=r; swp[k]+=w; cnt[k]+=1; pids[k].append(int(p.split('/')[-1]))
 mi=meminfo(); avail=mi['MemAvailable']
 row={'ts':time.strftime('%Y-%m-%dT%H:%M:%S'),'used_mb':mi['MemTotal']-avail,'avail_mb':avail,

@@ -3227,3 +3227,14 @@ record.*
   off, but it is the one slope on the row and the next glances watch whether it crosses zero. No guard, no pause. The
   iteration-314 arms row: network-alone 0.5575 ± 0.025, with-lookahead 0.590 ± 0.025 (gap +3.3pp, exploratory). Memory
   peaked at 43.4 GB used with 20.6 GB free (the cotenant share gone). Nothing material.
+- **2026-10-31 07:25 — the memory sampler names its cotenants (user, QoL).** Asked whether the watchdog works and the
+  box is not thrashing: it is live (a row every 20 s, 5,698 over segment 4, no trip; the segment's low mark 11.5 GB
+  available against the 2 GB trip line) and the box is not thrashing (PSI memory full-stall ≈ 0.1%, IO 0%, swap traffic
+  a few MB/s; the learner never swapped in 310 training-step samples — the 11 GB of swap is cold JVM pages left from the
+  36 GB training peaks). The one GPU cotenant that has run beside the segment, ComfyUI (≈ 115 prompts, 10-30
+  21:39–22:18), set that low mark during iteration 314's generation with no trip and no change in the iteration's wall
+  (1.4 h; neighbours 1.3–1.6). Its footprint was invisible to the sampler, so `scripts/memory_sampler.sh` gains two
+  classes: `comfy` (any ComfyUI command line) and `other` (every remaining process with a command line — the desktop,
+  browser, kopia, the app), so the unattributed share is a named number. Landed by an atomic rename and a unit restart
+  (bash reads the running script from its open descriptor; one sample's gap). First row: comfy 144 MB resident / 2.7 GB
+  swapped, other 3.6 GB.
