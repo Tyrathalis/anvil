@@ -2052,3 +2052,39 @@ So per game we are level with him. Per turn we are ≈ 1.7× faster, on longer C
   - **Agreement is not strength.** His 44–64% is the right instrument to start a router with, but the open half is whether the disagreements are better. That needs paired games with the router on and off, the shape of our paired reads (standing rules, reads). A route to Forge's AI on predicted agreement is also a heuristic fallback, which our own default keeps out of the model's decisions.
   - **The benchmark-across-systems idea needs one harness.** Every system that plays through a Forge `PlayerController` can meet in the same seeded matches. Our model at 76M fits his Mac trivially, but serving it needs the fork's controller and featurizer, the same glue as khaliostr's ask, so it waits on the same post-run export.
   - **Hanmac's format prior:** our model has no explicit card-probability input for the opponent. In a fixed pool it can only pick up such priors implicitly from the games it plays.
+
+### 10-30 → 10-31 `#ai-dumb-not-cheating`: Senji's self-updating AI scripts, the "true AI" objections, does Forge look ahead (read 10-31 from the user's paste; nothing posted from here)
+
+Recorded for the perspectives, not for anything routed. Most of it talks past what anyone would seriously put in
+Forge: no developer is going to let an LLM rewrite the AI with no human review, ship one bot per deck or bundle a local
+LLM as an opponent. That is presumably why the developers have mostly let the thread run.
+
+- **The "true AI" objections (10-30):** Ducky: it would raise the system requirements and make the game less
+  accessible. VigilantSera: the processing cost alone makes it infeasible, and an AI that is not the best player is a
+  feature. **Lowjohn (22:24), the long form:** LLMs are expensive and bad at this task, a decent one adds hundreds of
+  gigabytes to the download and runs out of reach of many devices, and the licences (Java, Forge, the model) forbid
+  it. An LLM trained on Forge's card scripting could write new scripts, but LLMs churn rather than patch, so every fix
+  brings new bugs.
+- **Senji (13:39):** not a bot. Senji means an AI that rewrites and updates the AI script after playing people or
+  reading bug-report comments. **monky640 (14:08):** there is no per-deck AI; Forge plays from general rules and card
+  tags. tranquilwalkofpeace: people here build decks because building decks is fun.
+- **galoomba (10-31 09:11): does Forge's AI look ahead or simulate?** monky640: not that he knows of. It has checks
+  (an attack that leaves it exposed, whether a board wipe is good value) but does not save cards for later. Hanmac:
+  rare special cases such as Sign in Blood used as burn. Lowjohn: sometimes not even that. It will kill itself with
+  Reanimate, or sacrifice a creature to Phyrexian Tower to cast a spell that targets it or equip it.
+- *Our record:*
+  - **The objections are aimed at LLM opponents, and Anvil is not one.** It is a 76M-parameter policy network,
+    ≈ 100 MB quantized, with millisecond-scale CPU inference. Nothing in it is an LLM at play time (the card-text
+    embeddings are computed offline). The size and hardware objections do not carry over. The accessibility one does in
+    a weaker form: a bundled model still adds download size and per-decision compute.
+  - **VigilantSera's point is the difficulty-tuning item:** a shipped network needs strength settings, which the
+    user's 10-30 post already promises (later, with human play data).
+  - **The licence claim is wrong for Anvil.** It is GPL-aligned and built to go back into Forge; weights trained from
+    our own self-play carry no third-party model licence.
+  - **galoomba's question has a fuller answer than the thread gave.** The default AI profile does no game-tree search,
+    but Forge does have an opt-in simulation AI (the AI profile's simulation setting) built on `GameCopier`. Hanmac
+    told the channel in January that it is rarely used. Our 10-03 baseline reads found the full simulation AI cannot run
+    on our pool at all (`GameCopier.find` mapping failures), and the hybrid probe played 48 games at 0.458 ± 0.072 at
+    1.4× the heuristic's time per window. Anvil's own lookahead is one-roll search over real Forge copies.
+  - **Lowjohn's Reanimate and Phyrexian Tower examples** are the self-harm class the engine allows and a learned policy
+    has to learn not to do. Self-play outcomes punish them directly.
