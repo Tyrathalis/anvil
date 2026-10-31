@@ -3238,3 +3238,11 @@ record.*
   browser, kopia, the app), so the unattributed share is a named number. Landed by an atomic rename and a unit restart
   (bash reads the running script from its open descriptor; one sample's gap). First row: comfy 144 MB resident / 2.7 GB
   swapped, other 3.6 GB.
+- **2026-10-31 08:40 — segment 4 through iteration 319: the hold holds, and the gap has crossed zero.** Holdout
+  Spearman 0.4457 / 0.4502 / 0.4583 / 0.4373 (iterations 316–319; SE ≈ 0.023), train 0.440 → 0.454 → 0.441 beside it,
+  the gap −0.006 → −0.001 → −0.005 → **+0.004** at 319 — the first positive row, one-fortieth of the 0.15 pause line,
+  and the holdout rose with the train rather than lagging it, so this reads as the head fitting the bank's signal, not
+  memorizing it yet. The watch stays on the gap's slope (≈ +0.001 per iteration over the segment; at that rate the pause
+  line is > 100 iterations out). No guard, no pause. The iteration-319 arms row: network-alone 0.5875 ± 0.025,
+  with-lookahead 0.590 ± 0.025 (gap +0.25pp; exploratory, 400 games). Memory peaked at 43.1 GB used with 21 GB free.
+  Nothing material.
