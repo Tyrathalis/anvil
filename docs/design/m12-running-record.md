@@ -3246,3 +3246,13 @@ record.*
   line is > 100 iterations out). No guard, no pause. The iteration-319 arms row: network-alone 0.5875 ± 0.025,
   with-lookahead 0.590 ± 0.025 (gap +0.25pp; exploratory, 400 games). Memory peaked at 43.1 GB used with 21 GB free.
   Nothing material.
+- **2026-10-31 (community watch) — the replies to the results post, and khaliostr's WASM ask answered** (survey §5,
+  10-26 → 10-30). khaliostr would like to serve Anvil through WASM on manabrew. The user replied 10-30: doable in
+  principle, but Anvil has never been served outside headless games and its pool is limited, so the question is whether
+  manabrew waits for broad card support. The work is a JS port of the featurizer plus the fork's controller in
+  forge-wasm, and the ONNX export and quantization come after the big run. The open question is whether forge-wasm
+  accepts a custom PlayerController. If not, the integration needs a protocol adapter and the 09-10 call reopens.
+  **Routed by name to the big run's closeout scoping**, with fork H's export. TBSTeun's LLM-seat update: five
+  intelligence tiers, 44–64% agreement with Forge's AI, decision chains with breakpoints, and a first distillation
+  after ≈ 100 games. He wants a cross-system benchmark and router. The agreement rate does not show which side plays
+  better on a disagreement, and he has not measured that yet. Nothing else routed.
