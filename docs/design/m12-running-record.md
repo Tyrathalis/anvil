@@ -3215,3 +3215,9 @@ record.*
   pre-registered "near 0.41, not rising" shape. The iteration-309 arms row: network-alone 0.535 ± 0.025, with-lookahead
   0.560 ± 0.025, the lookahead gap +2.5pp (304's +6.0 was the 400-game noise it was flagged as; the segment's close read
   decides). Iterations run ≈ 1.3 h apart; the every-5 arms row adds ≈ 1.6 h. Nothing material.
+- **2026-10-30 20:40 — segment 4 through iteration 312: the hold holds.** Holdout Spearman 0.4326 / 0.4416 / 0.4318
+  (iterations 310–312), train 0.418–0.423, the gap −0.011 to −0.018, no guard, no pause. Eleven rows in, the band is
+  0.42–0.44 and flat. One memory note: the six-hour peak was 48.5 GB used with 15.6 GB free (19:36, swap 7.2 GB) —
+  the learner's training step at its standing 36 GB RSS plus ≈ 12 GB of desktop cotenants the sampler does not
+  categorize (browser, kopia, the app); no trip, nothing to act on, the next glance watches whether the cotenant share
+  recurs. Nothing material.
