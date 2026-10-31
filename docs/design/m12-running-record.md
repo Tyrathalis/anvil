@@ -3221,3 +3221,9 @@ record.*
   the learner's training step at its standing 36 GB RSS plus ≈ 12 GB of desktop cotenants the sampler does not
   categorize (browser, kopia, the app); no trip, nothing to act on, the next glance watches whether the cotenant share
   recurs. Nothing material.
+- **2026-10-31 02:40 — segment 4 through iteration 315: the hold holds.** Holdout Spearman 0.4161 / 0.4331 / 0.4448
+  (iterations 313–315), the gap −0.002 to −0.008 — the train Spearman has risen 0.407 → 0.437 over fourteen rows while
+  the holdout stays in its 0.42–0.44 band, so the gap is closing from below; still negative, the pause line (0.15) far
+  off, but it is the one slope on the row and the next glances watch whether it crosses zero. No guard, no pause. The
+  iteration-314 arms row: network-alone 0.5575 ± 0.025, with-lookahead 0.590 ± 0.025 (gap +3.3pp, exploratory). Memory
+  peaked at 43.4 GB used with 20.6 GB free (the cotenant share gone). Nothing material.
