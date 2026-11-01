@@ -3298,3 +3298,16 @@ record.*
   guard, no pause, no yield since 323. The 324 arms row: network-alone 0.570 ± 0.025, with-lookahead 0.6075 ± 0.024
   (gap +3.75pp, exploratory). ComfyUI loaded once more at 21:53 (19.6 GB) during generation — available 10.4 GB, no
   training step beside it (55 step samples, min 21.5 GB, the learner unswapped). PSI zero. Nothing material.
+
+- **11-01 05:00 — segment 4 through iteration 330: the hold holds; one 1.2 h ComfyUI yield at 327.** Holdout Spearman
+  0.437–0.464 over 325–330 (328 the segment's high at 0.464), train 0.452–0.465; the memorization gap jitters around
+  +0.01 (0.017 at 327, −0.000 at 328, 0.013 at 330) — six positive rows of seven, no trend beyond the 10-31 creep, the
+  pause line 0.15 far. No guard, no pause file, no watchdog trip. **The 327 yield (4,329 s):** ComfyUI (pid 1767) held
+  16.4 GB of VRAM at sm 0% from ≈ 22:50 to ≈ 00:00 — the model staged idle after the 22h burst (376 prompts) — the same
+  shape as the 321 yield; the generation resumed on the unload, the yielded seconds are out of the wall. Its RSS peaked
+  20.0 GB at 23:04 beside generation (available 35 GB) and was 0.5 GB by the 327 training step at ≈ 00:03 (available
+  20.6 GB, the learner unswapped). Memory over the six hours: min available 20.5 GB, 70 training-step samples all above
+  20.5 GB, learner RSS 34.9 GB, swapped 0; PSI full avg300 0.4%. The 329 arms row: network-alone 0.5575 ± 0.025,
+  with-lookahead 0.5775 ± 0.025 (gap +2.0pp, exploratory). Wall 552.4 / 672 h at 330 (≈ 1.3 h per iteration between
+  yields): the wall lands ≈ 11-05 late evening plus any further yields. Nothing material; the host-memory-wait item
+  stands for the segment-5 relaunch.
