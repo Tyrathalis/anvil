@@ -3321,3 +3321,20 @@ record.*
   avg300 0.35%. Wall 557.7 / 672 h at 334. **The user asked for a pause point today (09:07) for the box update + reboot:**
   the answer was 334's boundary (≈ 10:30), the pause verb's STOP in the loop root (never a live generation) and
   `relaunch` after the reboot; the boundary passed at 10:31 with the question open, the next is 335's.
+
+- **11-01 13:11 — segment 4 PAUSED at iteration 335's boundary for the box update + reboot (the user's call, 12:12).**
+  `anvil.runs pause --name big-run` wrote STOP in the loop root, the run dir and 21 stale analysis-watch dirs (never a
+  live generation); the loop accepted 335 (holdout Spearman 0.447, train 0.463, gap 0.016; no guard), trained it, and
+  exited on STOP at 13:10:46; the chain exited 0 "paused", the supervisor recorded PAUSED. `loop_state` sits at
+  iteration 336 on `iter-335/train/last.pt`, wall 560.35 / 672 h, yielded 34.1 h in total. No run process left on the
+  GPU. **Resume:** after the reboot, unload ComfyUI's model, then `anvil.runs relaunch --name big-run` (it removes every
+  STOP it wrote, re-arms the memory watchdog, resumes from `loop_state`; `launched_by` stays this session). **335's
+  straggler (game 161226):** a draw on the fork's 1,200 s game clock at turn 37 — a land-recursion engine (Titania /
+  Primeval Titan / Hullbreaker Horror / the channel lands, Urza's Saga grants copied each pass) whose census events
+  per turn doubled every two turns (588 → 1,508 → 3,304 → 8,494 over turns 29–35); the server answered throughout, no
+  hang. Over iterations 300–339 (8,639 games): 22 draw-clock games (0.25%, 2.8% of game-seconds; two land-recursion
+  decks in 13 of them), 87 games over 600 s (8.3% of game-seconds), 14 NullPointerException crash_or_hang. **Read:** an
+  early-cancel detector would recover ≈ 1–2% of generation time; the realized cost is the straggler holding the
+  boundary for the idle workers. **Routed to the closeout scoping by name:** a pre-registered census-growth cap
+  (events per turn doubling three turns running → a draw with its own reason), paired against the clock on one
+  checkpoint; a sample-distribution change, so not mid-run.
