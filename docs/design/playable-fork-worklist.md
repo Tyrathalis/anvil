@@ -1045,8 +1045,8 @@ forkcheck proof if directed payment ever makes it reachable).
 - **Overlaps to reconcile.** The branch's `GameLobby` `cardPool` duplicates upstream's newer lobby `formatName`; both are kept until MostCromulent reconciles them. Its `test-web.yml` runs on our pushes that touch the engine or the module. `snapshot-web.yml` is inert here because it fires only on a branch named `forge-gui-web`. The README stays upstream's.
 - **Maintenance cost.** The branch moves fast (≈ 1,200 commits in September–October) and is not yet an upstream PR. Each sync merges upstream first, then his branch tip; his netplay files (`FServerManager`, `FGameClient`) are the ones our hardening and reconnect-token patches touch.
 - **Two lag fixes (11-01, user-verified).** (1) The damage freeze came from the hit flash's SVG `feTurbulence` mask on a full-screen, scale-animated layer: Firefox on Linux re-rasterised it on the CPU every frame. The user's Custom CSS test removed it, and the mask is now a pre-rendered 260 px PNG (`5a49d37aa9`). (2) Stack clicks were dropped during the 1 s "pause on an opponent's play". A press during a pause now ends the pause (`5a49d37aa9`). A question for the player also ends it when a board update is held in front of it (`17136a8a16`). That update is our fork's AwaitingInput flush, so this was a mismatch between our fork and the web branch. All three are worth offering to MostCromulent.
-- **One package (11-01, `2187b0d3b4`).** A `-Pweb` build puts forge-gui-web in the playable jar (+3 MB; every library it needs was already there). The app's home menu has a **Web UI** entry, shown only when the jar carries it, never on Android. `forge.util.WebUiLauncher` starts `forge.web.WebMain` as a second JVM, because the two GUIs cannot share a GuiBase. That JVM runs from a per-build copy of the jar in `<cache>/web/`, so a server left running never locks the installed jar against `UpdateApplier` on Windows. It gets the web jar's Add-Opens and `-Dforge.assets.dir`, and logs to `<user>/forge-web.log`. `release-playable.sh` refuses a jar without the web GUI. `scripts/build-web.sh` is the one build command Claude Code may run (an exact allow rule in Anvil's `.claude/settings.local.json`), because `-Pweb` downloads Node and runs npm. Verified: the jar serves the page, bundle and art from an unrelated working directory, and `launch()` end to end. **Not yet verified:** a click on the button in the real app, and a release through the updater.
-- **Open:** the button click in the app and the release; the web server's default port is Forge's netplay port, so hosting netplay from the app at the same time needs another `forge.web.port`.
+- **One package (11-01, `2187b0d3b4`).** A `-Pweb` build puts forge-gui-web in the playable jar (+3 MB; every library it needs was already there). The app's home menu has a **Web UI** entry, shown only when the jar carries it, never on Android. `forge.util.WebUiLauncher` starts `forge.web.WebMain` as a second JVM, because the two GUIs cannot share a GuiBase. That JVM runs from a per-build copy of the jar in `<cache>/web/`, so a server left running never locks the installed jar against `UpdateApplier` on Windows. It gets the web jar's Add-Opens and `-Dforge.assets.dir`, and logs to `<user>/forge-web.log`. `release-playable.sh` refuses a jar without the web GUI. `scripts/build-web.sh` is the one build command Claude Code may run (an exact allow rule in Anvil's `.claude/settings.local.json`), because `-Pweb` downloads Node and runs npm. Verified: the jar serves the page, bundle and art from an unrelated working directory, and `launch()` end to end. The user clicked the button in the real app (11-01). It was published in v27; a friend's update through the updater is not yet observed.
+- **Open:** the web server's default port is Forge's netplay port, so hosting netplay from the app at the same time needs another `forge.web.port`.
 
 ## Shared user store: the playable build and the research harness read the same decks
 
@@ -1706,7 +1706,22 @@ shipping builds to other people's machines.
 > module with the root pom's `--add-opens`. Full desktop suite 875 green;
 > post-publish routine in full.
 >
-> **Upstream sync v27 MERGED 2026-11-01, not yet published (`471d0d4df3`, version
+> **v27 PUBLISHED 2026-11-01 (`2187b0d3b4`, version `2.0.16-SNAPSHOT-11.01`,
+> desktop + Android): the upstream sync below plus the Forge Web GUI in the
+> desktop jar (item 11).** Post-publish routine in full: the published jar,
+> manifest and APK hashes match local; the stamps are `build.txt` = the desktop
+> jar's 20:37:35 UTC and `build-android.txt` 20:39:18 UTC. The published manifest
+> parses through the shipped jar's own `DeltaManifest.parse` (55,928 entries,
+> version and commit correct, space paths present), and the shipped jar carries
+> `forge/web/WebMain.class`. Raw fetches at the manifest commit hash-match a new
+> upstream card, a space-path adventure file and `res/chronicle/rivals.txt`.
+> `commits/playable.atom` returns 200. The 09.19 APK asset is deleted and the
+> 11.01 APK is staged to Syncthing. **CI did not run:** the fork has recorded no
+> Actions run of any kind since 10-14 (Actions enabled); the local suites are
+> the evidence. The mobile visual pass is still owed (resize, rotated tapped
+> cards, rings, compact layout), as is the phone's first 2.0.16 boot.
+>
+> **Upstream sync v27 MERGED 2026-11-01 (`471d0d4df3`, version
 > `2.0.16-SNAPSHOT`): `playable` merged onto upstream master `4e18339de5` — 592
 > upstream commits since the v25 sync point `db4304cc40`.** There were 28
 > conflict files; upstream's netplay rewrite (`ProtocolGuiGame`, client
