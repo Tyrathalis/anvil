@@ -2079,6 +2079,13 @@ So per game we are level with him. Per turn we are ≈ 1.7× faster, on longer C
     ([Card-Forge/forge#12180](https://github.com/Card-Forge/forge/pull/12180), open) records each candidate play's
     rating and `AiPlayDecision` reason code, which is the signal for "the heuristic is unsure or refused for a weak
     reason".
+- *The user's reply, posted 10-31:* happy to help with forking. As far as the user knows, Forge's AI forks only in
+  the experimental Hybrid and Simulation modes, which may not be fully maintained, and both use `GameCopier`, the copier
+  Anvil's search runs on. An LLM game plan could rebias the heuristic through generated AI profiles, retuned per deck
+  or per matchup. Letting the heuristic call the LLM when needed makes sense, and #12180's logging may show when the
+  heuristic is on shaky ground. Heuristic-vs-heuristic rollouts from the fork are still worth running: they understate
+  the LLM's plans but show whether its positions are generically stronger. **Open: forking guidance when TBSTeun has
+  his fine-tuned model (≈ a month out).**
 
 ### 10-30 → 10-31 `#ai-dumb-not-cheating`: Senji's self-updating AI scripts, the "true AI" objections, does Forge look ahead (read 10-31 from the user's paste; nothing posted from here)
 
