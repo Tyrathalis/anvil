@@ -3311,3 +3311,13 @@ record.*
   with-lookahead 0.5775 ± 0.025 (gap +2.0pp, exploratory). Wall 552.4 / 672 h at 330 (≈ 1.3 h per iteration between
   yields): the wall lands ≈ 11-05 late evening plus any further yields. Nothing material; the host-memory-wait item
   stands for the segment-5 relaunch.
+
+- **11-01 11:00 — segment 4 through iteration 334 (accepted 10:31): the hold holds; ComfyUI yields at 333 and 334.** Holdout
+  Spearman 0.433–0.460 over 331–334 (333 the dip at 0.433 with the gap's high 0.029; 334 back to 0.460, gap 0.010) —
+  the gap's band ≈ +0.01 to +0.03, the pause line 0.15 far. No guard, no pause file, no trip. ComfyUI loaded again
+  from ≈ 09:40 (RSS 17.8–20.9 GB, 113 prompts in the 09h): 333 yielded 1,413 s and 334 1,292 s to its staged model;
+  available memory bottomed 6.1 GB beside generation (java 27.5 GB + ComfyUI 17.8 GB), while every training-step sample
+  (58) sat above 18.4 GB with the learner unswapped — the training-step exposure did not realize this time. PSI full
+  avg300 0.35%. Wall 557.7 / 672 h at 334. **The user asked for a pause point today (09:07) for the box update + reboot:**
+  the answer was 334's boundary (≈ 10:30), the pause verb's STOP in the loop root (never a live generation) and
+  `relaunch` after the reboot; the boundary passed at 10:31 with the question open, the next is 335's.
