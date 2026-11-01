@@ -3281,3 +3281,14 @@ record.*
   host-memory wait before the training step, like the GPU yield) is proposed for the segment-5 relaunch — no tree
   edits under the running loop. ComfyUI runs as `comfyui.service` in `app.slice` (oomd pressure `auto`); the run's scope
   is `avoid`.
+- **2026-10-31 17:50 — segment 4 through iteration 323: the hold holds; the training-step exposure REALIZED at
+  iteration 322 and the box held by 1.2 GB.** Holdout Spearman 0.4410 / 0.4594 (iterations 322–323), the gap +0.006 /
+  −0.006, no guard, no pause; the arms row at 324 is next. Iterations 322 and 323 each yielded ≈ 22 min of generation
+  to ComfyUI (prompts 14:5x–16:1x: 29 today, 24 of them in the 15:00 hour). **The 15:19–15:26 training step ran with
+  ComfyUI resident at 18.4 GB:** available memory fell to **3.2 GB** (one sample under 4 GB, none under 3; the trip line
+  2 GB for two samples), the learner's RSS 34.0–34.4 GB with **0.77 GB swapped** (its first swapped sample of the run),
+  while the kernel and ComfyUI's loader shed ComfyUI's pages 18.4 → 12.7 → 10.6 → 0.7 GB over six minutes. No trip; the
+  step finished in its normal time (323's training 452 s). PSI full-stall 0.24% over five minutes afterward. The box is
+  quiet since ≈ 16:15 (ComfyUI at 144 MB / 556 MiB VRAM; 53.8 GB available). The registered picture stands: the
+  watchdog is the backstop and was not needed; a host-memory wait before the training step would have avoided the
+  3.2 GB approach at the cost of a few minutes — the convenience item for the segment-5 relaunch.
