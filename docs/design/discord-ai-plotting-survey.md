@@ -2086,6 +2086,18 @@ So per game we are level with him. Per turn we are ≈ 1.7× faster, on longer C
   heuristic is on shaky ground. Heuristic-vs-heuristic rollouts from the fork are still worth running: they understate
   the LLM's plans but show whether its positions are generically stronger. **Open: forking guidance when TBSTeun has
   his fine-tuned model (≈ a month out).**
+- **TBSTeun (11-01):** the plan is to tune the heuristic's knobs from a natural-language game plan before the game
+  starts, then let the heuristic decide when to hand back to the LLM. `GameCopier` is what he tried to optimise a year
+  ago. He asked how well the custom AI profiles are documented.
+- *Our record (read in the fork 11-01):* the comments in `forge-gui/res/ai/Default.ai` are the only documentation
+  (≈ 174 comment lines over 121 settings); the other profiles mostly override its keys. `AiProps.java` lists keys and
+  defaults with almost no comments, and `docs/AI.md` does not mention profiles. `AiProfileUtil.loadAllProfiles` reads
+  every `.ai` file in the folder once at startup, and each AI lobby player carries its own profile; missing keys fall
+  back to the enum defaults. The knobs are mostly tactical (trades, trade blocks, holding tricks, counterspell
+  thresholds, mulligans), and many are random chances. A game plan can steer them only in broad strokes.
+- *The user's reply, posted 11-01:* the profiles are commented rather than documented. Read `Default.ai`, then search
+  for where each knob is read. They are mostly tactical options and probability weights, not mode toggles. Whether a
+  per-deck tuned profile lifts the win rate would still be interesting to see.
 
 ### 10-30 → 10-31 `#ai-dumb-not-cheating`: Senji's self-updating AI scripts, the "true AI" objections, does Forge look ahead (read 10-31 from the user's paste; nothing posted from here)
 
