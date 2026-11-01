@@ -3292,3 +3292,9 @@ record.*
   quiet since ≈ 16:15 (ComfyUI at 144 MB / 556 MiB VRAM; 53.8 GB available). The registered picture stands: the
   watchdog is the backstop and was not needed; a host-memory wait before the training step would have avoided the
   3.2 GB approach at the cost of a few minutes — the convenience item for the segment-5 relaunch.
+- **2026-10-31 23:50 — segment 4 through iteration 326: the hold holds.** Holdout Spearman 0.4483 / 0.4438 / 0.4434
+  (iterations 324–326), train 0.452–0.456, the gap +0.008 / +0.008 / **+0.010** — positive for four rows now and
+  creeping (+0.001 per iteration; the pause line 0.15 is ≈ 140 iterations off at that rate; a watch, not a flag). No
+  guard, no pause, no yield since 323. The 324 arms row: network-alone 0.570 ± 0.025, with-lookahead 0.6075 ± 0.024
+  (gap +3.75pp, exploratory). ComfyUI loaded once more at 21:53 (19.6 GB) during generation — available 10.4 GB, no
+  training step beside it (55 step samples, min 21.5 GB, the learner unswapped). PSI zero. Nothing material.
