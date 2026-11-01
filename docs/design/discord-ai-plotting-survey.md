@@ -2052,6 +2052,33 @@ So per game we are level with him. Per turn we are ≈ 1.7× faster, on longer C
   - **Agreement is not strength.** His 44–64% is the right instrument to start a router with, but the open half is whether the disagreements are better. That needs paired games with the router on and off, the shape of our paired reads (standing rules, reads). A route to Forge's AI on predicted agreement is also a heuristic fallback, which our own default keeps out of the model's decisions.
   - **The benchmark-across-systems idea needs one harness.** Every system that plays through a Forge `PlayerController` can meet in the same seeded matches. Our model at 76M fits his Mac trivially, but serving it needs the fork's controller and featurizer, the same glue as khaliostr's ask, so it waits on the same post-run export.
   - **Hanmac's format prior:** our model has no explicit card-probability input for the opponent. In a fixed pool it can only pick up such priors implicitly from the games it plays.
+- **The user's question to TBSTeun (posted 10-31):** has he checked the win rate after the decisions where the LLM and
+  the heuristic disagree? Fork the game at the decision and let the heuristic finish both branches. That undersells LLM
+  plays the heuristic cannot follow up on, but costs no LLM calls after the fork.
+- **TBSTeun's answer (10-31):**
+  - In his AI-vs-AI setup a valid fork means heuristic vs LLM after the fork, which is expensive. He will do it once he
+    has a fine-tuned, purpose-built forge-llm model, letting his laptop generate games for days; perhaps a month out.
+  - He knows Forge's AI forks game state in some cases but found the code very complex; his coding agents broke it when
+    he tried memory and CPU optimisations there a year ago. He would like guidance, and named the user as the
+    collaborator for it "when I have something ready".
+  - The heuristic may make more good decisions in isolation, but it does not reliably beat his system on win rate. His
+    three ways to split the load: route to the LLM when cards Forge's AI misreads are in context; let an LLM-written
+    game plan set weights the heuristic plays by (he does not know whether the heuristic allows it); or detect when the
+    game plan matters and route those spots to the LLM, the arithmetic ones to Forge's AI.
+  - He now suspects it is built the wrong way round: Forge's AI should decide when to call the LLM.
+- *Our record (read in the fork 10-31):*
+  - **The default AI never forks.** Copies come from `GameCopier` (a full copy into a new `Game`), driven by
+    `GameSimulator`. Only the opt-in simulation profiles use it: the full simulation AI (`SpellAbilityPicker`) and the
+    hybrid mode, where `AiController.saSideEffects` asks `OnePlaySafetyChecker` to simulate one play and reject it if the
+    evaluated score drops. Anvil's search copies through the same `GameCopier`. Our known failures there are token
+    mapping (`GameCopier.find`, the 10-03 baseline reads); forkcheck is how we trust it.
+  - **His second idea maps onto the AI profiles.** `forge-gui/res/ai/` holds four profiles (Default, Cautious,
+    Reckless, Experimental) of ≈ 120 `AiProps` knobs each (`PLAY_AGGRO`, `MIN_SPELL_CMC_TO_COUNTER`, …). An LLM choosing
+    or editing a profile per deck needs no engine change.
+  - **His "Forge's AI decides when to call the LLM" is what #12180 exposes.** The AI decision log
+    ([Card-Forge/forge#12180](https://github.com/Card-Forge/forge/pull/12180), open) records each candidate play's
+    rating and `AiPlayDecision` reason code, which is the signal for "the heuristic is unsure or refused for a weak
+    reason".
 
 ### 10-30 → 10-31 `#ai-dumb-not-cheating`: Senji's self-updating AI scripts, the "true AI" objections, does Forge look ahead (read 10-31 from the user's paste; nothing posted from here)
 
