@@ -1034,6 +1034,18 @@ human-reviewed; land on `playable` first, upstream next; the research fork
 picks it up at its next boundary (or as an ADR-0025-exempt commit with the
 forkcheck proof if directed payment ever makes it reachable).
 
+## 11. Forge Web GUI — MostCromulent's `forge-gui-web` (adopted 2026-11-01, user)
+
+**Verdict: carried on `playable` from v27.** The user tried it on 11-01 and found it more modern than both the desktop and the Adventure/mobile UI, with some lag when damaging the opponent. Merged as `7087f6cb4b` from MostCromulent/forge `forge-gui-web` at `f4c0a17dda` (2026-10-31).
+
+- **What it is.** A new Maven module behind the `-Pweb` profile, outside the default reactor. Netty serves a TypeScript/Preact page on one port (36743 by default, `-Dforge.web.port`). Every seat, the host's included, is an ordinary netplay client of an in-process `FServerManager`, so it adds no game logic of its own; desktop and mobile Forge can join through a WebSocket tunnel on the same port. It plays Constructed/Commander and variants (up to 4 players), Draft/Sealed and Planar Conquest. It has no Adventure or puzzles, and mobile support is a work in progress.
+- **Engine path.** It adds two view-only `CardView` trackables (`BasePower`/`BaseToughness`) and touches nothing in `forge-ai`. Training neutrality is unaffected, because the research fork never takes `playable`.
+- **Build and run.** `mvn -Pweb -pl forge-gui-web -am install -DskipTests` downloads Node and runs `npm ci`; the Claude Code auto mode refuses that step, so the user runs it. Run `java -jar forge-gui-web/target/forge-gui-web.jar` from the repo root: it finds `res/` by walking up, needs `lib/` beside it, and shares the desktop Forge profile (see "Shared user store" below). It listens on every interface over plain HTTP, gated by a per-launch link token.
+- **Our delta on it.** The browser launch on desktops whose AWT has no BROWSE action now falls back to `xdg-open`, and a launch failure no longer stops the server (`3810b4645f`; it crashed on first run on the user's KDE box). Worth sending to MostCromulent. The reconnect-token store is keyed by the client's `SocketAddress`.
+- **Overlaps to reconcile.** The branch's `GameLobby` `cardPool` duplicates upstream's newer lobby `formatName`; both are kept until MostCromulent reconciles them. Its `test-web.yml` runs on our pushes that touch the engine or the module. `snapshot-web.yml` is inert here because it fires only on a branch named `forge-gui-web`. The README stays upstream's.
+- **Maintenance cost.** The branch moves fast (≈ 1,200 commits in September–October) and is not yet an upstream PR. Each sync merges upstream first, then his branch tip; his netplay files (`FServerManager`, `FGameClient`) are the ones our hardening and reconnect-token patches touch.
+- **Open:** the damage-time lag (profile it before reporting it); distribution (a separate launcher, so the in-app updater and `release-playable.sh` do not carry it yet).
+
 ## Shared user store: the playable build and the research harness read the same decks
 
 Noticed on the instance's first real run (2026-07-27): Deck Manager shows the
@@ -1691,6 +1703,25 @@ shipping builds to other people's machines.
 > then run `org.testng.TestNG` directly on that classpath from the desktop
 > module with the root pom's `--add-opens`. Full desktop suite 875 green;
 > post-publish routine in full.
+>
+> **Upstream sync v27 MERGED 2026-11-01, not yet published (`471d0d4df3`, version
+> `2.0.16-SNAPSHOT`): `playable` merged onto upstream master `4e18339de5` — 592
+> upstream commits since the v25 sync point `db4304cc40`.** There were 28
+> conflict files; upstream's netplay rewrite (`ProtocolGuiGame`, client
+> auto-reconnect) and its mobile compact layout and graphics refactor
+> caused most of them. Re-homed onto upstream's versions: the reconnect-token
+> rotation, sleeve sharing, `flushGameView`, the nested transform stack
+> (pollFirst, so an unbalanced end restores identity), the Linear font
+> filtering, single-column zones, the splash relayout and the AwaitingInput
+> rings (sized from upstream's `ringWidth`). The T1 resize fix now also
+> re-projects `Forge.camera`, which Classic, Adventure, FrameRate and
+> OverlayText project through every frame. `MyRandom` and its test are the
+> rebased #11285 branch's. Upstream returned the zone-tab pref to a boolean,
+> so the Adventure selector (item 8) is now a checkbox. `AvatarLifeDifference`
+> was dropped with upstream. Core + desktop suite **1,755 run, 0 failures, 11
+> skipped**. The web GUI (item 11) merged on top as `7087f6cb4b`. **Owed:** a
+> visual pass on mobile (resize, tapped cards in rotated panels, the rings,
+> the compact layout), the Android build and the release routine.
 
 1. **Item 4 tier T1** — ~~one-line unlock plus a small `resize()` fix~~ — **DONE
    2026-07-26** (`41cb5f5bc9` + `61088aff57`). The "small `resize()` fix"
