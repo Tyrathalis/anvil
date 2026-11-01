@@ -3338,3 +3338,12 @@ record.*
   boundary for the idle workers. **Routed to the closeout scoping by name:** a pre-registered census-growth cap
   (events per turn doubling three turns running → a draw with its own reason), paired against the clock on one
   checkpoint; a sample-distribution change, so not mid-run.
+
+- **11-01 13:32 — segment 4 RESUMED after the box update + reboot** (boot 13:30; kernel 7.2.6-cachyos, driver 615.71.09
+  and JDK 26.0.2 unchanged under the pins; ComfyUI up with its model unloaded, 386 MiB). `anvil.runs relaunch --name
+  big-run` from `paused`: the 23 STOP files removed, the chain resumed segment 4 from `loop_state` at iteration 336
+  (wall 560.35 / 672 h), `launched_by` unchanged (this session). Coverage line: "stall alarm 180 min on
+  data/runs/big-run + data/training/big-run data/runs/br*, sinks queue+desk, check-in none, relay to Segment 3 review
+  and next steps [7f9800], memory watchdog: ARMED" — the watchdog armed by the launcher as built 10-29, no hand. 336's
+  generation was running on both servers within two minutes (games from 161326). The pause cost the run ≈ 22 min of
+  box time (13:10 → 13:32), none of it wall budget. The state wait and the six-hourly glance are re-armed.
