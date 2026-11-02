@@ -145,3 +145,34 @@ hold mode under §4–5, with the head-reset option taken:
 - The track that could make the head *better* is ADR-0125's, after the run.
 - **Launched 10-29 23:33** (the running record): the timed A/B cleared (paired ms ratio 0.959 / 0.984), ParallelGC on the workers;
   the loop resumed at iteration 302 from the transplant, both servers serving it, the meter's flags on the trainer's command line.
+
+## Addendum (2026-11-02) — the segment-4 reading and the run-distribution holdout for segment 5 (the user's go)
+
+**Segment 4's hold is more than holding, and the question it leaves is what the holdout measures.** Through iteration 347
+the holdout Spearman rose from 0.432 (iterations 302–312, mean) to 0.458 (335–347): an OLS slope of +0.020 per 25
+iterations, t 8.5, a row-to-row scatter of 0.008 around the line (the quoted 0.028 per row is the fixed holdout's
+bank-sampling SE, shared by every row). Train rose 2.4× faster (+0.047 per 25) and the gap went −0.017 → +0.021 across
+the segment: memorization at about a quarter of the pre-ADR-0124 rate, the pause line (0.15) ≈ 140 iterations out at
+that pace. Strength is flat within noise across the nine arms rows (0.535–0.5875 network-alone, SE 0.025). Neither
+pre-registered miss fires. **The caveat:** the holdout is drawn from the same Build 1 bank the anchor trains on, so the
+rise reads generalization inside that bank's state distribution, not to the states the run plays.
+
+**Decision for the segment-5 boundary — a measurement, not a training change:**
+
+1. **A second, run-distribution holdout, added beside the Build 1 one.** ≈ 2,000 states sampled from segment 4's own
+   stores, stratified by turn and phase as the Build 1 bank was, labelled by the fork's K=8 labeler under segment 4's
+   close checkpoint (≈ 3 box-hours at the measured 650 labels per box-hour), then FROZEN. The loop reports its Spearman
+   as a second row (`spearman_run`) every iteration of segment 5. Its floor for segment 5: the boundary value minus two
+   SE; exploratory on its first segment (no kill rule hangs on it).
+2. **The Build 1 holdout stays.** It is the continuity series from 302 and the ADR-0118 reference line; it is not swapped.
+3. **No periodic regeneration mid-run.** Rollout labels depend on the labelling checkpoint, so a rolling holdout would
+   confound the head improving with the labels moving; a frozen per-segment holdout with a fresh one at each boundary is
+   the shape [ADR-0125](ADR-0125-value-head-track.md) proposes for the stream, which stays the next milestone's center.
+4. **The anchor is unchanged.** The recipe of record names the Build 1 bank; changing what the anchor trains on is a
+   recipe change and belongs to the closeout. The 10-29 head-transplant read (ranking not the strength cap at the 1pp
+   level) argues for measuring before investing.
+
+**Reading at segment 5's close:** if the Build 1 rise transfers (the run-distribution row rises or holds over the
+segment), the hold is doing real work on the leaf; if it does not, that is the strongest case yet for the stream.
+Built in a worktree before the boundary (no tree edits under the running loop); the flags join the quickstart's §7
+table and the chain.

@@ -3373,3 +3373,13 @@ record.*
   network-alone 0.5675 ± 0.025, with-lookahead 0.595 ± 0.025 (gap +2.75pp, exploratory; the series 329 0.5575 / 334 —
   / 339 — / 344 0.5675 flat within noise). Wall 577.35 / 672 h at 346 — ≈ 95 h left, the wall ≈ 11-06 early morning
   plus yields.
+
+- **11-02 ≈ 10:00 — the segment-4 reading and the segment-5 boundary decision (user's go; ADR-0124 11-02 addendum).** The
+  holdout Spearman's rise across segment 4 is a trend, not drift (OLS +0.020 per 25 iterations, t 8.5; quarter means
+  0.432 → 0.443 → 0.450 → 0.458; scatter 0.008 around the line), train rising 2.4× faster and the gap −0.017 → +0.021;
+  strength flat within noise over nine arms rows. The caveat: the holdout shares the anchor's Build 1 bank, so the rise is
+  inside that distribution. **Decided:** at the segment-5 boundary a second, FROZEN run-distribution holdout (≈ 2,000
+  states from segment 4's stores, K=8 labels under the close checkpoint, ≈ 3 box-hours) reported as `spearman_run`
+  beside the Build 1 row (floor = boundary − 2 SE, exploratory); the Build 1 holdout stays; no periodic regeneration
+  (labels move with the labelling checkpoint; the frozen-per-segment shape is ADR-0125's); the anchor unchanged (a
+  recipe change belongs to the closeout). The build goes to a worktree before the boundary.

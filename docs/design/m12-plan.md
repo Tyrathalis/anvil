@@ -460,3 +460,5 @@ exists: transition error against parameter count on our pool.
 
 The session-by-session record lives in **[m12-running-record.md](m12-running-record.md)** (split out
 2026-09-23; append there, newest last).
+
+**Routed 11-02 (user) to the segment-5 boundary — the run-distribution holdout ([ADR-0124](../decisions/ADR-0124-anchor-bank-refresh.md) 11-02 addendum):** a ≈ 2,000-state holdout sampled from segment 4's own stores (stratified by turn and phase like the Build 1 bank), labelled by the fork's K=8 labeler under the close checkpoint, frozen, and reported by the loop as a second state-ranking row (`spearman_run`) beside the Build 1 holdout through segment 5 (floor = boundary value − 2 SE, exploratory). The Build 1 holdout stays; no periodic regeneration; the anchor unchanged. Built in a worktree before the boundary; the flags to the quickstart §7 table and the chain.
