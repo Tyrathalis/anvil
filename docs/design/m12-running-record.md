@@ -3347,3 +3347,12 @@ record.*
   and next steps [7f9800], memory watchdog: ARMED" — the watchdog armed by the launcher as built 10-29, no hand. 336's
   generation was running on both servers within two minutes (games from 161326). The pause cost the run ≈ 22 min of
   box time (13:10 → 13:32), none of it wall budget. The state wait and the six-hourly glance are re-armed.
+
+- **11-01 19:35 — segment 4 through iteration 339 (the first four since the resume): the hold holds; the gap rising
+  again.** Holdout Spearman 0.446–0.457 over 336–339, train 0.468–0.473; the memorization gap 0.015 → 0.019 → 0.023 →
+  0.024 — four rising rows, the band's top so far, the pause line 0.15 still far (watch item). No guard, no pause file,
+  no trip; no yield inside 336–339's generations. ComfyUI loaded again ≈ 18:45–19:30 (RSS 20–21 GB, 235 prompts over
+  18h–19h) during 339's arms read, which yielded 1,503 s to its staged model (the model unloaded by 19:33); available
+  memory bottomed 6.9 GB beside generation + ComfyUI, every training-step sample (49) above 14.7 GB with the learner
+  unswapped. PSI full avg300 0.13%. Wall 565.6 / 672 h at 339 (≈ 1.3 h per iteration): the wall lands ≈ 11-05
+  mid-evening plus yields.
