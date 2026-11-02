@@ -3356,3 +3356,10 @@ record.*
   memory bottomed 6.9 GB beside generation + ComfyUI, every training-step sample (49) above 14.7 GB with the learner
   unswapped. PSI full avg300 0.13%. Wall 565.6 / 672 h at 339 (≈ 1.3 h per iteration): the wall lands ≈ 11-05
   mid-evening plus yields.
+
+- **11-02 01:40 — segment 4 through iteration 343: the hold holds; 343 the segment's high.** Holdout Spearman 0.455–0.467
+  over 340–343 (343 at 0.467, above the segment's 0.464 at 328), train 0.473–0.485; the memorization gap jitters 0.016–0.029
+  (0.029 at 342, 0.018 at 343) — no trend past the 11-01 band, the pause line 0.15 far. No guard, no pause file, no trip.
+  ComfyUI loaded ≈ 20:10 (RSS 17.9–19.8 GB): 340 yielded 545 s, the current generation (344) 391 s so far; available
+  bottomed 6.8 GB beside generation + ComfyUI, every training-step sample (69) above 16.4 GB, the learner unswapped;
+  PSI full avg300 0.09%. Wall 572.15 / 672 h at 343 — ≈ 100 h left, the wall ≈ 11-06 early morning plus yields.
