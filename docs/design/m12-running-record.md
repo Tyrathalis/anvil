@@ -3394,3 +3394,15 @@ record.*
   bench's mainlines puts the head at 0.80–0.83 on its own policy's states vs 0.47 on Build 1's — the row's level is its
   own; the floor comes from the boundary read. Not merged (no tree edits under the loop); merged and run at the
   segment-5 boundary. Residue for the stale-data pass: `data/runs/runbank-smoke-{mirror,h1}-20261102-*` (≈ 180 KB).
+
+- **11-02 13:40 — segment 4 through iteration 350: the hold holds; 349 the segment's widest gap (0.040) and its
+  highest arms row (0.61), both inside their bands.** Holdout Spearman 0.452–0.467 over 347–350 (349 dipped to 0.452
+  and 350 is back at 0.467, the plateau's level), train 0.489–0.498; the memorization gap 0.024–0.040 (0.040 at 349,
+  the segment's widest, 0.031 at 350) — the pause line 0.15 is still far, but the gap has drifted up from 0.016 at 341
+  and is the one line to keep reading. No guard, no pause file, no trip. One yield: 1,533 s in 349's generation to a
+  ComfyUI job (sm 99%, 17.7 GB VRAM) — excluded from the wall. ComfyUI loaded (RSS ≈ 20 GB) during 351's generation:
+  available bottomed 11.1 GB at 10:22 with the JVMs at 26.7 GB, no training step below 22.6 GB (66 samples), the learner
+  unswapped, PSI ≈ 0.05. The 349 arms row: network-alone 0.61 ± 0.024, with-lookahead 0.62 ± 0.024 (gap +1.0pp,
+  exploratory); the series 329 0.5575 / 344 0.5675 / 349 0.61 — 0.61 is the segment's highest row, ≈ 1.8 SE above
+  the segment's mean, within the spread ten rows at SE 0.025 produce; noise until the 2,000-game read at the wall.
+  Wall 583.53 / 672 h at 350 — ≈ 88 h left, the wall ≈ 11-06 early morning plus yields.
