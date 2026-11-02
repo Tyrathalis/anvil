@@ -406,6 +406,18 @@ row). `--guard-anchor-gap 0.15` (0 = off) is a PAUSE line, not a guard: a gap ab
 iteration, then stops the loop before the next one (a self-written `STOP` the next `anvil.runs relaunch`
 clears; the reason in `PAUSE-iter-NNN.txt` and the row's `pause`), and the line re-bases 0.05 above the
 pausing gap so a relaunch does not pause again on the same reading.
+Since 11-02 (the ADR-0124 addendum) the row can carry a **second holdout**: `--state-bank-run <dir>` names a
+FROZEN bank drawn from the run's own games and scores every checkpoint on it too, into `spearman_run` /
+`se_boot_run` / `n_run` beside the Build 1 fields (its own file, `state-ranking-run.json`, per iteration); the
+Build 1 row stays the continuity line and this one says whether its movement transfers to the states the run
+plays. Nothing trains on that bank — never name it in `--value-anchor`. `--guard-spearman-run-floor F` (0 = off,
+the default) is the same collapse floor on that row, set at a segment boundary to the boundary read minus two
+SE. The bank is built at a boundary on a quiet box by `scripts/run_holdout_bank.py` — `label` plays the
+loop's game mix under the close checkpoint in the fork's rollout-label mode (≈ 2,000 labels at K=8 ≈ 3
+box-hours), `sample` draws the states stratified by turn × phase into the Build 1 bank's on-disk form
+(`value_pretrain bank-run`), `read` gives the boundary value — and is never regenerated mid-segment (its
+labels depend on the labelling checkpoint). The procedure is
+[run-holdout-bank-read.md](run-holdout-bank-read.md).
 `--value-stopgrad-trunk` (10-01, ADR-0119 ladder rung 2) makes the value head read a detached trunk
 read-out, so every value-side term trains the head alone and the trunk is the policy's; the
 gradient-norm row's `gn_v` / `gn_anchor` read 0 under it. Off by default. With it, two lr groups keep

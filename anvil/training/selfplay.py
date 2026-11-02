@@ -316,21 +316,33 @@ def _ranking_meter(args, ckpt, out_json: Path) -> "dict | None":
     meter reads the ANCHOR's bank (its training rows are what memorizes): one
     eval with both splits when the anchor draws from the standing state bank;
     otherwise the standing holdout row plus a second eval on the anchor's bank
-    (under `anchor_bank`, its `gap` lifted to the top). No anchor: holdout only."""
+    (under `anchor_bank`, its `gap` lifted to the top). No anchor: holdout only.
+    ADR-0124 addendum (11-02): `--state-bank-run` adds the RUN-DISTRIBUTION
+    holdout's row beside it — `spearman_run` / `se_boot_run` / `n_run`, a frozen
+    bank of the run's own states nothing trains on (value_pretrain bank-run) —
+    so the Build 1 series stays the continuity line and this one says whether
+    its movement transfers to the states the run plays."""
     if not args.state_bank:
         return None
     anchor = getattr(args, "value_anchor", None)
     same = bool(anchor) and Path(anchor).resolve() == Path(args.state_bank).resolve()
     row = _state_ranking(ckpt, args.state_bank, args.state_bank_fmt, out_json,
                          splits="holdout,train" if same else "holdout")
-    if row is None or not anchor or same:
+    if row is None:
         return row
-    ab = _state_ranking(ckpt, anchor, args.state_bank_fmt,
-                        out_json.with_name(out_json.stem + "-anchor-bank.json"), splits="holdout,train")
-    if ab:
-        row["anchor_bank"] = ab
-        if ab.get("gap") is not None:
-            row["gap"] = ab["gap"]
+    if anchor and not same:
+        ab = _state_ranking(ckpt, anchor, args.state_bank_fmt,
+                            out_json.with_name(out_json.stem + "-anchor-bank.json"), splits="holdout,train")
+        if ab:
+            row["anchor_bank"] = ab
+            if ab.get("gap") is not None:
+                row["gap"] = ab["gap"]
+    run_bank = getattr(args, "state_bank_run", None)
+    if run_bank:
+        rr = _state_ranking(ckpt, run_bank, args.state_bank_fmt,
+                            out_json.with_name(out_json.stem + "-run.json"), splits="holdout")
+        if rr and rr.get("spearman") is not None:
+            row.update(spearman_run=rr["spearman"], se_boot_run=rr.get("se_boot"), n_run=rr.get("n"))
     return row
 
 
@@ -1015,6 +1027,8 @@ def guard_flags(
     alloc_share_max: float | None = None,
     state_spearman: float | None = None,
     spearman_floor: float | None = None,
+    state_spearman_run: float | None = None,
+    spearman_run_floor: float | None = None,
 ) -> list[str]:
     """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
     checkpoint and halts the loop — run-2 collapsed with every signal in
@@ -1105,6 +1119,11 @@ def guard_flags(
     # 0.374) is the anchor arm's pre-registered read, not a halt.
     if state_spearman is not None and spearman_floor and state_spearman < spearman_floor:
         flags.append(f"guard: state_spearman {state_spearman} < floor {spearman_floor}")
+    # ADR-0124 addendum (11-02): the same collapse floor on the run-distribution
+    # holdout's row (--state-bank-run); off by default — exploratory on its first
+    # segment, the floor set at the boundary (the boundary value minus two SE)
+    if state_spearman_run is not None and spearman_run_floor and state_spearman_run < spearman_run_floor:
+        flags.append(f"guard: state_spearman_run {state_spearman_run} < floor {spearman_run_floor}")
     if baseline:
         ent, ent0 = m.get("ent"), baseline.get("ent")
         if ent is not None and ent0 and ent > ent_mult * ent0:
@@ -1630,6 +1649,14 @@ def main() -> None:
     ap.add_argument("--guard-spearman-floor", type=float, default=0.15,
                     help="halt if the produced ckpt's state-ranking Spearman falls below this (a head "
                          "that stopped ranking states; the shakedown's drifted floor was 0.21–0.26); 0 = off")
+    # ADR-0124 addendum (11-02): the run-distribution holdout's row beside the Build 1 one
+    ap.add_argument("--state-bank-run", default=None, metavar="BANK_DIR",
+                    help="a second, FROZEN state bank drawn from the run's own games (value_pretrain bank-run; "
+                         "nothing trains on it): every produced ckpt is scored on it too, into the state-ranking "
+                         "row's spearman_run / se_boot_run / n_run (rides beside --state-bank); off by default")
+    ap.add_argument("--guard-spearman-run-floor", type=float, default=0.0,
+                    help="halt if spearman_run falls below this (the --guard-spearman-floor twin on the run "
+                         "bank; set at a segment boundary to the boundary value minus two SE); 0 = off")
     ap.add_argument("--alloc-recall", type=float, default=0.9,
                     help="the tau re-derivation's recall target (rl.py --alloc-recall)")
     ap.add_argument("--search-calib-steps", type=int, default=50,
@@ -2475,7 +2502,9 @@ def main() -> None:
             print(f"[selfplay] iteration {k}: state-ranking spearman {state_rank['spearman']} "
                   f"± {state_rank['se_boot']}" + (f" (day zero {dz})" if dz is not None else "")
                   + (f"; anchor train {state_rank['train_spearman']} gap {state_rank['gap']}"
-                     if state_rank.get("gap") is not None else ""))
+                     if state_rank.get("gap") is not None else "")
+                  + (f"; run bank {state_rank['spearman_run']} ± {state_rank['se_boot_run']}"
+                     if state_rank.get("spearman_run") is not None else ""))
 
         # ---- monitor row + anomaly flags (accept ckpt AFTER writing it) ----
         census = _census_tallies(run_dirs)
@@ -2556,6 +2585,8 @@ def main() -> None:
             alloc_share_max=args.guard_alloc_share if args.search_recipe and args.alloc_frac else None,
             state_spearman=state_rank["spearman"] if state_rank else None,
             spearman_floor=args.guard_spearman_floor,
+            state_spearman_run=(state_rank or {}).get("spearman_run"),
+            spearman_run_floor=getattr(args, "guard_spearman_run_floor", 0.0),
         )
         guard_kind, lr_mult_after, rollback_entry = guard_decision(
             guards, args.guard_action, k, state.get("guard_last_rollback"),
