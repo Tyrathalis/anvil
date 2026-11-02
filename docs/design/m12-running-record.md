@@ -3363,3 +3363,13 @@ record.*
   ComfyUI loaded ≈ 20:10 (RSS 17.9–19.8 GB): 340 yielded 545 s, the current generation (344) 391 s so far; available
   bottomed 6.8 GB beside generation + ComfyUI, every training-step sample (69) above 16.4 GB, the learner unswapped;
   PSI full avg300 0.09%. Wall 572.15 / 672 h at 343 — ≈ 100 h left, the wall ≈ 11-06 early morning plus yields.
+
+- **11-02 07:40 — segment 4 through iteration 346: the hold holds at the segment's high; a quiet night.** Holdout
+  Spearman 0.466–0.467 over 343–346 (a plateau at the segment's high; the pre-registered expectation "starting near 0.41,
+  ending within one SE" is being exceeded upward), train 0.485–0.493; the memorization gap 0.019–0.026 (0.026 at 346),
+  the band unchanged, the pause line 0.15 far. No guard, no pause file, no trip, no yield in 343–346 (the 391 s yield
+  logged 11-01 evening sits inside 340's 545 s — no accounting gap). ComfyUI idle all night (RSS 149 MB): available
+  bottomed 22.5 GB, every training-step sample (54) above 22.5 GB, the learner unswapped, PSI zero. The 344 arms row:
+  network-alone 0.5675 ± 0.025, with-lookahead 0.595 ± 0.025 (gap +2.75pp, exploratory; the series 329 0.5575 / 334 —
+  / 339 — / 344 0.5675 flat within noise). Wall 577.35 / 672 h at 346 — ≈ 95 h left, the wall ≈ 11-06 early morning
+  plus yields.
