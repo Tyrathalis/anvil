@@ -3383,3 +3383,14 @@ record.*
   beside the Build 1 row (floor = boundary − 2 SE, exploratory); the Build 1 holdout stays; no periodic regeneration
   (labels move with the labelling checkpoint; the frozen-per-segment shape is ADR-0125's); the anchor unchanged (a
   recipe change belongs to the closeout). The build goes to a worktree before the boundary.
+
+- **11-02 ≈ 11:00 — the run-distribution holdout row BUILT on a branch (a background agent in its own worktree; ADR-0124
+  11-02 amendment).** Branch `worktree-agent-a21b710731bc8fc46`, two commits on `f8ba9b2`; verified: 9 new tests pass,
+  the full suite passes in the worktree (41 skips = local data absent there, not regressions), the loop and chain diffs
+  read clean (the second row rides beside the Build 1 one; the guard is the Spearman floor's twin, off; the chain hook
+  is two env vars, empty). **One correction to the plan's wording:** the labeler cannot label stored states, so "the
+  run's own states" are the labelling run's mainlines under the close checkpoint (≈ 500 games, K=8 at 4 points,
+  ≈ 3 box-hours), the sampler drawing ≈ 2,000 fork points stratified by turn. The exploratory smoke on the 10-29
+  bench's mainlines puts the head at 0.80–0.83 on its own policy's states vs 0.47 on Build 1's — the row's level is its
+  own; the floor comes from the boundary read. Not merged (no tree edits under the loop); merged and run at the
+  segment-5 boundary. Residue for the stale-data pass: `data/runs/runbank-smoke-{mirror,h1}-20261102-*` (≈ 180 KB).

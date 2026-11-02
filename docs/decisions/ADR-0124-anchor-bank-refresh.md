@@ -176,3 +176,20 @@ rise reads generalization inside that bank's state distribution, not to the stat
 segment), the hold is doing real work on the leaf; if it does not, that is the strongest case yet for the stream.
 Built in a worktree before the boundary (no tree edits under the running loop); the flags join the quickstart's §7
 table and the chain.
+
+**Amendment (11-02, after the build):** "sampled from segment 4's own stores" reads as **the labelling run's mainlines**.
+The fork's labeler forks LIVE games at sampled quiescent MAIN1 priority windows (`-rollout K -points M`) and cannot
+restore a stored state (a model-played game is not reproducible under another checkpoint's serving); the Build 1 bank was
+built the same way. So the run-distribution holdout's states are the close checkpoint's own games — argmax,
+network-alone, census off, the loop's mix (half mirror, a quarter per heuristic seat), ≈ 500 games with K=8 at 4 points
+each (≈ 3 box-hours) — labelled by the same run and ingested; the sampler draws ≈ 2,000 fork points from them,
+stratified by turn (the labeler's uniform draw over turns 2–16; phase is MAIN1 by construction). The bank is written in
+the Build 1 layout (`bank-state.pt` with `wr` in its meta; one split, `holdout`; `manifest.json` with `frozen: true`),
+so `_state_ranking()` reads it unchanged. Built on branch `worktree-agent-a21b710731bc8fc46` (two commits on `f8ba9b2`:
+`value_pretrain bank-run` + `scripts/run_holdout_bank.py label|sample|read` + `selfplay --state-bank-run` /
+`--guard-spearman-run-floor` + the chain's `RUN_BANK` / `RUN_FLOOR` hook, off; procedure in
+`docs/design/run-holdout-bank-read.md`; 9 new tests). Merged at the boundary, not before (no tree edits under the loop).
+The smoke's one number worth keeping: on the 10-29 labeler bench's 85 mainlines (K=8 under `iter-301`, 40 sampled
+rows), `iter-301` ranks at 0.80 ± 0.06 and `iter-347` at 0.83 ± 0.06 — far above the Build 1 holdout's 0.47 on the same
+checkpoints: the head ranks its own policy's states much better than Build 1's, so **the run-distribution row's level is
+its own and its floor comes only from the boundary read**.
