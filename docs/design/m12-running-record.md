@@ -3425,3 +3425,15 @@ record.*
   reverted to the band, as noise. A quiet night: ComfyUI idle, available bottomed 22.3 GB (53 training-step samples),
   the learner unswapped, PSI ≈ 0. The 2.85 h for iteration 355 is the usual arms-read iteration (344→345 2.59 h).
   Wall 595.16 / 672 h at 357 — ≈ 77 h left, the wall ≈ 11-06 morning plus yields.
+
+- **11-03 07:48 — segment 4 through iteration 360: the hold holds; the memorization gap sits above 0.04 three rows
+  running.** Holdout Spearman 0.458–0.469 over 358–360 (the plateau's band), train 0.499–0.512 (the segment's highest
+  train rows); the memorization gap 0.041–0.043 at 358–360 — the first run of consecutive rows above 0.04. The creep is
+  ≈ +0.0014 per row since 341 (0.016 → 0.042 over nineteen rows); at that rate the 0.15 pause line is ≈ 75 rows out,
+  beyond the ≈ 50 iterations left in the segment, so the hold should reach the wall without the pause line firing — but
+  the train row rising while the holdout stays flat is ADR-0124's memorization shape in slow motion, and the boundary's
+  read of the gap series goes to the ADR. No guard, no pause file, no trip, no yield in 358–360. The 359 arms row:
+  network-alone 0.5825 ± 0.025, with-lookahead 0.6275 ± 0.024 (gap +4.5pp, the segment's widest arms-row gap,
+  exploratory); the network-alone series 329 0.5575 / 344 0.5675 / 349 0.61 / 354 0.57 / 359 0.5825 — flat. Quiet:
+  ComfyUI idle, available bottomed 21.1 GB (69 training-step samples), the learner unswapped, PSI zero. Wall 600.35 /
+  672 h at 360 — ≈ 72 h left, the wall ≈ 11-06 morning plus yields.
