@@ -3437,3 +3437,14 @@ record.*
   exploratory); the network-alone series 329 0.5575 / 344 0.5675 / 349 0.61 / 354 0.57 / 359 0.5825 — flat. Quiet:
   ComfyUI idle, available bottomed 21.1 GB (69 training-step samples), the learner unswapped, PSI zero. Wall 600.35 /
   672 h at 360 — ≈ 72 h left, the wall ≈ 11-06 morning plus yields.
+
+- **11-03 13:50 — segment 4 through iteration 364: the hold holds; 362 the segment's widest gap (0.060) on a holdout
+  dip, 364 the segment's Spearman high.** Holdout Spearman 0.440–0.473 over 361–364 (362 at 0.440, 364 at 0.473 — the
+  segment's new high; the swing is 1.2 per-row SE), train 0.500–0.508 (steady); the memorization gap 0.032–0.060 — the
+  row-to-row gap now moves with the holdout's dips, since the train row is steady, so the single-row gap is a noisy
+  meter: read it as five-row means (train ≈ 0.503 − holdout ≈ 0.456 ≈ 0.047 over 360–364, vs ≈ 0.035 over 355–359
+  and ≈ 0.016 at 341). The creep continues at the same slow rate; the 0.15 pause line stays well past the wall. No
+  guard, no pause file, no trip, no yield in 361–364. The 364 arms row: network-alone 0.575 ± 0.025, with-lookahead
+  0.6025 ± 0.024 (gap +2.75pp); the network-alone series 329 0.5575 / 344 0.5675 / 349 0.61 / 354 0.57 / 359 0.5825 /
+  364 0.575 — flat. Quiet: ComfyUI idle, available bottomed 21.6 GB (52 training-step samples), the learner unswapped,
+  PSI zero. Wall 606.39 / 672 h at 364 — ≈ 66 h left, the wall ≈ 11-06 morning plus yields.
