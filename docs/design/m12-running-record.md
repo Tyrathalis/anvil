@@ -3406,3 +3406,11 @@ record.*
   exploratory); the series 329 0.5575 / 344 0.5675 / 349 0.61 — 0.61 is the segment's highest row, ≈ 1.8 SE above
   the segment's mean, within the spread ten rows at SE 0.025 produce; noise until the 2,000-game read at the wall.
   Wall 583.53 / 672 h at 350 — ≈ 88 h left, the wall ≈ 11-06 early morning plus yields.
+
+- **11-02 19:43 — segment 4 through iteration 354: the hold holds; the gap settles back to ≈ 0.03.** Holdout Spearman
+  0.460–0.467 over 351–354 (the plateau's band; 349's 0.452 dip was one row), train 0.489–0.498; the memorization gap
+  0.029–0.031 (back from 349's 0.040 — a one-row excursion, not a step), the pause line 0.15 far. No guard, no pause
+  file, no trip. One yield: 34 s in 354 to the compositor (kwin_wayland at sm 46% — the desktop in use, not a job).
+  ComfyUI idle (RSS ≈ 150 MB); available bottomed 17.7 GB at a training step (73 samples; `other` at 9.3 GB is the
+  desktop's own), the learner unswapped, PSI ≈ 0.04. No arms row closed in 351–354 (354's arms read was in flight at
+  the glance). Wall 589.0 / 672 h at 354 — ≈ 83 h left, the wall ≈ 11-06 early morning plus yields.
