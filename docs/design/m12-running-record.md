@@ -3494,3 +3494,15 @@ record.*
   `relaunch` resumes and the line re-bases); nothing to do now but read it. Arms: no row closed in 365–368 (369's
   arms read is next). ComfyUI active through the evening (RSS 20–21 GB, two GPU yields). Wall 611.89 / 672 h at
   368 — ≈ 60 h left, the wall ≈ 11-06 morning plus yields.
+
+- **11-04 01:55 — segment 4 through iteration 371: the hold holds; the gap flat at ≈ 0.06 over four rows (the steep
+  reading did not continue).** Holdout Spearman 0.443–0.458 over 369–371 (recovering from 368's 0.441; 371 at 0.458,
+  the plateau's band), train 0.504–0.521 (371 the segment's highest train row); the memorization gap 0.058–0.066 —
+  flat since 368's 0.067 (369 0.066, 370 0.058, 371 0.063); five-row mean 367–371 ≈ 0.062. The two-slope projection
+  of the last glance resolves toward the slower one for now: four rows without a rise puts the 0.15 pause line past
+  the wall again; still the line to read. No guard, no pause file, no trip. One yield: 18 s in 369 to a game
+  (`TheFarmerWasRep` at sm 38% — the desktop in use). The 369 arms row: network-alone 0.5975 ± 0.025, with-lookahead
+  0.6125 ± 0.024 (gap +1.5pp); the network-alone series 329 0.5575 / 344 0.5675 / 349 0.61 / 354 0.57 / 359 0.5825 /
+  364 0.575 / 369 0.5975 — flat within noise around ≈ 0.58. A quiet night: ComfyUI idle (RSS 184 MB) since ≈ 20:00,
+  available bottomed 17.5 GB (52 training-step samples), the learner unswapped, PSI ≈ 0.2 (the desktop). Wall
+  617.39 / 672 h at 371 — ≈ 55 h left, the wall ≈ 11-06 morning plus yields.
