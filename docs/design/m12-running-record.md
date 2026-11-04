@@ -3448,3 +3448,27 @@ record.*
   0.6025 ± 0.024 (gap +2.75pp); the network-alone series 329 0.5575 / 344 0.5675 / 349 0.61 / 354 0.57 / 359 0.5825 /
   364 0.575 — flat. Quiet: ComfyUI idle, available bottomed 21.6 GB (52 training-step samples), the learner unswapped,
   PSI zero. Wall 606.39 / 672 h at 364 — ≈ 66 h left, the wall ≈ 11-06 morning plus yields.
+
+- **11-03 17:19 — THE LOOP FAILED at iteration 367's training step: a CUDA out-of-memory beside a ComfyUI job;
+  RELAUNCHED 17:30 behind a new training-step GPU gate.** The event: 367's generation closed 17:18:02 (4,847 s, 1,072 s
+  yielded to ComfyUI); the trainer launched at 17:18 while ComfyUI's job (pid 1793, started 17:13:51 during the last
+  ingest; RSS 20.3 GB) held **17.45 GiB of VRAM at sm 99%**, got ≈ 5 GB of the card, printed one step and OOMed in
+  `loss.backward()` ("Tried to allocate 52.00 MiB … 116.56 MiB free"). The chain exited rc=1 ("a guard halt or a
+  crash"); the launcher's state went `failed`, the check-in relayed it here, no processes left behind. Attribution:
+  the learner's VRAM elasticity (seg halving + the cotenant park) guards the FORWARD pass only; a backward OOM
+  re-raises. The harness yields new chunk launches to a foreign GPU job (gpu_yield.py, the 09-14 pin) but nothing
+  gated the trainer's launch — the routed "host-memory wait before the training step" item was this gap's twin.
+  **The fix (`f6864bc`, ≈ 40 lines + 4 tests):** `_wait_gpu_free` in selfplay — before the trainer launches, the loop
+  polls the harness's own foreign-GPU rule (a compute process outside the session with ≥ 1 GiB framebuffer or
+  ≥ 20% SM; 30 s samples, 120 s off-hysteresis), waits while it holds, heartbeats the launcher's stall tick, takes the
+  wait OUT of the wall (`yielded_s`; `train_wait_s` beside `gen_s` in the iteration's yield.json) and logs the hold
+  and the release; `--no-gpu-wait` for smokes. The loop was down, so the edit went into the main checkout (no
+  forkserver re-import hazard); the recipe is unchanged. **Relaunched 17:30:04** (`anvil.runs relaunch`, launched_by
+  kept): "LAUNCHED big-run: state …/big-run.json (running, pid 3119141), … stall alarm 180 min on
+  data/runs/big-run + data/training/big-run data/runs/br*, sinks queue+desk, check-in none, relay to Segment 3
+  review and next steps [7f9800], memory watchdog: active". The loop reused 367's three stores (generation 0 s) and
+  parked at the gate at once: "GPU held by python[1793] 19596 MB sm 99% — waiting for a quiet card". Accounting: the
+  loop state is written at an iteration's end, so 367's ≈ 1.05 h of generation box time is NOT in the wall (610.19 h
+  at the resume vs 611.23 h logged before the crash) — the run gets ≈ 1 h of wall back, the same shape as a crash
+  resume anywhere; the wall ≈ 11-06 morning plus yields plus this gate's wait. Lost: ≈ 12 min of box time and one
+  training attempt. Next glance reads the gate's release time and 367's row.
