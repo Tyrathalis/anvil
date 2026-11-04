@@ -460,6 +460,50 @@ def _stop_server(proc) -> None:
         proc.kill()
 
 
+def _note_yield(path: Path, key: str, seconds: float) -> None:
+    """Add `seconds` under `key` in an iteration's yield.json (merging; the
+    file's gen_s is written after generation and read back on resume)."""
+    d = json.loads(path.read_text()) if path.exists() else {}
+    d[key] = round(float(d.get(key, 0.0)) + seconds, 1)
+    path.write_text(json.dumps(d) + "\n")
+
+
+def _wait_gpu_free(what: str, yielder=None, sleep=time.sleep, log_every_s: float = 300.0) -> float:
+    """The training step's GPU gate (11-03, big-run iteration 367): the harness
+    yields NEW chunk launches to a foreign GPU job (gpu_yield.py — the user's
+    09-14 pin), but the trainer was launched into ComfyUI's 17.5 GB job and
+    CUDA-OOMed in loss.backward(), outside the learner's forward-only seg
+    elasticity. Same rule, same hysteresis: wait while a foreign compute
+    process holds the card; the seconds waited come OUT of the wall budget
+    like the generation's yields, and the launcher's stall tick hears a
+    heartbeat. Returns the seconds waited (0 when the card is quiet or
+    nvidia-smi is absent)."""
+    from anvil.bridge.harness.gpu_yield import GpuYield
+
+    y = yielder if yielder is not None else GpuYield(on_s=0.0)
+    if not y.poll():
+        return 0.0
+    t0 = y.clock()
+    last_log = t0
+    print(f"[selfplay] {what}: GPU held by {y.describe()} — waiting for a quiet card "
+          f"(the trainer would CUDA-OOM; excluded from the wall)", flush=True)
+    while y.poll():
+        try:
+            from anvil.runs import heartbeat
+
+            heartbeat("gpu wait: training step")
+        except Exception:  # noqa: BLE001
+            pass
+        sleep(y.sample_s)
+        if y.clock() - last_log >= log_every_s:
+            last_log = y.clock()
+            print(f"[selfplay] {what}: still waiting ({y.clock() - t0:.0f} s; {y.describe() or 'clearing'})",
+                  flush=True)
+    waited = y.clock() - t0
+    print(f"[selfplay] {what}: GPU quiet after {waited:.0f} s — training", flush=True)
+    return waited
+
+
 def _run(cmd: list[str]) -> None:
     print(f"[selfplay] $ {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
@@ -1327,6 +1371,10 @@ def main() -> None:
     ap.add_argument("--wall-hours", type=float, default=0.0,
                     help="stop between iterations once the run's accumulated box time reaches this "
                          "(loop_state wall_used_s carries across pauses); 0 = off. The closing reads still run.")
+    ap.add_argument("--no-gpu-wait", action="store_true",
+                    help="skip the training step's GPU gate (11-03): by default the loop waits for a foreign "
+                         "GPU job (the harness's yield rule) to leave the card before launching the trainer; "
+                         "the wait is excluded from the wall")
     ap.add_argument("--games", type=int, default=480, help="games per iteration")
     ap.add_argument("--games-per-pair", type=int, default=2)
     ap.add_argument("--workers", type=int, default=8)
@@ -2290,6 +2338,12 @@ def main() -> None:
         if (train_dir / "DONE").exists():
             print(f"[selfplay] iteration {k}: reusing completed training in {train_dir}")
         else:
+            if not args.no_gpu_wait:
+                waited = _wait_gpu_free(f"iteration {k}: training step")
+                if waited:
+                    state["yielded_s"] = float(state.get("yielded_s", 0.0)) + waited
+                    _note_yield(it_dir / "yield.json", "train_wait_s", waited)
+                    t0 = time.monotonic()
             _run(
                 [
                     sys.executable,
