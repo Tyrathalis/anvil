@@ -3506,3 +3506,12 @@ record.*
   364 0.575 / 369 0.5975 — flat within noise around ≈ 0.58. A quiet night: ComfyUI idle (RSS 184 MB) since ≈ 20:00,
   available bottomed 17.5 GB (52 training-step samples), the learner unswapped, PSI ≈ 0.2 (the desktop). Wall
   617.39 / 672 h at 371 — ≈ 55 h left, the wall ≈ 11-06 morning plus yields.
+
+- **11-04 07:58 — segment 4 through iteration 375: the hold holds; the gap flat to slightly down (five-row mean
+  ≈ 0.057).** Holdout Spearman 0.448–0.458 over 372–375 (the plateau's band), train 0.508–0.512; the memorization
+  gap 0.051–0.061 — eight rows now without a rise since 368's 0.067; five-row mean 371–375 ≈ 0.057 (vs ≈ 0.062 the
+  glance before). The slow reading holds: the 0.15 pause line stays past the wall. No guard, no pause file, no trip,
+  no yield in 371–375. The 374 arms row: network-alone 0.5725 ± 0.025, with-lookahead 0.595 ± 0.025 (gap +2.25pp);
+  the network-alone series … 364 0.575 / 369 0.5975 / 374 0.5725 — flat around ≈ 0.58. A quiet night: ComfyUI idle,
+  available bottomed 22.2 GB (68 training-step samples), the learner unswapped, PSI zero. Wall 623.88 / 672 h at
+  375 — ≈ 48 h left, the wall ≈ 11-06 morning plus yields.
