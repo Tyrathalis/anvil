@@ -3472,3 +3472,25 @@ record.*
   at the resume vs 611.23 h logged before the crash) — the run gets ≈ 1 h of wall back, the same shape as a crash
   resume anywhere; the wall ≈ 11-06 morning plus yields plus this gate's wait. Lost: ≈ 12 min of box time and one
   training attempt. Next glance reads the gate's release time and 367's row.
+
+- **11-03 19:52 — segment 4 through iteration 368: the gate released after 421 s and 367 trained; the hold holds; the
+  memorization gap at its widest (0.067 at 368); a host-memory near miss at 367's training step.** The gate: ComfyUI
+  dropped its VRAM at ≈ 17:37 and the loop released 120 s later ("GPU quiet after 421 s — training"; `train_wait_s`
+  420.6 beside `gen_s` 1072.3 in 367's yield.json, both out of the wall); 367 trained in 538 s, closed at 610.34 h;
+  368 followed with a 481 s generation yield to ComfyUI (17.2 GB staged, sm 0%). **The near miss:** when ComfyUI
+  unloaded the card its model moved to HOST memory (RSS 19.9 → 21.1 GB) and stayed there through the training step:
+  available bottomed **5.66 GB at 17:39:53** with the learner at 33.0 GB (74 training-step samples; the watchdog's
+  trip is < 2.05 GB twice; no trip, no swap). The GPU gate does its job and hands the next gap to the routed
+  host-memory wait before the training step (the same gate shape on `MemAvailable`: wait while a cotenant's RSS
+  would put the learner under the trip line) — it is now the first convenience item for the next pause or boundary,
+  not a nice-to-have; until then the watchdog + the chain's halving retry are the backstop. Rows: holdout Spearman
+  0.441–0.455 over 365–368 (368 at 0.441, the segment's lowest since 327; a 1.1-SE dip, 364's 0.473 high the row
+  before), train 0.507–0.511 (steady at the segment's top); the memorization gap 0.053–0.067 — 368's 0.067 the
+  widest row of the segment; five-row means 364–368 ≈ 0.053 (vs ≈ 0.047, ≈ 0.035, 0.016 at 341). **The pause-line
+  projection now has two readings:** by the five-row means the creep is ≈ 0.0014 per row and 0.15 stays past the
+  wall (≈ 45 iterations left); by the last eight single rows (360 0.041 → 368 0.067, ≈ 0.003 per row) the line
+  lands near 0.20 at the wall — i.e. the `--guard-anchor-gap 0.15` pause could fire inside the segment's last
+  ≈ 10–15 iterations. Either is inside the registered response (an ACCEPTED iteration, a self-cleared STOP,
+  `relaunch` resumes and the line re-bases); nothing to do now but read it. Arms: no row closed in 365–368 (369's
+  arms read is next). ComfyUI active through the evening (RSS 20–21 GB, two GPU yields). Wall 611.89 / 672 h at
+  368 — ≈ 60 h left, the wall ≈ 11-06 morning plus yields.
