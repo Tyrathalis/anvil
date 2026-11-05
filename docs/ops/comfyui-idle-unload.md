@@ -20,7 +20,7 @@ journalctl --user -u comfyui-idle-unload.service --since today
 systemctl --user list-timers comfyui-idle-unload.timer
 ```
 
-The cost: the first job after a quiet spell reloads its model from disk (tens of seconds). The verification still owed: the RSS line on the first real firing (a loaded model unloading), which the script logs by itself.
+The cost: the first job after a quiet spell reloads its model from disk (tens of seconds). Verified on its first real firing (11-05 10:36:33, after 630 s idle with 17,100 MB held): VRAM 17,100 → 556 MB, RSS 17,743 → 538 MB; the harness resumed generation within the minute, and the loaded-idle yield that cost 2.2 h on 11-04 cost 24 min.
 
 ## The units
 
