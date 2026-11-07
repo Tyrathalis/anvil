@@ -47,6 +47,13 @@ JAR=${JAR:-$REPO/data/runs/tgtmask/forge-tgtmask3.jar}            # fork 5bd0403
 START=${START:-data/training/shakedown-alloc/iter-019/train/last.pt}   # the warm start (ADR-0123 §1)
 REF=${REF:-data/training/d6-run11/iter-019/train/last.pt}              # the era reference (the bar's base)
 BANK=${BANK:-data/runs/m12-build1}                                      # the state bank + the value anchor's terms
+# 11-02 (ADR-0124 addendum): the RUN-DISTRIBUTION holdout — a second, frozen state bank from the run's own games
+# (scripts/run_holdout_bank.py, docs/design/run-holdout-bank-read.md), read by the loop as spearman_run beside the
+# Build 1 row. OFF until the segment-5 boundary session builds the bank and sets the two values here: the bank
+# dir and the floor (the boundary read minus two SE; 0 = exploratory, no floor on its first segment).
+# RUN_BANK=${RUN_BANK:-data/runs/run-holdout-seg4}; RUN_FLOOR=${RUN_FLOOR:-0}
+RUN_BANK=${RUN_BANK:-}; RUN_FLOOR=${RUN_FLOOR:-0}
+RUN_BANK_FLAGS=""; [[ -n "$RUN_BANK" ]] && RUN_BANK_FLAGS="--state-bank-run $RUN_BANK --guard-spearman-run-floor $RUN_FLOOR"
 SEED_BASE=${SEED_BASE:-20261006}; SEG_HOURS=${SEG_HOURS:-168}
 WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}; LA_GAMES=${LA_GAMES:-500}
 # 10-17: the learner's DataLoader workers each open the WHOLE replay window (rl.py RlTrajectories: every store, sharded by game),
@@ -172,6 +179,7 @@ if [[ $WALL_DONE -eq 0 ]]; then
     --arms-every 5 --arms-pairs data/runs/d5arm-d0-s0-20260714-143546/pairs.txt --arms-games 200 --arms-seed-base 20260710 --arms-lookahead on \
     --reask --jar "$JAR" --search-recipe "$RECIPE" --search-alloc head --search-floor 0.1 \
     --distill-carry-w --alloc-carry-w --state-bank "$BANK" --guard-spearman-floor "$FLOOR" \
+    $RUN_BANK_FLAGS \
     --value-anchor "$BANK" --anchor-weight 0.1 --anchor-every "$ANCHOR_EVERY" --guard-anchor-gap "$ANCHOR_GAP" \
     --value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4 \
     --grad-norm-every 50 >> "$OUT/seg-$SEGMENT.loop.log" 2>&1

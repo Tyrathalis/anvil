@@ -40,6 +40,12 @@ Usage:
      by its value head; the shakedown's per-arm column and the big run's
      mid-run plateau tripline; CPU by default so it never trips the
      fleet's GPU yield)
+  uv run python -m anvil.training.value_pretrain bank-run --out data/runs/run-holdout-seg4 \
+      --stores 'data/trajectories/runbank-seg4-*' --label-ckpt <the labelling ckpt> --n 2000
+    (ADR-0124 addendum 11-02: the run-distribution holdout — a frozen,
+     all-holdout bank from rollout-label stores the checkpoint of record
+     played; the loop's --state-bank-run reads it as a second Spearman row;
+     the labelling run itself is scripts/run_holdout_bank.py label)
 """
 
 from __future__ import annotations
@@ -392,6 +398,278 @@ def bank(args: argparse.Namespace) -> None:
         bank_leaf(ev, out_dir, args.smoke)
     if "outcome" in fams:
         bank_outcome(out_dir, args.outcome_per_store, args.outcome_keep, args.seed, args.smoke)
+
+
+# ------------------------------------------------------------- the run-distribution holdout
+
+
+# ADR-0124 addendum (11-02): a SECOND, frozen holdout drawn from the run's own
+# games. The Build 1 bank's holdout is drawn from the same bank the anchor
+# trains on, so its Spearman reads generalization inside that bank's state
+# distribution (August states, iter-019-era play); this bank's rows are fork
+# points of games the run's own checkpoint played, labelled by the fork's
+# rollout labeler, every row `holdout`, nothing trains on it (the anchor must
+# never name it). The on-disk form is the Build 1 bank's (`bank-state.pt`:
+# examples + meta with `idx` / `wr` / `holdout`), so `value_pretrain eval` and
+# the loop's `_state_ranking` read it unchanged; `manifest.json` beside it
+# carries the provenance (stores, seed, strata, the labelling checkpoint).
+#
+# The labeler cannot restore a stored state: it forks LIVE games at quiescent
+# MAIN1 priority windows on sampled turns (AnvilRun -rollout K -points M) and
+# writes one labels row per fork point, keyed to the mainline by a `fork` mark
+# in the store frame. "The run's own games" is therefore the labelling run:
+# the checkpoint of record playing the loop's game mix (mirror + heuristic
+# seats), recorded with --obs and ingested — scripts/run_holdout_bank.py.
+RUN_BANK_KIND = "run-distribution holdout (ADR-0124 addendum 2026-11-02)"
+
+
+def stratified_draw(strata: list, n: int, seed: int) -> list[int]:
+    """Indices of a seeded, stratum-balanced draw of `n` candidates, one
+    hashable stratum key per candidate. Equal quotas per stratum; a stratum
+    short of its quota gives everything it has and the slack is re-dealt
+    (seeded order) to the strata with rows left, so the draw is as flat across
+    strata as the pool allows. Sorted, so the bank's row order is stable."""
+    rng = np.random.default_rng(seed)
+    by: dict = defaultdict(list)
+    for i, k in enumerate(strata):
+        by[k].append(i)
+    keys = sorted(by, key=repr)
+    for k in keys:
+        rng.shuffle(by[k])
+    remaining = min(int(n), len(strata))
+    take = {k: 0 for k in keys}
+    while remaining > 0:
+        open_ = [k for k in keys if take[k] < len(by[k])]
+        if not open_:
+            break
+        order = [open_[j] for j in rng.permutation(len(open_))]
+        q = max(1, remaining // len(open_))
+        for k in order:
+            d = min(q, len(by[k]) - take[k], remaining)
+            take[k] += d
+            remaining -= d
+            if remaining == 0:
+                break
+    return sorted(i for k in keys for i in by[k][: take[k]])
+
+
+def model_seats_of(ts, store_name: str) -> "set[int]":
+    """The model-driven seats of a labelled store: the parent run's
+    `bridge_seats` (data/runs/<run_id>/run.json) when it exists, else the
+    seat marker in the store's name (`h0` / `h1` = the heuristic-seat batches'
+    purposes, `-s0-` / `-s1-` = the arm convention), else both."""
+    rj = REPO / "data/runs" / str(ts.manifest.get("run_id") or store_name) / "run.json"
+    if rj.exists():
+        try:
+            bs = json.loads(rj.read_text()).get("bridge_seats")
+            if bs is not None:
+                return {int(x) for x in str(bs).split(",") if x.strip()}
+        except (OSError, ValueError):
+            pass
+    base = store_name.split("-20")[0]
+    if base.endswith("h0") or "-s0-" in store_name:
+        return {0}
+    if base.endswith("h1") or "-s1-" in store_name:
+        return {1}
+    return {0, 1}
+
+
+def fork_point_candidates(ts, store_name: str, labels: list[dict], model_seats: "set[int]",
+                          min_n: int = 1) -> tuple[list[dict], dict]:
+    """One candidate per labels row of a rollout-label store: the mainline
+    window the fork keyed (the first obs-carrying decision after the `fork`
+    mark with the row's `fp`) and the label's win rate from the perspective
+    seat — the model seat of a heuristic-seat store, the window's own player
+    in a mirror store. `wr` = w[seat] / (w[0] + w[1] + draw), the labelset's
+    definition (grindstone: model_wins / n; draws count as non-wins). Rows
+    whose completions all crashed (n < min_n) are skipped; the tally of every
+    skip comes back beside the candidates."""
+    by_game: dict[int, list[dict]] = defaultdict(list)
+    for r in labels:
+        by_game[int(r["i"])].append(r)
+    cands: list[dict] = []
+    tally: dict[str, int] = defaultdict(int)
+    for g in sorted(by_game):
+        try:
+            traj = ts.game(g)
+        except KeyError:
+            tally["game_missing"] += len(by_game[g])
+            continue
+        fp_mark = {int(m.get("fp", -1)): m for m in traj.marks if m.get("m") == "fork"}
+        for r in by_game[g]:
+            n = int(sum(r["w"]) + r.get("draw", 0))
+            if n < max(1, int(min_n)):
+                tally["no_completion"] += 1
+                continue
+            m = fp_mark.get(int(r["fp"]))
+            if m is None:
+                tally["no_mark"] += 1
+                continue
+            dec_i = next((i for i, d in enumerate(traj.decisions)
+                          if d.get("_pos", -1) > m["_pos"] and d.get("obs")), None)
+            if dec_i is None:
+                tally["no_window"] += 1
+                continue
+            dec = traj.decisions[dec_i]
+            glob = dec["obs"].get("glob", {})
+            p = dec.get("p")
+            if len(model_seats) == 1:
+                seat = min(model_seats)
+            else:
+                seat = int(p) if isinstance(p, int) and p in (0, 1) else int(glob.get("ap", 0))
+            cands.append({
+                "store": store_name, "g": g, "fp": int(r["fp"]), "t": int(r["t"]),
+                "tt": int(r.get("tt", r["t"])), "turn": int(glob.get("turn", r["t"])), "ph": glob.get("ph"),
+                "seat": seat, "wr": float(r["w"][seat]) / n, "n": n, "k": int(r.get("k", n)),
+                "crash": int(r.get("crash", 0)), "dec_i": dec_i,
+            })
+        del traj
+    return cands, dict(tally)
+
+
+def _strata_count(cands: list[dict]) -> dict:
+    out: dict[str, int] = defaultdict(int)
+    for c in cands:
+        out[f"t{c['turn']}|{c['ph']}"] += 1
+    return dict(sorted(out.items(), key=lambda kv: (int(kv[0][1:].split("|")[0]), kv[0])))
+
+
+def bank_run_holdout(stores: list, out_dir, n: int, seed: int, label_ckpt: str,
+                     featurize_ckpt: str = CKPT, device: str = "cpu", min_n: int = 1,
+                     featurize=None, strata_of=None) -> dict:
+    """Build the run-distribution holdout bank at `out_dir` from rollout-label
+    stores (ingested with their labels.jsonl): candidates = every labelled fork
+    point, a seeded stratum-balanced draw of `n` by (turn, phase), each state
+    featurized on the masked path as the Build 1 bank's were (ValueEvaluator
+    .example at the window, the game's prior decisions as history), every row
+    `holdout`. Writes bank-state.pt (the Build 1 layout) + manifest.json and
+    returns the manifest. `featurize(store, cand) -> example` and
+    `strata_of(cand) -> key` are injection points (tests)."""
+    from anvil.store.trajectories import TrajectoryStore
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    strata_of = strata_of or (lambda c: (c["turn"], c["ph"]))
+    t0 = time.time()
+    opened: dict[str, object] = {}
+    cands: list[dict] = []
+    store_rows: list[dict] = []
+    for sp in stores:
+        sp = Path(sp)
+        ts = TrajectoryStore(sp)
+        lp = sp / "labels.jsonl"
+        if not lp.exists():
+            raise SystemExit(f"[bank-run] {sp}: no labels.jsonl — not a rollout-label store "
+                             "(ingest a --rollout-k run; its labels ride along)")
+        labels = [json.loads(ln) for ln in lp.read_text().splitlines() if ln.strip()]
+        seats = model_seats_of(ts, sp.name)
+        cs, tally = fork_point_candidates(ts, sp.name, labels, seats, min_n)
+        opened[sp.name] = ts
+        cands.extend(cs)
+        run = ts.manifest.get("run", {})
+        store_rows.append({
+            "path": str(sp), "run_id": ts.manifest.get("run_id"), "games": len(ts), "labels": len(labels),
+            "candidates": len(cs), "skipped": tally, "model_seats": sorted(seats),
+            "fork_commit": run.get("fork_commit"), "jar_sha256": run.get("jar_sha256"),
+            "anvil_commit": run.get("anvil_commit"), "seed_base": run.get("seed_base"),
+            "bridge": run.get("bridge"),
+        })
+        print(f"[bank-run] {sp.name}: {len(labels)} labels -> {len(cs)} candidates (skipped {tally})",
+              flush=True)
+    if not cands:
+        raise SystemExit("[bank-run] no candidates")
+    pick = stratified_draw([strata_of(c) for c in cands], n, seed)
+    chosen = [cands[i] for i in pick]
+
+    if featurize is None:
+        ev = _evaluator_cpu(featurize_ckpt, device)
+
+        def featurize(ts, c):
+            traj = ts.game(c["g"])
+            return ev.example(traj.decisions[c["dec_i"]], traj.header, c["seat"],
+                              traj.decisions[: c["dec_i"]])
+
+    exs, meta = [], []
+    for j, c in enumerate(chosen):
+        exs.append(featurize(opened[c["store"]], c))
+        meta.append({
+            "idx": j, "wr": c["wr"], "game": f"{c['store']}:{c['g']}", "src": "run-holdout",
+            "holdout": True, "inner": False,
+            "t": c["t"], "turn": c["turn"], "ph": c["ph"], "seat": c["seat"], "n": c["n"], "k": c["k"],
+            "fp": c["fp"],
+        })
+        if (j + 1) % 200 == 0:
+            print(f"[bank-run] featurized {j + 1}/{len(chosen)} ({time.time() - t0:.0f}s)", flush=True)
+
+    nh: dict[str, int] = defaultdict(int)
+    for c in chosen:
+        nh[str(c["n"])] += 1
+    manifest = {
+        "kind": RUN_BANK_KIND,
+        "split": "holdout",
+        "frozen": True,
+        "note": "every row is holdout; nothing trains on this bank — never name it in --value-anchor; "
+                "one bank per segment boundary, never regenerated mid-segment (the labels depend on the "
+                "labelling checkpoint)",
+        "created": _dt.datetime.now().isoformat(timespec="seconds"),
+        "seed": int(seed),
+        "n_requested": int(n),
+        "n_rows": len(meta),
+        "n_candidates": len(cands),
+        "label_ckpt": label_ckpt,
+        "rollout_k": sorted({c["k"] for c in chosen}),
+        "n_completions": dict(sorted(nh.items(), key=lambda kv: int(kv[0]))),
+        "wr_mean": round(float(np.mean([c["wr"] for c in chosen])), 4),
+        "strata_sampled": _strata_count(chosen),
+        "strata_pool": _strata_count(cands),
+        "stratify_by": "turn, phase (the window's glob at the fork point)",
+        "perspective": "the model seat of a heuristic-seat store; the window's own player in a mirror store",
+        "featurize_ckpt": featurize_ckpt,
+        "anvil_commit": _git_head(),
+        "stores": store_rows,
+        "wall_s": round(time.time() - t0, 1),
+    }
+    import torch
+
+    torch.save(
+        {"examples": exs, "meta": meta, "ckpt": featurize_ckpt,
+         "labelset": "run-holdout:" + ",".join(Path(s).name for s in stores), "manifest": manifest},
+        out_dir / "bank-state.pt",
+    )
+    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    print(f"[bank-run] {len(meta)} rows (of {len(cands)} candidates, {len(manifest['strata_sampled'])} "
+          f"strata) -> {out_dir} in {manifest['wall_s']}s", flush=True)
+    return manifest
+
+
+def _evaluator_cpu(ckpt: str, device: str = "cpu"):
+    """The masked-path featurizer, on CPU by default (a GPU featurizer beside a
+    running fleet trips the harness's yield)."""
+    from anvil.ante.ledger import ValueEvaluator
+
+    ev = ValueEvaluator(str(_p(ckpt)), device=device, full_vis=False)
+    assert not ev.full_vis
+    return ev
+
+
+def _git_head() -> "str | None":
+    try:
+        import subprocess
+
+        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True,
+                              timeout=10).stdout.strip() or None
+    except Exception:
+        return None
+
+
+def bank_run(args: argparse.Namespace) -> None:
+    import glob as _glob
+
+    stores = sorted(p for pat in args.stores for p in _glob.glob(str(_p(pat))))
+    if not stores:
+        raise SystemExit(f"[bank-run] no stores match {args.stores}")
+    bank_run_holdout(stores, _p(args.out), args.n, args.seed, args.label_ckpt, args.featurize_ckpt,
+                     args.device, args.min_n)
 
 
 # ------------------------------------------------------------- model
@@ -1134,6 +1412,20 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=20260906)
     p.add_argument("--smoke", type=int, default=None, help="cap rows/windows per family")
     p.set_defaults(fn=bank)
+    p = sub.add_parser("bank-run", help="the run-distribution holdout bank (ADR-0124 addendum 11-02): "
+                                        "a frozen, all-holdout state bank from rollout-label stores")
+    p.add_argument("--out", required=True, help="the bank dir (bank-state.pt + manifest.json)")
+    p.add_argument("--stores", nargs="+", required=True,
+                   help="rollout-label stores (globs; ingested --rollout-k runs carrying labels.jsonl)")
+    p.add_argument("--n", type=int, default=2000, help="rows to draw (stratum-balanced by turn x phase)")
+    p.add_argument("--seed", type=int, default=20261102)
+    p.add_argument("--label-ckpt", required=True,
+                   help="the checkpoint that SERVED the labelling run (provenance; the labels depend on it)")
+    p.add_argument("--featurize-ckpt", default=CKPT,
+                   help="the checkpoint whose embed table featurizes the windows (the Build 1 bank's default)")
+    p.add_argument("--device", default="cpu")
+    p.add_argument("--min-n", type=int, default=1, help="skip fork points with fewer scored completions")
+    p.set_defaults(fn=bank_run)
     p = sub.add_parser("fit")
     p.add_argument("--out", required=True)
     p.add_argument("--fold", type=int, default=None)

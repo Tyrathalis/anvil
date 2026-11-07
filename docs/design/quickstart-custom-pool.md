@@ -413,6 +413,19 @@ job's VRAM — its elasticity is forward-only), and the host-memory gate (11-07;
 0 = off) waits while `MemAvailable` is under the floor (the learner holds ≈ 35 GB of host RSS at a step
 with `RL_WORKERS` 4; a ComfyUI offload or a large game beside it is what the two 10-10 / 10-17 OOM kills
 were). The seconds land in the iteration's `yield.json` as `train_wait_s` / `mem_wait_s`.
+
+Since 11-02 (the ADR-0124 addendum) the row can carry a **second holdout**: `--state-bank-run <dir>` names a
+FROZEN bank drawn from the run's own games and scores every checkpoint on it too, into `spearman_run` /
+`se_boot_run` / `n_run` beside the Build 1 fields (its own file, `state-ranking-run.json`, per iteration); the
+Build 1 row stays the continuity line and this one says whether its movement transfers to the states the run
+plays. Nothing trains on that bank — never name it in `--value-anchor`. `--guard-spearman-run-floor F` (0 = off,
+the default) is the same collapse floor on that row, set at a segment boundary to the boundary read minus two
+SE. The bank is built at a boundary on a quiet box by `scripts/run_holdout_bank.py` — `label` plays the
+loop's game mix under the close checkpoint in the fork's rollout-label mode (≈ 2,000 labels at K=8 ≈ 3
+box-hours), `sample` draws the states stratified by turn × phase into the Build 1 bank's on-disk form
+(`value_pretrain bank-run`), `read` gives the boundary value — and is never regenerated mid-segment (its
+labels depend on the labelling checkpoint). The procedure is
+[run-holdout-bank-read.md](run-holdout-bank-read.md).
 `--value-stopgrad-trunk` (10-01, ADR-0119 ladder rung 2) makes the value head read a detached trunk
 read-out, so every value-side term trains the head alone and the trunk is the policy's; the
 gradient-norm row's `gn_v` / `gn_anchor` read 0 under it. Off by default. With it, two lr groups keep
