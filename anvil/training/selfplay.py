@@ -504,6 +504,59 @@ def _wait_gpu_free(what: str, yielder=None, sleep=time.sleep, log_every_s: float
     return waited
 
 
+def _mem_available_mb(meminfo: str = "/proc/meminfo") -> float | None:
+    """MemAvailable in MB from /proc/meminfo (None where the file or the row is absent)."""
+    try:
+        for line in Path(meminfo).read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return float(line.split()[1]) / 1024.0
+    except OSError:
+        return None
+    return None
+
+
+def _wait_host_memory(what: str, need_mb: float, reader=_mem_available_mb, sleep=time.sleep,
+                      clock=time.monotonic, poll_s: float = 30.0, log_every_s: float = 300.0) -> float:
+    """The training step's host-memory gate (11-07, the segment-4 boundary): the
+    GPU gate's twin on MemAvailable. The learner holds ≈ 35 GB of host RSS at a
+    step (RL_WORKERS 4; the decode state per DataLoader worker), and the box's
+    other tenants — a ComfyUI offload of 17–23 GB, the user's games at 12–22 GB —
+    pushed the step's floor from 23 GB to 14 GB across segment 4 with no gate
+    between them and the two systemd-oomd kills of 10-10 / 10-17. Wait while
+    MemAvailable is under `need_mb` (the launcher's memory watchdog still trips
+    on a sustained floor during the step); the seconds come OUT of the wall like
+    the GPU gate's, with a heartbeat for the stall tick. Returns the seconds
+    waited (0 when the floor clears at once, `need_mb` is 0, or /proc/meminfo
+    is unreadable)."""
+    if need_mb <= 0:
+        return 0.0
+    avail = reader()
+    if avail is None or avail >= need_mb:
+        return 0.0
+    t0 = clock()
+    last_log = t0
+    print(f"[selfplay] {what}: MemAvailable {avail:.0f} MB under the {need_mb:.0f} MB floor — waiting for host "
+          f"memory (the learner needs ≈ 35 GB; excluded from the wall)", flush=True)
+    while True:
+        try:
+            from anvil.runs import heartbeat
+
+            heartbeat("memory wait: training step")
+        except Exception:  # noqa: BLE001
+            pass
+        sleep(poll_s)
+        avail = reader()
+        if avail is None or avail >= need_mb:
+            break
+        if clock() - last_log >= log_every_s:
+            last_log = clock()
+            print(f"[selfplay] {what}: still waiting ({clock() - t0:.0f} s; MemAvailable {avail:.0f} MB)", flush=True)
+    waited = clock() - t0
+    print(f"[selfplay] {what}: host memory {avail if avail is not None else float('nan'):.0f} MB after "
+          f"{waited:.0f} s — training", flush=True)
+    return waited
+
+
 def _run(cmd: list[str]) -> None:
     print(f"[selfplay] $ {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
@@ -1375,6 +1428,10 @@ def main() -> None:
                     help="skip the training step's GPU gate (11-03): by default the loop waits for a foreign "
                          "GPU job (the harness's yield rule) to leave the card before launching the trainer; "
                          "the wait is excluded from the wall")
+    ap.add_argument("--train-mem-floor-gb", type=float, default=40.0,
+                    help="the training step's host-memory gate (11-07): wait while MemAvailable is under this "
+                         "many GB before launching the trainer (it holds ≈ 35 GB at a step); 0 disables; the "
+                         "wait is excluded from the wall like the GPU gate's")
     ap.add_argument("--games", type=int, default=480, help="games per iteration")
     ap.add_argument("--games-per-pair", type=int, default=2)
     ap.add_argument("--workers", type=int, default=8)
@@ -2344,6 +2401,11 @@ def main() -> None:
                     state["yielded_s"] = float(state.get("yielded_s", 0.0)) + waited
                     _note_yield(it_dir / "yield.json", "train_wait_s", waited)
                     t0 = time.monotonic()
+            waited = _wait_host_memory(f"iteration {k}: training step", args.train_mem_floor_gb * 1024.0)
+            if waited:
+                state["yielded_s"] = float(state.get("yielded_s", 0.0)) + waited
+                _note_yield(it_dir / "yield.json", "mem_wait_s", waited)
+                t0 = time.monotonic()
             _run(
                 [
                     sys.executable,
