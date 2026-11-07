@@ -3539,3 +3539,40 @@ record.*
 **11-06 17:38 (through iteration 401): the hold holds; the gap's two highest rows are two of the last three.** Holdout Spearman 0.457, 0.454 over 400–401 (the band's low half; the band 0.44–0.47 since iteration 340 stands); train 0.535, 0.539; gap 0.077, **0.086** — 401's the segment's highest row, after 399's 0.081 and 378's 0.080; the five-row mean 0.0765, the segment's highest (0.070 → 0.074 → 0.075 → 0.077 over the last four glances). The fitted segment-wide slope is unchanged at +0.00099 ± 0.00003 per iteration (the last 20 rows +0.0008), which puts the wall at ≈ 0.09; the pause line (0.15) is not reachable before the wall at any rate the rows have shown, so no response — but the series is now a boundary-record item in its own right: the online anchor at 0.24 pass per iteration memorizes slowly and visibly over 100 iterations (0.04 at the segment's start → 0.086), where ADR-0124's meter was built to see exactly this. Arms: 399's 0.5775 / 0.6025 stands; 404's row is next. Box: iterations 400–401 ran unyielded after the relaunch (generations 4,185 s and 3,304 s — the harness at ≈ 2,800 g/h at its warm peak); iteration 402's generation (started 13:56) is yielding to World of Warcraft (3.0 GB of VRAM, SM 33%) at 48/240 as of 17:38 — the user's afternoon; the yield is outside the wall. Memory: MemAvailable's floor **14,091 MB at 401's training step (13:52)** — the segment's lowest at a step, beside the user's foreground stack at 21.9 GB in `other` (WoW and the rest) with ComfyUI unloaded; 14 GB of headroom, trending down as the foreground grows: the host-memory wait before the training step is confirmed as the boundary's first convenience item. The idle-unload timer silent (nothing loaded). Wall 665.1 of 672 h at 402's start ≈ 6.9 h left ≈ 5–6 iterations: the close near iteration 407, overnight 11-06/07 given the WoW yield. Nothing fired; no tree edits.
 
 **11-06 23:40 (through iteration 403): the hold holds; the gap sets a new high three rows running.** Holdout Spearman 0.458, 0.450 over 402–403 (the last five rows' mean 0.454 vs 0.458 since iteration 340 — flat, the band's low half); train 0.545 (ties its high), 0.538; gap 0.087, **0.088** — 401, 402 and 403 are the segment's three highest rows in order; the five-row mean 0.0837 vs 0.0741 for the five before. The whole-segment slope is unchanged (+0.00099 ± 0.00003 per iteration; the last 20 rows +0.0009 ± 0.0002, the last 10 +0.0014 ± 0.0006 — a modest steepening inside one SE of the segment's), which puts the wall at ≈ 0.09; the pause line (0.15) is out of reach before it. No response; the boundary record carries the series and the question it raises for segment 5 (`--anchor-every` wider, or the ADR-0125 stream, on the user's call at the boundary). Arms: 399's 0.5775 / 0.6025 stands; 404's row is generating (109/240). Box: iteration 402's generation carried 23,196 s of yield (6.4 h, all to World of Warcraft — the user's afternoon and evening), 403 ran unyielded (5,586 s); MemAvailable's floor 21,235 MB over six hours (during generation, java 27.6 GB beside an 18.6 GB foreground stack), the training steps' floor 24.0 GB; ComfyUI unloaded, the timer silent. Wall 668.15 of 672 h at 404's start ≈ 3.85 h ≈ 3 iterations: the wall check fires at 406's or 407's boundary (≈ 03:30–04:30 11-07), then the chain's 2,000-game network-alone + 1,000-game with-lookahead reads and the paired close read (`CLOSE=1`) — the segment's close output by mid-morning 11-07. Nothing fired; no tree edits.
+
+- **2026-11-07 (06:32) — SEGMENT 4 CLOSED at the wall stop (672.1 h, iteration 406, 194,880 games; the chain's
+  reads on `iter-405`, seed base 20261006, masked, raw): network-alone 0.6210 ± 0.0108, with-lookahead 0.6530 ±
+  0.0151 (the gap +3.2pp, from +1.7 at segment 3's close); paired on the same seeds +8.64 ± 1.25pp vs the era
+  reference (t 6.93, 393 up / 223 down), +6.68 ± 1.19 vs the warm start, +5.76 ± 1.21 vs `iter-099`, +4.34 ± 1.13 vs
+  `iter-202`, **+2.71 ± 1.12 vs `iter-301` (t 2.43)**; with-lookahead paired +4.20 ± 1.50 vs segment 3's (t 2.79);
+  the last holdout Spearman 0.4521 ± 0.022 (train 0.5483, gap 0.096).** The battery (`br-seg4-analysis`,
+  `brla-seg4-analysis`): no anomalies, seed halves inside their flags (0.6188 / 0.6377, flag 0.0435; 0.6491 / 0.6755,
+  flag 0.0602), 4 + 2 NullPointerException crashes in 3,000 games (the standing class; 5 + 2 at segment 3), the
+  model's self-target rate 0.203 / 0.162 (0.149 / 0.140 at segment 3; the heuristic seat's 0.197 / 0.227 beside it —
+  a watch item, not a flag). **The promotion bar (≥ 0.563 network-alone at 2,000 games) is cleared by 5.8pp; the
+  confirming paired read on fresh seeds 20261107 (2,500 / seat vs the era reference,
+  `scripts/big_run_confirm_read.sh`, run `big-run-confirm4`, launched 06:33 from this session) is RUNNING** — the
+  promotion of `iter-405` over `iter-301` is the user's call on it (the standing default: promote on a cleared gate).
+  **The ADR-0124 addendum's pre-registered expectation, scored:** the holdout Spearman started at 0.4205 (iteration
+  302, the transplanted head) and ended at 0.4521 — the hold held and ended 1.4 row-SE *above* its start (the letter
+  said "within one SE"; the miss readings were written for a drift toward 0.35, which did not happen); the gap stayed
+  under 0.15 (max 0.097 at 404) and the pause line never fired; strength was not merely unaffected but rose +2.7pp
+  paired over segment 3. **The gap series is the boundary's open item:** 0.005 at the segment's start → 0.096 at the
+  close, the whole-segment slope +0.00101 ± 0.00003 per iteration, the last ten rows +0.0028 ± 0.0006 — three times
+  the segment's, with 401–405 the five highest rows in order; at the last-ten rate the pause line is ≈ 19 iterations
+  into segment 5, at the segment rate ≈ 50. The holdout since 340 is flat (mean 0.458, slope −0.0016 ± 0.0014 per
+  25 iterations, min 0.440). **The segment's arms series (21 rows of 400 games on the loop's seeds) flattened to
+  noise** — mean 0.5731, slope +0.0039 ± 0.0030 per 25 iterations, second half − first half +0.59 ± 1.09pp — while
+  the standard read jumped +2.8pp over segment 3's: the arms rows are a glance instrument; the standard read is of
+  record. **Box:** 53.18 h of yields excluded from the wall (ComfyUI jobs, the user's games, Steam; the idle-unload
+  timer from 11-04 took the loaded-idle shape out), two interruptions (the 11-03 CUDA OOM, fixed by the training-step
+  GPU gate; the 11-06 maintenance pause and reboot, 1.5 h), two systemd-oomd-free weeks under the memory watchdog;
+  the training steps' MemAvailable floor 14.1 GB (401, beside a 21.9 GB foreground stack) — the host-memory wait
+  before the training step is the first boundary convenience item. **The next segment is the user's go**
+  (`echo 5 > data/runs/big-run/segment` then `anvil.runs relaunch --name big-run`) after the boundary work: the
+  frozen run-distribution holdout row (branch `worktree-agent-a21b710731bc8fc46`; `scripts/run_holdout_bank.py
+  label` ≈ 3 box-hours after the confirm read, then `sample --n 2000` and `read`; `RUN_BANK` / `RUN_FLOOR` in the
+  chain), the host-memory wait, and the gap's response (a wider `--anchor-every`, or ADR-0125's stream — the user's
+  call; the pause line stays the registered response meanwhile). The chain's Spearman column had been blank since
+  segment 4's start: `spearman_last` read `state-ranking.json` as one JSON object after the 10-29 meter made it two
+  lines (holdout + train) — fixed this session (the holdout line), the segment 4 row filled by hand.

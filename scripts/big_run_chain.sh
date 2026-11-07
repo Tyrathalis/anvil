@@ -108,7 +108,8 @@ paired() { # paired <a.done> <b.done> -> "A - B: ..." (the same seeds)
 spearman_last() { python3 -c "
 import json,glob
 fs=sorted(glob.glob('$LOOP/iter-*/state-ranking.json'))
-r=json.load(open(fs[-1])) if fs else {}
+rows=[json.loads(l) for l in open(fs[-1]) if l.strip()] if fs else []  # NDJSON since 10-29: holdout + train rows
+r=next((x for x in rows if x.get('split','holdout')=='holdout'), rows[0] if rows else {})
 print(f\"{r.get('spearman')} ± {r.get('se_boot')} ({fs[-1].split('/')[-2]})\" if fs else 'n/a')" 2>/dev/null; }
 row() { printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n' "$@" >> "$OUT/read.md"; }
 # 10-21: the memory watchdog (scripts/memory_sampler.sh, its header's systemd-run line) is a TRANSIENT user unit — it died
