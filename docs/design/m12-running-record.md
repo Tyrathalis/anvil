@@ -3576,3 +3576,17 @@ record.*
   call; the pause line stays the registered response meanwhile). The chain's Spearman column had been blank since
   segment 4's start: `spearman_last` read `state-ranking.json` as one JSON object after the 10-29 meter made it two
   lines (holdout + train) — fixed this session (the holdout line), the segment 4 row filled by hand.
+
+## 2026-11-07 (09:28) — the segment-4 confirm read CLEARS; `iter-405` PROMOTED
+
+- **`big-run-confirm4` closed 09:28 (2 h 55 min on 24 workers): `iter-405` 0.6214 ± 0.0069 vs `d6-run11/iter-019`
+  0.5280 ± 0.0071, 2,500 games per seat on fresh seeds 20261107, paired +9.46 ± 0.77pp (t 12.29, 963 up / 500 down).**
+  The fresh-seed point estimate reproduces the chain's 2,000-game read (0.6210) to the fourth digit. **`big-run/iter-405`
+  is the ckpt of record** under the standing default (promote on a cleared gate; reversible on the user's word): the
+  state table, the map's checkpoint row, stat tile and ledger cell, and the Now block carry it. The series of confirmed
+  paired margins over the era reference: +4.22 (seg 1), +6.32 (seg 3), +9.46 (seg 4) — each on its own fresh seed set,
+  each a different reference read (0.5348, 0.5350, 0.5280; the 20261107 set reads the reference 0.7pp lower than the
+  two before, inside 1 SE of each — a seed-set draw, which is why the paired difference is the number of record and
+  the absolute reads are not compared across sets).
+- **Box quiet from 09:28.** The boundary work begins: the two branches merge (the host-memory wait, the run-distribution
+  holdout bank), then the bank's label step (≈ 3 box-hours, GPU) through the launcher.
