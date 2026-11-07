@@ -406,6 +406,13 @@ row). `--guard-anchor-gap 0.15` (0 = off) is a PAUSE line, not a guard: a gap ab
 iteration, then stops the loop before the next one (a self-written `STOP` the next `anvil.runs relaunch`
 clears; the reason in `PAUSE-iter-NNN.txt` and the row's `pause`), and the line re-bases 0.05 above the
 pausing gap so a relaunch does not pause again on the same reading.
+Two gates stand before each training step, both on by default and both charging their wait to the
+yield ledger rather than the wall: the GPU gate (11-03; `--no-gpu-wait` skips it) waits while a foreign
+compute process holds the card under the harness's own yield rule (the trainer CUDA-OOMs inside another
+job's VRAM — its elasticity is forward-only), and the host-memory gate (11-07; `--train-mem-floor-gb 40`,
+0 = off) waits while `MemAvailable` is under the floor (the learner holds ≈ 35 GB of host RSS at a step
+with `RL_WORKERS` 4; a ComfyUI offload or a large game beside it is what the two 10-10 / 10-17 OOM kills
+were). The seconds land in the iteration's `yield.json` as `train_wait_s` / `mem_wait_s`.
 `--value-stopgrad-trunk` (10-01, ADR-0119 ladder rung 2) makes the value head read a detached trunk
 read-out, so every value-side term trains the head alone and the trunk is the policy's; the
 gradient-norm row's `gn_v` / `gn_anchor` read 0 under it. Off by default. With it, two lr groups keep
