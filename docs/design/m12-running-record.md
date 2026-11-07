@@ -3590,3 +3590,14 @@ record.*
   the absolute reads are not compared across sets).
 - **Box quiet from 09:28.** The boundary work begins: the two branches merge (the host-memory wait, the run-distribution
   holdout bank), then the bank's label step (≈ 3 box-hours, GPU) through the launcher.
+- **09:30–09:33 — the boundary branches merged, the bank's labelling run launched.** `hostmem-wait` (the host-memory
+  gate before the training step: `--train-mem-floor-gb 40`, 0 = off; the wait lands in the yield ledger as
+  `mem_wait_s`) and `worktree-agent-a21b710731bc8fc46` (the run-distribution holdout bank: `scripts/run_holdout_bank.py
+  label / sample / read`, `--state-bank-run` + `--guard-spearman-run-floor` on the loop, the recipe in
+  `docs/design/run-holdout-bank-read.md`) are on main (bcbb2c1, 964987e; two doc conflicts resolved keeping both
+  paragraphs; 429 tests green; pushed). **`run-holdout-seg4` LAUNCHED 09:33 through the launcher** (relay to this
+  session; the watchdog armed): 500 mainlines of `iter-405` (argmax, network-alone, census off) on the loop's mix —
+  250 mirror, 125 per heuristic seat — K=8 rollouts at 4 points each, seed base 20261107, 24 workers × 2 servers on
+  the launch jar; ≈ 2,000 labels, ≈ 3 box-hours at the 10-29 price. Then `sample --n 2000 --seed 20261107` and
+  `read` on `iter-405`, `iter-301-rechead` and `shakedown-alloc/iter-019`; `RUN_BANK` / `RUN_FLOOR` into the chain
+  (floor 0 on the first segment: exploratory, no rule hangs on it). The two merged worktrees are ready to prune.
