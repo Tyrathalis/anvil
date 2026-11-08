@@ -3636,3 +3636,18 @@ record.*
 - **Housekeeping:** the two merged worktrees are pruned and their branches gone (checked). Segment 5's
   `--wall-hours 840` is cumulative (168 × N against the persisted `wall_used_s`), so the segment is +168 h, not 840. The 11-02 `runbank-smoke-*` dirs (≈ 180 KB,
   unreferenced) are deleted on the user's sign-off, ahead of the closeout's stale-data pass.
+
+## 2026-11-07 (late evening) — segment 5 launched
+
+- **Segment 5 is RUNNING since 20:54** (the user's go). The box was quiet (no loop or Forge processes, the GPU idle at
+  1.6 GB, 50 GB available, the watchdog unit active); `echo 5 > data/runs/big-run/segment`, then
+  `anvil.runs relaunch --name big-run --launched-by 'Segment 5 launch [ad8d2e]'` (the relay re-pointed from the
+  segment-3 review session; the check-in stays `none` as recorded). The chain's coverage line: pid 2677939 in
+  `anvil-big-run-2677937.scope`, the stall alarm 180 min on the run dir, the loop root and `data/runs/br*`, sinks
+  queue + desk, the memory watchdog armed. Verified on the loop log: iteration 406 from `iter-405` with 672.13 h used,
+  `--wall-hours 840` (+168 h), `--anchor-every 32`, `--guard-anchor-gap 0.15`, the Spearman floor 0.30,
+  `--state-bank-run data/runs/run-holdout-seg4` at floor 0, `--rl-workers 4`, ParallelGC on the worker JVMs, the alloc
+  tau 0.01855 (the same as segment 4's close read). A session wait is armed on the run's state.
+- **Pre-registered for the segment (ADR-0124 addendum, 11-07):** the gap's slope halves against segment 4's and the
+  holdout Spearman holds within one SE of 0.452; a slide toward 0.35 reads as the hold too weak at 32. The run rows
+  (`spearman_run`, `spearman_run_contested`) are exploratory. No promotion rule changes: `iter-405` is the ckpt of record.
