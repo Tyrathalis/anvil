@@ -3634,4 +3634,5 @@ record.*
   seat ≈ 0.2); a per-card breakdown on segment 4's stores can run beside segment 5. The arms rows are a glance
   instrument; the standard read is of record.
 - **Housekeeping:** the two merged worktrees are pruned and their branches gone (checked). Segment 5's
-  `--wall-hours 840` is cumulative (168 × N against the persisted `wall_used_s`), so the segment is +168 h, not 840.
+  `--wall-hours 840` is cumulative (168 × N against the persisted `wall_used_s`), so the segment is +168 h, not 840. The 11-02 `runbank-smoke-*` dirs (≈ 180 KB,
+  unreferenced) are deleted on the user's sign-off, ahead of the closeout's stale-data pass.
