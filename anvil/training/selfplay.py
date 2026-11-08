@@ -308,6 +308,9 @@ def _state_ranking(ckpt, bank: str, fmt: str, out_json: Path, splits: str = "hol
     if tr and out["spearman"] is not None and tr.get("spearman") is not None:
         out.update(train_spearman=tr["spearman"], train_se_boot=tr.get("se_boot"), train_n=tr.get("n"),
                    gap=round(tr["spearman"] - out["spearman"], 4))
+    co = by.get("contested")
+    if co and co.get("spearman") is not None:
+        out.update(contested_spearman=co["spearman"], contested_se_boot=co.get("se_boot"), contested_n=co.get("n"))
     return out
 
 
@@ -321,7 +324,10 @@ def _ranking_meter(args, ckpt, out_json: Path) -> "dict | None":
     holdout's row beside it — `spearman_run` / `se_boot_run` / `n_run`, a frozen
     bank of the run's own states nothing trains on (value_pretrain bank-run) —
     so the Build 1 series stays the continuity line and this one says whether
-    its movement transfers to the states the run plays."""
+    its movement transfers to the states the run plays. 11-07: the run row also
+    carries its CONTESTED rows (rollout winrate in (0.2, 0.8)) as
+    `spearman_run_contested` / `se_boot_run_contested` / `n_run_contested` —
+    the pooled row is carried by decided states and separates no head."""
     if not args.state_bank:
         return None
     anchor = getattr(args, "value_anchor", None)
@@ -340,9 +346,12 @@ def _ranking_meter(args, ckpt, out_json: Path) -> "dict | None":
     run_bank = getattr(args, "state_bank_run", None)
     if run_bank:
         rr = _state_ranking(ckpt, run_bank, args.state_bank_fmt,
-                            out_json.with_name(out_json.stem + "-run.json"), splits="holdout")
+                            out_json.with_name(out_json.stem + "-run.json"), splits="holdout,contested")
         if rr and rr.get("spearman") is not None:
             row.update(spearman_run=rr["spearman"], se_boot_run=rr.get("se_boot"), n_run=rr.get("n"))
+            if rr.get("contested_spearman") is not None:
+                row.update(spearman_run_contested=rr["contested_spearman"],
+                           se_boot_run_contested=rr.get("contested_se_boot"), n_run_contested=rr.get("contested_n"))
     return row
 
 
@@ -2620,7 +2629,10 @@ def main() -> None:
                   + (f"; anchor train {state_rank['train_spearman']} gap {state_rank['gap']}"
                      if state_rank.get("gap") is not None else "")
                   + (f"; run bank {state_rank['spearman_run']} ± {state_rank['se_boot_run']}"
-                     if state_rank.get("spearman_run") is not None else ""))
+                     if state_rank.get("spearman_run") is not None else "")
+                  + (f" (contested {state_rank['spearman_run_contested']} ± {state_rank['se_boot_run_contested']},"
+                     f" n {state_rank['n_run_contested']})"
+                     if state_rank.get("spearman_run_contested") is not None else ""))
 
         # ---- monitor row + anomaly flags (accept ckpt AFTER writing it) ----
         census = _census_tallies(run_dirs)

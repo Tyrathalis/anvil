@@ -187,12 +187,15 @@ def sample(a: argparse.Namespace) -> None:
 def read(a: argparse.Namespace) -> None:
     out = ROOT / a.out
     cmd = [sys.executable, "-m", "anvil.training.value_pretrain", "eval", "--out", str(out), "--device", a.device,
-           "--fmt", a.fmt, "--split", "holdout", "--write", str(out / "boundary-read.jsonl")]
+           "--fmt", a.fmt, "--split", "holdout,contested", "--write", str(out / "boundary-read.jsonl")]
     for c in a.ckpt:
         cmd += ["--ckpt", c]
     _run(cmd, False)
-    rows = [json.loads(ln) for ln in (out / "boundary-read.jsonl").read_text().splitlines()][-len(a.ckpt):]
+    rows = [json.loads(ln) for ln in (out / "boundary-read.jsonl").read_text().splitlines()][-2 * len(a.ckpt):]
     for r in rows:
+        if r.get("split") == "contested":
+            print(f"[run-holdout] {r['ckpt']}: contested {r['spearman']} ± {r['se_boot']} (n {r['n']})", flush=True)
+            continue
         floor = round(r["spearman"] - 2 * r["se_boot"], 4)
         print(f"[run-holdout] {r['ckpt']}: spearman_run {r['spearman']} ± {r['se_boot']} (n {r['n']}); "
               f"the segment's --guard-spearman-run-floor at the addendum's letter = {floor}", flush=True)

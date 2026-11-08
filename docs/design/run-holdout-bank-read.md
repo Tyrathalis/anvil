@@ -72,8 +72,10 @@ mirror store; `wr` = that seat's wins / (wins + draws), the labelset's definitio
    the marked line or by `RUN_BANK=... RUN_FLOOR=... ` in the relaunch's environment — the chain adds
    `--state-bank-run "$RUN_BANK" --guard-spearman-run-floor "$RUN_FLOOR"` to the loop. Then the next
    segment as usual: `echo N > data/runs/big-run/segment && uv run python -m anvil.runs relaunch --name big-run`.
-   The row lands in `monitor.jsonl` (`state_ranking.spearman_run`, `se_boot_run`, `n_run`) and per
-   iteration in `iter-NNN/state-ranking-run.json`; the loop's log line says `run bank X ± SE`.
+   The row lands in `monitor.jsonl` (`state_ranking.spearman_run`, `se_boot_run`, `n_run`, and since 11-07
+   `spearman_run_contested` / `se_boot_run_contested` / `n_run_contested`: the holdout rows with rollout
+   winrate in (0.2, 0.8)) and per iteration in `iter-NNN/state-ranking-run.json`; the loop's log line says
+   `run bank X ± SE (contested Y ± SE, n N)`.
 
 5. **The record.** Fill the table below into `data/runs/run-holdout-seg4/read.md`, the running record and
    the ADR's addendum; the bank's `manifest.json` is the pin.

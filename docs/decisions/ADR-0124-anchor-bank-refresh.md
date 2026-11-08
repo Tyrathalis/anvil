@@ -232,3 +232,13 @@ Spearman holds within one SE of 0.452 (a slide toward 0.35 reads as the hold too
 sends the question to the stream); the run-distribution row (`spearman_run`, floor 0) is exploratory — its reading is
 whether the segment moves it from 0.764 at all. Set in the chain (`ANCHOR_EVERY` 32); segment 5 runs on it from
 iteration 406.
+
+**The contested rows (11-07 evening, exploratory): the run bank's 0.76 is carried by decided states.** 44% of its
+labels are exactly 0 or 1. On the 698 contested rows (rollout winrate in (0.2, 0.8)), `iter-405` ranks at 0.314 ±
+0.034 and the never-anchored `shakedown-alloc/iter-019` at 0.321 ± 0.034; every head in the lineage reads
+0.31–0.33. Turn is not the confound (within-turn Spearman = pooled). So the anchor's hold moves no head on the
+contested states the run plays, and the leaf ranks those states weakly. This strengthens ADR-0125's premise:
+the stream is the lever on the leaf, and the anchor is a continuity meter. It changes no setting for segment 5.
+The loop carries the row as `spearman_run_contested` (the `contested` split of `value_pretrain eval`), exploratory
+with no floor; segment 5's close reads whether it moves from 0.314. The record is
+`data/runs/run-holdout-seg4/read.md`.

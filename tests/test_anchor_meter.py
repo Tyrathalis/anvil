@@ -19,6 +19,12 @@ def test_eval_splits_partition_the_bank_and_the_train_sample_is_fixed():
     assert np.all(np.diff(a) > 0)  # sorted, a stable row order
 
 
+def test_contested_split_is_the_holdout_rows_strictly_inside_the_band():
+    wr = [0.0, 0.2, 0.25, 0.5, 0.75, 0.8, 1.0, 0.5]
+    meta = [{"holdout": i != 7, "wr": w} for i, w in enumerate(wr)]
+    assert eval_split_rows(meta, "contested").tolist() == [2, 3, 4]  # 0.2 / 0.8 excluded; row 7 not holdout
+
+
 def test_eval_split_is_loud_on_an_unknown_name():
     import pytest
 

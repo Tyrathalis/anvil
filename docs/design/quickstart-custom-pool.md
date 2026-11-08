@@ -416,7 +416,10 @@ were). The seconds land in the iteration's `yield.json` as `train_wait_s` / `mem
 
 Since 11-02 (the ADR-0124 addendum) the row can carry a **second holdout**: `--state-bank-run <dir>` names a
 FROZEN bank drawn from the run's own games and scores every checkpoint on it too, into `spearman_run` /
-`se_boot_run` / `n_run` beside the Build 1 fields (its own file, `state-ranking-run.json`, per iteration); the
+`se_boot_run` / `n_run` beside the Build 1 fields (its own file, `state-ranking-run.json`, per iteration), with
+the bank's contested rows (rollout winrate in (0.2, 0.8)) as `spearman_run_contested` / `se_boot_run_contested` /
+`n_run_contested` since 11-07 (the pooled row is carried by decided states; `value_pretrain eval --split
+holdout,contested` reads both by hand); the
 Build 1 row stays the continuity line and this one says whether its movement transfers to the states the run
 plays. Nothing trains on that bank — never name it in `--value-anchor`. `--guard-spearman-run-floor F` (0 = off,
 the default) is the same collapse floor on that row, set at a segment boundary to the boundary read minus two

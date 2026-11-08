@@ -1227,13 +1227,21 @@ def widen_globals(examples: list, n_global: int, fmt: str) -> list:
     return [{**e, "globals": widen(e["globals"])} for e in examples]
 
 
+CONTESTED_LO, CONTESTED_HI = 0.2, 0.8  # the contested split's open interval on the rollout winrate
+
+
 def eval_split_rows(meta: list, split: str, train_sample: int = 2000, seed: int = 0) -> np.ndarray:
     """ADR-0124: the bank rows a state-ranking eval scores. `holdout` = the
     frozen holdout (the audit's row, ADR-0118); `all` = every row; `train` = a
     FIXED seeded sample of the anchor's training rows (the non-holdout rows the
     anchor draws from) — the memorization meter's other side: read beside the
     holdout, a growing train − holdout gap is the anchor memorizing its bank
-    (the big run: all-rows 0.84 vs holdout 0.33 at iter-301)."""
+    (the big run: all-rows 0.84 vs holdout 0.33 at iter-301). `contested` =
+    the holdout rows whose rollout winrate lies strictly inside (0.2, 0.8): the
+    states still in play. On the run-distribution bank 44% of the labels are
+    exactly 0 or 1 and carry the pooled 0.76; the contested rows read 0.31 under
+    every head (ADR-0124 addendum 11-07), so they are the row that can separate
+    heads."""
     ho = np.array([bool(m["holdout"]) for m in meta])
     if split == "all":
         return np.arange(len(meta))
@@ -1244,7 +1252,10 @@ def eval_split_rows(meta: list, split: str, train_sample: int = 2000, seed: int 
         if train_sample and len(tr) > train_sample:
             tr = np.sort(np.random.default_rng(seed).choice(tr, train_sample, replace=False))
         return tr
-    raise ValueError(f"--split {split!r}: holdout | all | train")
+    if split == "contested":
+        wr = np.array([float(m["wr"]) for m in meta])
+        return np.where(ho & (wr > CONTESTED_LO) & (wr < CONTESTED_HI))[0]
+    raise ValueError(f"--split {split!r}: holdout | all | train | contested")
 
 
 def eval_ckpts(args: argparse.Namespace) -> None:
@@ -1466,7 +1477,8 @@ def main() -> None:
     p.add_argument("--eval-batch", type=int, default=64)
     p.add_argument("--fmt", default="Commander", help="the bank's format (its format scalars)")
     p.add_argument("--split", default="holdout",
-                   help="csv of holdout | all | train (one row per split; train = a fixed seeded sample of "
+                   help="csv of holdout | all | train | contested (one row per split; contested = holdout rows with "
+                        "rollout winrate in (0.2, 0.8); train = a fixed seeded sample of "
                         "--train-sample non-holdout rows — ADR-0124's memorization meter beside the holdout)")
     p.add_argument("--train-sample", type=int, default=2000,
                    help="rows in the train split's fixed sample (0 = every training row)")

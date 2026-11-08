@@ -3617,3 +3617,21 @@ record.*
   `data/runs/run-holdout-seg4/read.md`, `data/runs/big-run/read.md` (the confirm row), the quickstart (both gates and
   the run bank), the docs index and this record are current; no new standing rule; the two merged worktrees await the
   user's prune; the 11-02 smoke dirs (`runbank-smoke-*`, 180 KB) go to the closeout's stale-data pass.
+
+## 2026-11-07 (evening) — the segment-4 review: the run bank's 0.76 is decided states; the contested row joins the loop
+
+- **The run bank's pooled 0.76 is carried by decided states; on its contested states every head ranks at ≈ 0.32.**
+  44% of the 1,894 labels are exactly 0 or 1. On the 698 rows with rollout winrate in (0.2, 0.8): `iter-405` 0.314 ±
+  0.034, `iter-301` 0.331, `iter-301-rechead` 0.317, the never-anchored `shakedown-alloc/iter-019` 0.321. Turn is not
+  the confound (turn alone ρ 0.004; within-turn Spearman 0.752–0.757, the pooled value). The anchor's hold moves no
+  head on the run's contested states, and the leaf ranks them weakly; K=8 labels carry ≈ ±0.17 of binomial noise
+  there, so part of the weakness is the meter's ceiling. This strengthens ADR-0125's premise and changes no setting
+  for segment 5 (`--anchor-every` 32 stands). ADR-0124 addendum; `data/runs/run-holdout-seg4/read.md`.
+- **The loop carries the contested row from segment 5.** `value_pretrain eval` has a `contested` split; the run-bank
+  eval reads `holdout,contested` in one call, and the row gains `spearman_run_contested` / `se_boot_run_contested` /
+  `n_run_contested` (exploratory, no floor). Tests added; the real eval on the bank reproduces the numbers above.
+- **Other review items, no action:** the model's self-target rate rose 0.149 / 0.140 → 0.203 / 0.162 (the heuristic
+  seat ≈ 0.2); a per-card breakdown on segment 4's stores can run beside segment 5. The arms rows are a glance
+  instrument; the standard read is of record.
+- **Housekeeping:** the two merged worktrees are pruned and their branches gone (checked). Segment 5's
+  `--wall-hours 840` is cumulative (168 × N against the persisted `wall_used_s`), so the segment is +168 h, not 840.
