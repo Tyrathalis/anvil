@@ -220,3 +220,15 @@ leaf the search actually uses, and as the first series of its kind; its reading 
 training moves it at all. The stream ([ADR-0125](ADR-0125-value-head-track.md)) keeps its routing to the closeout
 scoping; nothing here advances or retires it. The gap's response for segment 5 (a wider `--anchor-every`, or the pause
 line as the registered response) is unchanged by this read and stays the user's call.
+
+**The gap's response (the user's call, 11-07 evening): `--anchor-every` 16 → 32 from segment 5.** The draw is halved
+(≈ 0.12 pass of the Build 1 bank per iteration) to slow the memorization the segment-4 gap series showed (0.005 → 0.096,
+the last ten rows three times the segment's slope); the pause line stays at 0.15 as the registered response behind it;
+the anchor weight, the stop-grad and the learning rates are unchanged, so this is a draw-budget setting inside the
+recipe of record, not a recipe change. **Pre-registered for segment 5's close:** the gap's slope halves (≈ +0.0005 per
+iteration against segment 4's +0.0010), so the gap stays under the pause line through the segment; the Build 1 holdout
+Spearman holds within one SE of 0.452 (a slide toward 0.35 reads as the hold too weak at 32 and the setting returns to
+16 at the next boundary; a gap still climbing at the segment-4 rate reads as the memorization not being the draw's and
+sends the question to the stream); the run-distribution row (`spearman_run`, floor 0) is exploratory — its reading is
+whether the segment moves it from 0.764 at all. Set in the chain (`ANCHOR_EVERY` 32); segment 5 runs on it from
+iteration 406.

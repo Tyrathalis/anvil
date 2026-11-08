@@ -79,7 +79,10 @@ export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true}$P
 # 10-29 (ADR-0124 §4, ADR-0125): the value head runs in HOLD mode from segment 4 — the anchor's draw budget (one bank
 # mini-batch every ANCHOR_EVERY optimizer steps: 16 ≈ 0.24 pass of the Build 1 bank per iteration) and the memorization
 # meter's pause line (train − holdout Spearman > ANCHOR_GAP pauses the loop after an ACCEPTED iteration; relaunch resumes).
-ANCHOR_EVERY=${ANCHOR_EVERY:-16}; ANCHOR_GAP=${ANCHOR_GAP:-0.15}
+# 11-07 (ADR-0124 addendum, the user's call at the segment-4 boundary): ANCHOR_EVERY 16 → 32 from segment 5 (≈ 0.12 pass per
+# iteration) — the gap ran 0.005 → 0.096 over segment 4 at 16, and the run-distribution bank showed the hold does not reach
+# the leaf, so the draw is halved to slow the memorization; the pause line stays at 0.15 behind it.
+ANCHOR_EVERY=${ANCHOR_EVERY:-32}; ANCHOR_GAP=${ANCHOR_GAP:-0.15}
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 [[ -f "$OUT/read.md" ]] || printf '# The big run (ADR-0123) — the start-point and segment reads\n\nAll reads: the launch jar (forge-tgtmask3.jar, 5bd040351f), the decoder masked, seed base %s, network-alone 2,000 games / with-lookahead 1,000 under RECIPE + the checkpoint'"'"'s alloc tau; raw. Paired columns: game-for-game on the same seeds (paired_arms.py).\n\n| point | wall h | iterations | games | ckpt | network-alone | with-lookahead | vs reference (paired) | vs warm start (paired) | last Spearman |\n|---|---|---|---|---|---|---|---|---|---|\n' "$SEED_BASE" > "$OUT/read.md"
 

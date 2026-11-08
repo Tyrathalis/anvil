@@ -3609,3 +3609,11 @@ record.*
   each other** where the Build 1 holdout separates them by 0.20. The anchor's hold did not transfer to the run's own
   states; the ADR-0124 addendum (11-07) carries the reading. The chain points at the bank (`RUN_BANK`, `RUN_FLOOR` 0);
   the record is `data/runs/run-holdout-seg4/read.md`. **Open before the go on segment 5: the gap's response.**
+- **Evening — the gap's response is set: `--anchor-every` 32 from segment 5 (the user's call).** Halves the anchor's
+  draw (≈ 0.12 pass per iteration); the pause line 0.15 stays behind it; pre-registration in the ADR-0124 addendum
+  (the gap's slope halves, the holdout within one SE of 0.452, the run row exploratory). The chain carries it
+  (`ANCHOR_EVERY` 32). **Segment 5 is ready for the go.** Documentation audit at this point: the Now block, the state
+  table, the map (checkpoint row, stat tile, the big-run and run-holdout-seg4 ledger rows), ADR-0124's 11-07 addendum,
+  `data/runs/run-holdout-seg4/read.md`, `data/runs/big-run/read.md` (the confirm row), the quickstart (both gates and
+  the run bank), the docs index and this record are current; no new standing rule; the two merged worktrees await the
+  user's prune; the 11-02 smoke dirs (`runbank-smoke-*`, 180 KB) go to the closeout's stale-data pass.
