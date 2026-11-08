@@ -3601,3 +3601,11 @@ record.*
   the launch jar; ≈ 2,000 labels, ≈ 3 box-hours at the 10-29 price. Then `sample --n 2000 --seed 20261107` and
   `read` on `iter-405`, `iter-301-rechead` and `shakedown-alloc/iter-019`; `RUN_BANK` / `RUN_FLOOR` into the chain
   (floor 0 on the first segment: exploratory, no rule hangs on it). The two merged worktrees are ready to prune.
+- **16:14–16:25 — the labelling run DONE, the bank BUILT and READ.** `run-holdout-seg4` closed 16:14 (rc 0; 1,902
+  labels; 24,068 s of which 10,252 s were a yield to a foreign GPU job — the ETA I gave at 11:54 counted none of it;
+  ≈ 500 labels per productive box-hour, under the 10-29 price's 650 because the mirror half plays slower games).
+  The draw took every candidate: 1,894 rows over 15 turn strata. **The boundary read: `iter-405` 0.764 ± 0.010,
+  `iter-301` 0.766, `iter-301-rechead` 0.755, the never-anchored `shakedown-alloc/iter-019` 0.759 — within one SE of
+  each other** where the Build 1 holdout separates them by 0.20. The anchor's hold did not transfer to the run's own
+  states; the ADR-0124 addendum (11-07) carries the reading. The chain points at the bank (`RUN_BANK`, `RUN_FLOOR` 0);
+  the record is `data/runs/run-holdout-seg4/read.md`. **Open before the go on segment 5: the gap's response.**

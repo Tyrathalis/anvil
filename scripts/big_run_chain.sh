@@ -51,8 +51,8 @@ BANK=${BANK:-data/runs/m12-build1}                                      # the st
 # (scripts/run_holdout_bank.py, docs/design/run-holdout-bank-read.md), read by the loop as spearman_run beside the
 # Build 1 row. OFF until the segment-5 boundary session builds the bank and sets the two values here: the bank
 # dir and the floor (the boundary read minus two SE; 0 = exploratory, no floor on its first segment).
-# RUN_BANK=${RUN_BANK:-data/runs/run-holdout-seg4}; RUN_FLOOR=${RUN_FLOOR:-0}
-RUN_BANK=${RUN_BANK:-}; RUN_FLOOR=${RUN_FLOOR:-0}
+# the segment-4 boundary bank (11-07; 1,894 rows, labelled by iter-405 at K=8): read 0.764 ± 0.010 on iter-405; floor 0 on its first segment = exploratory
+RUN_BANK=${RUN_BANK:-data/runs/run-holdout-seg4}; RUN_FLOOR=${RUN_FLOOR:-0}
 RUN_BANK_FLAGS=""; [[ -n "$RUN_BANK" ]] && RUN_BANK_FLAGS="--state-bank-run $RUN_BANK --guard-spearman-run-floor $RUN_FLOOR"
 SEED_BASE=${SEED_BASE:-20261006}; SEG_HOURS=${SEG_HOURS:-168}
 WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}; LA_GAMES=${LA_GAMES:-500}

@@ -193,3 +193,30 @@ The smoke's one number worth keeping: on the 10-29 labeler bench's 85 mainlines 
 rows), `iter-301` ranks at 0.80 ± 0.06 and `iter-347` at 0.83 ± 0.06 — far above the Build 1 holdout's 0.47 on the same
 checkpoints: the head ranks its own policy's states much better than Build 1's, so **the run-distribution row's level is
 its own and its floor comes only from the boundary read**.
+
+## Addendum (2026-11-07) — the segment-4 bank built and read: the hold does not show on the run's own states
+
+**The bank** (`data/runs/run-holdout-seg4`; its `read.md` and `manifest.json` are the record and the pin): 500
+mainlines of `big-run/iter-405` on the loop's mix (250 mirror, 125 per heuristic seat; argmax, network-alone, census
+off, the launch jar), K=8 at 4 fork points, seed base 20261107 — 1,902 labels in 3.8 productive box-hours (≈ 500 per
+hour; a 2.8 h yield to a foreign GPU job sat inside the 6.7 h wall); the draw took every candidate, 1,894 rows over 15
+turn strata (t2–t16, all MAIN1). The chain's `RUN_BANK` names it with `RUN_FLOOR` 0 (the first segment's letter:
+exploratory, no rule on the row).
+
+**The boundary read** (`spearman_run`, n 1,894): `iter-405` **0.764 ± 0.010**; `iter-301` 0.766 ± 0.010;
+`iter-301-rechead` (the segment-4 start) 0.755 ± 0.010; the never-anchored `shakedown-alloc/iter-019` 0.759 ± 0.010.
+**The four points lie within one SE of each other.** On the Build 1 holdout the same four span 0.20 (0.250 never
+anchored, 0.326 `iter-301`, 0.4205 the transplanted start, 0.452 the close). So the anchor's hold moves the ranking
+inside the Build 1 distribution and leaves the ranking of the states the run plays where it was — every head in the
+lineage ranks those at ≈ 0.76, labelled by the run's own rollouts. A labeller bias toward the labelling head would show
+as `iter-405` above the never-anchored head: +0.005 ± 0.014.
+
+**What it changes.** The Build 1 row is confirmed as the continuity meter and the anchor as hygiene for it, not as a
+lever on the leaf — the same conclusion the 10-29 transplant read reached on the lookahead gap (inside one SE), now on
+the ranking itself. The 11-02 reading pre-registered for segment 5's close ("the run row rising or holding while the
+Build 1 row rises = real work on the leaf; flat or falling = the case for the stream") is already answered at its
+start for the segment-4 hold: it did not transfer. The segment-5 row still earns its place as the collapse guard on the
+leaf the search actually uses, and as the first series of its kind; its reading at the close is whether segment 5's
+training moves it at all. The stream ([ADR-0125](ADR-0125-value-head-track.md)) keeps its routing to the closeout
+scoping; nothing here advances or retires it. The gap's response for segment 5 (a wider `--anchor-every`, or the pause
+line as the registered response) is unchanged by this read and stays the user's call.
