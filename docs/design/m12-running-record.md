@@ -3678,3 +3678,8 @@ record.*
   beside `GUARD_ALLOC_SHARE`; a guard-level change, not a learning change), then `anvil.runs relaunch`: the stores are
   reused and iteration 416's step retrains deterministically (239's read), is accepted under the new floor, and the loop
   continues to the 840 h wall.
+- **18:58 — the user's call: floor 0.7, relaunch.** `scripts/big_run_chain.sh`: `--guard-casts-floor "${GUARD_CASTS_FLOOR:-0.7}"`
+  beside `GUARD_ALLOC_SHARE`, with the attribution in its header note. `iter-416/train` set aside as `train.rejected-1`
+  (`REJECTED` → `REJECTED.1`, the 239 convention); `anvil.runs relaunch --name big-run` at 18:58 (pid 1063410, the same
+  coverage line; the relay stays with the launching session). The stores are reused; the read is iteration 416's second
+  step beside the first (`train.rejected-1/metrics.jsonl`): 239's precedent says identical to four decimals.

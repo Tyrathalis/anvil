@@ -69,6 +69,11 @@ RL_WORKERS=${RL_WORKERS:-4}
 # distill share doubled in step). The carried weights are iteration-0 calibrated and |PG| has drifted down 18% over
 # the run, so the 3x (0.06) margin had eroded. Guard raised to 0.10 (5x) for the rest of the run; GUARD_ALLOC_SHARE
 # overrides. Not a learning change. Running record 10-24.
+# 11-08 (iteration 416, segment 5): the casts guard halted on a SAMPLE event in its basis — casts/game = decision windows/game
+# x cast share, and 416 drew the run's lowest window count (1,167/game; segment 4's floor 1,204) at an in-band cast share
+# (0.234; band 0.233-0.272), so the product fell to 273 against 0.8 x 359.88 = 288 while the policy's pass share was where
+# iterations 302, 380 and 400 had it. Floor 0.7 (252; 2.8 sd under segment 4's 359 +- 39) for the rest of the run, the
+# user's call as at 239; GUARD_CASTS_FLOOR overrides. Not a learning change. The share-based form is routed to the boundary.
 SEGMENT=$(cat "$OUT/segment" 2>/dev/null || echo 1)
 . "$REPO/scripts/recipe.sh"   # RECIPE — the one definition of the search recipe
 # 10-29 (the segment-3 boundary): ParallelGC is behaviour-neutral on the launch jar (forkcheck 499/500, the standing seed
@@ -178,7 +183,7 @@ if [[ $WALL_DONE -eq 0 ]]; then
     --games 480 --games-per-pair 2 --workers "$WORKERS" --chunk 30 --port 50063 --seed-base 20260921 \
     --temperature 1.0 --replay 4 --fresh-weight 1.0 --replay-weight 0.33 --rl-workers "$RL_WORKERS" --epochs 1 --lr 1e-5 \
     --ent-weight 0.003 --ent-floor 0.08 --rl-seg 128 --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult 1.5 \
-    --guard-casts-floor 0.8 --guard-alloc-share "${GUARD_ALLOC_SHARE:-0.10}" --penalty 0.02 --heur-frac 0.5 --value-weight 0.5 --traj-per-step 4 \
+    --guard-casts-floor "${GUARD_CASTS_FLOOR:-0.7}" --guard-alloc-share "${GUARD_ALLOC_SHARE:-0.10}" --penalty 0.02 --heur-frac 0.5 --value-weight 0.5 --traj-per-step 4 \
     --arms-every 5 --arms-pairs data/runs/d5arm-d0-s0-20260714-143546/pairs.txt --arms-games 200 --arms-seed-base 20260710 --arms-lookahead on \
     --reask --jar "$JAR" --search-recipe "$RECIPE" --search-alloc head --search-floor 0.1 \
     --distill-carry-w --alloc-carry-w --state-bank "$BANK" --guard-spearman-floor "$FLOOR" \
