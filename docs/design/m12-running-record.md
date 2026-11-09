@@ -3683,3 +3683,9 @@ record.*
   (`REJECTED` → `REJECTED.1`, the 239 convention); `anvil.runs relaunch --name big-run` at 18:58 (pid 1063410, the same
   coverage line; the relay stays with the launching session). The stores are reused; the read is iteration 416's second
   step beside the first (`train.rejected-1/metrics.jsonl`): 239's precedent says identical to four decimals.
+- **19:12 — iteration 416 ACCEPTED under the 0.7 floor; the loop is at 417.** The second step beside the first
+  (`train.rejected-1`): kl_mu 0.00933 / 0.00926, entropy 0.1526 / 0.1521, alloc share 0.0315 / 0.0315, distill share
+  0.0318 / 0.0319, v 0.39905 both, |PG| 0.0004 both; the holdout Spearman 0.4585 / 0.4578 (gap 0.078 / 0.078). The
+  training step is the same function of the stores to the third decimal (239's read reproduced to the fourth; the
+  loader's interleave moved the rest). No guard fired at the re-evaluation (casts 273.3 ≥ 252). Iteration 417 generates
+  from `iter-416` with 687.58 h used; the segment's wall lands ≈ 11-14 plus yields. The session wait is re-armed.
