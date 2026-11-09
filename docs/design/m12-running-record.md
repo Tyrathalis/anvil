@@ -3651,3 +3651,30 @@ record.*
 - **Pre-registered for the segment (ADR-0124 addendum, 11-07):** the gap's slope halves against segment 4's and the
   holdout Spearman holds within one SE of 0.452; a slide toward 0.35 reads as the hold too weak at 32. The run rows
   (`spearman_run`, `spearman_run_contested`) are exploratory. No promotion rule changes: `iter-405` is the ckpt of record.
+
+## 2026-11-08 (18:43) — GUARD HALT at iteration 416: `casts_per_game` 273.3 < 0.8 × day-zero (287.9) — a SAMPLE EVENT in the guard's basis, not passivity
+
+- **What fired.** The §6c anti-passivity guard (`--guard-casts-floor 0.8` on the iteration-0 basis 359.88 casts / game,
+  model-seat first attempts). The checkpoint was not accepted, `loop_state` is unchanged at 416, the chain exited rc 3
+  and the run reads `failed` (the launcher's state; the check-in is `none`). Segment 5 had run 21.8 calendar hours
+  (wall 687.4 → 688.9 h; ≈ 4.9 h of yields to ComfyUI and World of Warcraft, out of the wall). The box is idle.
+- **Attribution (the decomposition, from the census files of 406–416 and the monitor rows of 302–405):** casts / game =
+  decision windows / game × cast share. Iteration 416: **1,167 windows / game** (the run's lowest; segment 4's floor
+  was 1,204 at iteration 359) × **cast share 0.234** (pass share 0.748). Against the 413–415 mean (1,422 × 0.257 = 366),
+  the window count carries 68% of the drop in log terms and the share 32%. The share sits inside its segment-4 band
+  (0.233–0.272; iterations 302, 380 and 400 ran 0.233–0.236 and passed the guard on a larger window count), the games
+  are ordinary (480, 2 draws, 1 NPE; mean turns 20.7 against 20.7–21.3), the acting policy moved kl 0.013 from the
+  previous iteration's (entropy 0.152, veto 0.018, the 414 arms row 0.5825 / 0.6275 with lookahead). Per store, every
+  one of 416's three stores lost windows per seat-turn (40.6 / 33.1 / 30.9 against 49–50 / 36–38 / 33–42 at 413–415),
+  so the sample — the pair slice this iteration drew from the pool — carries it, the way 407 (1,298 × 0.231 = 300) and
+  412 (1,220 × 0.247 = 301) nearly did. Passivity collapse would show the share falling while the window count held;
+  it did not. **Same class as iteration 239's alloc-share halt: a denominator event under a fixed basis.**
+- **The guard's exposure.** Over segment 4 casts / game ran 359 ± 39 (sd 11%); the 0.8× floor sits 1.85 sd under the
+  mean on a basis that multiplies a sample quantity by the policy quantity it means to watch. A share-based form (or a
+  multi-row form, as the kl and arms watch lines became after 259 and 291) is the ~30-line change that absorbs this
+  class; routed to the segment boundary.
+- **Response: the user's call (the 239 precedent).** Proposed: `--guard-casts-floor 0.7` for the rest of the run (252
+  casts / game, 2.8 sd under segment 4's mean, below every row of the run; `GUARD_CASTS_FLOOR` override in the chain
+  beside `GUARD_ALLOC_SHARE`; a guard-level change, not a learning change), then `anvil.runs relaunch`: the stores are
+  reused and iteration 416's step retrains deterministically (239's read), is accepted under the new floor, and the loop
+  continues to the 840 h wall.
