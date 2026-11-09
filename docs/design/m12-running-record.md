@@ -3740,3 +3740,22 @@ record.*
   user's go); the search-off equal-box-time arm; ADR-0125 opened with the critic as the advantage baseline and a
   λ-return arm; then the belief sampler for determinization and the engine benchmark. The candidate ADR is written at
   the scoping session, with its bars pre-registered there; nothing here is measured.
+- **Addendum (11-09, later; the user agreed): the search-off control runs beside ONE best-shot alternative, behind an
+  offline gate; and the post-run order.** A search-off win would retire only the current form of search. Depth and
+  width are already measured (the shakedown's shallow / deep / recipe arms and the rolls-4 read, all noise); how the
+  result is USED is not: the loop searches ≈ 19,000 windows per iteration and teaches the policy from the ≈ 1,400 that
+  clear the bar, so ≈ 92% of the computed option values reach only the allocation head. **The alternative arm:** a
+  KL-limited soft target toward the search's value-weighted distribution on every searched window, in place of the
+  margin bar and the pick-distillation (the Ataraxos / Gumbel-style update; no extra generation cost). **Known
+  hazard:** ADR-0111's offline re-warm lost up to 47pp with the harm scaling with dose, and these values come from two
+  rolls over a weak leaf. **Sequence:** (1) an offline gate — on stored searched windows, the search's option ranking
+  against K=8 rollout truth, split acted / un-acted; near chance on the un-acted rows and the soft arm is not run;
+  (2) three arms at equal box time from one checkpoint (the recipe of record, search off, soft targets), read
+  network-alone and paired; (3) one decision — search-off winning or tying both takes search out of training and makes
+  the belief sampler a deployment-time project; soft targets winning keeps search and moves the sampler up. No wider
+  sweep over search forms. **The post-run order, as discussed:** the closeout with the ladder as the new scoreboard;
+  these arms; ADR-0125 justified by the advantage baseline; throughput (learnable stops, the engine benchmark);
+  shipping the network. **Architecture:** no milestone on trunk capacity without a cheap offline probe (a 2× trunk on
+  outcome prediction over the stores). **Formats and cards:** a short 60-card format first, as the research testbed
+  (more outcome bits per box-hour; two formats in one network stays an unmeasured bet); pool growth after a
+  held-out-cards read and after signal per game has risen. Bars and numbers are set at the scoping session.
