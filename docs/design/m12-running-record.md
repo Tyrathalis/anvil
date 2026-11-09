@@ -3689,3 +3689,54 @@ record.*
   training step is the same function of the stores to the third decimal (239's read reproduced to the fourth; the
   loader's interleave moved the rest). No guard fired at the re-evaluation (casts 273.3 ≥ 252). Iteration 417 generates
   from `iter-416` with 687.58 h used; the segment's wall lands ≈ 11-14 plus yields. The session wait is re-armed.
+
+## 2026-11-09 — the mid-run design review (the user's ask during segment 5): a candidate ADR for the closeout scoping
+
+- **Verdict: the architecture is sound and the run is working; one attribution gap and two structural weaknesses are
+  routed to the closeout scoping. Nothing changes segment 5 or the recipe of record.** The review read the design doc,
+  ADR-0101, ADR-0125, the segment reads (`data/runs/big-run/read.md`), the boundary reviews, the loop config and the
+  live monitor row (iteration 425), and a web survey of the field since 2024 (a subagent's report; several items were
+  verified at abstract level only, and none was read in full by this session). The user agreed the direction (11-09).
+- **What the run says.** The loop is data-limited, not saturated: the confirmed paired margins over the era reference
+  are +4.22, +6.32 and +9.46pp at segments 1, 3 and 4, with no flattening at 195K games. The leaf is not the binding
+  constraint (the transplant and rolls-4 reads were noise; every head ranks the run's contested states at ≈ 0.32).
+  Fixed truth sets fail (the anchor memorized its bank), so ADR-0125's stream is the right shape. Nothing implicates
+  the trunk or the decoder.
+- **Finding 1 — the run cannot separate "search teaches" from "scale works".** No search-off arm exists at scale: the
+  shakedown's four arms all searched, and the pre-M12 runs were ≈ 10K games (ADR-0101 finding 2). The with-lookahead
+  and network-alone reads measure search as a PLAYER on one checkpoint; the open question is search as a TEACHER — the
+  network-alone strength of two training runs at equal box time, one generating with search and one without.
+  Supporting numbers at iteration 425: the search acts on 1,437 of 639,722 bridged windows (`acted_frac` 0.004); the
+  distillation gradient on the trunk is 0.005 against the policy gradient's 0.07 (`gn_distill`, `gn_pg`); the lookahead
+  gap over network-alone has not closed monotonically (+3.0, +3.9, +1.0, +1.7, +3.2). The search's wall cost was 2.1×
+  per game at Build 2 and is not re-measured on the current recipe. **Proposed arm:** from `iter-405`, search off at
+  equal box time, read network-alone and paired against the continuation of the recipe of record. It decides whether
+  search stays in training or becomes deployment-only (the Ataraxos shape, below).
+- **Finding 2 — the policy gradient is effectively Monte-Carlo.** With `--gamma 1`, `c_bar` 1 and near on-policy data
+  (rho mean 0.98), the V-trace advantage is roughly the outcome minus V(s). That one outcome bit is spread over ≈ 1,300
+  bridged windows per game (67% of them passes: 429,900 of 639,722), at four trajectories per optimizer step. The
+  baseline is the real-vis head that ranks contested states at 0.32; the design's asymmetric critic (§4) is off in the
+  big run (`critic: null`). This is a more likely cause of the slow climb than the leaf. **Consequence for ADR-0125:**
+  its critic is judged on advantage variance as well as on the search leaf — a λ < 1 return arm (and the critic as the
+  baseline) joins layer 3's paired arms at the track's scoping.
+- **Finding 3 — strength is measured only against the heuristic, and half of training is against it** (`heur_frac`
+  0.5). No checkpoint-versus-checkpoint read exists. **Proposed:** `iter-405` against the warm start (≈ 3 box-hours)
+  at the segment-5 boundary, and the closeout's ladder of own checkpoints pulled forward to it.
+- **Smaller items, hypotheses only.** (a) The training step is 422 s of a ≈ 4,600 s iteration at kl_mu 0.008 against
+  the 0.06 guard: more learning per game is worth one paired arm, read against the 10-28 kl trip and Kryptic's breaks.
+  (b) Learnable stops (§3b) are unbuilt while passes are two-thirds of windows. (c) The loop config and the model still
+  carry the retired plan / schedule / payment-label / sequence machinery — a closeout prune.
+- **The field (survey; not adjudicated).** (1) **Ataraxos** (arXiv 2511.07312; superhuman Stratego): trained with no
+  search — a KL-regularized policy gradient and a win/draw/loss value head on λ-returns (advantage λ 0.5) — and its
+  test-time search is this project's shape (determinize, roll each option under the policy, value at the leaf) with a
+  learned belief sampler and a KL-regularized soft update in place of a margin bar; at ≈ 163M games, so "no search in
+  training" does not transfer without Finding 1's arm. (2) Ataraxos and MAPLE (arXiv 2605.24139) both report that
+  uniform or random hidden-state sampling hurts the search; the belief head is parked since M2. (3) Rudolph et al.
+  (arXiv 2502.08938): tuned policy-gradient methods are not beaten by R-NaD / PSRO / NFSP on benchmark games — stay in
+  the family. (4) Rust and Go engines (Ironsmith, phase.rs, gorge) publish no throughput or fidelity numbers; a one-day
+  benchmark is cheap, and §9's condition for the port bet (throughput measured as binding) is met. (5) Nothing new was
+  found on privileged critics, plasticity in long self-play runs, or evaluation beyond paired seeds plus AIVAT.
+- **Routed by name to the closeout scoping, in this order:** the head-to-head read (at the segment-5 boundary, the
+  user's go); the search-off equal-box-time arm; ADR-0125 opened with the critic as the advantage baseline and a
+  λ-return arm; then the belief sampler for determinization and the engine benchmark. The candidate ADR is written at
+  the scoping session, with its bars pre-registered there; nothing here is measured.
