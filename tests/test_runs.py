@@ -587,3 +587,34 @@ def test_manual_relaunch_resets_the_resume_count(state):
     _wait_done("rc")
     st = runs.read_run("rc")
     assert st["resume_count"] == 0 and st["resume"] is True and st["resume_max"] == 3
+
+
+# ---- 11-09: one arm for the memory sampler, the launcher's (the infrastructure survey, R2)
+
+
+def test_memsampler_is_rearmed_after_a_reboot_for_the_same_owner(state, monkeypatch):
+    """A reboot kills the transient unit and leaves memsampler.json naming the
+    run that owned it. The relaunch of that same run (by hand, or the sweep's
+    resume) finds the unit inactive and arms it again — the case the chain's
+    own arm existed for before the launcher took the job."""
+    monkeypatch.setenv("ANVIL_MEMSAMPLER", "1")
+    runs._write_json(runs.state_dir() / "memsampler.json", {"run": "big", "out": "old/memory.jsonl"})
+    runs._write_json(runs._run_file("big"), {"name": "big", "state": "gone", "supervisor_pid": 1})
+    fake = _Fake(active=False)
+    note = runs.arm_memsampler("big", state / "big", run=fake)
+    assert note.startswith("memory watchdog: ARMED") and str(state / "big" / "memory.jsonl") in note
+    assert sum(c[0] == "systemd-run" for c in fake.calls) == 1
+    assert json.loads((runs.state_dir() / "memsampler.json").read_text())["out"].endswith("big/memory.jsonl")
+
+
+def test_the_big_run_chain_reports_the_sampler_and_never_arms_it():
+    """One mechanism per job: the chain starts no unit. It still reads the trip
+    marker the launcher's sampler writes beside this run's memory.jsonl."""
+    from pathlib import Path
+
+    chain = Path(__file__).resolve().parents[1] / "scripts" / "big_run_chain.sh"
+    text = chain.read_text()
+    code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+    assert "systemd-run" not in code and "arm_memsampler" not in code
+    assert "report_memsampler" in code and '"$OUT/WATCHDOG-TRIP"' in code
+    assert subprocess.run(["bash", "-n", str(chain)], capture_output=True).returncode == 0
