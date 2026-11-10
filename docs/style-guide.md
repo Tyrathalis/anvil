@@ -1,8 +1,7 @@
 # Documentation style guide
 
-**Status: DRAFT, proposed 2026-11-09. Not adopted.** Nothing in the repo is bound by it until the user accepts it.
-The open questions at the end are the user's to settle. The review that produced it is in the running record
-(2026-11-09, 19:45).
+**Status: adopted 2026-11-09 (the user), as drafted.** It binds every edit from that day. The review that produced
+it is in the running record (2026-11-09, 19:45). CLAUDE.md's "Writing style" bullet is its summary.
 
 ## The one idea
 
@@ -125,21 +124,24 @@ The meanings of "pin", "fork" and "rung" are my reading of the docs and need the
 ## Applying it
 
 - **Forward:** every new edit follows the guide from the day it is adopted.
-- **Backfill, once:** CLAUDE.md's Now block is rewritten under the state rules, with the displaced text moved to the
-  status archive. The quickstart's sections from §7 on are reorganized for the outside reader. The module headers of
-  `server.py`, `model.py`, `dataset.py`, `selfplay.py` and `value_pretrain.py` are rewritten, and the nine stale
-  comments the review found are fixed. Code edits wait for a stop of the run.
+- **Backfill, once:** CLAUDE.md's Now block was rewritten under the state rules on 2026-11-09, with the displaced
+  text moved to the status archive. Still to do: reorganize the quickstart from §7 on for the outside reader; rewrite the module
+  headers of `server.py`, `model.py`, `dataset.py`, `selfplay.py` and `value_pretrain.py`; fix the nine stale
+  comments the review found. Code edits wait for a stop of the run.
 - **At the closeout documentation pass:** the design doc, the field guide and the standing-rules prune, as already
   routed.
 - **Never:** ADRs, the running record, devlogs and the status archive are not rewritten to match.
 
-## Open questions
+## Settled at adoption, and still open
 
-1. **The caps.** Are 800 words for the Now block and 120 per bullet right? Today the block is about 4,600 words.
-2. **Generated copies.** Should a script stamp the README's Status and the map's Now panel from CLAUDE.md, or is an
-   "as of" date and a pointer enough?
-3. **Capitals for status words.** The guide lowercases them in prose. The Now block uses them as scan anchors
-   today. Keep them as the first word of a verdict only, or keep the current habit?
-4. **Where the guide lives.** This file, with a one-line pointer replacing the "Writing style for docs" bullet in
-   CLAUDE.md, or folded into CLAUDE.md itself.
-5. **Dated comments.** About 370 exist. Remove them as files are touched, or in one pass at the closeout?
+The guide was adopted as drafted, so the draft's defaults stand until the user changes them.
+
+1. **The caps** are 800 words for the Now block, 120 per bullet and 80 for the README's Status.
+2. **Copies** carry an "as of" date and a pointer to CLAUDE.md. A script that stamps them is allowed and not built.
+3. **Status words** are lowercase in prose, with capitals only as the first word of a verdict line.
+4. **The guide lives here,** with its summary in CLAUDE.md.
+5. **Still open: the dated comments.** About 370 exist. They are removed as files are touched; whether to do one
+   pass at the closeout is the user's call then.
+6. **Still open: the glossary's "pin", "fork" and "rung" rows** need the user's confirmation.
+7. **Not yet brought inside the rules:** CLAUDE.md's state table (several cells carry history) and the map's
+   tables. They are state documents and are rewritten at the next state-of-record change.

@@ -77,6 +77,7 @@ def render(groups: dict[str, list[tuple[str, str, str]]]) -> str:
         '5. [project-map.html](project-map.html) — the dashboard: Now panel, state-of-record table, run ledger, ADR index.',
         '6. [forge-ai-field-guide.md](forge-ai-field-guide.md) — the traps we measured, with detection and fix. Written for other Forge-AI builders.',
         '7. [status-archive.md](status-archive.md) — every CLAUDE.md Status bullet verbatim at the moment it was archived (closed milestones, track snapshots).',
+        '8. [style-guide.md](style-guide.md) — how each kind of document is written and updated: state, record, reference; comment rules; the glossary.',
         '',
         '## Directories',
         '',
