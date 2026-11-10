@@ -3890,3 +3890,11 @@ record.*
   map's Now panel.
 - **19:55 — the style guide drafted** ([style-guide.md](../style-guide.md)): a proposal, not adopted and not wired into CLAUDE.md or the index. Three document kinds (state, record, reference) with one update rule each, comment rules, sentence limits, a glossary, and five open questions for the user (the caps, generated copies, capitals, where it lives, the dated comments).
 - **20:35 — the style guide adopted as drafted (the user) and the Now block rewritten under it.** The block went from about 4,600 words to under 800: what is running, what is next, what waits on the user, the pins. The old block is in [status-archive.md](../status-archive.md) verbatim (the 2026-11-09 snapshot). CLAUDE.md's "Writing style" bullet is now the guide's summary, the wrap-up checklist says to rewrite a Now bullet and not append to it, and the docs index lists the guide. Still open in the guide: the dated comments' one-pass question, the glossary's "pin" / "fork" / "rung" rows, and the state table's cells that carry history. Owed at a stop of the run: the code-comment backfill. Owed any time: the quickstart's reorganization from §7 on.
+- **2026-11-10 (upstream) — #11285 is approved, and #12180 needs re-porting.** tool4ever approved the determinism
+  hooks ([#11285](https://github.com/Card-Forge/forge/pull/11285)) at 20:14 UTC. The PR is mergeable with CI green and
+  now waits only on a merge. The same reviewer called the AI decision log's direction ok
+  ([#12180](https://github.com/Card-Forge/forge/pull/12180), 21:41 UTC, a comment review). That PR conflicts with
+  master. Master has restructured both loops it logs from: `AiController`'s candidate loop now runs under
+  `AITimeoutTracker` deadlines and collects `approvedPlays`, and `AiAttackController`'s attacker pass is deadline-wrapped
+  tasks. A rebase is a re-port of the log calls into that code (three conflict hunks), not a mechanical one. Whether and
+  when to re-port is the user's call.
