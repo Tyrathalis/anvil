@@ -3812,3 +3812,7 @@ record.*
 - **Routing:** `retire-watchd-under-launcher` must not merge alone. The stall-tick fix (the launcher's own files out
   of `newest_mtime`) lands with it at the segment-5 boundary, and the state file's `checkin` goes back to `auto`
   before the relaunch. The rest of the survey's boundary list is the user's to order.
+- **The standing watcher re-registered 18:08 (the user's call):** `anvil_watchd.py register --name big-run --pid
+  1063426 --dir data/training/big-run --stall-min 180`. It is the stopgap stall detector that survives the desktop
+  app until the boundary; 180 minutes keeps a training-step GPU wait of the 11-09 length under the line. The loop's
+  own unregister clears it at a clean exit. It reaches the desk only (no phone path, the survey's finding 3).
