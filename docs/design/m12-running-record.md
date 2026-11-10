@@ -3888,3 +3888,4 @@ record.*
   are rewritten and capped, records are append-only, reference docs and comments describe the present and point
   to a record for history; a glossary for the private labels; one generated source for the README Status and the
   map's Now panel.
+- **19:55 — the style guide drafted** ([style-guide.md](../style-guide.md)): a proposal, not adopted and not wired into CLAUDE.md or the index. Three document kinds (state, record, reference) with one update rule each, comment rules, sentence limits, a glossary, and five open questions for the user (the caps, generated copies, capitals, where it lives, the dated comments).
