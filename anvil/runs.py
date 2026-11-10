@@ -440,8 +440,12 @@ def _child_cmd(cmd: list[str], nice: int, memory_max: str | None, name: str,
     resume-on-gone relaunch then ran inside the oneshot sweep service's
     cgroup and was killed 5 s later when the service ended. An own scope
     outlives the launching app and the sweep, and ManagedOOMPreference=avoid
-    tells oomd to kill the desktop first. `scope=False` (--foreground, the
-    tests) spawns the bare command."""
+    tells oomd to prefer the desktop on a memory-PRESSURE kill. 11-09: the
+    mark is not honoured for a swap-limit kill on a user-owned cgroup
+    (systemd.resource-control(5)) — the 10-17 kill took this scope with the
+    mark set; scripts/memory_sampler.sh is the defence there. The supervisor
+    itself stays in the launcher's cgroup (the survey's finding 4, routed).
+    `scope=False` (--foreground, the tests) spawns the bare command."""
     note = None
     have_systemd = bool(shutil.which("systemd-run")) and sys.platform.startswith("linux")
     if scope and have_systemd:
