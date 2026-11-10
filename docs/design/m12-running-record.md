@@ -3784,3 +3784,31 @@ record.*
 - **Rows 417–426 at this glance:** holdout Spearman 0.440–0.466 (within one SE of 0.452), entropy settled near 0.145
   after easing from 0.167, kl_mu 0.009–0.011, casts 318–426 per game. The gap read 0.091, 0.091, 0.093, 0.099 over
   iterations 423–426 (segment 4 closed at 0.096; the pause line is 0.15): a watch item for the next glance.
+
+## 2026-11-09 (17:55) — the infrastructure survey; the 17:03 entry corrected: the supervisor's stall tick is blind on the big run
+
+- **Verdict: the big run has had no working stall detector since 17:26, and the 17:03 attribution was half wrong.**
+  The supervisor's stall tick takes the newest file under the run dir. The memory sampler appends a row to
+  `data/runs/big-run/memory.jsonl` every 20 s, so that tick has never been able to fire on this run (zero `stalled`
+  alerts for `big-run` in five weeks). The supervisor's quiet during the 91-minute GPU wait was not the heartbeat's
+  doing; it would have been quiet without it. The standing watcher looked at the training directory, which holds no
+  sampler file, so it was the only detector that could see the loop go silent, and its registration was dropped at
+  17:26 on that mistaken reading. The false alarm itself stays a false alarm.
+- **The stopgap (17:50):** a background watch in the babysitting session wakes it when the loop log, the heartbeat
+  file, the queue log and `monitor.jsonl` are all older than 60 minutes, or the run leaves `running`. It dies with
+  the desktop app, like the session's `anvil.runs wait`. Re-registering with the standing watcher at a longer
+  threshold is the user's call.
+- **The survey** (a separate session, on the user's request; report `docs/ops/infra-survey-2026-11-09.md` on the
+  branch `claude/infra-survey-e17ba4`, commit `b23e84b`, not merged): 13 issues, 4 redundancies, nothing applied.
+  Checked here against the code and the box:
+  - Finding 1, the blind stall tick: confirmed (`newest_mtime` walks every file; `memory.jsonl` is 6 s old).
+  - Finding 2, the check-in is off: confirmed. The state file holds `checkin: none` since the expired login of 10-16
+    and `relaunch` passes the stored value back, so no failure or close of this run has raised a check-in since.
+  - Finding 3, `ANVIL_NOTIFY_CMD` is unset in the supervisor: confirmed. The survey's "push suppressed in 45 of 46
+    check-ins" is its reading of the check-in records, not re-checked here.
+  - Finding 4, the supervisor sits in the desktop app's cgroup while the chain has its own scope: confirmed. The
+    duplicate-launch path through the sweep is the survey's reading of the code, not reproduced.
+  - Finding 7, `anvil.runs wait` returns only on `done`, `failed` or a dead supervisor, never on `paused`: confirmed.
+- **Routing:** `retire-watchd-under-launcher` must not merge alone. The stall-tick fix (the launcher's own files out
+  of `newest_mtime`) lands with it at the segment-5 boundary, and the state file's `checkin` goes back to `auto`
+  before the relaunch. The rest of the survey's boundary list is the user's to order.
