@@ -3850,3 +3850,10 @@ record.*
   skips the segment's go in step 6. Finding 4's two proofs want a quiet box and fit the same window, on the user's
   go. The `scripts/fleet_bench.py` check is done: it takes the peak g/h over the harness's minute lines, and a line
   still prints whenever the count moves, so the fix does not change its table.
+- **19:10 — the survey's proofs A and B join the same stop (the user's call).** They run on scratch state
+  (`ANVIL_STATE_DIR` in a temp dir, `sleep 600` as the command), after the merge and before the relaunch, so they
+  exercise the launcher code the next segment runs on. Proof A: does a relaunch made by the sweep service outlive
+  the service (the reboot and OOM case)? Proof B: does the sweep launch a second copy beside a live run whose
+  supervisor died (the app-killed case)? The steps and the reading tables are in the survey report, under finding 4.
+  A confirmed proof puts one choice to the user at the relaunch: `"resume": false` in the state file until the fix
+  (the supervisor inside the run's scope, the sweep's child-alive guard, the loop-dir lock) is built.
