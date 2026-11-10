@@ -3843,3 +3843,10 @@ record.*
   `loop_state.json`, the heartbeat and `queue.log`. It fires after 60 minutes with none of them moving, unless the
   harness's last minute line declares a yield. Both triplines were dry-run before arming. It lives in this session
   and dies with the desktop app; the standing watcher at 180 minutes still covers the training phase only.
+- **19:00 — the merge window widened (the user's plan): the run's next stop, whichever comes first.** A
+  maintenance pause for a reboot serves as well as the segment-5 boundary: the run is down, the merge lands, and the
+  relaunch picks up the new launcher, server and harness code. The branch changes logging and supervision only, not
+  the game path or the recipe. On a pause the Boundary procedure reads `paused` where it says `done` in step 1, and
+  skips the segment's go in step 6. Finding 4's two proofs want a quiet box and fit the same window, on the user's
+  go. The `scripts/fleet_bench.py` check is done: it takes the peak g/h over the harness's minute lines, and a line
+  still prints whenever the count moves, so the fix does not change its table.
