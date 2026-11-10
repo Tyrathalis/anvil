@@ -70,6 +70,7 @@ Verbs:
   status  [--json]                 every run's state (newest first)
   wait    --name N [--timeout S]   block until the run stops being live; exit 0 done, 1 failed,
                                    2 gone (dead supervisor), 3 the --timeout, 4 paused
+  tick    --name N                 read-only: what the stall tick sees right now (exit 1 = it would read stalled)
   alerts  [--unacked] [--json]     the queue
   ack     --all | --id ID...       mark alerts read
   prune   [--days 30]              drop terminal run records older than N days
@@ -260,20 +261,22 @@ def stall_ignored(run_dir: Path) -> frozenset[str]:
     return frozenset(own)
 
 
-def newest_mtime(root: Path, ignore: frozenset[str] = frozenset()) -> float:
-    """Newest file mtime under root (the run's own artifact dir, not a
-    project-wide tree); 0 when nothing is there yet. `ignore` = real paths
-    that do not count (stall_ignored); only a file whose basename matches one
-    is resolved, so the walk stays a walk."""
+def newest_file(root: Path, ignore: frozenset[str] = frozenset()) -> tuple[float, str | None]:
+    """(mtime, path) of the newest file under root (the run's own artifact dir,
+    not a project-wide tree); (0, None) when nothing is there yet. `ignore` =
+    real paths that do not count (stall_ignored); only a file whose basename
+    matches one is resolved, so the walk stays a walk."""
     names = {os.path.basename(p) for p in ignore}
 
     def skipped(path: str, fn: str) -> bool:
         return fn in names and os.path.realpath(path) in ignore
 
-    newest = 0.0
+    newest, which = 0.0, None
     try:
         if os.path.isfile(root):  # a --watch glob may name files
-            return 0.0 if skipped(str(root), os.path.basename(root)) else os.stat(root).st_mtime
+            if skipped(str(root), os.path.basename(root)):
+                return 0.0, None
+            return os.stat(root).st_mtime, str(root)
         for dirpath, _dirs, files in os.walk(root):
             for fn in files:
                 path = os.path.join(dirpath, fn)
@@ -284,10 +287,27 @@ def newest_mtime(root: Path, ignore: frozenset[str] = frozenset()) -> float:
                 except OSError:
                     continue
                 if m > newest:
-                    newest = m
+                    newest, which = m, path
     except OSError:
         pass
-    return newest
+    return newest, which
+
+
+def newest_mtime(root: Path, ignore: frozenset[str] = frozenset()) -> float:
+    return newest_file(root, ignore)[0]
+
+
+def stall_roots(run_dir: Path, watch: list[str], base: Path | None = None) -> list[Path]:
+    """The run dir plus every --watch root (globs expanded now: a chain's arm
+    dirs appear as it goes). `base` anchors a relative pattern for a reader
+    that is not in the supervisor's cwd (the `tick` verb)."""
+    roots = [run_dir]
+    for pat in watch:
+        pp = Path(pat)
+        if base is not None and not pp.is_absolute():
+            pp = base / pp
+        roots += list(pp.parent.glob(pp.name)) if any(c in pp.name for c in "*?[") else [pp]
+    return roots
 
 
 def _tail(path: Path, lines: int = 15, width: int = 200) -> str:
@@ -499,12 +519,8 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     watch = [str(w) for w in (getattr(a, "watch", None) or [])]
 
     def newest_artifact() -> float:
-        roots = [run_dir]
-        for pat in watch:
-            pp = Path(pat)
-            roots += list(pp.parent.glob(pp.name)) if any(c in pp.name for c in "*?[") else [pp]
         ignore = stall_ignored(run_dir)  # re-read each tick: the sampler's owner can change
-        return max(newest_mtime(r, ignore) for r in roots)
+        return max(newest_mtime(r, ignore) for r in stall_roots(run_dir, watch))
 
     logf = open(log, "ab")
     logf.write(f"[runs] {_now()} launch {a.name}: {' '.join(cmd)}\n".encode())
@@ -759,6 +775,45 @@ def wait(a: argparse.Namespace) -> int:
             print(f"{a.name}: wait timeout")
             return 3
         time.sleep(a.poll)
+
+
+def tick(a: argparse.Namespace) -> int:
+    """What the supervisor's stall tick sees for a run RIGHT NOW, read-only (11-09): the
+    newest file it counts and that file's age against the alarm, and the files it does
+    not count with theirs. The check after a relaunch that the tick is looking at the
+    run and not at the launcher's own writes — it touches nothing, signals nothing, and
+    is safe on a live run. Exit 0 = the tick reads running, 1 = it would read stalled,
+    2 = no such run."""
+    r = read_run(a.name)
+    if not r or not r.get("dir"):
+        print(f"tick: no run {a.name}", file=sys.stderr)
+        return 2
+    run_dir = Path(r["dir"])
+    ignore = stall_ignored(run_dir)
+    base = Path(r["launch_cwd"]) if r.get("launch_cwd") else None
+    newest, which = 0.0, None
+    for root in stall_roots(run_dir, r.get("watch") or [], base):
+        m, f = newest_file(root, ignore)
+        if m > newest:
+            newest, which = m, f
+    try:  # the supervisor never counts silence from before its own start
+        started = datetime.fromisoformat(r["started"]).timestamp()
+    except (KeyError, TypeError, ValueError):
+        started = 0.0
+    now = time.time()
+    stall_s = r.get("stall_sec") or 3600
+    age = now - max(newest, started)
+    would = age > stall_s
+    print(f"{a.name}: state {r.get('state')}; newest counted artifact {which or '(none)'}"
+          + (f", {int(now - newest)} s old" if newest else "")
+          + f"; the alarm is at {stall_s} s; the tick reads {'STALLED' if would else 'running'} "
+          f"({int(age)} s of silence since the later of that file and the launch)")
+    for p in sorted(ignore):
+        try:
+            print(f"  not counted: {p} ({int(now - os.stat(p).st_mtime)} s old)")
+        except OSError:
+            continue
+    return 1 if would else 0
 
 
 def alerts(a: argparse.Namespace) -> int:
@@ -1087,6 +1142,9 @@ def main(argv: list[str] | None = None) -> int:
     wa.add_argument("--name", required=True)
     wa.add_argument("--timeout", type=float, default=0)
     wa.add_argument("--poll", type=float, default=10.0)
+    tk = sub.add_parser("tick", help="read-only: what the stall tick sees for a run right now (the newest counted "
+                                     "file and its age, the launcher's own files it does not count)")
+    tk.add_argument("--name", required=True)
     al = sub.add_parser("alerts")
     al.add_argument("--unacked", action="store_true")
     al.add_argument("--json", action="store_true")
@@ -1100,7 +1158,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     return {"launch": lambda: launch(a, cmd), "status": lambda: status(a), "wait": lambda: wait(a),
             "alerts": lambda: alerts(a), "ack": lambda: ack(a), "prune": lambda: prune(a),
-            "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a),
+            "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a), "tick": lambda: tick(a),
             "pause": lambda: pause(a), "relaunch": lambda: relaunch(a)}[a.verb]()
 
 

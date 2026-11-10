@@ -618,3 +618,29 @@ def test_the_big_run_chain_reports_the_sampler_and_never_arms_it():
     assert "systemd-run" not in code and "arm_memsampler" not in code
     assert "report_memsampler" in code and '"$OUT/WATCHDOG-TRIP"' in code
     assert subprocess.run(["bash", "-n", str(chain)], capture_output=True).returncode == 0
+
+
+# ---- 11-09: `tick`, the read-only view of the stall tick (the boundary's self-check)
+
+
+def test_tick_shows_what_the_stall_tick_counts(state, capsys):
+    d = state / "tk"
+    d.mkdir()
+    old = time.time() - 600
+    (d / "loop.log").write_text("x\n")
+    os.utime(d / "loop.log", (old, old))
+    (d / "memory.jsonl").write_text("{}\n")  # fresh, and not the run's progress
+    started = runs.datetime.fromtimestamp(old - 60).astimezone().isoformat(timespec="seconds")
+    runs._write_json(runs._run_file("tk"), {"name": "tk", "state": "running", "dir": str(d), "stall_sec": 300,
+                                            "started": started, "watch": [], "supervisor_pid": os.getpid()})
+    before = sorted(p.name for p in d.iterdir())
+    assert runs.main(["tick", "--name", "tk"]) == 1  # 600 s of silence against a 300 s alarm
+    out = capsys.readouterr().out
+    assert "loop.log" in out.splitlines()[0] and "STALLED" in out.splitlines()[0]
+    assert "not counted" in out and "memory.jsonl" in out
+    (d / "heartbeat.json").write_text("{}")  # idle on purpose: counted
+    assert runs.main(["tick", "--name", "tk"]) == 0
+    assert "heartbeat.json" in capsys.readouterr().out.splitlines()[0]
+    assert sorted(p.name for p in d.iterdir()) == sorted(before + ["heartbeat.json"])  # the verb wrote nothing
+    assert runs.read_run("tk")["state"] == "running" and not runs.read_alerts()
+    assert runs.main(["tick", "--name", "nope"]) == 2
