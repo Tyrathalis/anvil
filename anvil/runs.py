@@ -20,7 +20,12 @@ construction, what the checklist used to ask each script to remember:
               ticks on the newest mtime under D: running -> stalled ->
               recovered, on transition only. The launcher's own files do not
               count (11-09: the memory sampler's memory.jsonl, the supervisor's
-              log — stall_ignored); heartbeat.json does
+              log — stall_ignored); heartbeat.json does. THE WRITERS' RULE the
+              tick rests on: nothing under a watched dir is written on a timer
+              unless it is a deliberate wait, and a deliberate wait heartbeats.
+              A helper that prints "still nothing" every minute blinds the tick
+              (the model server's idle stats line and the harness's unchanged
+              progress line did, through every generation, until 11-09)
   alerts      every transition appends to alerts.jsonl (id, ts, run, kind,
               msg, acked=false) — the queue the check-in drains (a scheduled
               Claude task, or anyone's poll); plus best-effort sinks:

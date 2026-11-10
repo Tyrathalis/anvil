@@ -644,3 +644,86 @@ def test_tick_shows_what_the_stall_tick_counts(state, capsys):
     assert sorted(p.name for p in d.iterdir()) == sorted(before + ["heartbeat.json"])  # the verb wrote nothing
     assert runs.read_run("tk")["state"] == "running" and not runs.read_alerts()
     assert runs.main(["tick", "--name", "nope"]) == 2
+
+
+# ---- 11-09: helpers that wrote on a timer under the tick's roots go quiet when nothing happened
+
+
+def _server_stats_loop():
+    """The model server's `_Batcher._stats_loop`, compiled from its source alone:
+    importing anvil.bridge.server pulls grpc and torch, and this suite stays stdlib."""
+    import ast
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[1] / "anvil" / "bridge" / "server.py").read_text()
+    cls = next(n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == "_Batcher")
+    fn = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "_stats_loop")
+    return ast.Module(body=[fn], type_ignores=[])
+
+
+def test_server_stats_line_is_silent_while_idle(capsys):
+    """One `stats: idle` on the transition, nothing until work resumes; a busy
+    window always prints. An idle line every minute kept iter-K/server.log —
+    under the stall tick's --watch root — fresh through any generation hang."""
+    class _Stop(Exception):
+        pass
+
+    lines = iter(["stats: 900 asks", "stats: idle", "stats: idle", "stats: idle", "stats: 12 asks",
+                  "stats: 12 asks", "stats: idle", "stats: idle"])
+
+    class _FakeTime:
+        @staticmethod
+        def sleep(_s):
+            return None
+
+    class _Stub:
+        stats_every = 60.0
+
+        def stats_line(self, reset=False):
+            try:
+                return next(lines)
+            except StopIteration:
+                raise _Stop from None
+
+    ns = {"time": _FakeTime, "print": print}
+    exec(compile(_server_stats_loop(), "server.py::_stats_loop", "exec"), ns)  # noqa: S102
+    with pytest.raises(_Stop):
+        ns["_stats_loop"](_Stub())
+    out = capsys.readouterr().out.splitlines()
+    assert out == ["[server] stats: 900 asks", "[server] stats: idle", "[server] stats: 12 asks",
+                   "[server] stats: 12 asks", "[server] stats: idle"]
+
+
+def test_harness_minute_line_prints_only_when_something_moved():
+    """The scheduler's progress line lands in the loop's log, in the run dir the
+    tick watches. At an unchanged count it used to repeat every minute for as
+    long as the scheduler lived, wedged workers or not."""
+    from anvil.bridge.harness.orchestrator import progress_note
+
+    line, last = progress_note(29, 120, 1695.0, "", None)
+    assert line == "[harness] 29/120 (1695 g/h this session)"
+    assert progress_note(29, 120, 1600.0, "", last)[0] is None  # the rate drifts with the clock; the count did not move
+    line, last = progress_note(30, 120, 1610.0, "", last)
+    assert line == "[harness] 30/120 (1610 g/h this session)"
+    # a yield is announced once, then silent while nothing completes (it heartbeats instead)
+    line, last = progress_note(30, 120, 1610.0, "python[1804] 18732 MB sm 88%", last)
+    assert line.endswith("(yielding: python[1804] 18732 MB sm 88%)")
+    assert progress_note(30, 120, 1500.0, "python[1804] 18732 MB sm 88%", last)[0] is None
+    line, last = progress_note(31, 120, 1500.0, "python[1804] 18732 MB sm 88%", last)  # an active chunk finished
+    assert line.startswith("[harness] 31/120") and "yielding" in line
+    assert progress_note(31, 120, 1500.0, "", last)[0] == "[harness] 31/120 (1500 g/h this session)"  # resumed
+
+
+def test_a_generation_that_goes_quiet_stalls_the_tick(state):
+    """The layout of a loop mid-generation: the run dir holds the loop's log, the
+    watched loop dir holds iter-K/mu.jsonl and server.log. Once the writers are
+    honest — nothing appended when nothing happened — a hung generation is a
+    stall, while the sampler keeps writing beside it."""
+    d = state / "gen"
+    loop = state / "training" / "gen"
+    (loop / "iter-000").mkdir(parents=True)
+    for f in ("mu.jsonl.s0", "server.log"):
+        (loop / "iter-000" / f).write_text("row\n")
+    cmd = ["sh", "-c", f"echo '[harness] 29/120' ; for i in $(seq 1 14); do touch {d}/memory.jsonl; sleep 0.2; done; exit 0"]
+    assert _launch(state, "gen", cmd, stall_sec=1, watch=str(loop)) == 0
+    assert [a["kind"] for a in runs.read_alerts()] == ["stalled", "done"]

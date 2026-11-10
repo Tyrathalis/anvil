@@ -172,9 +172,20 @@ class _Batcher:
             threading.Thread(target=self._stats_loop, daemon=True, name="gpu-stats").start()
 
     def _stats_loop(self) -> None:
+        # 11-09 (the infrastructure survey): ONE `stats: idle` line when the server goes
+        # idle, then silence until work resumes. This log sits under the launcher's stall
+        # tick (the loop's iter-K/server.log, a read's <name>-arm-server.log), and an idle
+        # line every minute kept the newest-file tick fresh through any generation hang —
+        # a wedged worker fleet read as a live run for as long as its servers were up.
+        # A busy window always prints: asks served are work, and the line says how much.
+        idle = False
         while True:
             time.sleep(self.stats_every)
-            print("[server] " + self.stats_line(reset=True), flush=True)
+            line = self.stats_line(reset=True)
+            was_idle, idle = idle, line == "stats: idle"
+            if idle and was_idle:
+                continue
+            print("[server] " + line, flush=True)
 
     def stats_line(self, reset: bool = False) -> str:
         with self._stat_lock:
