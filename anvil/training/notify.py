@@ -21,7 +21,22 @@ def watch_register(name: str, watch_dir, stall_min: int = 75) -> None:
     OWN pid — the 2026-07-31 post-mortem retired every pattern-derived pid
     acquisition after `pgrep -f` self-matches claimed three babysitters.
     Clean exits must call watch_unregister; dying without it is the point:
-    the watcher then notifies GONE. Never raises."""
+    the watcher then notifies GONE. Never raises.
+
+    Under a launched run this is a no-op (11-09): the `anvil.runs` supervisor
+    is that run's one stall watcher — it holds the pid, ticks on the run dir
+    and every --watch root, and hears `anvil.runs.heartbeat` during a
+    deliberate wait. The standing watcher saw only `watch_dir` and none of
+    the heartbeats, so the big run's 91-minute training-step GPU wait raised
+    a false STALLED beside a quiet supervisor. watch_unregister still runs,
+    so a registration left by an older process is cleared."""
+    if os.environ.get("ANVIL_RUN_NAME"):
+        print(
+            f"[notify] watch_register skipped for {name}: the anvil.runs supervisor of "
+            f"{os.environ['ANVIL_RUN_NAME']} is the stall watcher",
+            flush=True,
+        )
+        return
     try:
         script = os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "anvil_watchd.py")
         subprocess.run(

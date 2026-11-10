@@ -77,3 +77,26 @@ def test_register_refuses_dead_pid(tmp_path):
     proc.wait()
     r = _run(tmp_path, "register", "--name", "t3", "--pid", str(proc.pid), "--dir", str(tmp_path))
     assert r.returncode != 0
+
+
+def test_watch_register_is_a_noop_under_a_launched_run(tmp_path, monkeypatch):
+    """One stall watcher per run: under `anvil.runs` (ANVIL_RUN_NAME exported
+    by the supervisor) the self-registration is skipped; outside it, it lands.
+    watch_unregister clears a leftover registration either way."""
+    from anvil.training.notify import watch_register, watch_unregister
+
+    monkeypatch.setenv("ANVIL_WATCH_DIR", str(tmp_path / "watch"))
+    monkeypatch.setenv("ANVIL_NOTIFY_SILENT", "1")
+    reg = tmp_path / "watch" / "t9.json"
+
+    monkeypatch.setenv("ANVIL_RUN_NAME", "some-run")
+    watch_register("t9", tmp_path, stall_min=999)
+    assert not reg.exists()
+
+    monkeypatch.delenv("ANVIL_RUN_NAME")
+    watch_register("t9", tmp_path, stall_min=999)
+    assert json.loads(reg.read_text())["pid"] == os.getpid()
+
+    monkeypatch.setenv("ANVIL_RUN_NAME", "some-run")
+    watch_unregister("t9")
+    assert not reg.exists()
