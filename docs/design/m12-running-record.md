@@ -3816,3 +3816,14 @@ record.*
   1063426 --dir data/training/big-run --stall-min 180`. It is the stopgap stall detector that survives the desktop
   app until the boundary; 180 minutes keeps a training-step GPU wait of the 11-09 length under the line. The loop's
   own unregister clears it at a clean exit. It reaches the desk only (no phone path, the survey's finding 3).
+- **The boundary fixes are built on `infra-boundary-fixes` (18:30; tip `7aca6f0`, not merged):** the survey session
+  built five fixes, one commit and one test each, over a merge of `retire-watchd-under-launcher`: the stall tick
+  skipping the launcher's own files, the check-in re-resolved on every relaunch, `wait` returning on `paused` and
+  `gone`, the resume count reset on a manual relaunch, the memory sampler armed once. It added a read-only
+  `anvil.runs tick` verb. Reviewed here: the diff reads correct, 38 tests pass, ruff clean.
+- **One more blind spot found in review: the stall detectors cover the training phase only.** The inference server
+  prints a stats line every 60 s even when idle (`anvil/bridge/server.py:174`), so `iter-N/server.log` stays fresh for
+  the whole of generation whatever the harness does. That is why the standing watcher never fired during the
+  generation GPU yields. It holds for the fixed tick and for the standing watcher re-registered at 18:08. The
+  babysitting session's 60-minute quiet watch does not read that file, so it is the one detector of a generation hang
+  until the boundary. The fix is routed to the same branch.
