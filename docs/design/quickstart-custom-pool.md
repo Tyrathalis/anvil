@@ -46,12 +46,12 @@ and has the checklist for a format that is not here yet.
 
 | Thing | Why |
 |---|---|
-| Linux or macOS, 16+ cores, 32+ GB RAM (everything below was measured on Linux) | Forge workers are the bottleneck: ~5 CPU-seconds per game, one JVM per worker at 2 GB heap. Nothing needs systemd or `/proc`; the run launcher (§7½) is plain Python |
-| An NVIDIA GPU with ≥ 12 GB (a 4090 is what everything below was measured on) | the decision server and the learner; `--device cpu` exists on every driver but generation then waits on inference |
+| Linux or macOS, 16+ cores, 32+ GB RAM (everything below was measured on Linux with 128 GB) | Forge workers are the bottleneck: ~5 CPU-seconds per game, one JVM per worker at 2 GB heap. Under 64 GB, keep the two memory flags in the §7 command. Nothing needs systemd or `/proc`; the run launcher (§7½) is plain Python |
+| An NVIDIA GPU with ≥ 12 GB (a 4090 is what everything below was measured on) | the decision server and the learner; the self-play loop, the RL trainer and the model server take `--device cpu` (generation then waits on inference), the BC trainer and the paired read pick the device themselves |
 | JDK 17+ and Maven | building the Forge fork (Java 26 works; the fork compiles at release 17) |
 | Python ≥ 3.11 and [uv](https://docs.astral.sh/uv/) | the Anvil package |
 | ~30 GB of disk | the fork, the Qwen3 embedding model (~8 GB), stores and checkpoints |
-| A display, or `Xvfb` (Linux) | Forge initialises AWT before the CLI dispatches; with no `DISPLAY` the JVM exits 1 silently. The harness defaults `DISPLAY=:0`; on a headless Linux box run `Xvfb :0 &` first. macOS has a display; leave `DISPLAY` unset there |
+| A display is optional | Forge initialises AWT before the CLI dispatches. With `DISPLAY` unset the harness uses the desktop session's display when it finds one and otherwise launches the workers with `-Djava.awt.headless=true`, so a headless box and macOS need nothing. A `DISPLAY` that points at a dead display still makes the JVM exit 1 silently; unset it |
 
 Optional, for unattended runs: the [Claude Code CLI](https://claude.com/claude-code) installed and
 logged in (`claude login`). With it on the path, the run launcher (§7½) answers its own alerts by
@@ -72,13 +72,13 @@ export FORGE_DIR=$PWD/forge
 ```
 
 ```bash
-cd forge && mvn -P windows-linux -pl forge-gui-desktop -am package -DskipTests
+(cd forge && mvn -P windows-linux -pl forge-gui-desktop -am package -DskipTests)
 ```
 
 The jar lands in `forge-gui-desktop/target/*-jar-with-dependencies.jar`. Anvil finds the fork
-through `FORGE_DIR`; unset, it looks for a `forge` checkout beside the Anvil repo (this layout),
-and the cardsfolder scan is loud when neither is a Forge tree. Keep it exported anyway when your
-layout differs.
+through `FORGE_DIR`. Keep it exported in every shell you run from: the pool tooling falls back to a
+`forge` checkout beside the Anvil repo (this layout) when it is unset, but the game harness does
+not, and fails with `no forge jar`. The cardsfolder scan is loud when the path is not a Forge tree.
 Every run manifest pins the jar's SHA-256 and the fork commit, so rebuilding the fork mid-run is
 refused, not silently absorbed.
 
@@ -102,8 +102,9 @@ build reads it for provenance; the fetcher fills event metadata there). Every ca
 in the fork's `cardsfolder`; unresolved names exclude the deck and are reported. The deck shape
 each slot accepts:
 
-- **`dc`:** 99 main-deck cards, then a blank line or `Sideboard` header, then the commander (or a
-  partner pair). Singleton.
+- **`dc`:** 99 main-deck cards, then a line reading `Sideboard`, then the commander (or a partner
+  pair). Singleton. A blank line alone does not separate them: the commander then counts as a
+  main-deck card and the deck is excluded.
 - **`pauper`:** 60 main-deck cards (or 40 with `--main-size 40` on `build`, for Limited decks;
   untested, so smoke 20 games first), then a sideboard of ≤ 15. 4-of limit on non-basics.
 
@@ -118,8 +119,9 @@ snapshot it:
 uv run python -m anvil.pool --format $SLOT banlist
 ```
 
-If it is not, build with `--banlist none` (step 4) and no snapshot is needed; the manifest records
-`"fetched": "none"`.
+If it is not, the `pauper` slot builds without one: add `--banlist none` to the `build` command
+below and no snapshot is needed (the manifest records `"fetched": "none"`). The `dc` slot always
+applies the Duel Commander list and needs the snapshot; `--banlist` is ignored there.
 
 **Build and install:**
 
@@ -158,7 +160,8 @@ uv run python -m anvil.bridge.harness launch --pool --pool-format $SLOT --format
 
 The run lands in `data/runs/bc-corpus-<timestamp>/`. Sizes that worked: 4,000 games for a
 mirror (Kryptic); 50,000–110,000 for our 1,700-card Commander pool. At 16 workers the heuristic mirror
-runs about 60 games/min, so 4,000 games is about an hour and 30,000 is an overnight — launch it
+runs about 60 games/min, so 4,000 games is about an hour (about two at the 8 workers above; raise
+`--workers` toward your core count) and 30,000 is an overnight — launch it
 through the run launcher (§7½) rather than leaving a terminal open. `STOP` in the run dir pauses
 it; `resume` picks up at game granularity.
 
@@ -197,7 +200,7 @@ required: the luck correction needs a full-visibility critic trained on your poo
 ## 7. Self-play
 
 ```bash
-uv run python -m anvil.training.selfplay --name <name>-loop --ckpt data/training/bc-<name>/last.pt --iterations 25 --games 480 --seed-base 20260902 --format $GAME --pool-format $SLOT --heur-frac 0.5 --reask --penalty 0.01 --penalty-grouping first --chunk 10 --guard-veto-mult 4.0 --lr 1e-5 --rl-seg 64 --traj-per-step 4 --epochs 1 --arms-every 5 --arms-pairs data/runs/bc-corpus-<timestamp>/pairs.txt
+uv run python -m anvil.training.selfplay --name <name>-loop --ckpt data/training/bc-<name>/last.pt --iterations 25 --games 480 --seed-base 20260902 --format $GAME --pool-format $SLOT --heur-frac 0.5 --reask --penalty 0.01 --penalty-grouping first --chunk 10 --guard-veto-mult 4.0 --lr 1e-5 --rl-seg 64 --traj-per-step 4 --epochs 1 --arms-every 5 --arms-pairs data/runs/bc-corpus-<timestamp>/pairs.txt --rl-workers 4 --train-mem-floor-gb 8
 ```
 
 What the flags mean, in the order you would change them:
@@ -224,6 +227,11 @@ What the flags mean, in the order you would change them:
 - **`--arms-every 5`**: a 200-game read vs the heuristic every 5 iterations, per seat. It is a
   trend instrument (±2.5pp); do not quote it.
 - **`--rl-seg 64`** bounds learner memory; raise it on a bigger card.
+- **`--rl-workers 4 --train-mem-floor-gb 8`**: the two host-memory settings, sized here for a
+  32–64 GB box. Their defaults (12 workers, a 40 GB floor) are ours, for 128 GB. The floor is a
+  gate: the training step waits, with no timeout, while free memory is under it, so a floor above
+  what your box ever has free stalls the loop at its first training step without an alarm. §7¾
+  has the sizing rule.
 
 Checkpoints land in `data/training/<name>-loop/iter-NNN/train/last.pt`; the monitor is
 `monitor.jsonl` in the loop dir (reward, entropy, KL, veto rate per iteration). `STOP` in the loop
@@ -233,10 +241,12 @@ dir exits cleanly after the current iteration.
 
 The plain loop above is the proven path, and the one to run first. The search is this project's
 current research line (M12): it can make the games the loop learns from better than the network
-would play alone, at about 2.5× the time per game. On our pool a lookahead is worth about +2.5pp
-to the network that uses it. Whether training on it makes the network *alone* stronger is what
-our current runs are measuring. It has not been run outside this project yet, so start with a
-20-game smoke.
+would play alone, at about 2.5× the time per game. On our pool a lookahead is worth +1 to +4pp
+to the network that uses it, depending on the checkpoint. Training under it has taken the network *alone* from 53.8% to
+62.1% against the heuristic over four weeks of box time (2,000-game reads; +9.5 ± 0.8pp on a
+5,000-game paired read). No arm at that scale ran without the search, so how much of the gain is
+the search's and how much is the run's length is not separated yet. It has not been run outside
+this project, so start with a 20-game smoke.
 
 **What it does.** At some of a seat's decision points, before choosing, the worker tries every
 legal option on copies of the game and lets the network's value head judge where each one leads.
@@ -351,16 +361,20 @@ whole unattended-run checklist in one command (ADR-0107).
 
 ```bash
 uv run python -m anvil.runs launch --name mydecks-loop --dir data/training/mydecks-loop --stall-min 60 \
-    --launched-by "$MY_SESSION" -- \   # '<name> [<ref>]' as ListAgents prints it to you
-  uv run python -m anvil.training.selfplay --name mydecks-loop --ckpt data/training/bc-mydecks/last.pt ... (the §7 command)
+    --launched-by "$MY_SESSION" -- \
+  uv run python -m anvil.training.selfplay --name mydecks-loop --ckpt data/training/bc-mydecks/last.pt ...
 ```
+
+The trailing `...` stands for the rest of the §7 command. `--launched-by` names the Claude Code
+session that should hear about the run's events: `'<name> [<ref>]'` as ListAgents prints it to that
+session. Leave the flag out when no session is doing the work.
 
 It detaches (the command survives your terminal and your session), unbuffers the child's output
 into `<dir>/run.log`, runs it at low priority, records the run's state as it goes, and prints one
 line naming what it armed:
 
 ```
-[runs] LAUNCHED mydecks-loop: state ~/.local/state/anvil/runs/mydecks-loop.json (running, pid 41213), log .../run.log, stall alarm 60 min on data/training/mydecks-loop, sinks queue+desk, check-in claude (self-test OK, 3 s)
+[runs] LAUNCHED mydecks-loop: state ~/.local/state/anvil/runs/mydecks-loop.json (running, pid 41213), log .../run.log, stall alarm 60 min on data/training/mydecks-loop, sinks queue+desk, check-in claude (self-test OK, 3 s), relay to <name> [<ref>], memory watchdog ARMED
 ```
 
 While it runs, the launcher's supervisor watches the run's own directory: no new file for
@@ -369,7 +383,7 @@ the exit raises `done` or `failed` with the exit code and the last lines of the 
 dies in its first ten seconds is a recorded failure, not a silent absence. The reads:
 
 ```bash
-uv run python -m anvil.runs status            # every run: running / stalled / done / failed / gone
+uv run python -m anvil.runs status            # every run: running / stalled / paused / done / failed / gone
 uv run python -m anvil.runs alerts --unacked  # what you have not seen yet
 uv run python -m anvil.runs wait --name mydecks-loop   # block a script until it ends (exit 0 = done)
 uv run python -m anvil.runs ack --all
@@ -448,8 +462,8 @@ curl -s -H "Title: $1" -d "$2" https://ntfy.sh/<your-topic> > /dev/null
 **The LLM check-in.** With the Claude Code CLI installed and logged in (`claude login`), the
 launcher's supervisor answers its own alerts: on `failed`, `stalled`, `gone` and a `done` after
 more than an hour it runs a short headless `claude -p` session (read-only tools) that pushes one
-notification to your phone, messages any Claude Code session on the machine whose title mentions
-Anvil, and acks the alert. The launch runs a three-second self-test first and says so in the
+notification to your phone, messages the Claude Code session named by `--launched-by` (without
+the flag, the newest session on the machine whose title mentions Anvil), and acks the alert. The launch runs a three-second self-test first and says so in the
 coverage line (`check-in claude (self-test OK, 3 s)`); if the CLI is missing or its login has
 expired the line says `check-in NONE — ...` and an alert records it, so you know at launch that
 nobody will answer. `--checkin none` turns it off; `--watch 'data/runs/<name>-*'` adds artifact
@@ -465,7 +479,7 @@ work: the driver exits cleanly and the launcher records `done`.
 
 ### 7¾. Memory on a long run (10-21)
 
-Two things the big run taught that the launcher now does for you, and one you size yourself:
+Two things the launcher does for you, one you size yourself, and the watchdog run by hand:
 
 - **A detached run arms the memory watchdog.** Every detached `anvil.runs launch` (and relaunch) starts the
   memory sampler + watchdog user unit (`scripts/memory_sampler.sh`: a JSON line of the box's memory every
@@ -496,7 +510,9 @@ uv run python scripts/final_read.py --ckpt data/training/<name>-loop/iter-024/tr
 
 Read every 5–10 iterations with this, not with the arms. Kryptic's mirror: 55.2% at iteration
 25 (n = 1,000, ±1.6). Our pool: parity at iteration ~20 of the first recipe, 53.5% after the
-drill work (on the current engine). Nobody on Forge has reported much past 55% against the heuristic with a network alone.
+drill work, and 62.1% ± 1.1 after four weeks of the search loop of §7a (all on the current engine,
+network alone). We know of no other Forge project reporting much past 55% against the heuristic
+with a network alone.
 
 ## 9. What it costs
 
@@ -511,8 +527,9 @@ drill work (on the current engine). Nobody on Forge has reported much past 55% a
 ## Troubleshooting
 
 - **`no forge jar under $FORGE_DIR/forge-gui-desktop/target`**: build the fork (step 1) or export
-  `FORGE_DIR`.
-- **Workers exit 1 with empty logs**: no display. `Xvfb :0 &` and `export DISPLAY=:0`.
+  `FORGE_DIR` (the harness has no fallback when it is unset).
+- **Workers exit 1 with empty logs**: `DISPLAY` points at a display that is not there. Unset it
+  (the harness then runs the workers headless), or start one: `Xvfb :0 &`.
 - **`N pool cards have no cardsfolder script (pool/fork mismatch?)`**: a deck names a card the
   fork does not script, or `FORGE_DIR` points at a different Forge. Fix the decklist or the path.
 - **`installed pool decks differ from data/pool/decks`**: re-run `install`; something edited the

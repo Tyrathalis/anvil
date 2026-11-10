@@ -47,9 +47,10 @@ the `forkcheck` fidelity-regression harness, and a
 ## Status
 
 Twelve milestones in: M0–M11 closed, M12 (search as the behavior policy)
-open — its shakedown run is under way as of 2026-09-23. The RL checkpoint of
-record plays at 53.5% ± 1.1pp against Forge's heuristic AI on the current
-engine. The live state is the Status section of [CLAUDE.md](CLAUDE.md); the
+open. Its big run has been training since 2026-10-05 and is in its fifth
+weekly segment as of 2026-11-09. The RL checkpoint of record plays at
+62.1% ± 1.1pp against Forge's heuristic AI on the current engine, network
+alone. The live state is the Status section of [CLAUDE.md](CLAUDE.md); the
 [project map](docs/project-map.html) is the dashboard, the
 [decision records](docs/decisions/) are the record, and
 [docs/README.md](docs/README.md) indexes the rest.

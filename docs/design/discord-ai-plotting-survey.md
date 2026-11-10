@@ -407,7 +407,7 @@ The caveats that matter for his purpose:
   behaviour policy gets past that (the day-zero read: lookahead +2.5pp for either policy). A
   self-play limited agent's card statistics will therefore look like the heuristic's card statistics
   plus a small correction — and the heuristic's known holes (declines half of mode choices, no
-  combat-ordering sense, payment slack ≈ +3pp/game, [ADR-0075](../decisions/ADR-0075-perfect-payment-headroom.md))
+  combat-ordering sense, payment slack ≈ +3pp/game, [ADR-0075](../decisions/ADR-0075-window-rate-sweep.md))
   are exactly the places where a card's value is mis-measured.
 - **For card quality you may not need a learned player at all.** LordOfThePigs's stack derives
   per-card played/win statistics straight from ~1M forge-vs-forge games and pretrains a text-only

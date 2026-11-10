@@ -1,7 +1,7 @@
 # Standing rules
 
 One line per rule, grouped by when you need it, each linked to the ADR
-that born it. This is the consolidated register — milestone bullets in
+that gave rise to it. This is the consolidated register — milestone bullets in
 CLAUDE.md no longer enumerate rules, they point here. **Read the
 relevant section before designing any run, gate, instrument, or
 curation cycle.** (The seven design invariants stay in CLAUDE.md; this
@@ -314,7 +314,7 @@ reads).
 - Milestone close includes the **stale-data deletion pass** (inventory
   → reference-grep → kill list → user sign-off); drills.jsonl dirs,
   ckpts of record, selection/evalset assets, baseline arm stores, and
-  Ante certs are unconditional keeps (CLAUDE.md workflow section).
+  Ante certs are unconditional keeps (CLAUDE.md's session wrap-up checklist).
 - Standing hazards: the playable build shares Forge's user deck store
   with research (`launch --pool` hash-gates it); **never check out
   `playable` in the research worktree**; pool selection rides
@@ -361,7 +361,7 @@ reads).
   core features ([ADR-0018](decisions/ADR-0018-ruleset-scope-clarification.md)
   recipe-first).
 - **Every store row carries an explicit format id and pool id**, and a new format onboards by
-  the recipe doc (`docs/design/format-onboarding.md` — unwritten as of 2026-09-23; the [quickstart](design/quickstart-custom-pool.md) is its Constructed instance) as one boundary event — extends the
+  the recipe doc ([format-onboarding.md](design/format-onboarding.md); the [quickstart](design/quickstart-custom-pool.md) is its Constructed instance) as one boundary event — extends the
   content-in-chunks rule to formats
   ([ADR-0101 addendum](decisions/ADR-0101-architecture-review-m12-recharter.md)).
 - **One decision MECHANISM per milestone; surfaces attribute through

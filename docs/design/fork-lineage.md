@@ -4,7 +4,7 @@
 
 Moved out of CLAUDE.md's state-of-record table on 2026-09-23 (the fluency pass); the cell as it
 stood is in [status-archive.md](../status-archive.md) verbatim. Add a row on every fork commit that
-reaches the pin. Checkout `../forge`; branch `master` (fast-forwarded, unpushed).
+reaches the pin. Checkout `../forge`; branch `master` (pushed; level with `origin/master`).
 
 **How to read a proof.** Every tip below is ADR-0025-exempt (behavior-identical on the game path):
 the same seed set on both jars gives identical `forkcheck` trace hashes. The misses that recur are

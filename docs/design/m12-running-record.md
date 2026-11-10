@@ -3857,3 +3857,34 @@ record.*
   supervisor died (the app-killed case)? The steps and the reading tables are in the survey report, under finding 4.
   A confirmed proof puts one choice to the user at the relaunch: `"resume": false` in the state file until the fix
   (the supervisor inside the run's scope, the sweep's child-alive guard, the loop-dir lock) is built.
+
+## 2026-11-09 (19:45) — the documentation review (the user's ask): errors fixed in ten docs; a style guide proposed, not adopted
+
+- **Verdict: the docs are accurate where they are generated or mechanically checked, and wrong where a document is
+  updated by appending.** Three read-only audits (the quickstart against the code, code comments and docstrings,
+  cross-document consistency) plus a link check and a read of each doc class. No code, recipe or run change; only
+  `.md` and `.html` files were edited.
+- **The quickstart had errors an external user would hit.** The §7½ launcher example carried a comment after its
+  line continuation, so the launcher got an empty command and the loop ran unsupervised. The §7 command left
+  `--train-mem-floor-gb` at 40 and `--rl-workers` at 12 on a documented 32 GB minimum; the memory gate waits with
+  no timeout, so the first training step never started there. The command now passes `--rl-workers 4
+  --train-mem-floor-gb 8` and says why. Also fixed: the clone order (Anvil landed inside the fork checkout), the
+  `FORGE_DIR` fallback (pool tooling only), the `dc` deck shape (a `Sideboard` line, not a blank line),
+  `--banlist none` (pauper only), the display row (headless works without Xvfb), `--device cpu` (three drivers,
+  not all), the check-in's relay target, and the strength figures.
+- **Stale state corrected:** the root README's Status paragraph; the map's Now panel, pills, era-reference row,
+  upstream rows and the ADR-0103 link; the design doc's §13 M12 row, §4 value-head note, the Ante estimate's
+  outcome, one cross-reference (§3c → §3d) and two pointers to the milestone table; the plan's title, status
+  paragraph and five routed items that had since landed; `format-onboarding.md` "unwritten" in the plan and the
+  standing rules; #11285 in the upstream worklist's open-PR list; the fork lineage's "unpushed"; CLAUDE.md's Now
+  date, the Cabal Coffers item listed as open, and a stray line break.
+- **Left as found, by design.** The Now block's stale-in-place sentences ("RUNNING", "is due", "the box is quiet")
+  need a rewrite, not patches; that is the style-guide decision. The design doc and field guide's full refresh
+  stays with the closeout documentation pass. The nine stale code comments and five era-frozen module headers
+  (`server.py`, `model.py`, `dataset.py`, `selfplay.py`, `value_pretrain.py`) are `.py` edits and wait for a stop
+  of the run. Two code items surfaced for a boundary, not changed: the harness's `FORGE_DIR` has no sibling
+  fallback (`orchestrator.py:41` defaults to a home path), and its display probe hardcodes uid 1000.
+- **The style-guide proposal (for discussion, not adopted):** three document kinds with three rules — state docs
+  are rewritten and capped, records are append-only, reference docs and comments describe the present and point
+  to a record for history; a glossary for the private labels; one generated source for the README Status and the
+  map's Now panel.
