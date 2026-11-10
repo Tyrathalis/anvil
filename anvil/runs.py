@@ -68,7 +68,8 @@ Verbs:
   launch  --name N --dir D [--stall-min 60] [--nice 19] [--memory-max 20G]
           [--log D/run.log] [--tick-sec 120] -- cmd...
   status  [--json]                 every run's state (newest first)
-  wait    --name N [--timeout S]   block until the run is done | failed
+  wait    --name N [--timeout S]   block until the run stops being live; exit 0 done, 1 failed,
+                                   2 gone (dead supervisor), 3 the --timeout, 4 paused
   alerts  [--unacked] [--json]     the queue
   ack     --all | --id ID...       mark alerts read
   prune   [--days 30]              drop terminal run records older than N days
@@ -727,6 +728,10 @@ def status(a: argparse.Namespace) -> int:
     return 0
 
 
+# `wait`'s exit codes, one per way a run stops being live (3 = the wait's own --timeout)
+WAIT_RC = {"done": 0, "failed": 1, "gone": 2, "paused": 4}
+
+
 def wait(a: argparse.Namespace) -> int:
     t0 = time.time()
     while True:
@@ -736,12 +741,20 @@ def wait(a: argparse.Namespace) -> int:
         # (after-paired STALLED at 240 min, 22:45, four hours into a benign wait).
         heartbeat(f"waiting on {a.name}")
         r = read_run(a.name)
-        if r and r.get("state") in ("done", "failed"):
-            print(f"{a.name}: {r['state']} rc={r.get('rc')}")
-            return 0 if r["state"] == "done" else 1
-        if r and r.get("state") in ("running", "stalled") and not _alive(r.get("supervisor_pid")):
+        state = (r or {}).get("state")
+        if state in ("done", "failed"):
+            print(f"{a.name}: {state} rc={r.get('rc')}")
+            return WAIT_RC[state]
+        # 11-09 (survey finding 7): every terminal state ends the wait. `paused` and a `gone`
+        # the sweep had already written matched no branch, so the launching session's
+        # background wait — the belt under the check-in — hung forever on exactly those two.
+        if state in ("paused", "gone"):
+            print(f"{a.name}: {state}" + (" (the sweep found the supervisor dead)" if state == "gone" else
+                                         f" — `anvil.runs relaunch --name {a.name}` resumes it"))
+            return WAIT_RC[state]
+        if state in ("running", "stalled") and not _alive(r.get("supervisor_pid")):
             print(f"{a.name}: gone (supervisor died)")
-            return 2
+            return WAIT_RC["gone"]
         if a.timeout and time.time() - t0 > a.timeout:
             print(f"{a.name}: wait timeout")
             return 3
@@ -1058,7 +1071,8 @@ def main(argv: list[str] | None = None) -> int:
                          "the check-in relays to it and it owns the close (ADR-0107); default: the recorded one")
     st = sub.add_parser("status")
     st.add_argument("--json", action="store_true")
-    wa = sub.add_parser("wait")
+    wa = sub.add_parser("wait", help="block until the run is done (0) / failed (1) / gone (2) / paused (4); "
+                                     "3 = --timeout")
     wa.add_argument("--name", required=True)
     wa.add_argument("--timeout", type=float, default=0)
     wa.add_argument("--poll", type=float, default=10.0)

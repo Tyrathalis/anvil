@@ -542,3 +542,27 @@ def test_relaunch_resolves_the_checkin_again(state, monkeypatch):
     legacy = {k: v for k, v in st.items() if k != "checkin_requested"}
     assert runs._relaunch_args(legacy).checkin == "auto"
     assert runs._relaunch_args(legacy, checkin="none").checkin == "none"
+
+
+# ---- 11-09: `wait` ends on every terminal state (the infrastructure survey, finding 7)
+
+
+def test_wait_returns_on_paused_and_on_a_swept_gone(state):
+    """done 0 / failed 1 / gone 2 / paused 4. A `gone` the sweep already wrote
+    and a `paused` used to match no branch: without --timeout the wait never
+    returned (with it, 3 — the timeout — which is what this would read)."""
+    d = str(state / "x")
+    runs._write_json(runs._run_file("wp"), {"name": "wp", "state": "paused", "dir": d, "supervisor_pid": 1})
+    assert runs.main(["wait", "--name", "wp", "--timeout", "3", "--poll", "0.2"]) == 4
+    runs._write_json(runs._run_file("wg"), {"name": "wg", "state": "gone", "dir": d, "supervisor_pid": 1})
+    assert runs.main(["wait", "--name", "wg", "--timeout", "3", "--poll", "0.2"]) == 2
+    # the unswept form (running, the supervisor dead) is the same answer
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    os.waitpid(pid, 0)
+    runs._write_json(runs._run_file("wr"), {"name": "wr", "state": "running", "dir": d, "supervisor_pid": pid})
+    assert runs.main(["wait", "--name", "wr", "--timeout", "3", "--poll", "0.2"]) == 2
+    # a live run still waits: the timeout is the only way out
+    runs._write_json(runs._run_file("wl"), {"name": "wl", "state": "running", "dir": d, "supervisor_pid": os.getpid()})
+    assert runs.main(["wait", "--name", "wl", "--timeout", "0.6", "--poll", "0.2"]) == 3
