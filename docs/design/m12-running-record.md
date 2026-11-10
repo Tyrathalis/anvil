@@ -3776,8 +3776,11 @@ record.*
   registration. The cost: a real stall under a launched run is caught at the launcher's threshold (three hours for
   the big run), not at 75 minutes. Built and tested on the branch `retire-watchd-under-launcher` (worktree
   `.claude/worktrees/retire-watchd`, commit `2122bb2`; `tests/test_watchd.py` + `tests/test_runs.py` 28 passed).
-  **It merges at the segment boundary before the relaunch**, not under the live loop. The live process keeps its
-  registration until then, so a second long training-step wait in segment 5 can raise the same notice.
+  **It merges at the segment boundary before the relaunch**, not under the live loop.
+- **The live registration dropped 17:26 (the user's call):** `anvil_watchd.py unregister --name big-run` removed the
+  loop's 75-minute registration (pid 1063426 on the training directory), so segment 5 runs under the supervisor alone
+  from here. The loop's own unregister at exit is a no-op on a missing file. Iteration 427 closed clean at 17:23
+  (Spearman 0.463, gap 0.087: the four-row creep reads as a wobble).
 - **Rows 417–426 at this glance:** holdout Spearman 0.440–0.466 (within one SE of 0.452), entropy settled near 0.145
   after easing from 0.167, kl_mu 0.009–0.011, casts 318–426 per game. The gap read 0.091, 0.091, 0.093, 0.099 over
   iterations 423–426 (segment 4 closed at 0.096; the pause line is 0.15): a watch item for the next glance.
