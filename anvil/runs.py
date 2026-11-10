@@ -18,7 +18,9 @@ construction, what the checklist used to ask each script to remember:
               cleanly and nobody knew for an hour.
   stall       the supervisor (this process, alive for the run's whole life)
               ticks on the newest mtime under D: running -> stalled ->
-              recovered, on transition only
+              recovered, on transition only. The launcher's own files do not
+              count (11-09: the memory sampler's memory.jsonl, the supervisor's
+              log — stall_ignored); heartbeat.json does
   alerts      every transition appends to alerts.jsonl (id, ts, run, kind,
               msg, acked=false) — the queue the check-in drains (a scheduled
               Claude task, or anyone's poll); plus best-effort sinks:
@@ -227,17 +229,54 @@ def ack_alerts(ids: set[str] | None) -> int:
 # ------------------------------------------------------------- supervisor
 
 
-def newest_mtime(root: Path) -> float:
+# 11-09 (the infrastructure survey, finding 1): files the launcher's own machinery
+# writes into a run dir are not the run's artifacts. The memory sampler appends
+# <run dir>/memory.jsonl every 20 s, so the stall tick saw a fresh file forever
+# (zero `stalled` alerts for the big run in five weeks, through a 91-minute
+# training-step wait and whatever else went quiet); and the detached supervisor's
+# own stdout is <run dir>/supervisor.log, so raising STALLED refreshed the dir and
+# the next tick called it `recovered` (every stall in the queue up to 11-09 is
+# followed by a recovery exactly one tick later). heartbeat.json is NOT here: a
+# job idle on purpose is alive, that is the heartbeat's whole point.
+STALL_IGNORE_NAMES = ("memory.jsonl", "supervisor.log")
+
+
+def stall_ignored(run_dir: Path) -> frozenset[str]:
+    """The absolute paths the stall tick skips: this run's own sampler output and
+    supervisor log, plus wherever the box's one memory sampler is writing right
+    now (memsampler.json `out` — it may be another run's dir that sits under one
+    of this run's --watch roots)."""
+    own = {os.path.realpath(run_dir / n) for n in STALL_IGNORE_NAMES}
+    try:
+        out = json.loads((state_dir() / "memsampler.json").read_text()).get("out")
+        if out:
+            own.add(os.path.realpath(out))
+    except (OSError, json.JSONDecodeError, AttributeError):
+        pass
+    return frozenset(own)
+
+
+def newest_mtime(root: Path, ignore: frozenset[str] = frozenset()) -> float:
     """Newest file mtime under root (the run's own artifact dir, not a
-    project-wide tree); 0 when nothing is there yet."""
+    project-wide tree); 0 when nothing is there yet. `ignore` = real paths
+    that do not count (stall_ignored); only a file whose basename matches one
+    is resolved, so the walk stays a walk."""
+    names = {os.path.basename(p) for p in ignore}
+
+    def skipped(path: str, fn: str) -> bool:
+        return fn in names and os.path.realpath(path) in ignore
+
     newest = 0.0
     try:
         if os.path.isfile(root):  # a --watch glob may name files
-            return os.stat(root).st_mtime
+            return 0.0 if skipped(str(root), os.path.basename(root)) else os.stat(root).st_mtime
         for dirpath, _dirs, files in os.walk(root):
             for fn in files:
+                path = os.path.join(dirpath, fn)
+                if skipped(path, fn):
+                    continue
                 try:
-                    m = os.stat(os.path.join(dirpath, fn)).st_mtime
+                    m = os.stat(path).st_mtime
                 except OSError:
                     continue
                 if m > newest:
@@ -460,7 +499,8 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         for pat in watch:
             pp = Path(pat)
             roots += list(pp.parent.glob(pp.name)) if any(c in pp.name for c in "*?[") else [pp]
-        return max(newest_mtime(r) for r in roots)
+        ignore = stall_ignored(run_dir)  # re-read each tick: the sampler's owner can change
+        return max(newest_mtime(r, ignore) for r in roots)
 
     logf = open(log, "ab")
     logf.write(f"[runs] {_now()} launch {a.name}: {' '.join(cmd)}\n".encode())

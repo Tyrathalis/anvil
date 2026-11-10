@@ -440,3 +440,67 @@ def test_memsampler_failure_is_a_phrase_not_an_exception(state, monkeypatch):
     assert "FAILED to arm" in note and "unwatched" in note
     monkeypatch.setenv("ANVIL_MEMSAMPLER", "0")
     assert runs.arm_memsampler("r3", state / "r3", run=_Fake(active=False)) == "memory watchdog: off (ANVIL_MEMSAMPLER=0)"
+
+
+# ---- 11-09: the stall tick does not count the launcher's own files (the infrastructure survey, finding 1)
+
+
+def test_sampler_file_in_the_run_dir_does_not_mask_a_stall(state):
+    """The quickstart's layout: --dir is the loop dir and the memory sampler
+    appends <dir>/memory.jsonl every 20 s. A loop that has gone quiet is
+    STALLED however fresh the sampler's file is (the big run's tick was blind
+    for five weeks)."""
+    d = state / "loop"
+    d.mkdir()
+    (d / "loop_state.json").write_text("{}")
+    cmd = ["sh", "-c", f"for i in $(seq 1 14); do touch {d}/memory.jsonl; sleep 0.2; done; exit 0"]
+    assert _launch(state, "loop", cmd, stall_sec=1) == 0
+    kinds = [a["kind"] for a in runs.read_alerts()]
+    assert kinds == ["stalled", "done"], kinds
+
+
+def test_heartbeat_still_holds_the_stall_off(state):
+    """A job idle on purpose stays `running`: heartbeat.json is an artifact."""
+    d = state / "hbs"
+    cmd = ["sh", "-c", f"for i in $(seq 1 14); do touch {d}/heartbeat.json; sleep 0.2; done; exit 0"]
+    assert _launch(state, "hbs", cmd, stall_sec=1) == 0
+    assert [a["kind"] for a in runs.read_alerts()] == ["done"]
+
+
+def test_another_runs_sampler_output_under_a_watch_root_is_ignored(state):
+    """The box has one sampler; its owner's dir can sit under this run's --watch
+    glob. memsampler.json names the file and the tick skips it there too."""
+    arms = state / "arms"
+    (arms / "br-read").mkdir(parents=True)
+    out = arms / "br-read" / "memory.jsonl"
+    runs._write_json(runs.state_dir() / "memsampler.json", {"run": "br-read", "out": str(out)})
+    old = time.time() - 3600
+    (arms / "br-read" / "games.jsonl").write_text("{}\n")
+    os.utime(arms / "br-read" / "games.jsonl", (old, old))
+    out.write_text("{}\n")
+    ignore = runs.stall_ignored(state / "chain")
+    assert runs.newest_mtime(arms / "br-read", ignore) == pytest.approx(old, abs=1)
+    assert runs.newest_mtime(arms / "br-read") > old + 3000  # uncounted only through the ignore set
+    assert runs.newest_mtime(out, ignore) == 0.0  # a --watch glob that names the file itself
+    # a file of the same NAME that is not the sampler's still counts
+    (arms / "br-read" / "sub").mkdir()
+    (arms / "br-read" / "sub" / "memory.jsonl").write_text("{}\n")
+    assert runs.newest_mtime(arms / "br-read", ignore) > old + 3000
+
+
+def test_a_detached_stall_does_not_recover_on_the_supervisors_own_log(state):
+    """Detached, the supervisor's stdout is <dir>/supervisor.log: raising STALLED
+    wrote to the watched dir and the next tick said `recovered` (all eight
+    stalls in the queue up to 11-09 recovered exactly one tick later)."""
+    d = state / "dst"
+    # a real subprocess: under pytest's capture an in-process fork keeps the captured sys.stdout
+    out = subprocess.run(
+        [sys.executable, "-m", "anvil.runs", "launch", "--name", "dst", "--dir", str(d), "--tick-sec", "0.2",
+         "--stall-sec", "1", "--", "sh", "-c", "sleep 3; exit 0"],
+        capture_output=True, text=True, env=dict(os.environ), timeout=30,
+    )
+    assert out.returncode == 0, out.stderr
+    _wait_done("dst")
+    kinds = [a["kind"] for a in runs.read_alerts()]
+    assert "STALLED" in (d / "supervisor.log").read_text()  # the supervisor did write into the watched dir
+    assert kinds == ["stalled", "done"], kinds
