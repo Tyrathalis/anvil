@@ -3759,3 +3759,25 @@ record.*
   outcome prediction over the stores). **Formats and cards:** a short 60-card format first, as the research testbed
   (more outcome bits per box-hour; two formats in one network stays an unmeasured bet); pool growth after a
   held-out-cards read and after signal per game has risen. Bars and numbers are set at the scoping session.
+
+## 2026-11-09 (17:03) — a false STALLED from the standing watcher; the duplicate registration retired on a branch
+
+- **Verdict: a false alarm; the run is healthy.** The standing watcher (`scripts/anvil_watchd.py`) pushed "big-run
+  STALLED — no artifact written in 78 min" at 17:03. Iteration 427 had finished generating at 15:45 and the
+  training-step GPU gate was holding the trainer while ComfyUI used 17–20 GB of the card. The wait lasted 5,437 s,
+  logged every five minutes and came out of the wall. Training started at 17:16.
+- **Attribution: two stall watchers on one run, and the heartbeat feeds one.** The gate already calls
+  `anvil.runs.heartbeat`, which writes `heartbeat.json` in the run dir; the launcher's supervisor (three hours on the
+  run dir and the `--watch` roots) stayed quiet. The selfplay loop also registers itself with the standing watcher on
+  its training directory at 75 minutes. Nothing is written there during a training-step wait, so that watcher fired.
+  It is the one notice of its kind since the segment-5 launch; the generation yields did not raise it.
+- **The fix (the user's call: retire the duplicate):** `watch_register` is a no-op when `ANVIL_RUN_NAME` is set, so a
+  launched run has one stall watcher, the supervisor. `watch_unregister` still runs and clears a leftover
+  registration. The cost: a real stall under a launched run is caught at the launcher's threshold (three hours for
+  the big run), not at 75 minutes. Built and tested on the branch `retire-watchd-under-launcher` (worktree
+  `.claude/worktrees/retire-watchd`, commit `2122bb2`; `tests/test_watchd.py` + `tests/test_runs.py` 28 passed).
+  **It merges at the segment boundary before the relaunch**, not under the live loop. The live process keeps its
+  registration until then, so a second long training-step wait in segment 5 can raise the same notice.
+- **Rows 417–426 at this glance:** holdout Spearman 0.440–0.466 (within one SE of 0.452), entropy settled near 0.145
+  after easing from 0.167, kl_mu 0.009–0.011, casts 318–426 per game. The gap read 0.091, 0.091, 0.093, 0.099 over
+  iterations 423–426 (segment 4 closed at 0.096; the pause line is 0.15): a watch item for the next glance.
