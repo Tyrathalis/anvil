@@ -16,7 +16,7 @@ The GPU and memory coordination itself is sound: one detector with one hysteresi
 
 Everything below was checked against the code in this worktree (branch `claude/infra-survey-e17ba4`, main at `b590e99`) and the live box. Two claims are by reading only and say so.
 
-**Update, 11-09 evening.** The babysitting session confirmed findings 1, 2, 3 (the unset variable), 4 (the cgroups) and 7 against the code and the box (running record, 17:55). Two stopgaps cover the run until the boundary: the big run is registered again with the standing watcher at 180 minutes on `data/training/big-run` (18:08, by hand, the loop's pid), and the babysitting session runs a 60-minute quiet watch. Findings 1, 2, 7, 9 and R2 are built, each with a test, on the branch `infra-boundary-fixes`, which also holds `retire-watchd-under-launcher`; see [Built](#built-on-infra-boundary-fixes), [Routing](#routing) and [Boundary procedure](#boundary-procedure) at the end. Building finding 1 turned up a second defect with the same root, recorded under it.
+**Update, 11-09 evening.** The babysitting session confirmed findings 1, 2, 3 (the unset variable), 4 (the cgroups) and 7 against the code and the box (running record, 17:55). Two stopgaps cover the run until the boundary: the big run is registered again with the standing watcher at 180 minutes on `data/training/big-run` (18:08, by hand, the loop's pid), and the babysitting session runs a 60-minute quiet watch. Findings 1, 2, 7, 9 and R2 are built, each with a test, on the branch `infra-boundary-fixes`, which also holds `retire-watchd-under-launcher`; see [Built](#built-on-infra-boundary-fixes), [Routing](#routing) and [Boundary procedure](#boundary-procedure) at the end. Building finding 1 turned up a second defect with the same root, and the babysitting session's review of the branch found a third: two helpers wrote on a timer under the tick's roots, so the fixed tick was still blind through every generation. Both are recorded under finding 1 and fixed on the branch.
 
 ## Ranked findings
 
@@ -78,6 +78,15 @@ AssertionError: ['stalled', 'recovered', 'stalled', 'recovered', 'done']
 ```
 
 So `status` shows a stalled run as `running` almost all the time, and a `recovered` alert has never meant recovery.
+
+**A third defect of the same class, found in review of the branch (the babysitting session, 11-09 evening): the tick was still blind during generation.** With the sampler's file out of the count, two other files stayed fresh on a timer whatever the run was doing:
+
+- The model server printed a stats line every 60 s, `stats: idle` when nothing had asked it ([anvil/bridge/server.py](../../anvil/bridge/server.py), `_stats_loop`). The loop's servers log to `iter-K/server.log`, under the `--watch` root `data/training/big-run`. `iter-417/server.log` holds 411 idle lines beside 163 busy ones: the 3.6-hour yield of that iteration, one line a minute from each of two servers.
+- The harness printed its progress line once a minute at whatever count it had ([anvil/bridge/harness/orchestrator.py](../../anvil/bridge/harness/orchestrator.py), the scheduler loop). That line goes to the loop's log, in the run dir. In `seg-5.loop.log`, 816 of its 2,362 progress lines repeat the count of the line before.
+
+Either one alone keeps the newest-file tick fresh for as long as the servers or the scheduler are alive, wedged workers or not. So the fixed tick, like the standing watcher on the loop dir before it, covered the training phase only; the watcher's one firing on this run was in a training-step wait, with the servers down. My table below said the supervisor "sees" generation; that was wrong when written and is corrected there.
+
+The fix is at the writers, not at the tick, because the harness's line lands in the run's own log and no ignore list can exclude that. The server prints one idle line when it goes idle and nothing until work resumes. The harness prints its minute line only when the completed count or the yield state moved. A log line under a watched dir is evidence that something happened again.
 
 Fix: `newest_mtime` skips a small set of names the launcher itself produces (`memory.jsonl`, `supervisor.log`); `heartbeat.json` stays counted on purpose. Alternatively the sampler writes under the state dir and only `WATCHDOG-TRIP` stays in the run dir. The quickstart's own example launches with `--dir` set to the loop dir and promises a 60-minute alarm, so external users have the same blind tick.
 
@@ -264,24 +273,24 @@ The useful half is in the wrong place. The guard's name is in the note. The supe
 
 ## Who can see which quiet phase
 
-"Supervisor" assumes finding 1 is fixed; today it sees nothing. "Standing watcher" is the pre-retirement registration on the loop dir.
+"Supervisor" assumes the whole branch is merged (finding 1 and the quiet writers); today it sees nothing. "Standing watcher" is the registration on the loop dir, as it was before the retirement and as it is again in the 18:08 stopgap. **Corrected 11-09 evening:** the first version of this table marked generation and the arms rows as seen by both. They were not: the server's idle line and the harness's repeated progress line kept both dirs fresh. Those rows now say what each detector sees before and after the quiet-writers commit.
 
 | Phase | What it writes | Supervisor | Standing watcher | Wall |
 |---|---|---|---|---|
-| Generation | harness lines in the loop log (run dir); `mu.jsonl` in the loop dir | sees | saw | counted; yields excluded |
+| Generation | `mu.jsonl` per served decision and `server.log` in the loop dir; harness lines in the loop log (run dir) | a hang: **blind before** the quiet-writers commit, **sees after** | a hang: **blind** while the servers are up (the idle line), and stays so in the stopgap | counted; yields excluded |
 | Harness GPU yield | marked progress lines; `gpu-yield.json`; heartbeat | sees | saw only `mu.jsonl` going stale | excluded |
 | Training-step GPU gate | a log line every 300 s; heartbeat | sees | **blind** (today's false STALLED) | excluded |
 | Host-memory wait | a log line every 300 s; heartbeat | sees | blind | excluded |
 | Training step | `metrics.jsonl`; learner output in the loop log | sees | saw | counted |
 | Learner VRAM park | a log line every 30 s; heartbeat; one desk toast | sees | saw only via the train dir | **counted** |
 | State-ranking eval | nothing until it ends (≈ 25 s, timeout 30 min) | silent, short | silent, short | counted |
-| Arms rows | harness lines; `arms-server.log` | sees | saw | counted; **yields counted** |
+| Arms rows | harness lines; `arms-server.log` (no `mu.jsonl`: argmax serve) | a hang: **blind before**, **sees after** (busy stats lines are the evidence of work) | a hang: **blind** while the server is up | counted; **yields counted** |
 | Paired read (`--paired-read`) | a progress row every 300 s in the loop dir | sees | saw | yields excluded |
 | Segment reads (chain) | `seg*.log` in the run dir; `br*` arm dirs | sees | loop unregistered; the read's own registration is blind | not in the wall |
 | Between segments | nothing; the run is `done` | none needed | none | — |
 | A queue in `anvil.runs wait` | heartbeat on its own run | sees | n/a | — |
 
-No phase is invisible to the supervisor once `memory.jsonl` stops masking it. The `--watch 'data/runs/br*'` root matches read dirs only (125 of them), not the loop's `big-run-i*` or `big-run-arm*` dirs; that is harmless because both narrate into the run-dir log. The whole tick walks 28,838 files in 0.15 s.
+With the branch merged no phase is invisible to the supervisor. Before it, generation and the arms rows were (the two timer writers), and with only finding 1 fixed they still would be. The `--watch 'data/runs/br*'` root matches read dirs only (125 of them), not the loop's `big-run-i*` or `big-run-arm*` dirs; that is harmless because both narrate into the run-dir log. The whole tick walks 28,838 files in 0.15 s.
 
 ## GPU and memory rules side by side
 
@@ -352,7 +361,7 @@ For the closeout's deletion pass; none of these puts a run at risk.
 
 ## Built on `infra-boundary-fixes`
 
-The branch is cut from this report's commit and holds one merge of `retire-watchd-under-launcher` (`2122bb2`) followed by one commit per fix. Nothing is merged to main or pushed. Both light suites pass on it: 38 tests (`tests/test_runs.py` 34, `tests/test_watchd.py` 4; 28 before), and `ruff` is clean on the files touched.
+The branch is cut from this report's commit and holds one merge of `retire-watchd-under-launcher` (`2122bb2`) followed by one commit per fix. Nothing is merged to main or pushed. Both light suites pass on it: 41 tests (`tests/test_runs.py` 37, `tests/test_watchd.py` 4; 28 before), and `ruff` is clean on the files touched.
 
 | Commit | Finding | What changed | Test |
 |---|---|---|---|
@@ -362,6 +371,45 @@ The branch is cut from this report's commit and holds one merge of `retire-watch
 | `e7cd649` | 9 | A manual `relaunch` sets the resume count to 0 and says so. The sweep's own resume keeps counting | One; the existing sweep test still asserts the carried count |
 | `8135850` | R2 | `scripts/big_run_chain.sh` no longer starts the sampler. `report_memsampler` logs one line to `queue.log` saying whether the loop starts watched. The retry still reads `$OUT/WATCHDOG-TRIP` | Two: an inactive unit with a stale owner record (the state after a reboot) is re-armed toward the relaunching run; the chain's code holds no `systemd-run` and passes `bash -n` |
 | `96a289c` | — | `anvil.runs tick --name N`, read-only: the newest file the stall tick counts, its age against the alarm, and the files it does not count. Exit 1 when the tick would read stalled. This is the post-relaunch self-check | One, including that the verb writes nothing and raises no alert |
+
+| `586523e` | 1, third defect | The model server prints one `stats: idle` line on the transition to idle and nothing until work resumes; a busy window always prints. The harness prints its once-a-minute progress line only when the completed count or the yield state moved; the yield ledger keeps its minute cadence and the yield still heartbeats. The writers' rule is in the launcher's docstring | Three. The server's loop is compiled from its source, so the suite stays stdlib, and it fails on the previous source. The harness's line is a pure function. A run laid out like a loop mid-generation (log in the run dir, `mu.jsonl` and `server.log` in the watched loop dir, the sampler writing beside them) stalls once its writers stop |
+
+### What else writes under the tick's roots
+
+The rule the tick rests on: **nothing under a watched dir is written on a timer unless it is a deliberate wait, and a deliberate wait heartbeats.** Every writer under the big run's three roots (`data/runs/big-run`, `data/training/big-run`, `data/runs/br*`), checked against it:
+
+| Writer | File | Cadence | Verdict |
+|---|---|---|---|
+| Memory sampler | `<run dir>/memory.jsonl` | every 20 s, always | Timer. Not counted, by path (`42b5b92`) |
+| Memory sampler | `<run dir>/WATCHDOG-TRIP` | on a trip | An event; the trip kills the learner and the loop fails. Counted, correctly |
+| Supervisor | `<run dir>/supervisor.log` | on its own alerts | Not the run's. Not counted (`42b5b92`) |
+| Model server | `iter-K/server.log`, `iter-K/arms-server.log`, a read's `data/runs/<name>-arm-server.log` | every 60 s, idle or not | **Timer. Fixed at the writer** (`586523e`) |
+| Harness scheduler | the loop's log in the run dir; a read's `seg*.log` | every 60 s at any count | **Timer. Fixed at the writer** (`586523e`) |
+| Harness scheduler | `gpu-yield.json` | every 60 s while yielding | A deliberate wait, and it heartbeats. In the loop its dir is not watched; in a read's `br*` dir it is. Left |
+| Loop | "still waiting" lines every 300 s in the GPU gate and the host-memory wait | timer | A deliberate wait, and it heartbeats. Left; its missing upper bound is finding 6 |
+| Learner | `[vram] parked — poll n` every 30 s | timer | A deliberate wait, and it heartbeats. Left |
+| Loop, `--paired-read` | `paired-<tag>.progress.jsonl` | every 300 s, whatever the read is doing | **Timer.** It was built as a heartbeat for the standing watcher and masks a hung read the same way. Not in the big run's recipe; **routed**, not fixed: its test lives in a suite this session may not run |
+| Model server | `mu.jsonl.s*` | per served decision | Work |
+| Learner | `train/metrics.jsonl`, its log lines | per step, every N steps | Work |
+| Worker JVMs | `out.log`, `games.jsonl`, `obs.zst`, `labels.jsonl`, `census.jsonl` | per game, per decision | Work. No timer line: a worker's `out.log` is 80 lines of engine warnings and one line per game. No GC log is configured |
+| Fleet parent (`--servers 2`) | the server log | on start and on a child's exit | Events. Its poll loops are silent |
+| `heartbeat.json` writers | the harness's yield, the loop's two waits, the learner's park, `anvil.runs wait` | once a minute while waiting | All four write from the waiting loop's own thread. None runs a heartbeat thread, so none outlives a hung parent |
+
+`anvil.runs wait` inside a queue heartbeats for as long as it waits, which is its purpose and also means a queue waiting on a run that never ends is never stalled; that is the unbounded-wait class of finding 6.
+
+### During a real generation hang, which file goes quiet first, and does the fixed tick see it?
+
+A deliberate yield and a real hang now look different. In a yield the harness heartbeats once a minute for as long as the foreign job holds the card, and the tick stays quiet by design.
+
+In a real hang, by form:
+
+- **A worker JVM wedges in the engine** (the likeliest form: the harness has no per-game timeout, it polls the worker until it exits). The first file to go quiet is that worker's `obs.zst` and `labels.jsonl`, in the loop's harness dir. The tick does not watch that dir, and should not need to: the other workers carry on, the scheduler keeps filling free slots, and the generation runs to its end minus the stuck chunk. Then `mu.jsonl.s*` stops (nobody asks), each server prints its one idle line, and the scheduler has no new count to print. The newest counted file is that idle line. The tick reads STALLED one threshold later. **Seen**, at the threshold after the rest of the batch finishes. Before `586523e`: never.
+- **Every worker wedges, or the scheduler itself does.** The same, sooner: `mu.jsonl` is the first counted file to stop. **Seen.**
+- **The server wedges.** A worker's ask runs into its 20 s bridge deadline and the in-flight games are lost (the yield module's own note on pausing a server); workers that exit with nothing completed trip the harness's three-in-a-row abort and the loop fails. That would be a `failed`, not a stall. By reading; not traced. If the workers hang instead of exiting it is the first form, and seen.
+- **The loop wedges after generation** (ingest, the ranking eval, the battery). Nothing writes. **Seen** since `42b5b92`.
+- **Not seen, by construction:** a game that never ends but keeps asking. `mu.jsonl` grows and the server reports busy windows, so every mtime-based detector reads work. Whether the engine bounds a game's length was not checked here; if it does not, this is the remaining blind case and it needs a progress measure (games completed), not a file age.
+
+One consequence for the threshold. The big run's 180 minutes was set to ride out waits. With honest writers the longest legitimate silence is a few minutes (ingest, the ranking eval), and every deliberate wait heartbeats, so the alarm could sit at 60–90 minutes and catch a wedged worker that much sooner. It is `stall_sec` in the state file, read at relaunch; the user's call.
 
 **Does the launcher's arm cover what the chain's did?** Yes, for every case but one. After a reboot the transient unit is gone; a manual `relaunch` and the sweep's resume both go through `launch()`, which finds the unit inactive and starts it whatever the stale owner record says ([anvil/runs.py](../../anvil/runs.py), `arm_memsampler`; the new test). The sweep runs under the user manager with linger on, so `systemd-run --user` works there before a login. The one case only the chain's copy covered is a sampler that dies between two watchdog retries inside one chain process. Neither copy covered a sampler dying mid-loop, which is the likelier form; a `Restart=on-failure` on the unit covers both and is routed with finding 10. The chain's line now reports that state instead of hiding it.
 
@@ -436,6 +484,11 @@ Every finding not built on the branch, with where it goes. "Boundary" is the seg
 | 10. The watchdog's kill set and trip marker | **Closeout**, on a quiet box: the change is in the path that kills the learner, and its test is a real kill. `Restart=on-failure` for the unit rides with it | A dry-run trip (`WATCHDOG_DRY=1`) on a scratch learner |
 | 11. Single-row guards, the watch lines as code | **Boundary**, inside the casts-guard change that is already routed there; the watch lines as pause lines go to the **closeout** | The routed change's own offline replay over the run's `monitor.jsonl` |
 | 12. Wall accounting | **Closeout.** Changing what the wall counts mid-run would move the segment series; it is a rule for the next run's arms | — |
+| The paired read's progress rows (a timer writer, see the writers table) | **Closeout.** Not in the big run's recipe. The change is three lines in `_paired_read` (write a row only when the counts moved) | Its own suite, `tests/test_selfplay_sched_flags.py`, on a quiet box |
+| A game that never ends but keeps asking | **Closeout.** First establish whether the engine bounds a game; if not, the harness wants a per-game wall cap or the tick a games-completed measure | Reading the fork's game-length limit |
+| The writers' rule as a standing rule | **The user's call at the merge:** one line in `docs/standing-rules.md` ("nothing under a watched dir writes on a timer unless it is a deliberate wait that heartbeats"). It is in the launcher's docstring already; the standing rules were left alone here because main edits that file | — |
+| A sampler unit that dies mid-run | With finding 10, **closeout**: `Restart=on-failure` on the transient unit, or the supervisor's tick raising one alert when the sampler's file stops ageing forward. See the procedure for why it can wait | A unit start to test it |
+| The stall threshold, 180 minutes | **The user's call at the relaunch** (`stall_sec` in the state file). 60–90 minutes is safe once the branch is merged | Finding 1 and the quiet writers merged |
 | R1. Full retirement of the standing watcher | **The user's call at the boundary.** The branch only makes `watch_register` a no-op under a launched run. Full retirement is the timer disabled, `final_read.py` and `fleet_bench.py` no longer registering, and the repo unit copies removed | Finding 1 merged and `tick` read on the relaunched run |
 | R3. Double notifications; notes filed under the tag | **Closeout** | — |
 | R4. Two remote-control units | **The user's call** | The push test under finding 3, which may decide it |
@@ -447,11 +500,11 @@ Judged too large or too risky to land without a quiet box, and so not built here
 
 ## Boundary procedure
 
-In order. Steps 1–3 need the big run to have exited and no other launched run to be alive: the merge changes `anvil/runs.py`, which every new harness process imports, and `scripts/big_run_chain.sh`, which a live bash reads as it goes.
+In order. Steps 1–3 need the big run to have exited and no other launched run to be alive: the merge changes `anvil/runs.py`, `anvil/bridge/server.py` and `anvil/bridge/harness/orchestrator.py`, which every new server and harness process imports, and `scripts/big_run_chain.sh`, which a live bash reads as it goes.
 
 1. **Confirm the run is down.** `uv run python -m anvil.runs status` shows `big-run` as `done` after the segment reads, and its supervisor has exited.
 2. **Confirm the stopgap registration is gone.** `python3 scripts/anvil_watchd.py status` should print "no registrations": the loop's own unregister clears the hand registration at its clean exit. If `big-run` is still listed, run `python3 scripts/anvil_watchd.py unregister --name big-run`, or its next tick raises a GONE toast for a pid that is gone on purpose.
-3. **Merge `infra-boundary-fixes` into main, as one merge.** It contains `retire-watchd-under-launcher`. The two must not land apart: the retirement alone leaves the run with a blind supervisor and no watcher, and the stall-tick fix alone leaves two stall watchers. Then run the two suites on main: `nice -n 19 uv run pytest tests/test_runs.py tests/test_watchd.py -q` should read 38 passed.
+3. **Merge `infra-boundary-fixes` into main, as one merge.** It contains `retire-watchd-under-launcher`. The two must not land apart: the retirement alone leaves the run with a blind supervisor and no watcher, and the stall-tick fix alone leaves two stall watchers. Then run the two suites on main: `nice -n 19 uv run pytest tests/test_runs.py tests/test_watchd.py -q` should read 41 passed.
 4. **State file.** With the branch merged, no edit is needed: the relaunch resolves the check-in as `auto` and resets the resume count by itself. If the branch is *not* merged, set `"checkin": "auto"` and `"resume_count": 0` in `~/.local/state/anvil/runs/big-run.json` by hand, after the supervisor has exited. Optional either way, the user's call: `"resume": false` until finding 4 is proven and built.
 5. **The phone path, if wanted.** Export `ANVIL_NOTIFY_CMD` in the shell that will run the relaunch.
 6. **Relaunch**, after the segment's own go (`echo 6 > data/runs/big-run/segment` and whatever else the run's boundary calls for):
@@ -466,10 +519,11 @@ In order. Steps 1–3 need the big run to have exited and no other launched run 
      ```bash
      uv run python -m anvil.runs tick --name big-run
      ```
-     It should name a file of the loop as the newest counted artifact (the loop log or the iteration's `mu.jsonl`), list `memory.jsonl` under "not counted" at under 30 s old, and read `running`. If it names `memory.jsonl` as counted, the merge did not take.
+     It should name a file of the loop as the newest counted artifact (the iteration's `mu.jsonl`, its `server.log`, or the loop log), list `memory.jsonl` under "not counted" at under 30 s old, and read `running`. If it names `memory.jsonl` as counted, the merge did not take.
+   - The quiet writers, once the first generation is under way: `grep -c 'stats: idle' data/training/big-run/iter-NNN/server.log` stays at a handful (one per idle spell per server), where it used to grow by two a minute through a yield; and the loop log's `[harness] n/N` lines never repeat a count.
    - The loop log has `[notify] watch_register skipped for big-run`, and `python3 scripts/anvil_watchd.py status` shows no `big-run`. One stall watcher.
    - The session's background wait is armed: `uv run python -m anvil.runs wait --name big-run`. It now ends on `paused` (4) and `gone` (2) as well.
-8. **Retire the stopgaps.** The babysitter's 60-minute quiet watch can go once step 7's `tick` and watcher checks hold.
+8. **Retire the stopgaps.** The babysitter's 60-minute quiet watch can go once step 7's `tick` and watcher checks hold. Keep one line of it: a glance at `tick`'s "not counted: …/memory.jsonl" age. The sampler is now armed in one place, at launch, and a unit that dies mid-run is reported only at the next loop start (the chain's status line) and never re-armed. That is acceptable for the segment: the unit has died only with reboots, it is a bash loop under its own 500 MB cap, and a `memory.jsonl` older than a minute in `tick` says it is down. A relaunch re-arms it. The supervisor-side check is routed with finding 10 because its proof needs a unit start.
 9. **In the boundary window or after, the user's go:** proofs A and B.
 
 A real STALLED cannot be provoked on the live run without stopping it, so it is not in the procedure. The proof that the tick now fires is the test pair that fails on the old launcher, and `tick` is the check that the live supervisor's view matches.

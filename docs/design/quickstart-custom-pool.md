@@ -331,7 +331,10 @@ and give the harness the matching list, `--bridge grpc:localhost:P,grpc:localhos
 are assigned round-robin. Pin N = ceil(workers / 12) and keep workers under your core count (24 on a
 32-core box; 32 runs games 2.5× slower). The recipe of record on a 7950X + 4090 is 24 workers × 2
 servers ≈ 300–350 games/hour searched; `selfplay.py` derives N from `--workers`. The servers print a
-per-minute `[server] stats` occupancy line. A `YIELD` file in a run dir stops new chunks from
+per-minute `[server] stats` occupancy line while they are being asked, one `stats: idle` line when
+they go idle, and nothing until work resumes; the harness prints its `n/N` progress line only when
+the count moves. Both logs sit under the launcher's stall check, so a line there means something
+happened. A `YIELD` file in a run dir stops new chunks from
 launching without asking workers to exit (a foreign GPU job does the same automatically), and the
 load — workers × servers — is part of any search run's recipe: a paired read pins it on both arms.
 
