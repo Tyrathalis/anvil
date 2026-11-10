@@ -905,6 +905,15 @@ def relaunch(a: argparse.Namespace) -> int:
     if r.get("checkin") == "none" and ra.checkin != "none":
         print(f"[runs] RELAUNCH {a.name}: the last launch ran with no check-in; resolving {ra.checkin!r} again",
               flush=True)
+    # 11-09 (survey finding 9): a relaunch by hand is someone looking at the run, so the
+    # sweep's resume budget starts over. The cap exists to stop a crash LOOP; carried through
+    # every manual relaunch it was a budget for the run's whole life (the big run spent 1 of
+    # its 3 on 10-10 and still carried it four weeks and a dozen relaunches later). The
+    # sweep's own resume does not come through here and keeps counting.
+    if ra.resume_count:
+        print(f"[runs] RELAUNCH {a.name}: resume count {ra.resume_count}/{ra.resume_max} -> 0 (a manual relaunch)",
+              flush=True)
+        ra.resume_count = 0
     if r.get("launch_cwd"):
         os.chdir(r["launch_cwd"])
     if ra.launched_by != r.get("launched_by"):
@@ -1051,7 +1060,9 @@ def main(argv: list[str] | None = None) -> int:
     la.add_argument("--resume-on-gone", action="store_true",
                     help="the sweep relaunches this run's recorded command when its supervisor is found dead "
                          "(a reboot, an OOM kill) — for a command that resumes from its own state, e.g. selfplay")
-    la.add_argument("--resume-max", type=int, default=3, help="the relaunch cap under --resume-on-gone (a crash loop stops)")
+    la.add_argument("--resume-max", type=int, default=3,
+                    help="the relaunch cap under --resume-on-gone (a crash loop stops); the count starts over at "
+                         "every manual `relaunch`")
     la.add_argument("--resume-count", type=int, default=0, help=argparse.SUPPRESS)
     pa = sub.add_parser("pause", help="write STOP for the run's command, mark it paused when it exits (no FAILED push)")
     pa.add_argument("--name", required=True)

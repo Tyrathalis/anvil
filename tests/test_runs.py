@@ -566,3 +566,24 @@ def test_wait_returns_on_paused_and_on_a_swept_gone(state):
     # a live run still waits: the timeout is the only way out
     runs._write_json(runs._run_file("wl"), {"name": "wl", "state": "running", "dir": d, "supervisor_pid": os.getpid()})
     assert runs.main(["wait", "--name", "wl", "--timeout", "0.6", "--poll", "0.2"]) == 3
+
+
+# ---- 11-09: the sweep's resume budget starts over at a manual relaunch (the infrastructure survey, finding 9)
+
+
+def test_manual_relaunch_resets_the_resume_count(state):
+    """The cap stops a crash loop; it is not a budget for the run's life. The
+    sweep's own resume keeps counting (test_sweep_relaunches_a_gone_run_under_the_cap)."""
+    d = state / "rc"
+    d.mkdir()
+    runs._write_json(runs._run_file("rc"), {
+        "name": "rc", "state": "gone", "pid": 1, "supervisor_pid": 1, "started": runs._now(),
+        "cmd": ["sh", "-c", "exit 0"], "dir": str(d), "log": str(d / "run.log"), "tag": "anvil",
+        "launch_cwd": os.getcwd(), "watch": [], "resume": True, "resume_max": 3, "resume_count": 3,
+        "tick_sec": 0.2, "stall_sec": 60,
+    })
+    assert runs._relaunch_args(runs.read_run("rc")).resume_count == 3  # the sweep's path: carried
+    assert runs.main(["relaunch", "--name", "rc", "--no-selftest"]) == 0
+    _wait_done("rc")
+    st = runs.read_run("rc")
+    assert st["resume_count"] == 0 and st["resume"] is True and st["resume_max"] == 3
