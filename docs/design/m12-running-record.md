@@ -3827,3 +3827,19 @@ record.*
   generation GPU yields. It holds for the fixed tick and for the standing watcher re-registered at 18:08. The
   babysitting session's 60-minute quiet watch does not read that file, so it is the one detector of a generation hang
   until the boundary. The fix is routed to the same branch.
+- **18:45 — the sixth fix reviewed on `infra-boundary-fixes` (`586523e`, tip `b085291`): correct; and the bullet
+  above is corrected.** The fix silences the two timer writers under the stall tick's roots. The model server prints
+  `stats: idle` once and then nothing until work resumes. The harness prints its minute line only when the completed
+  count or the yield state moved. A declared yield still writes `gpu-yield.json` every minute, so a deliberate wait
+  keeps the tick fresh by design. The two light suites pass on the tip (41 tests) and ruff is clean. One consumer to
+  check at the merge: `scripts/fleet_bench.py` parses the minute line for its g/h samples and now gets fewer of them.
+  The paired read's 300-second progress rows are the same class and stay routed to the closeout (not in this run's
+  recipe). Not merged, not pushed.
+- **The correction.** The session's 60-minute quiet watch was not a detector of a generation hang either. It read
+  `seg-5.loop.log`, and the live harness (the old code) prints its minute line into that log at an unchanged count.
+  From 17:55 to 18:42 nothing on the box could see a generation hang. The watch is replaced at 18:42 by one keyed on
+  progress instead of freshness: the loop log's non-minute lines and completed count, the sizes of the newest
+  iteration's `mu.jsonl.*` (they grow only when asks are served), `train`, the state-ranking rows, `monitor.jsonl`,
+  `loop_state.json`, the heartbeat and `queue.log`. It fires after 60 minutes with none of them moving, unless the
+  harness's last minute line declares a yield. Both triplines were dry-run before arming. It lives in this session
+  and dies with the desktop app; the standing watcher at 180 minutes still covers the training phase only.
