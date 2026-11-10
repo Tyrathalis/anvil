@@ -504,3 +504,41 @@ def test_a_detached_stall_does_not_recover_on_the_supervisors_own_log(state):
     kinds = [a["kind"] for a in runs.read_alerts()]
     assert "STALLED" in (d / "supervisor.log").read_text()  # the supervisor did write into the watched dir
     assert kinds == ["stalled", "done"], kinds
+
+
+# ---- 11-09: the check-in is re-resolved on every relaunch (the infrastructure survey, finding 2)
+
+
+def test_relaunch_resolves_the_checkin_again(state, monkeypatch):
+    """One failed self-test (the 10-16 expired login) recorded `checkin: none`
+    and every relaunch reused it. The state now keeps what was REQUESTED; a
+    relaunch resolves and self-tests it again, and --checkin overrides."""
+    b = state / "bin"
+    b.mkdir()
+    shim = b / "claude"
+    shim.write_text("#!/bin/sh\necho 'Failed to authenticate: OAuth session expired' >&2\nexit 1\n")
+    shim.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{b}:{os.environ['PATH']}")
+    monkeypatch.delenv("ANVIL_CHECKIN", raising=False)
+    assert _launch(state, "ck", ["sh", "-c", "exit 0"], checkin="auto") == 0
+    st = runs.read_run("ck")
+    assert st["checkin"] == "none" and st["checkin_requested"] == "auto"
+    assert runs._relaunch_args(st).checkin == "auto"  # not the resolved none
+    # the login is back: the relaunch self-tests and the check-in is on again
+    rec = state / "claude-calls.txt"
+    shim.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {rec}\necho OK\n")
+    assert runs.main(["relaunch", "--name", "ck"]) == 0
+    _wait_done("ck")
+    st = runs.read_run("ck")
+    assert st["checkin"] == "claude" and st["checkin_requested"] == "auto"
+    assert "Reply with exactly the word OK" in rec.read_text()
+    # --checkin overrides, and the override is what later relaunches resolve
+    assert runs.main(["relaunch", "--name", "ck", "--checkin", "none"]) == 0
+    _wait_done("ck")
+    st = runs.read_run("ck")
+    assert st["checkin"] == "none" and st["checkin_requested"] == "none"
+    assert runs._relaunch_args(st).checkin == "none"
+    # a state file from before the field (the big run's): no request on record -> auto
+    legacy = {k: v for k, v in st.items() if k != "checkin_requested"}
+    assert runs._relaunch_args(legacy).checkin == "auto"
+    assert runs._relaunch_args(legacy, checkin="none").checkin == "none"

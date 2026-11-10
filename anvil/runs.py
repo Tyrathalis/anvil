@@ -52,6 +52,9 @@ construction, what the checklist used to ask each script to remember:
   relaunch    `anvil.runs relaunch --name N`: the recorded command again, in
               place (STOP files removed); `--resume-on-gone` at launch lets
               the sweep do this itself after a reboot, capped by --resume-max.
+              The check-in is resolved and self-tested again on every relaunch
+              from the mode the run was launched with (11-09: one expired login
+              no longer turns it off for the run's life); --checkin overrides.
   sweep       `anvil.runs sweep` marks runs whose supervisor died (reboot,
               OOM, kill -9) as gone, alerts, checks in; `install-sweep` puts
               it on a systemd user timer (10 min) where systemd exists
@@ -533,7 +536,10 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         "name": a.name, "state": "running", "pid": child.pid, "supervisor_pid": os.getpid(),
         "started": _now(), "cmd": cmd, "dir": str(run_dir), "log": str(log),
         "stall_sec": stall_s, "tick_sec": a.tick_sec, "note": note, "tag": a.tag,
-        "checkin": mode, "launch_cwd": os.getcwd(), "watch": watch,
+        # `checkin` = what this launch RESOLVED to (the sweep's and a reader's view);
+        # `checkin_requested` = what was asked, which is what a relaunch resolves again
+        "checkin": mode, "checkin_requested": getattr(a, "checkin", None) or "auto",
+        "launch_cwd": os.getcwd(), "watch": watch,
         "launched_by": getattr(a, "launched_by", None) or None,
         "nice": a.nice, "memory_max": a.memory_max, "cwd": a.cwd,
         "resume": bool(getattr(a, "resume_on_gone", False)), "resume_max": getattr(a, "resume_max", 3),
@@ -843,14 +849,22 @@ def pause(a: argparse.Namespace) -> int:
     return 0
 
 
-def _relaunch_args(r: dict, no_selftest: bool = False, launched_by: str | None = None) -> argparse.Namespace:
+def _relaunch_args(r: dict, no_selftest: bool = False, launched_by: str | None = None,
+                   checkin: str | None = None) -> argparse.Namespace:
     # 10-21: `launched_by` overrides the recorded session (a relaunch from a new session: the
     # recorded ref is a dead session's and the check-in relay would fall back); None keeps it
+    # 11-09 (survey finding 2): the check-in is resolved AGAIN from the REQUESTED mode, never
+    # from the last launch's resolution. The big run's 10-16 relaunch met an expired login,
+    # recorded `checkin: none`, and every relaunch for four weeks passed that `none` back in —
+    # five failures and three segment closes with no check-in after the login was restored.
+    # `checkin` (relaunch --checkin) overrides; a state file from before this field has no
+    # request on record and resolves as auto (`relaunch --checkin none` keeps one off).
+    requested = checkin or r.get("checkin_requested") or "auto"
     return argparse.Namespace(
         name=r["name"], dir=r["dir"], log=r.get("log"), cwd=r.get("cwd"),
         stall_min=60, stall_sec=r.get("stall_sec"), tick_sec=r.get("tick_sec", 120.0),
         nice=r.get("nice", 19), memory_max=r.get("memory_max"), tag=r.get("tag", "anvil"),
-        foreground=False, checkin=r.get("checkin"), no_selftest=no_selftest, watch=r.get("watch") or [],
+        foreground=False, checkin=requested, no_selftest=no_selftest, watch=r.get("watch") or [],
         resume_on_gone=bool(r.get("resume")), resume_max=r.get("resume_max", 3),
         resume_count=r.get("resume_count", 0), launched_by=launched_by or r.get("launched_by"),
     )
@@ -873,7 +887,11 @@ def relaunch(a: argparse.Namespace) -> int:
             Path(f).unlink()
         except FileNotFoundError:
             pass
-    ra = _relaunch_args(r, getattr(a, "no_selftest", False), getattr(a, "launched_by", None))
+    ra = _relaunch_args(r, getattr(a, "no_selftest", False), getattr(a, "launched_by", None),
+                        getattr(a, "checkin", None))
+    if r.get("checkin") == "none" and ra.checkin != "none":
+        print(f"[runs] RELAUNCH {a.name}: the last launch ran with no check-in; resolving {ra.checkin!r} again",
+              flush=True)
     if r.get("launch_cwd"):
         os.chdir(r["launch_cwd"])
     if ra.launched_by != r.get("launched_by"):
@@ -913,7 +931,9 @@ def sweep(a: argparse.Namespace) -> int:
             continue
         rec = alert(r["name"], "gone", f"supervisor pid {r.get('supervisor_pid')} is dead (reboot / OOM / kill); "
                     f"the run's last log lines:\n{tail}", r.get("dir"), r.get("tag", "anvil"))
-        if (r.get("checkin") or checkin_mode(None)) == "claude":
+        # resolved now, from the request: a launch-time `none` (an expired login) must not
+        # also silence the one event the supervisor cannot report itself
+        if checkin_mode(r.get("checkin_requested") or r.get("checkin")) == "claude":
             llm_checkin(rec, r)
     print(f"swept {n} gone run(s)")
     return 0
@@ -1030,6 +1050,9 @@ def main(argv: list[str] | None = None) -> int:
     rl = sub.add_parser("relaunch", help="re-run a paused / gone / failed / done run's recorded command in place (STOP files removed)")
     rl.add_argument("--name", required=True)
     rl.add_argument("--no-selftest", action="store_true")
+    rl.add_argument("--checkin", default=None, choices=["auto", "claude", "none"],
+                    help="the check-in mode for this and later relaunches (11-09); default: the mode the run was "
+                         "launched with, resolved and self-tested again — never the last launch's resolution")
     rl.add_argument("--launched-by", default=None, metavar="SESSION",
                     help="re-point the run's launching session (its ListAgents name [ref]) before the relaunch — "
                          "the check-in relays to it and it owns the close (ADR-0107); default: the recorded one")
