@@ -3898,3 +3898,9 @@ record.*
   `AITimeoutTracker` deadlines and collects `approvedPlays`, and `AiAttackController`'s attacker pass is deadline-wrapped
   tasks. A rebase is a re-port of the log calls into that code (three conflict hunks), not a mechanical one. Whether and
   when to re-port is the user's call.
+- **2026-11-10 (upstream, later) — #12180 is mergeable again.** The branch now carries master merged in, plus one fix
+  that names each chosen play's card. It was pushed with a comment explaining the move, and GitHub reports it
+  mergeable. The "plays" debug line moved to `chooseSpellAbilityToPlay`: master's candidate loop now collects approved
+  plays for flat Monte Carlo to compare instead of returning one, so the entry point is where the final choice is
+  known. One `sim` Commander game per mode confirmed the behaviour: nothing by default, 103 lines at debug, and 8,185
+  lines to the file at trace with none on the console. The forge-ai unit tests were not run locally; CI runs them.
