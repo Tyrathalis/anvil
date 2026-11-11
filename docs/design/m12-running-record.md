@@ -4079,3 +4079,10 @@ record.*
     the relaunch. The check: the loop log prints `live casts baseline backfilled from 3 run dirs: 39.81 per game
     (all rows 359.88, as recorded)`, and the next monitor row and `loop_state.json` carry `live_casts_per_game`.
   - **Not changed.** The veto guard's basis (`veto_rate`) also counts the copies' rows. It was not part of the ask.
+- **2026-11-11 08:05 (the big run) — the floor goes back to 0.8 on the live basis, the user's call; on the branch (`live-casts-guard`), not live.**
+  - **The spread behind it.** Live casts per game over eighteen iterations (0, 50, 150, 250, 350, and every fourth
+    from 406 to 446, plus 416 and 449): 39.81 to 47.33, mean 43.96, sd 1.89. Day zero is the minimum. The all-rows
+    figure ran 359 ± 39 over segment 4. The lean count reproduces the loop's tally at the three iterations checked.
+  - **The floor.** 0.8 × 39.81 = 31.8, about six sd under the run's mean. The chain's default is 0.8 on the branch and
+    `GUARD_CASTS_FLOOR` overrides. The chain's 11-08 incident comment is replaced by a present-tense one.
+  - **Until the merge** the live run keeps the all-rows basis at 0.7 (252). A low-search iteration can still halt it.
