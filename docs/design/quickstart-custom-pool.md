@@ -341,7 +341,10 @@ and give the harness the matching list, `--bridge grpc:localhost:P,grpc:localhos
 are assigned round-robin. Pin N = ceil(workers / 12) and keep workers under your core count (24 on a
 32-core box; 32 runs games 2.5× slower). The recipe of record on a 7950X + 4090 is 24 workers × 2
 servers ≈ 300–350 games/hour searched; `selfplay.py` derives N from `--workers`. The servers print a
-per-minute `[server] stats` occupancy line. A `YIELD` file in a run dir stops new chunks from
+per-minute `[server] stats` occupancy line while they are being asked, one `stats: idle` line when
+they go idle, and nothing until work resumes; the harness prints its `n/N` progress line only when
+the count moves. Both logs sit under the launcher's stall check, so a line there means something
+happened. A `YIELD` file in a run dir stops new chunks from
 launching without asking workers to exit (a foreign GPU job does the same automatically), and the
 load — workers × servers — is part of any search run's recipe: a paired read pins it on both arms.
 
@@ -379,13 +382,16 @@ line naming what it armed:
 
 While it runs, the launcher's supervisor watches the run's own directory: no new file for
 `--stall-min` minutes raises a `stalled` alert, a fresh file after that raises `recovered`, and
-the exit raises `done` or `failed` with the exit code and the last lines of the log. A run that
+the exit raises `done` or `failed` with the exit code and the last lines of the log. The
+launcher's own files in that directory do not count as progress (the memory sampler's
+`memory.jsonl`, `supervisor.log`); `heartbeat.json` does. A run that
 dies in its first ten seconds is a recorded failure, not a silent absence. The reads:
 
 ```bash
 uv run python -m anvil.runs status            # every run: running / stalled / paused / done / failed / gone
 uv run python -m anvil.runs alerts --unacked  # what you have not seen yet
-uv run python -m anvil.runs wait --name mydecks-loop   # block a script until it ends (exit 0 = done)
+uv run python -m anvil.runs wait --name mydecks-loop   # block a script until it ends: exit 0 done, 1 failed, 2 gone, 4 paused
+uv run python -m anvil.runs tick --name mydecks-loop   # read-only: the newest file the stall check counts, and its age
 uv run python -m anvil.runs ack --all
 uv run python -m anvil.runs pause --name mydecks-loop --wait   # STOP for the loop (never its live generation); records `paused`, no FAILED push
 uv run python -m anvil.runs relaunch --name mydecks-loop       # the same command again, in place; the loop resumes its state
@@ -393,8 +399,8 @@ uv run python -m anvil.runs relaunch --name mydecks-loop       # the same comman
 
 For a maintenance reboot: `pause --wait`, update, reboot, `relaunch`. A run launched with
 `--resume-on-gone` is relaunched by the sweep timer itself when its supervisor is found dead
-(a reboot, an OOM kill), up to `--resume-max` times, so after the reboot your only step is the
-login. A job that is idle on purpose (the harness yielding the GPU to another job, the learner
+(a reboot, an OOM kill), up to `--resume-max` times (the count starts over whenever you
+`relaunch` by hand), so after the reboot your only step is the login. A job that is idle on purpose (the harness yielding the GPU to another job, the learner
 parked on a VRAM cotenant) writes `heartbeat.json` in the run dir so the stall alarm stays quiet.
 `selfplay.py --wall-hours H` stops a loop between iterations once its accumulated box time
 (summed across pauses) reaches H and runs the closing reads; time the harness spent yielding the
@@ -466,7 +472,9 @@ notification to your phone, messages the Claude Code session named by `--launche
 the flag, the newest session on the machine whose title mentions Anvil), and acks the alert. The launch runs a three-second self-test first and says so in the
 coverage line (`check-in claude (self-test OK, 3 s)`); if the CLI is missing or its login has
 expired the line says `check-in NONE — ...` and an alert records it, so you know at launch that
-nobody will answer. `--checkin none` turns it off; `--watch 'data/runs/<name>-*'` adds artifact
+nobody will answer. Every `relaunch` resolves and self-tests the check-in again from the mode the
+run was launched with, so one expired login does not turn it off for the run's life
+(`relaunch --checkin auto|claude|none` changes the mode). `--checkin none` turns it off; `--watch 'data/runs/<name>-*'` adds artifact
 roots to the stall check for a chain whose arms write outside its own dir.
 
 If the machine reboots or the supervisor itself is killed, the run's state says `running` with a
@@ -490,7 +498,9 @@ Two things the launcher does for you, one you size yourself, and the watchdog ru
   reboot, which is why the launcher and not a hand arms it (10-29).
 - **A detached run gets its own cgroup.** `anvil.runs launch` wraps the command in a `systemd-run --user`
   scope with `ManagedOOMPreference=avoid`, so the run outlives the terminal or desktop session that
-  launched it and `systemd-oomd` kills other things first. Before this, a run launched from a desktop
+  launched it and `systemd-oomd` prefers other things when it acts on memory pressure. The mark does not
+  count for a swap-limit kill (oomd honours it there only on root-owned cgroups, and a user scope is not
+  one): on that path the memory watchdog below is the defence, and only while a learner is up. Before this, a run launched from a desktop
   session died with the session's cgroup when the box ran out of memory.
 - **Size `--rl-workers` by memory, not cores.** Each DataLoader worker of the learner holds several GB
   of decoded-game state (≈ 7 GB at the self-play loop's 12-store replay window) regardless of how the

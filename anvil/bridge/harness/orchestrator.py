@@ -45,6 +45,22 @@ PROTOCOL_VERSION = 0
 POLL_S = 2.0
 
 
+def progress_note(n_done: int, total: int, rate: float, yield_why: str, last: "tuple | None") -> "tuple[str | None, tuple]":
+    """The scheduler's once-a-minute progress line, or None when neither the
+    completed count nor the yield state has moved since the last one printed
+    (11-09, the infrastructure survey). The line lands in the launching loop's
+    log, which the launcher's stall tick watches: repeated every minute at an
+    unchanged count ("29/120 … 29/120 …") it kept that tick fresh while every
+    worker was wedged. Silence now means nothing completed; a yield is still
+    announced (the transition lines, the marked line once) and heartbeats.
+    Returns (line or None, the key to pass back as `last`)."""
+    key = (n_done, yield_why)
+    if key == last:
+        return None, key
+    mark = f" (yielding: {yield_why})" if yield_why else ""
+    return f"[harness] {n_done}/{total} ({rate:.0f} g/h this session){mark}", key
+
+
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -337,6 +353,7 @@ class Run:
         active: list[tuple[subprocess.Popen, tuple[int, int]]] = []
         slots = self.manifest["workers"]
         t0 = time.monotonic()
+        last_note: "tuple | None" = None
         addrs = bridge_addrs(self.manifest)
         print(
             f"[harness] {len(self.completed())}/{total} done, "
@@ -449,9 +466,10 @@ class Run:
                 # the rate excludes yielded time; a live yield is marked on the
                 # line (the 09-25 read mistook a yielded harness for a stall)
                 rate = n_done / max(time.monotonic() - t0 - _yielded_s(), 1) * 3600
-                mark = f" (yielding: {yield_state['why']})" if yielding else ""
-                print(f"[harness] {n_done}/{total} ({rate:.0f} g/h this session){mark}", flush=True)
-                if yielding:
+                note, last_note = progress_note(n_done, total, rate, yield_state["why"] if yielding else "", last_note)
+                if note:
+                    print(note, flush=True)
+                if yielding:  # the ledger keeps its minute cadence: yielded_s stays current for `status`
                     _write_yield_state(True, self.yield_file.exists(), yield_state["why"])
             time.sleep(POLL_S)
         if yield_state["on"] or yield_state["closed_s"]:

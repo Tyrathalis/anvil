@@ -440,3 +440,290 @@ def test_memsampler_failure_is_a_phrase_not_an_exception(state, monkeypatch):
     assert "FAILED to arm" in note and "unwatched" in note
     monkeypatch.setenv("ANVIL_MEMSAMPLER", "0")
     assert runs.arm_memsampler("r3", state / "r3", run=_Fake(active=False)) == "memory watchdog: off (ANVIL_MEMSAMPLER=0)"
+
+
+# ---- 11-09: the stall tick does not count the launcher's own files (the infrastructure survey, finding 1)
+
+
+def test_sampler_file_in_the_run_dir_does_not_mask_a_stall(state):
+    """The quickstart's layout: --dir is the loop dir and the memory sampler
+    appends <dir>/memory.jsonl every 20 s. A loop that has gone quiet is
+    STALLED however fresh the sampler's file is (the big run's tick was blind
+    for five weeks)."""
+    d = state / "loop"
+    d.mkdir()
+    (d / "loop_state.json").write_text("{}")
+    cmd = ["sh", "-c", f"for i in $(seq 1 14); do touch {d}/memory.jsonl; sleep 0.2; done; exit 0"]
+    assert _launch(state, "loop", cmd, stall_sec=1) == 0
+    kinds = [a["kind"] for a in runs.read_alerts()]
+    assert kinds == ["stalled", "done"], kinds
+
+
+def test_heartbeat_still_holds_the_stall_off(state):
+    """A job idle on purpose stays `running`: heartbeat.json is an artifact."""
+    d = state / "hbs"
+    cmd = ["sh", "-c", f"for i in $(seq 1 14); do touch {d}/heartbeat.json; sleep 0.2; done; exit 0"]
+    assert _launch(state, "hbs", cmd, stall_sec=1) == 0
+    assert [a["kind"] for a in runs.read_alerts()] == ["done"]
+
+
+def test_another_runs_sampler_output_under_a_watch_root_is_ignored(state):
+    """The box has one sampler; its owner's dir can sit under this run's --watch
+    glob. memsampler.json names the file and the tick skips it there too."""
+    arms = state / "arms"
+    (arms / "br-read").mkdir(parents=True)
+    out = arms / "br-read" / "memory.jsonl"
+    runs._write_json(runs.state_dir() / "memsampler.json", {"run": "br-read", "out": str(out)})
+    old = time.time() - 3600
+    (arms / "br-read" / "games.jsonl").write_text("{}\n")
+    os.utime(arms / "br-read" / "games.jsonl", (old, old))
+    out.write_text("{}\n")
+    ignore = runs.stall_ignored(state / "chain")
+    assert runs.newest_mtime(arms / "br-read", ignore) == pytest.approx(old, abs=1)
+    assert runs.newest_mtime(arms / "br-read") > old + 3000  # uncounted only through the ignore set
+    assert runs.newest_mtime(out, ignore) == 0.0  # a --watch glob that names the file itself
+    # a file of the same NAME that is not the sampler's still counts
+    (arms / "br-read" / "sub").mkdir()
+    (arms / "br-read" / "sub" / "memory.jsonl").write_text("{}\n")
+    assert runs.newest_mtime(arms / "br-read", ignore) > old + 3000
+
+
+def test_a_detached_stall_does_not_recover_on_the_supervisors_own_log(state):
+    """Detached, the supervisor's stdout is <dir>/supervisor.log: raising STALLED
+    wrote to the watched dir and the next tick said `recovered` (all eight
+    stalls in the queue up to 11-09 recovered exactly one tick later)."""
+    d = state / "dst"
+    # a real subprocess: under pytest's capture an in-process fork keeps the captured sys.stdout
+    out = subprocess.run(
+        [sys.executable, "-m", "anvil.runs", "launch", "--name", "dst", "--dir", str(d), "--tick-sec", "0.2",
+         "--stall-sec", "1", "--", "sh", "-c", "sleep 3; exit 0"],
+        capture_output=True, text=True, env=dict(os.environ), timeout=30,
+    )
+    assert out.returncode == 0, out.stderr
+    _wait_done("dst")
+    kinds = [a["kind"] for a in runs.read_alerts()]
+    assert "STALLED" in (d / "supervisor.log").read_text()  # the supervisor did write into the watched dir
+    assert kinds == ["stalled", "done"], kinds
+
+
+# ---- 11-09: the check-in is re-resolved on every relaunch (the infrastructure survey, finding 2)
+
+
+def test_relaunch_resolves_the_checkin_again(state, monkeypatch):
+    """One failed self-test (the 10-16 expired login) recorded `checkin: none`
+    and every relaunch reused it. The state now keeps what was REQUESTED; a
+    relaunch resolves and self-tests it again, and --checkin overrides."""
+    b = state / "bin"
+    b.mkdir()
+    shim = b / "claude"
+    shim.write_text("#!/bin/sh\necho 'Failed to authenticate: OAuth session expired' >&2\nexit 1\n")
+    shim.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{b}:{os.environ['PATH']}")
+    monkeypatch.delenv("ANVIL_CHECKIN", raising=False)
+    assert _launch(state, "ck", ["sh", "-c", "exit 0"], checkin="auto") == 0
+    st = runs.read_run("ck")
+    assert st["checkin"] == "none" and st["checkin_requested"] == "auto"
+    assert runs._relaunch_args(st).checkin == "auto"  # not the resolved none
+    # the login is back: the relaunch self-tests and the check-in is on again
+    rec = state / "claude-calls.txt"
+    shim.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {rec}\necho OK\n")
+    assert runs.main(["relaunch", "--name", "ck"]) == 0
+    _wait_done("ck")
+    st = runs.read_run("ck")
+    assert st["checkin"] == "claude" and st["checkin_requested"] == "auto"
+    assert "Reply with exactly the word OK" in rec.read_text()
+    # --checkin overrides, and the override is what later relaunches resolve
+    assert runs.main(["relaunch", "--name", "ck", "--checkin", "none"]) == 0
+    _wait_done("ck")
+    st = runs.read_run("ck")
+    assert st["checkin"] == "none" and st["checkin_requested"] == "none"
+    assert runs._relaunch_args(st).checkin == "none"
+    # a state file from before the field (the big run's): no request on record -> auto
+    legacy = {k: v for k, v in st.items() if k != "checkin_requested"}
+    assert runs._relaunch_args(legacy).checkin == "auto"
+    assert runs._relaunch_args(legacy, checkin="none").checkin == "none"
+
+
+# ---- 11-09: `wait` ends on every terminal state (the infrastructure survey, finding 7)
+
+
+def test_wait_returns_on_paused_and_on_a_swept_gone(state):
+    """done 0 / failed 1 / gone 2 / paused 4. A `gone` the sweep already wrote
+    and a `paused` used to match no branch: without --timeout the wait never
+    returned (with it, 3 — the timeout — which is what this would read)."""
+    d = str(state / "x")
+    runs._write_json(runs._run_file("wp"), {"name": "wp", "state": "paused", "dir": d, "supervisor_pid": 1})
+    assert runs.main(["wait", "--name", "wp", "--timeout", "3", "--poll", "0.2"]) == 4
+    runs._write_json(runs._run_file("wg"), {"name": "wg", "state": "gone", "dir": d, "supervisor_pid": 1})
+    assert runs.main(["wait", "--name", "wg", "--timeout", "3", "--poll", "0.2"]) == 2
+    # the unswept form (running, the supervisor dead) is the same answer
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    os.waitpid(pid, 0)
+    runs._write_json(runs._run_file("wr"), {"name": "wr", "state": "running", "dir": d, "supervisor_pid": pid})
+    assert runs.main(["wait", "--name", "wr", "--timeout", "3", "--poll", "0.2"]) == 2
+    # a live run still waits: the timeout is the only way out
+    runs._write_json(runs._run_file("wl"), {"name": "wl", "state": "running", "dir": d, "supervisor_pid": os.getpid()})
+    assert runs.main(["wait", "--name", "wl", "--timeout", "0.6", "--poll", "0.2"]) == 3
+
+
+# ---- 11-09: the sweep's resume budget starts over at a manual relaunch (the infrastructure survey, finding 9)
+
+
+def test_manual_relaunch_resets_the_resume_count(state):
+    """The cap stops a crash loop; it is not a budget for the run's life. The
+    sweep's own resume keeps counting (test_sweep_relaunches_a_gone_run_under_the_cap)."""
+    d = state / "rc"
+    d.mkdir()
+    runs._write_json(runs._run_file("rc"), {
+        "name": "rc", "state": "gone", "pid": 1, "supervisor_pid": 1, "started": runs._now(),
+        "cmd": ["sh", "-c", "exit 0"], "dir": str(d), "log": str(d / "run.log"), "tag": "anvil",
+        "launch_cwd": os.getcwd(), "watch": [], "resume": True, "resume_max": 3, "resume_count": 3,
+        "tick_sec": 0.2, "stall_sec": 60,
+    })
+    assert runs._relaunch_args(runs.read_run("rc")).resume_count == 3  # the sweep's path: carried
+    assert runs.main(["relaunch", "--name", "rc", "--no-selftest"]) == 0
+    _wait_done("rc")
+    st = runs.read_run("rc")
+    assert st["resume_count"] == 0 and st["resume"] is True and st["resume_max"] == 3
+
+
+# ---- 11-09: one arm for the memory sampler, the launcher's (the infrastructure survey, R2)
+
+
+def test_memsampler_is_rearmed_after_a_reboot_for_the_same_owner(state, monkeypatch):
+    """A reboot kills the transient unit and leaves memsampler.json naming the
+    run that owned it. The relaunch of that same run (by hand, or the sweep's
+    resume) finds the unit inactive and arms it again — the case the chain's
+    own arm existed for before the launcher took the job."""
+    monkeypatch.setenv("ANVIL_MEMSAMPLER", "1")
+    runs._write_json(runs.state_dir() / "memsampler.json", {"run": "big", "out": "old/memory.jsonl"})
+    runs._write_json(runs._run_file("big"), {"name": "big", "state": "gone", "supervisor_pid": 1})
+    fake = _Fake(active=False)
+    note = runs.arm_memsampler("big", state / "big", run=fake)
+    assert note.startswith("memory watchdog: ARMED") and str(state / "big" / "memory.jsonl") in note
+    assert sum(c[0] == "systemd-run" for c in fake.calls) == 1
+    assert json.loads((runs.state_dir() / "memsampler.json").read_text())["out"].endswith("big/memory.jsonl")
+
+
+def test_the_big_run_chain_reports_the_sampler_and_never_arms_it():
+    """One mechanism per job: the chain starts no unit. It still reads the trip
+    marker the launcher's sampler writes beside this run's memory.jsonl."""
+    from pathlib import Path
+
+    chain = Path(__file__).resolve().parents[1] / "scripts" / "big_run_chain.sh"
+    text = chain.read_text()
+    code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+    assert "systemd-run" not in code and "arm_memsampler" not in code
+    assert "report_memsampler" in code and '"$OUT/WATCHDOG-TRIP"' in code
+    assert subprocess.run(["bash", "-n", str(chain)], capture_output=True).returncode == 0
+
+
+# ---- 11-09: `tick`, the read-only view of the stall tick (the boundary's self-check)
+
+
+def test_tick_shows_what_the_stall_tick_counts(state, capsys):
+    d = state / "tk"
+    d.mkdir()
+    old = time.time() - 600
+    (d / "loop.log").write_text("x\n")
+    os.utime(d / "loop.log", (old, old))
+    (d / "memory.jsonl").write_text("{}\n")  # fresh, and not the run's progress
+    started = runs.datetime.fromtimestamp(old - 60).astimezone().isoformat(timespec="seconds")
+    runs._write_json(runs._run_file("tk"), {"name": "tk", "state": "running", "dir": str(d), "stall_sec": 300,
+                                            "started": started, "watch": [], "supervisor_pid": os.getpid()})
+    before = sorted(p.name for p in d.iterdir())
+    assert runs.main(["tick", "--name", "tk"]) == 1  # 600 s of silence against a 300 s alarm
+    out = capsys.readouterr().out
+    assert "loop.log" in out.splitlines()[0] and "STALLED" in out.splitlines()[0]
+    assert "not counted" in out and "memory.jsonl" in out
+    (d / "heartbeat.json").write_text("{}")  # idle on purpose: counted
+    assert runs.main(["tick", "--name", "tk"]) == 0
+    assert "heartbeat.json" in capsys.readouterr().out.splitlines()[0]
+    assert sorted(p.name for p in d.iterdir()) == sorted(before + ["heartbeat.json"])  # the verb wrote nothing
+    assert runs.read_run("tk")["state"] == "running" and not runs.read_alerts()
+    assert runs.main(["tick", "--name", "nope"]) == 2
+
+
+# ---- 11-09: helpers that wrote on a timer under the tick's roots go quiet when nothing happened
+
+
+def _server_stats_loop():
+    """The model server's `_Batcher._stats_loop`, compiled from its source alone:
+    importing anvil.bridge.server pulls grpc and torch, and this suite stays stdlib."""
+    import ast
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[1] / "anvil" / "bridge" / "server.py").read_text()
+    cls = next(n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == "_Batcher")
+    fn = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "_stats_loop")
+    return ast.Module(body=[fn], type_ignores=[])
+
+
+def test_server_stats_line_is_silent_while_idle(capsys):
+    """One `stats: idle` on the transition, nothing until work resumes; a busy
+    window always prints. An idle line every minute kept iter-K/server.log —
+    under the stall tick's --watch root — fresh through any generation hang."""
+    class _Stop(Exception):
+        pass
+
+    lines = iter(["stats: 900 asks", "stats: idle", "stats: idle", "stats: idle", "stats: 12 asks",
+                  "stats: 12 asks", "stats: idle", "stats: idle"])
+
+    class _FakeTime:
+        @staticmethod
+        def sleep(_s):
+            return None
+
+    class _Stub:
+        stats_every = 60.0
+
+        def stats_line(self, reset=False):
+            try:
+                return next(lines)
+            except StopIteration:
+                raise _Stop from None
+
+    ns = {"time": _FakeTime, "print": print}
+    exec(compile(_server_stats_loop(), "server.py::_stats_loop", "exec"), ns)  # noqa: S102
+    with pytest.raises(_Stop):
+        ns["_stats_loop"](_Stub())
+    out = capsys.readouterr().out.splitlines()
+    assert out == ["[server] stats: 900 asks", "[server] stats: idle", "[server] stats: 12 asks",
+                   "[server] stats: 12 asks", "[server] stats: idle"]
+
+
+def test_harness_minute_line_prints_only_when_something_moved():
+    """The scheduler's progress line lands in the loop's log, in the run dir the
+    tick watches. At an unchanged count it used to repeat every minute for as
+    long as the scheduler lived, wedged workers or not."""
+    from anvil.bridge.harness.orchestrator import progress_note
+
+    line, last = progress_note(29, 120, 1695.0, "", None)
+    assert line == "[harness] 29/120 (1695 g/h this session)"
+    assert progress_note(29, 120, 1600.0, "", last)[0] is None  # the rate drifts with the clock; the count did not move
+    line, last = progress_note(30, 120, 1610.0, "", last)
+    assert line == "[harness] 30/120 (1610 g/h this session)"
+    # a yield is announced once, then silent while nothing completes (it heartbeats instead)
+    line, last = progress_note(30, 120, 1610.0, "python[1804] 18732 MB sm 88%", last)
+    assert line.endswith("(yielding: python[1804] 18732 MB sm 88%)")
+    assert progress_note(30, 120, 1500.0, "python[1804] 18732 MB sm 88%", last)[0] is None
+    line, last = progress_note(31, 120, 1500.0, "python[1804] 18732 MB sm 88%", last)  # an active chunk finished
+    assert line.startswith("[harness] 31/120") and "yielding" in line
+    assert progress_note(31, 120, 1500.0, "", last)[0] == "[harness] 31/120 (1500 g/h this session)"  # resumed
+
+
+def test_a_generation_that_goes_quiet_stalls_the_tick(state):
+    """The layout of a loop mid-generation: the run dir holds the loop's log, the
+    watched loop dir holds iter-K/mu.jsonl and server.log. Once the writers are
+    honest — nothing appended when nothing happened — a hung generation is a
+    stall, while the sampler keeps writing beside it."""
+    d = state / "gen"
+    loop = state / "training" / "gen"
+    (loop / "iter-000").mkdir(parents=True)
+    for f in ("mu.jsonl.s0", "server.log"):
+        (loop / "iter-000" / f).write_text("row\n")
+    cmd = ["sh", "-c", f"echo '[harness] 29/120' ; for i in $(seq 1 14); do touch {d}/memory.jsonl; sleep 0.2; done; exit 0"]
+    assert _launch(state, "gen", cmd, stall_sec=1, watch=str(loop)) == 0
+    assert [a["kind"] for a in runs.read_alerts()] == ["stalled", "done"]

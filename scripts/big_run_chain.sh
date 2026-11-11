@@ -127,18 +127,15 @@ rows=[json.loads(l) for l in open(fs[-1]) if l.strip()] if fs else []  # NDJSON 
 r=next((x for x in rows if x.get('split','holdout')=='holdout'), rows[0] if rows else {})
 print(f\"{r.get('spearman')} ± {r.get('se_boot')} ({fs[-1].split('/')[-2]})\" if fs else 'n/a')" 2>/dev/null; }
 row() { printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n' "$@" >> "$OUT/read.md"; }
-# 10-21: the memory watchdog (scripts/memory_sampler.sh, its header's systemd-run line) is a TRANSIENT user unit — it died
-# with the 10-21 reboot and nothing re-armed it (ADR-0123 addendum 10-21). The chain arms it before every loop start:
-# an active unit is left alone; an inactive one (a failed remnant reset first) is started with the header's args.
+# The memory watchdog (scripts/memory_sampler.sh) is armed by the LAUNCHER, once (anvil.runs arm_memsampler, 10-29: every
+# detached launch and relaunch, the sweep's resume after a reboot included; it records the owner in memsampler.json and
+# writes $OUT/memory.jsonl + $OUT/WATCHDOG-TRIP because this run launches with --dir $OUT). The chain armed it too from
+# 10-21 — the second arm for one unit — and that copy is gone (11-09, the infrastructure survey R2). What stays is the
+# line in queue.log saying whether the loop starts watched: a report, never a second arm.
 MEMSAMPLER_UNIT=${MEMSAMPLER_UNIT:-anvil-memsampler}
-arm_memsampler() {
-  if systemctl --user is-active --quiet "$MEMSAMPLER_UNIT"; then log "memory watchdog $MEMSAMPLER_UNIT: active"; return 0; fi
-  systemctl --user reset-failed "$MEMSAMPLER_UNIT" 2>/dev/null
-  local rc
-  systemd-run --user --unit="$MEMSAMPLER_UNIT" -p MemoryMax=500M -p WorkingDirectory="$REPO" \
-    /usr/bin/bash "$REPO/scripts/memory_sampler.sh" "$OUT/memory.jsonl" 20 >> "$OUT/queue.log" 2>&1; rc=$?
-  if [[ $rc -eq 0 ]]; then log "memory watchdog $MEMSAMPLER_UNIT: ARMED (was inactive; $OUT/memory.jsonl every 20 s)"
-  else log "memory watchdog $MEMSAMPLER_UNIT: FAILED to arm (systemd-run rc=$rc) — the loop runs unwatched"; fi
+report_memsampler() {
+  if systemctl --user is-active --quiet "$MEMSAMPLER_UNIT" 2>/dev/null; then log "memory watchdog $MEMSAMPLER_UNIT: active"
+  else log "memory watchdog $MEMSAMPLER_UNIT: NOT ACTIVE — the loop runs unwatched (the launcher arms it: relaunch through anvil.runs, without --no-memsampler)"; fi
 }
 
 # ---- the close (CLOSE=1, the user's call at the run's end): the number of record on FRESH seeds + the paired
@@ -177,7 +174,7 @@ if [[ $WALL_DONE -eq 0 ]]; then
   [[ -f "$LOOP/WALL-STOP" ]] && mv "$LOOP/WALL-STOP" "$LOOP/WALL-STOP.seg$((SEGMENT-1))"
   while :; do
   T_LOOP=$(date +%s)
-  arm_memsampler
+  report_memsampler
   log "segment $SEGMENT: the loop to --wall-hours $WALL (spearman floor $FLOOR); resumes from $LOOP/loop_state.json if present"
   uv run python -m anvil.training.selfplay --name "$NAME" --ckpt "$START" --iterations 2000 --wall-hours "$WALL" \
     --games 480 --games-per-pair 2 --workers "$WORKERS" --chunk 30 --port 50063 --seed-base 20260921 \

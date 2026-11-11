@@ -18,7 +18,14 @@ construction, what the checklist used to ask each script to remember:
               cleanly and nobody knew for an hour.
   stall       the supervisor (this process, alive for the run's whole life)
               ticks on the newest mtime under D: running -> stalled ->
-              recovered, on transition only
+              recovered, on transition only. The launcher's own files do not
+              count (11-09: the memory sampler's memory.jsonl, the supervisor's
+              log — stall_ignored); heartbeat.json does. THE WRITERS' RULE the
+              tick rests on: nothing under a watched dir is written on a timer
+              unless it is a deliberate wait, and a deliberate wait heartbeats.
+              A helper that prints "still nothing" every minute blinds the tick
+              (the model server's idle stats line and the harness's unchanged
+              progress line did, through every generation, until 11-09)
   alerts      every transition appends to alerts.jsonl (id, ts, run, kind,
               msg, acked=false) — the queue the check-in drains (a scheduled
               Claude task, or anyone's poll); plus best-effort sinks:
@@ -50,6 +57,9 @@ construction, what the checklist used to ask each script to remember:
   relaunch    `anvil.runs relaunch --name N`: the recorded command again, in
               place (STOP files removed); `--resume-on-gone` at launch lets
               the sweep do this itself after a reboot, capped by --resume-max.
+              The check-in is resolved and self-tested again on every relaunch
+              from the mode the run was launched with (11-09: one expired login
+              no longer turns it off for the run's life); --checkin overrides.
   sweep       `anvil.runs sweep` marks runs whose supervisor died (reboot,
               OOM, kill -9) as gone, alerts, checks in; `install-sweep` puts
               it on a systemd user timer (10 min) where systemd exists
@@ -63,7 +73,9 @@ Verbs:
   launch  --name N --dir D [--stall-min 60] [--nice 19] [--memory-max 20G]
           [--log D/run.log] [--tick-sec 120] -- cmd...
   status  [--json]                 every run's state (newest first)
-  wait    --name N [--timeout S]   block until the run is done | failed
+  wait    --name N [--timeout S]   block until the run stops being live; exit 0 done, 1 failed,
+                                   2 gone (dead supervisor), 3 the --timeout, 4 paused
+  tick    --name N                 read-only: what the stall tick sees right now (exit 1 = it would read stalled)
   alerts  [--unacked] [--json]     the queue
   ack     --all | --id ID...       mark alerts read
   prune   [--days 30]              drop terminal run records older than N days
@@ -227,24 +239,80 @@ def ack_alerts(ids: set[str] | None) -> int:
 # ------------------------------------------------------------- supervisor
 
 
-def newest_mtime(root: Path) -> float:
-    """Newest file mtime under root (the run's own artifact dir, not a
-    project-wide tree); 0 when nothing is there yet."""
-    newest = 0.0
+# 11-09 (the infrastructure survey, finding 1): files the launcher's own machinery
+# writes into a run dir are not the run's artifacts. The memory sampler appends
+# <run dir>/memory.jsonl every 20 s, so the stall tick saw a fresh file forever
+# (zero `stalled` alerts for the big run in five weeks, through a 91-minute
+# training-step wait and whatever else went quiet); and the detached supervisor's
+# own stdout is <run dir>/supervisor.log, so raising STALLED refreshed the dir and
+# the next tick called it `recovered` (every stall in the queue up to 11-09 is
+# followed by a recovery exactly one tick later). heartbeat.json is NOT here: a
+# job idle on purpose is alive, that is the heartbeat's whole point.
+STALL_IGNORE_NAMES = ("memory.jsonl", "supervisor.log")
+
+
+def stall_ignored(run_dir: Path) -> frozenset[str]:
+    """The absolute paths the stall tick skips: this run's own sampler output and
+    supervisor log, plus wherever the box's one memory sampler is writing right
+    now (memsampler.json `out` — it may be another run's dir that sits under one
+    of this run's --watch roots)."""
+    own = {os.path.realpath(run_dir / n) for n in STALL_IGNORE_NAMES}
+    try:
+        out = json.loads((state_dir() / "memsampler.json").read_text()).get("out")
+        if out:
+            own.add(os.path.realpath(out))
+    except (OSError, json.JSONDecodeError, AttributeError):
+        pass
+    return frozenset(own)
+
+
+def newest_file(root: Path, ignore: frozenset[str] = frozenset()) -> tuple[float, str | None]:
+    """(mtime, path) of the newest file under root (the run's own artifact dir,
+    not a project-wide tree); (0, None) when nothing is there yet. `ignore` =
+    real paths that do not count (stall_ignored); only a file whose basename
+    matches one is resolved, so the walk stays a walk."""
+    names = {os.path.basename(p) for p in ignore}
+
+    def skipped(path: str, fn: str) -> bool:
+        return fn in names and os.path.realpath(path) in ignore
+
+    newest, which = 0.0, None
     try:
         if os.path.isfile(root):  # a --watch glob may name files
-            return os.stat(root).st_mtime
+            if skipped(str(root), os.path.basename(root)):
+                return 0.0, None
+            return os.stat(root).st_mtime, str(root)
         for dirpath, _dirs, files in os.walk(root):
             for fn in files:
+                path = os.path.join(dirpath, fn)
+                if skipped(path, fn):
+                    continue
                 try:
-                    m = os.stat(os.path.join(dirpath, fn)).st_mtime
+                    m = os.stat(path).st_mtime
                 except OSError:
                     continue
                 if m > newest:
-                    newest = m
+                    newest, which = m, path
     except OSError:
         pass
-    return newest
+    return newest, which
+
+
+def newest_mtime(root: Path, ignore: frozenset[str] = frozenset()) -> float:
+    return newest_file(root, ignore)[0]
+
+
+def stall_roots(run_dir: Path, watch: list[str], base: Path | None = None) -> list[Path]:
+    """The run dir plus every --watch root (globs expanded now: a chain's arm
+    dirs appear as it goes). `base` anchors a relative pattern for a reader
+    that is not in the supervisor's cwd (the `tick` verb)."""
+    roots = [run_dir]
+    for pat in watch:
+        pp = Path(pat)
+        if base is not None and not pp.is_absolute():
+            pp = base / pp
+        roots += list(pp.parent.glob(pp.name)) if any(c in pp.name for c in "*?[") else [pp]
+    return roots
 
 
 def _tail(path: Path, lines: int = 15, width: int = 200) -> str:
@@ -377,8 +445,12 @@ def _child_cmd(cmd: list[str], nice: int, memory_max: str | None, name: str,
     resume-on-gone relaunch then ran inside the oneshot sweep service's
     cgroup and was killed 5 s later when the service ended. An own scope
     outlives the launching app and the sweep, and ManagedOOMPreference=avoid
-    tells oomd to kill the desktop first. `scope=False` (--foreground, the
-    tests) spawns the bare command."""
+    tells oomd to prefer the desktop on a memory-PRESSURE kill. 11-09: the
+    mark is not honoured for a swap-limit kill on a user-owned cgroup
+    (systemd.resource-control(5)) — the 10-17 kill took this scope with the
+    mark set; scripts/memory_sampler.sh is the defence there. The supervisor
+    itself stays in the launcher's cgroup (the survey's finding 4, routed).
+    `scope=False` (--foreground, the tests) spawns the bare command."""
     note = None
     have_systemd = bool(shutil.which("systemd-run")) and sys.platform.startswith("linux")
     if scope and have_systemd:
@@ -456,11 +528,8 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     watch = [str(w) for w in (getattr(a, "watch", None) or [])]
 
     def newest_artifact() -> float:
-        roots = [run_dir]
-        for pat in watch:
-            pp = Path(pat)
-            roots += list(pp.parent.glob(pp.name)) if any(c in pp.name for c in "*?[") else [pp]
-        return max(newest_mtime(r) for r in roots)
+        ignore = stall_ignored(run_dir)  # re-read each tick: the sampler's owner can change
+        return max(newest_mtime(r, ignore) for r in stall_roots(run_dir, watch))
 
     logf = open(log, "ab")
     logf.write(f"[runs] {_now()} launch {a.name}: {' '.join(cmd)}\n".encode())
@@ -493,7 +562,10 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         "name": a.name, "state": "running", "pid": child.pid, "supervisor_pid": os.getpid(),
         "started": _now(), "cmd": cmd, "dir": str(run_dir), "log": str(log),
         "stall_sec": stall_s, "tick_sec": a.tick_sec, "note": note, "tag": a.tag,
-        "checkin": mode, "launch_cwd": os.getcwd(), "watch": watch,
+        # `checkin` = what this launch RESOLVED to (the sweep's and a reader's view);
+        # `checkin_requested` = what was asked, which is what a relaunch resolves again
+        "checkin": mode, "checkin_requested": getattr(a, "checkin", None) or "auto",
+        "launch_cwd": os.getcwd(), "watch": watch,
         "launched_by": getattr(a, "launched_by", None) or None,
         "nice": a.nice, "memory_max": a.memory_max, "cwd": a.cwd,
         "resume": bool(getattr(a, "resume_on_gone", False)), "resume_max": getattr(a, "resume_max", 3),
@@ -681,6 +753,10 @@ def status(a: argparse.Namespace) -> int:
     return 0
 
 
+# `wait`'s exit codes, one per way a run stops being live (3 = the wait's own --timeout)
+WAIT_RC = {"done": 0, "failed": 1, "gone": 2, "paused": 4}
+
+
 def wait(a: argparse.Namespace) -> int:
     t0 = time.time()
     while True:
@@ -690,16 +766,63 @@ def wait(a: argparse.Namespace) -> int:
         # (after-paired STALLED at 240 min, 22:45, four hours into a benign wait).
         heartbeat(f"waiting on {a.name}")
         r = read_run(a.name)
-        if r and r.get("state") in ("done", "failed"):
-            print(f"{a.name}: {r['state']} rc={r.get('rc')}")
-            return 0 if r["state"] == "done" else 1
-        if r and r.get("state") in ("running", "stalled") and not _alive(r.get("supervisor_pid")):
+        state = (r or {}).get("state")
+        if state in ("done", "failed"):
+            print(f"{a.name}: {state} rc={r.get('rc')}")
+            return WAIT_RC[state]
+        # 11-09 (survey finding 7): every terminal state ends the wait. `paused` and a `gone`
+        # the sweep had already written matched no branch, so the launching session's
+        # background wait — the belt under the check-in — hung forever on exactly those two.
+        if state in ("paused", "gone"):
+            print(f"{a.name}: {state}" + (" (the sweep found the supervisor dead)" if state == "gone" else
+                                         f" — `anvil.runs relaunch --name {a.name}` resumes it"))
+            return WAIT_RC[state]
+        if state in ("running", "stalled") and not _alive(r.get("supervisor_pid")):
             print(f"{a.name}: gone (supervisor died)")
-            return 2
+            return WAIT_RC["gone"]
         if a.timeout and time.time() - t0 > a.timeout:
             print(f"{a.name}: wait timeout")
             return 3
         time.sleep(a.poll)
+
+
+def tick(a: argparse.Namespace) -> int:
+    """What the supervisor's stall tick sees for a run RIGHT NOW, read-only (11-09): the
+    newest file it counts and that file's age against the alarm, and the files it does
+    not count with theirs. The check after a relaunch that the tick is looking at the
+    run and not at the launcher's own writes — it touches nothing, signals nothing, and
+    is safe on a live run. Exit 0 = the tick reads running, 1 = it would read stalled,
+    2 = no such run."""
+    r = read_run(a.name)
+    if not r or not r.get("dir"):
+        print(f"tick: no run {a.name}", file=sys.stderr)
+        return 2
+    run_dir = Path(r["dir"])
+    ignore = stall_ignored(run_dir)
+    base = Path(r["launch_cwd"]) if r.get("launch_cwd") else None
+    newest, which = 0.0, None
+    for root in stall_roots(run_dir, r.get("watch") or [], base):
+        m, f = newest_file(root, ignore)
+        if m > newest:
+            newest, which = m, f
+    try:  # the supervisor never counts silence from before its own start
+        started = datetime.fromisoformat(r["started"]).timestamp()
+    except (KeyError, TypeError, ValueError):
+        started = 0.0
+    now = time.time()
+    stall_s = r.get("stall_sec") or 3600
+    age = now - max(newest, started)
+    would = age > stall_s
+    print(f"{a.name}: state {r.get('state')}; newest counted artifact {which or '(none)'}"
+          + (f", {int(now - newest)} s old" if newest else "")
+          + f"; the alarm is at {stall_s} s; the tick reads {'STALLED' if would else 'running'} "
+          f"({int(age)} s of silence since the later of that file and the launch)")
+    for p in sorted(ignore):
+        try:
+            print(f"  not counted: {p} ({int(now - os.stat(p).st_mtime)} s old)")
+        except OSError:
+            continue
+    return 1 if would else 0
 
 
 def alerts(a: argparse.Namespace) -> int:
@@ -803,14 +926,22 @@ def pause(a: argparse.Namespace) -> int:
     return 0
 
 
-def _relaunch_args(r: dict, no_selftest: bool = False, launched_by: str | None = None) -> argparse.Namespace:
+def _relaunch_args(r: dict, no_selftest: bool = False, launched_by: str | None = None,
+                   checkin: str | None = None) -> argparse.Namespace:
     # 10-21: `launched_by` overrides the recorded session (a relaunch from a new session: the
     # recorded ref is a dead session's and the check-in relay would fall back); None keeps it
+    # 11-09 (survey finding 2): the check-in is resolved AGAIN from the REQUESTED mode, never
+    # from the last launch's resolution. The big run's 10-16 relaunch met an expired login,
+    # recorded `checkin: none`, and every relaunch for four weeks passed that `none` back in —
+    # five failures and three segment closes with no check-in after the login was restored.
+    # `checkin` (relaunch --checkin) overrides; a state file from before this field has no
+    # request on record and resolves as auto (`relaunch --checkin none` keeps one off).
+    requested = checkin or r.get("checkin_requested") or "auto"
     return argparse.Namespace(
         name=r["name"], dir=r["dir"], log=r.get("log"), cwd=r.get("cwd"),
         stall_min=60, stall_sec=r.get("stall_sec"), tick_sec=r.get("tick_sec", 120.0),
         nice=r.get("nice", 19), memory_max=r.get("memory_max"), tag=r.get("tag", "anvil"),
-        foreground=False, checkin=r.get("checkin"), no_selftest=no_selftest, watch=r.get("watch") or [],
+        foreground=False, checkin=requested, no_selftest=no_selftest, watch=r.get("watch") or [],
         resume_on_gone=bool(r.get("resume")), resume_max=r.get("resume_max", 3),
         resume_count=r.get("resume_count", 0), launched_by=launched_by or r.get("launched_by"),
     )
@@ -833,7 +964,20 @@ def relaunch(a: argparse.Namespace) -> int:
             Path(f).unlink()
         except FileNotFoundError:
             pass
-    ra = _relaunch_args(r, getattr(a, "no_selftest", False), getattr(a, "launched_by", None))
+    ra = _relaunch_args(r, getattr(a, "no_selftest", False), getattr(a, "launched_by", None),
+                        getattr(a, "checkin", None))
+    if r.get("checkin") == "none" and ra.checkin != "none":
+        print(f"[runs] RELAUNCH {a.name}: the last launch ran with no check-in; resolving {ra.checkin!r} again",
+              flush=True)
+    # 11-09 (survey finding 9): a relaunch by hand is someone looking at the run, so the
+    # sweep's resume budget starts over. The cap exists to stop a crash LOOP; carried through
+    # every manual relaunch it was a budget for the run's whole life (the big run spent 1 of
+    # its 3 on 10-10 and still carried it four weeks and a dozen relaunches later). The
+    # sweep's own resume does not come through here and keeps counting.
+    if ra.resume_count:
+        print(f"[runs] RELAUNCH {a.name}: resume count {ra.resume_count}/{ra.resume_max} -> 0 (a manual relaunch)",
+              flush=True)
+        ra.resume_count = 0
     if r.get("launch_cwd"):
         os.chdir(r["launch_cwd"])
     if ra.launched_by != r.get("launched_by"):
@@ -873,7 +1017,9 @@ def sweep(a: argparse.Namespace) -> int:
             continue
         rec = alert(r["name"], "gone", f"supervisor pid {r.get('supervisor_pid')} is dead (reboot / OOM / kill); "
                     f"the run's last log lines:\n{tail}", r.get("dir"), r.get("tag", "anvil"))
-        if (r.get("checkin") or checkin_mode(None)) == "claude":
+        # resolved now, from the request: a launch-time `none` (an expired login) must not
+        # also silence the one event the supervisor cannot report itself
+        if checkin_mode(r.get("checkin_requested") or r.get("checkin")) == "claude":
             llm_checkin(rec, r)
     print(f"swept {n} gone run(s)")
     return 0
@@ -978,7 +1124,9 @@ def main(argv: list[str] | None = None) -> int:
     la.add_argument("--resume-on-gone", action="store_true",
                     help="the sweep relaunches this run's recorded command when its supervisor is found dead "
                          "(a reboot, an OOM kill) — for a command that resumes from its own state, e.g. selfplay")
-    la.add_argument("--resume-max", type=int, default=3, help="the relaunch cap under --resume-on-gone (a crash loop stops)")
+    la.add_argument("--resume-max", type=int, default=3,
+                    help="the relaunch cap under --resume-on-gone (a crash loop stops); the count starts over at "
+                         "every manual `relaunch`")
     la.add_argument("--resume-count", type=int, default=0, help=argparse.SUPPRESS)
     pa = sub.add_parser("pause", help="write STOP for the run's command, mark it paused when it exits (no FAILED push)")
     pa.add_argument("--name", required=True)
@@ -990,15 +1138,22 @@ def main(argv: list[str] | None = None) -> int:
     rl = sub.add_parser("relaunch", help="re-run a paused / gone / failed / done run's recorded command in place (STOP files removed)")
     rl.add_argument("--name", required=True)
     rl.add_argument("--no-selftest", action="store_true")
+    rl.add_argument("--checkin", default=None, choices=["auto", "claude", "none"],
+                    help="the check-in mode for this and later relaunches (11-09); default: the mode the run was "
+                         "launched with, resolved and self-tested again — never the last launch's resolution")
     rl.add_argument("--launched-by", default=None, metavar="SESSION",
                     help="re-point the run's launching session (its ListAgents name [ref]) before the relaunch — "
                          "the check-in relays to it and it owns the close (ADR-0107); default: the recorded one")
     st = sub.add_parser("status")
     st.add_argument("--json", action="store_true")
-    wa = sub.add_parser("wait")
+    wa = sub.add_parser("wait", help="block until the run is done (0) / failed (1) / gone (2) / paused (4); "
+                                     "3 = --timeout")
     wa.add_argument("--name", required=True)
     wa.add_argument("--timeout", type=float, default=0)
     wa.add_argument("--poll", type=float, default=10.0)
+    tk = sub.add_parser("tick", help="read-only: what the stall tick sees for a run right now (the newest counted "
+                                     "file and its age, the launcher's own files it does not count)")
+    tk.add_argument("--name", required=True)
     al = sub.add_parser("alerts")
     al.add_argument("--unacked", action="store_true")
     al.add_argument("--json", action="store_true")
@@ -1012,7 +1167,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     return {"launch": lambda: launch(a, cmd), "status": lambda: status(a), "wait": lambda: wait(a),
             "alerts": lambda: alerts(a), "ack": lambda: ack(a), "prune": lambda: prune(a),
-            "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a),
+            "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a), "tick": lambda: tick(a),
             "pause": lambda: pause(a), "relaunch": lambda: relaunch(a)}[a.verb]()
 
 
