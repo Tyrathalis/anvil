@@ -4055,3 +4055,27 @@ record.*
     in the four reads before. 382 of them are one game (seed set s0, game 129): Engineered Explosives at X=0,
     re-asked and rescued each time. Without that game the count is 15. Whether X=0 Engineered Explosives is a
     payability-probe error is routed to the closeout scoping, beside the oversize game's source.
+- **2026-11-11 07:50 (the big run) — the casts guard on live rows is built on branch `live-casts-guard` (`63994d9`), the user's call; it merges at the run's next stop.**
+  - **The decision.** The user, on the 07:30 entry: guard the cast count in the live game only, and be much less
+    concerned about action drift in search.
+  - **The change.** `_census_tallies` adds `live_first_cast`: first-attempt casts on rows with no `copy` mark. The
+    monitor row and the baseline gain `live_casts_per_game`. `guard_flags` compares that with the live baseline.
+    `casts_per_game` stays in the row as an unguarded series, and the battery lists both.
+  - **A running loop's baseline.** The big run's baseline was recorded on all rows. At start the loop recomputes
+    iteration 0's tallies from its run dirs and takes the live figure only when those dirs reproduce the stored
+    `casts_per_game`. If they do not, or the dirs are gone, the guard keeps the all-rows basis and the log says so.
+  - **Checked on the run's data, read-only, from the worktree.** The backfill gives 39.81 live casts per game at day
+    zero (all rows 359.88, as recorded). Across the run the live figure is 39.6 (iteration 1), 43.5 (100), 43.0
+    (200), 44.4 (301), 47.4 (405), 45.3 (416), 44.3 (449): the live policy casts more than at day zero. The
+    recomputed all-rows figures match the monitor at every iteration read. Iteration 416 reads 45.27 live, so the
+    11-08 halt would not have fired: it was a low-search iteration (228 copy casts per game against 320 at day zero).
+  - **The floor.** The chain passes 0.7, set on 11-08 to clear the all-rows sample noise. On live rows 0.7 is 27.9
+    and the default 0.8 is 31.8; the run sits at 44–47 with about one cast of iteration-to-iteration spread. The
+    value stays 0.7 unless the user says.
+  - **Tests.** Three new ones (the copy rows are excluded; the guard reads live rows and falls back; the backfill
+    needs the recorded figure). 53 pass across `test_rl`, `test_selfplay_search`, `test_state_bank_run_row`,
+    `test_battery` and `test_selfplay_sched_flags`; ruff clean; `bash -n` on the chain.
+  - **The merge, at the next stop.** One merge of `refs/heads/live-casts-guard`, the five test files again, then
+    the relaunch. The check: the loop log prints `live casts baseline backfilled from 3 run dirs: 39.81 per game
+    (all rows 359.88, as recorded)`, and the next monitor row and `loop_state.json` carry `live_casts_per_game`.
+  - **Not changed.** The veto guard's basis (`veto_rate`) also counts the copies' rows. It was not part of the ask.
