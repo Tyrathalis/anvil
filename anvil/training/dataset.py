@@ -1,11 +1,13 @@
-"""Decision-window dataset over a TrajectoryStore (M1 D4/D5).
+"""Decision-window dataset over a TrajectoryStore.
 
 Streams games (IterableDataset — random access would decode a whole zstd
-frame per sample), yields one task-tagged example per rung-1 decision:
-priority windows (the bulk) plus the one-field family (mull_keep/mull_tuck/
-trigger/binary/number — see TASKS). Every example carries the same state
-tensors; task-specific label fields are pad values (-1) elsewhere. Priority
-examples:
+frame per sample), yields one task-tagged example per decision window:
+priority windows (the bulk) plus the other tasks in TASKS — the one-field
+family (mull_keep/mull_tuck/trigger/binary/number), combat (attack/block)
+and the decision surfaces (surf_*). Payment windows are not yielded here;
+they reach training through the RL loader's mu records. Every example
+carries the same state tensors; task-specific label fields are pad values
+(-1) elsewhere. Priority examples:
 
   entities   (N, F) float32   dedup-group rows from the transform
   ent_emb    (N,)   int64     row into the embedding cache (-1 = hidden/token)

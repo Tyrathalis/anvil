@@ -91,6 +91,10 @@ tree is mid-run-frozen or broken (the watchd rule). Portable: Linux / macOS
 Verbs:
   launch  --name N --dir D [--stall-min 60] [--nice 19] [--memory-max 20G]
           [--log D/run.log] [--tick-sec 120] -- cmd...
+  pause   --name N [--now] [--wait] [--scope loop|all]
+                                   STOP for the run's command; it reads paused when the command exits
+  relaunch --name N [--checkin auto|claude|none] [--launched-by SESSION]
+                                   the recorded command again, in place (STOP files removed)
   status  [--json]                 every run's state (newest first)
   wait    --name N [--timeout S]   block until the run stops being supervised; exit 0 done, 1 failed,
                                    2 gone (dead supervisor), 3 the --timeout, 4 paused, 5 orphaned
@@ -1095,8 +1099,8 @@ def _stop_roots(r: dict, scope: str = "loop") -> list[Path]:
     """Where `pause` writes STOP. scope="loop" (the default since 09-27): the
     run's dir, every watched selfplay loop root (loop_state.json) and, when NO
     loop root is watched, every other watched dir too (a harness-only run
-    drains at game granularity). A loop's harness dirs (manifest.json +
-    workers/) are SKIPPED whenever a loop root is present: the 09-23 pause
+    drains at game granularity). A loop's harness dirs (`_is_harness_dir`:
+    run.json + workers/) are SKIPPED whenever a loop root is present: the 09-23 pause
     wrote STOP into the alloc arm's live generation, the harness honoured it
     at 34/240 games and the loop trained a 57% iteration inside an intact
     budget (the loop itself stops at its iteration boundary; the generation

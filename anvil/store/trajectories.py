@@ -64,10 +64,8 @@ MAX_FRAME_BYTES = 1 << 30
 
 class OversizeFrame(ValueError):
     """A game whose frame decodes past MAX_FRAME_BYTES. Raised from the index
-    entry before any read, so a reader can count the game and move on. One
-    such game stopped the big run's training step on 2026-11-10: a heuristic
-    seat was asked a one-option replacement choice 38,756 times in one turn
-    (m12 running record, 11-10)."""
+    entry before any read, so a reader can count the game and move on (the RL
+    loader's `oversize` skip)."""
 
 
 def decode_frame(

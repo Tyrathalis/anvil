@@ -1,10 +1,15 @@
-"""M12 Build 1 — the masked value head trained INSIDE the shared trunk on
-banked rollout labels (m12-plan.md Build 1; ADR-0103).
+"""The masked value head trained INSIDE the shared trunk on banked rollout
+labels, and the state-ranking read (m12-plan.md Build 1; ADR-0103).
 
-The day-zero checkpoint for Build 2's four-arm read: iter-019's policy heads
-kept in place (a KL anchor to the frozen teacher on live priority windows),
-the value head + the top-N trunk layers moved by three label families that
-already sit on disk in the iter-019 era (obs sv=2, pool cf2ca6ba):
+What the module does today: `bank` and `fit` build a label bank and fit the
+value head from it; `eval` is the state-ranking read on any checkpoint (the
+self-play loop's per-iteration Spearman row); `bank-run` freezes a
+run-distribution holdout; and the RL learner takes the value anchor's terms
+from here (ValueAnchor).
+
+The fit keeps the policy heads in place (a KL anchor to the frozen teacher on
+live priority windows) and moves the value head + the top-N trunk layers with
+three label families, banked in the iter-019 era (obs sv=2, pool cf2ca6ba):
 
   state    labelset-c2-v3 c2 rows — K=8 rollout winrate at the first
            obs-carrying decision of turn t (the ADR-0036/0041 benchmark;

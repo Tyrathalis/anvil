@@ -1,26 +1,33 @@
-"""Anvil decision server (M0 echo/random + M1 model): answers DecisionBridge sessions.
+"""Anvil decision server: answers DecisionBridge sessions over gRPC.
 
 Modes:
 - echo   -- echo the worker's pre-drawn answer back (bridge-tax instrument:
             gRPC-arm games are bit-identical to local-arm games, so the
             throughput delta isolates serialization + transport).
 - random -- answer uniformly at random server-side, seeded per game from
-            GameStart.seed (deterministic per seed; the M1-shaped mode).
-- model  -- M1 D8: featurize the wire observation (same code path as the
-            training loader), run AnvilNet.act, answer CastPlans + one-field
-            tags. --ckpt required; --pass-delta is the calibration arm knob
-            (pass_calibration.json "delta"). mtg.mulligan_tuck stays
-            heuristic-fallback at D8 (SELECT_K answer mapping deferred).
+            GameStart.seed (deterministic per seed).
+- model  -- featurize the wire observation (same code path as the training
+            loader), run AnvilNet.act, answer. --ckpt required; --pass-delta
+            is the calibration arm knob (pass_calibration.json "delta").
+
+What the model mode serves follows the checkpoint. MODEL_TAGS are always
+served. Combat, payment and the decision surfaces are served only when the
+checkpoint carries those trained heads (COMBAT_TAGS, PAY_TAGS, SURFACE_TAGS).
+The search-leaf value ask and the allocation ask ride every model server
+(VALUE_TAG, ALLOC_TAG; the allocation ask is declined without a fit record).
+--certify-rate adds inline certification (CERTIFY_TAG). --tags overrides the
+list. The target decoder serves masked unless --no-target-mask (ADR-0122).
+--sample serves the behavior policy and writes its records to --mu-out.
 
 Run: uv run python -m anvil.bridge.server [--port 50051] [--mode echo]
      [--tags mtg.priority,mtg.mulligan_keep,...]
-     [--ckpt data/training/d7-ep3/last.pt --pass-delta 0.0]
+     [--ckpt <last.pt> --pass-delta 0.0] [--servers N]
 
 One bidirectional stream per worker; one outstanding request per stream by
 construction (the worker's game thread blocks), so the servicer is a plain
-loop. Model inference is batch-1 behind a lock at first light — micro-batching
-across streams is the known lever if the w=16 arms want it. Stats print on
-Ctrl-C.
+loop. Worker streams featurize in parallel and one batcher thread runs the
+model on micro-batches (`_Batcher`; --max-batch, --window-ms). SIGTERM and
+Ctrl-C both end in the stats line and the counts dump.
 """
 
 from __future__ import annotations
@@ -989,7 +996,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             rng.shuffle(order)
             resp.ordering.indices.extend(order)
         else:
-            resp.fallback = True  # CONSTRUCT not answered at M0
+            resp.fallback = True  # echo and random do not answer CONSTRUCT
         return resp
 
     def Session(self, request_iterator, context):
@@ -1048,7 +1055,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 else:
                     yield pb.ServerMsg(response=self._answer(msg.request, rng))
             elif kind == "game_end":
-                pass  # worker-side logs are authoritative at M0
+                pass  # the worker-side logs are authoritative
             elif kind == "ping":
                 yield pb.ServerMsg(ping=msg.ping)
         print(f"[server] stream closed: worker={worker}")
