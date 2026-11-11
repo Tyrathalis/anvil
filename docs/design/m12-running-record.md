@@ -3908,3 +3908,57 @@ record.*
   station test fails on unfixed master (`2549d11cbc`) with the same `IndexOutOfBounds` and passes with the 3-line fix.
   The fix is re-cut on a fresh branch from master, `station-tap-guard`, and is not pushed. It opens when #12180 leaves
   the engine slot. No upstream change since 10-07 touches the path.
+- **2026-11-10 17:17–17:40 (the big run) — segment 5 stopped at iteration 441's training step on one oversize game
+  frame; it was fixed, the boundary merge and both proofs were run at the stop, and the run was relaunched at 17:28.**
+  - **The stop.** The loop failed with rc 1 at 17:17:51. A DataLoader worker of `anvil.training.rl` raised
+    `ZstdError: did not decompress full frame` from `decode_frame`. Generation 441 had completed (wall used 726.98 h).
+  - **The cause is one game, not corruption.** Game 211996 in `big-run-i441h0-20261110-160741` decodes to
+    1,073,765,916 bytes, 24 KB over the reader's 1 GiB bound. Every other frame of the 12-store window (1,919 of
+    1,920) stream-decompresses cleanly, and the kernel log has no I/O error. Across the run's 212,149 games it is the
+    only frame over 1 GiB; the next two are 424 MB and 368 MB. A bare resume would have crashed at the same step, and
+    again for the four iterations the store stays in the window.
+  - **What the game is.** A heuristic-seat store's game: 31 turns, 193 s, won by the heuristic seat, 941 model
+    windows. The unbridged seat was asked `chooseSingleStaticAbility` with one possible replacer 38,756 times, and
+    40,244 of the game's 41,632 decisions fall in turn 31. Each of those records carries a full observation of about
+    27 KB, so that one method is 1,038 MB of the frame. Seed -5019948956697238454, decks `dc-863941` against
+    `dc-863942`. Whether the engine should ask that often was not read.
+  - **The fix** (`f7fd278`). `TrajectoryStore.game()` raises `OversizeFrame` from the index entry's `rlen` before any
+    read, and `game_trajectories` returns the skip reason `oversize`, which the learner counts with its other skips.
+    The bound is the named constant `MAX_FRAME_BYTES`. Raising the bound was the alternative and was not taken: it
+    decodes a gigabyte of JSON inside a DataLoader worker of a learner that oomd has killed twice. The cost is one
+    game's windows out of a window of 1,920 games. Checked on the real store: the loader returns `([], 'oversize')`
+    for game 211996. One test in `tests/test_store.py`.
+  - **The stop was used as the run's next stop** (the user's plan, 11-09 19:00 and 19:10), by the survey's Boundary
+    procedure. The standing watcher's dead registration was unregistered. `infra-boundary-fixes` was merged as one
+    merge (`8ef5f91`); the launcher, watcher and store suites read 53 passed (41 and 12).
+  - **Proof A confirmed.** The scratch run relaunched by the sweep, run as a oneshot unit, ended 5 s later when the
+    unit finished: two lines in `starts`, no live scope. The launcher recorded it `done rc=0`, so a relaunch that dies
+    this way reads as a clean finish. `--resume-on-gone` does not work from the timer.
+  - **Proof B confirmed.** With only the supervisor killed, the sweep launched a second copy beside the live one: two
+    lines in `starts`, two live scopes. On a loop that is two loops on one directory.
+  - **`"resume": false` is set in the big run's state file.** The Now block had this as the user's call. The session
+    set it at the relaunch because the user was away and the run was down: proof A shows the automatic resume it
+    gives up does not work, and proof B's case is reached whenever the desktop app that holds the supervisor dies. It
+    is one state-file edit to undo at any stop.
+  - **The relaunch**, 17:28:36, `relaunch --name big-run --checkin auto`. The coverage line: `stall alarm 180 min on
+    data/runs/big-run + data/training/big-run data/runs/br*, sinks queue+desk, check-in claude (self-test OK, 4 s),
+    relay to Segment 5 launch [ad8d2e], memory watchdog: active`. Verified after it: the state file holds `checkin:
+    claude`, `checkin_requested: auto`, `resume_count: 0`; `queue.log` has `memory watchdog anvil-memsampler: active`;
+    `anvil.runs tick` names the loop's `iter-441/train/config.json` as the newest counted artifact and lists
+    `memory.jsonl` as not counted; the loop log has `watch_register skipped`; the watcher holds no registration; the
+    session's `anvil.runs wait` is armed. The loop resumed directly at iteration 441's training step.
+  - **The stopgaps are retired.** The watcher registration is gone and the session's progress-keyed watch is not
+    re-armed. The six-hour glances continue and add `tick`'s `memory.jsonl` age.
+  - **Not done at this stop.** The stale code comments and module headers from the 11-09 documentation review stay
+    for the next stop; an unplanned stop went to getting the run back. The new `OversizeFrame` docstring names the
+    incident, which the style guide puts in a record, so it is trimmed in the same pass.
+  - **Routed.** The finding-4 build (the supervisor inside the run's scope, the sweep's child-alive guard, the
+    loop-dir lock) goes where the survey routed it: on a worktree, before segment 6, with proofs A and B as its
+    acceptance test. The source side of the oversize game goes to the closeout scoping: the recorder writes a full
+    observation for a one-option choice on an unbridged seat, and the harness has no per-game record bound. So does
+    the question of whether 38,756 replacement-choice asks in one turn is an engine loop worth an upstream report.
+  - **The retrained step passed (17:35).** Iteration 441's training step finished in 421 s on 1,444 trajectories with
+    `skips={'status:crash_or_hang:NullPointerException': 1, 'oversize': 1}` and no tripwire violation. The oversize
+    game is the one counted skip the fix adds. The iteration's row: holdout Spearman 0.4518 ± 0.0222 (the hold is
+    within one SE of 0.452), anchor gap 0.0977, run bank 0.7658, kl_mu 0.0074, entropy 0.161, veto rate 0.061. The
+    loop went on to iteration 442's generation.
