@@ -419,6 +419,8 @@ Also corrected on the branch, as text only: the quickstart's lines for the stall
 
 ## Finding 4: the proof, step by step
 
+**Superseded 2026-11-10:** both proofs were run and confirmed, and the fix is built on a branch. See [Finding 4: built](#finding-4-built-2026-11-10) at the end. The steps below stay as the acceptance test.
+
 Not built. The fix moves the supervisor into a different cgroup and changes which process signals which; it should not land for a multi-week segment on a reading. These two proofs settle the reading in about two minutes each. They start transient user units named `anvil-proof-*` and run a `sleep`, under a scratch state dir with the sampler, the check-in and the sinks off. Nothing in them touches the big run, its state, the real queue or the real sampler. They need the user's go because they start units, which no session working beside the live run is allowed to do.
 
 Setup, once:
@@ -527,3 +529,89 @@ In order. Steps 1–3 need the big run to have exited and no other launched run 
 9. **In the boundary window or after, the user's go:** proofs A and B.
 
 A real STALLED cannot be provoked on the live run without stopping it, so it is not in the procedure. The proof that the tick now fires is the test pair that fails on the old launcher, and `tick` is the check that the live supervisor's view matches.
+
+## Finding 4: built (2026-11-10)
+
+**Findings 4 and 13 are built on the branch `claude/pensive-mcnulty-900bce`, and both proofs now read the fixed way.** The branch is not merged and not pushed. The merge is the user's call at the big run's next stop; the steps are at the end of this section. A plain `relaunch` after the merge picks the new layout up. Nothing can move the supervisor of a run that is already live, so the big run keeps the old layout, and `"resume": false`, until that stop.
+
+### What was built
+
+All of it is in [anvil/runs.py](../../anvil/runs.py) unless a file is named.
+
+1. **The supervisor lives in the run's scope.** A detached `launch` forks twice as before, and the detached process then executes itself under `systemd-run --user --scope` as `python -P anvil/runs.py _supervise <name>`. `systemd-run --scope` moves the calling process into the new cgroup and execs in place, so the supervisor keeps its pid and the unit keeps its name, `anvil-<name>-<supervisor pid>.scope`. The supervisor spawns the command directly, so the command is born in the same cgroup. A kill of the launching app or of the sweep's service reaches neither. A kill of the scope reaches both. The launch's arguments travel in the environment and not on the command line, so a pattern kill aimed at the run's command cannot match the supervisor. Without systemd, and with `--foreground`, the supervisor runs in the forked process with no scope, as it did.
+2. **Finding 13: the command leads its own process group.** The supervisor spawns the command as a new session. The signal forward and `pause --now` signal that group, which is the command's whole tree and does not hold the supervisor. The handler no longer signals itself. It forwards SIGTERM, SIGINT and SIGHUP.
+3. **A signalled supervisor never records `done`.** Proof A's `done rc=0` came from the handler's re-entry: it reproduces on the old launcher six times in six by sending one SIGTERM to a supervisor over `sleep 600`. With the forward fixed the command's real exit code comes back (`-15`). As a second line, a supervisor that received a stop signal records `failed` with the field `"signal"`, whatever the command returned.
+4. **The `orphaned` state and the child-alive guard.** A run is orphaned when its supervisor is dead and its command is alive. The command is alive when the recorded pid is still that process (the state file now holds its kernel start time, so a reused pid number does not count) or when anything is left in the run's scope. The sweep writes `orphaned`, raises one `orphaned` alert, checks in, and starts nothing. `launch` and `relaunch` refuse an orphaned run with exit 3, whether the sweep has marked it yet or not, and `relaunch` refuses before it removes any STOP file. `pause` refuses it too. `status` shows `orphaned`, and `wait` ends on it with exit 5. The memory sampler stays with an orphaned owner.
+5. **An orphan that exits is `gone` and is not resumed.** The sweep's resume is sound when supervisor and command died together of one outside cause, which the shared scope now guarantees for a cgroup kill or a power loss. An orphan ended by itself, unobserved: it may have finished, crashed, or been halted by a guard. The sweep alerts `gone`, checks in, and leaves the relaunch to a person, even under `--resume-on-gone`.
+6. **The loop-dir lock.** `hold_dir_lock` takes an exclusive `flock` without waiting. [selfplay.py](../../anvil/training/selfplay.py) takes `<out>/loop.lock` before it reads or writes anything in its directory and exits 75 when another loop holds it. The kernel drops the lock when the holder dies, however it dies, so there is no stale lock to clear. [big_run_chain.sh](../../scripts/big_run_chain.sh) reads rc 75 as "this chain is a duplicate" and exits 1 before its watchdog retry and its STOP and WALL-STOP readings, which describe the other loop's state.
+7. **A supervisor that never starts is a recorded failure.** `launch` waits up to 30 s for the state write of the supervisor it started. If that process dies first (for example `systemd-run` cannot reach the user bus), the launcher writes `failed`, alerts, prints `NOT LAUNCHED` and exits 1.
+
+Twelve tests in [tests/test_runs.py](../../tests/test_runs.py) cover it. All twelve fail on main at `a425c98` and pass on the branch; the suite reads 53 passed with `tests/test_watchd.py` (49 and 4). Two of them are proofs A and B themselves, run against a systemd user manager and skipped where there is none. Detached runs in the new tests are named `proof-*`, so the only units they start are `anvil-proof-*`.
+
+### The two proof readings
+
+Run 2026-11-10 19:11 on scratch state exactly as [the proof section](#finding-4-the-proof-step-by-step) sets it up, from this branch's code, and run again on the branch tip after the commit with the same readings. Every proof scope was stopped afterwards and the scratch directory removed.
+
+**Proof A reads `running`.** After the launch, both processes were in one scope:
+
+```
+supervisor 3131552 cgroup: 0::/user.slice/user-1000.slice/user@1000.service/app.slice/anvil-proof-a-3131552.scope
+command 3131554 cgroup: 0::/user.slice/user-1000.slice/user@1000.service/app.slice/anvil-proof-a-3131552.scope
+```
+
+The sweep ran as the oneshot unit `anvil-proof-sweep` and finished in 102 ms. Thirty seconds after it finished:
+
+```
+running   proof-a   started 2026-11-10T19:11:17-08:00
+! proof-a RELAUNCHED: supervisor pid 3131552 was dead (reboot / OOM / kill); relaunch 1/3 of the recorded command
+starts: 2 lines
+anvil-proof-a-3131569.scope loaded active running
+```
+
+**Proof B reads one copy and an `orphaned` alert.** With only the supervisor killed:
+
+```
+[runs] anvil proof-b ORPHANED: supervisor pid 3131791 is dead and the command is still alive (pid 3131792): nothing was relaunched, ...
+swept 0 gone run(s), 1 orphaned
+starts: 1 line
+anvil-proof-b-3131791.scope loaded active running
+orphaned  proof-b
+```
+
+A second sweep raised no second alert. `relaunch --name proof-b` was refused with exit 3 and named the scope to stop. After that scope was stopped the next sweep read `gone`, "its exit was not observed", with `resume_count` still 0 and `starts` still at one line. Stopping proof A's scope while it was supervised recorded `failed`, `rc -15`, `"signal": "SIGTERM"`.
+
+### What a relaunch of `big-run` will see
+
+The recipe does not change: no selfplay flag, no chain variable, no served file. These things do.
+
+- **The supervisor is a different process in a different place.** It is `python3 -P …/anvil/runs.py _supervise big-run` inside `anvil-big-run-<its pid>.scope`, beside the chain. It is no longer a fork of the `relaunch` command inside the desktop app's scope. Find it by `supervisor_pid` in the state file, not by its command line.
+- **The chain leads its own session and process group.** `pause --now` and a forwarded signal reach the chain's tree and not the supervisor.
+- **`systemctl --user stop anvil-big-run-<pid>.scope` stops the run outright** and records `failed` with `SIGTERM`. Each process receives the signal twice, once from systemd and once from the supervisor's forward. Before, a signal to the supervisor reached each process several hundred times.
+- **The check-in's `claude -p` and the notify sinks run inside the run's scope.** A `--memory-max` cap, which the big run does not set, would count them.
+- **The loop writes `data/training/big-run/loop.lock`** once at each start. The stall tick counts that one write as an artifact.
+- **The state file gains `scope` and `pid_start`**, and `signal` or `orphaned_since` when they apply. A state file from before the merge is read as it is: the scope name is derived from `supervisor_pid`, which is how the old layout named it too.
+- **The session's background `wait` can end with exit 5**, `orphaned`.
+
+### Not built, and where it goes
+
+| Item | Destination |
+|---|---|
+| A reboot asked for without `pause` records `failed` with `SIGTERM` and is not resumed. That is the scope-stop reading above applied to a shutdown; it was not tested with a reboot. Before this change the same reboot recorded `done rc=0` or `failed`, so the effect is unchanged and the record is now true. Whether a shutdown should read as `gone` and be resumed is a design choice | **Closeout** |
+| The supervisor's own pid is still checked by number alone (`_alive`). The command's pid now carries its start time. Days after a reboot a reused number could make a dead supervisor read alive | **Closeout** |
+| A supervisor killed alone, whose command then exits before the next sweep, reads `gone` and is resumed under `--resume-on-gone`: the sweep cannot tell it from a joint death. The window is at most ten minutes | **Closeout**, with the item above |
+| `pause` on an orphaned run is refused. A graceful stop of an orphaned loop is a `STOP` file written by hand and deleted before the `relaunch` | **Closeout**, with ADR-0107's open `anvil.runs stop` verb |
+| A run in a terminal state whose scope still holds leftover processes is relaunched beside them, as before | **Closeout** |
+
+### Merging it at the big run's next stop
+
+1. **Confirm the run is down** and no other launched run is alive: `uv run python -m anvil.runs status`. The merge changes `anvil/runs.py` and `anvil/training/selfplay.py`, which the run's processes import, and `scripts/big_run_chain.sh`, which a live bash reads as it goes.
+2. **Merge `claude/pensive-mcnulty-900bce` into main as one merge.** Then `nice -n 19 uv run pytest tests/test_runs.py tests/test_watchd.py -q` should read 53 passed, and `uv run ruff check anvil/runs.py` clean. The suite starts short-lived scopes named after its test runs, as it always has.
+3. **`"resume"` can go back to `true`.** Both reasons it was set to `false` are gone: the sweep's relaunch outlives the sweep service (proof A), and the sweep cannot start a second copy (proof B). Edit `~/.local/state/anvil/runs/big-run.json` while the run is down; a live supervisor rewrites the file from memory. It stays the user's call, because what it buys is unchanged: a resume after a power loss or an OOM kill of the run's scope, once someone has typed the disk passphrase.
+4. **Relaunch as usual:** `uv run python -m anvil.runs relaunch --name big-run --launched-by '<ListAgents name> [<ref>]'`.
+5. **Verify the layout,** after the Boundary procedure's own step 7:
+   - The state file holds `"scope": "anvil-big-run-<supervisor_pid>.scope"` and a `pid_start`.
+   - `cat /proc/<supervisor_pid>/cgroup` and `cat /proc/<pid>/cgroup` end in that scope.
+   - `ps -o pid,pgid,sid,args -p <supervisor_pid>,<pid>` shows two different process groups, and `_supervise big-run` on the supervisor's line.
+   - `data/training/big-run/loop.lock` names the loop's pid once the loop is up.
+6. **Optional, two minutes:** proofs A and B from main, with the commands of the proof section as written.
+7. **Rewrite the two Now-block bullets that wait on this** ("Run supervision" and "At the run's next stop"), and the memory note that says to keep `"resume": false`.

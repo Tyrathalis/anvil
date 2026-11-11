@@ -179,3 +179,28 @@ Standing rule (amended): a run event delivered by the check-in is informational 
 before writing any close, read the state file's `launched_by` and the last three commits on main. Routed by
 name: a PreToolUse hook that warns on a launch without `--launched-by`; an `anvil.runs stop` verb (09-18, still
 open).
+
+## Addendum 2026-11-10 — the supervisor shares the run's scope; `orphaned`; the loop-dir lock
+
+**The supervisor and the command now live in one systemd scope and die together, and nothing starts a second
+copy of a run beside a live one.** The 2026-11-09 infrastructure survey found that they shared no fate
+(finding 4), and two proofs on scratch state confirmed it on 11-10: a relaunch made by the sweep's oneshot
+service ended with the service, and the sweep started a second copy beside a run whose supervisor had died
+alone. The evidence, the build and the merge steps are in
+[docs/ops/infra-survey-2026-11-09.md](../ops/infra-survey-2026-11-09.md), "Finding 4: built".
+
+What changes in the launcher's contract:
+
+- A detached supervisor re-executes itself inside `anvil-<name>-<supervisor pid>.scope` and spawns the command
+  there. The command leads its own process group, which is what a forwarded signal and `pause --now` reach.
+- A supervisor that is sent SIGTERM, SIGINT or SIGHUP records `failed` with the signal's name, never `done`.
+- A new state, `orphaned`: the supervisor is dead and the command, or anything in its scope, is alive. The
+  sweep alerts once, checks in and starts nothing. `launch`, `relaunch` and `pause` refuse it. `wait` exits 5.
+- The sweep's resume applies only to a run of which nothing is alive. An orphan that later exits reads `gone`
+  and is not resumed, because its exit was not observed.
+- A worker of a directory may hold `hold_dir_lock`. The self-play loop does, on `<out>/loop.lock`, and exits
+  75 when another loop holds it.
+
+Routed by name to the big run's closeout: whether a shutdown without `pause` should read as `gone` and be
+resumed; an identity check for the supervisor's pid; `pause` on an orphaned run, with the `anvil.runs stop`
+verb that is still open from 09-18.
