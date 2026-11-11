@@ -4002,3 +4002,27 @@ record.*
   - **Not done, the user's to say.** The relaunch: this stop may be for a reboot. `"resume"` stays `false`; both
     reasons it was set are gone, so it can go back to `true` at this stop. The two worktrees and their branches
     (`claude/pensive-mcnulty-900bce`, `next-stop-comments`) are merged and can be pruned.
+- **2026-11-10 21:27–21:32 (the big run) — relaunched after the user's reboot; the first run under the finding-4 supervisor, and its layout holds.**
+  - **The stop was for a reboot.** The box came back at 21:27:56 on the pinned kernel (7.2.6-1-cachyos), driver
+    (615.71.09) and JDK (26.0.2). The memory watchdog was inactive, as after every reboot. The user had pruned the
+    two merged worktrees and their branches.
+  - **The relaunch**, 21:30:54, `relaunch --name big-run --checkin auto --launched-by 'Segment 5 launch [011c60]'`.
+    The session's ListAgents ref changed with the desktop app's restart (it was `ad8d2e`), so the relaunch rewrote
+    `launched_by`. The coverage line: `stall alarm 180 min on data/runs/big-run + data/training/big-run data/runs/br*,
+    sinks queue+desk, check-in claude (self-test OK, 3 s), relay to Segment 5 launch [011c60], memory watchdog: ARMED
+    -> data/runs/big-run/memory.jsonl`.
+  - **Merge step 5 holds.** The state file names `anvil-big-run-7743.scope` and `pid_start`. The supervisor (7743)
+    and the chain (7745) are both in that scope's cgroup, in different process groups. `loop.lock` names the loop's
+    pid (7766). `checkin: claude`, `checkin_requested: auto`, `resume_count: 0`. `queue.log` has `memory watchdog
+    anvil-memsampler: active`. `tick` names `iter-444/server.log` as the newest counted artifact and lists
+    `memory.jsonl` and `supervisor.log` as not counted. The loop log has `watch_register skipped`; the watcher holds
+    no registration. Both STOP files are gone. The session's `anvil.runs wait` is armed and the six-hour glances
+    continue.
+  - **The loop resumed at iteration 444** from `iter-443/train/last.pt` at 21:30:56, wall used 728.41 h. Games were
+    being generated a minute later (24 jars, two servers).
+  - **One small finding, routed to the next stop.** The launcher's `--nice 19` is relative (`os.nice`). The desktop
+    app's shell runs at nice −4 under the box's ananicy rule for `zsh` and `bash`, so the loop's Python runs at 15
+    and the chain's own `bash` is set back to −4. The jars are at 19. It costs nothing measurable. The fix is one
+    line (`os.setpriority` to the absolute value) and waits for a stop, because it edits `anvil/runs.py`. Whether
+    earlier launches ran the same way was not checked.
+  - **`"resume"` stays `false`.** The user has not said. It is editable only while the run is down.
