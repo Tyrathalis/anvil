@@ -3968,3 +3968,37 @@ record.*
   side session reports twelve new tests and both proofs reading the fixed way on scratch state; this session has
   not re-run them. The merge waits for the big run's next stop, where proofs A and B are re-run as the acceptance
   test and `"resume"` can go back to `true`. The steps are in the branch's survey section.
+- **2026-11-10 20:25–21:15 (the big run, infrastructure) — the user paused the run after iteration 443; the finding-4 fix and the comment fixes are merged at the stop; the run waits for the user's go.**
+  - **The pause.** The user asked at 20:25 for a pause at iteration 443's close. `anvil.runs pause --name big-run`
+    wrote the STOP file. The loop exited between iterations at 21:08:10 and the run reads `paused rc=0`. No loop,
+    server or jar process was left, and the memory watchdog stayed active. 728.41 of the 840 wall hours are used.
+  - **Iteration 443's row.** Holdout Spearman 0.4693 ± 0.0219, anchor train 0.5462, gap 0.0769, run bank 0.7644 ±
+    0.010 (contested 0.3233 ± 0.0333, n 698). The hold is within one SE of 0.452. Its flag is non-decisive games:
+    nine draws and one `StackOverflowError`. The battery's kl_mu line (0.00065 → 0.011) is the one every iteration
+    of the segment carries, not a new event.
+  - **The acceptance test ran before the merge**, from the branch's worktree on scratch state, while the run was
+    still live. 53 tests passed, ruff was clean and `bash -n` passed on the chain. Proof A: the relaunch the sweep
+    service made (`resume_count` 1) was still running in its own scope after the service ended. Proof B: with only
+    the supervisor killed, the sweep raised one `orphaned` alert and started nothing (`resume_count` 0, one start);
+    the run read `gone` once the command exited.
+  - **The merges, at 21:09, with the run down.** `claude/pensive-mcnulty-900bce` as one merge (`69c9e10`), then
+    `next-stop-comments` (`d1020ba`). On main: 65 tests passed (`test_runs`, `test_watchd`, `test_store`), ruff clean,
+    `bash -n` on the chain. Main's `anvil/runs.py` differs from the proved branch tip in two docstrings only.
+  - **A layout check on main**, on scratch state: a 25-second command launched through `anvil.runs launch`. The
+    state file named `anvil-main-smoke-<supervisor pid>.scope` and `pid_start`. Both processes' cgroups ended in that
+    scope. The command and the supervisor were in different process groups. `wait` returned 0 on `done` and the
+    scope was gone afterwards. The big run's relaunch is the first real use of the new supervisor.
+  - **The comment fixes (the 11-09 documentation review's list).** Comments and docstrings only: every changed
+    Python file parses to the same code with docstrings stripped, and the chain's diff has no command line. Eight
+    of the nine verified items changed text: the server's module header and two "at M0" comments, the launcher's
+    Verbs block (`pause`, `relaunch`) and `_stop_roots` (`run.json`, not `manifest.json`), `batch_chunk` (four
+    chunks per worker), `guard_flags` (halt or rollback), `load_compat` (every growth it absorbs), and the chain's
+    run-holdout and `RL_WORKERS` comments. The ninth (`arm_memsampler` against the chain's own arm) was already
+    resolved by the `infra-boundary-fixes` merge. The five era-frozen module headers (`server.py`, `model.py`,
+    `dataset.py`, `selfplay.py`, `value_pretrain.py`) and the `evals` package line now describe the present. The
+    `OversizeFrame` docstring no longer tells the incident.
+  - **Routed.** About 370 dated history-as-comment lines remain in the code (the chain's incident comments among
+    them). They go to the closeout documentation pass, as the review routed them.
+  - **Not done, the user's to say.** The relaunch: this stop may be for a reboot. `"resume"` stays `false`; both
+    reasons it was set are gone, so it can go back to `true` at this stop. The two worktrees and their branches
+    (`claude/pensive-mcnulty-900bce`, `next-stop-comments`) are merged and can be pruned.
