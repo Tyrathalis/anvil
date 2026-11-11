@@ -452,11 +452,13 @@ def game_trajectories(
     Returns (trajs, skip_reason): trajs = [(seat, [(ex, rec), ...], reward,
     rej, exs_fv)]; reward per §3d — win 1, loss/draw/cap 0 (a stalling leader
     forfeits the +1); skip_reason set (and trajs empty) for crash/no-outcome
-    games, whose returns are engine artifacts, and for games without mu
-    records. full_vis (§6f): exs_fv = the asymmetric critic's windows (same
+    games, whose returns are engine artifacts, for games without mu records,
+    and "oversize" for a game whose frame is past the store reader's bound.
+    full_vis (§6f): exs_fv = the asymmetric critic's windows (same
     decisions, info-set gate bypassed) — consumed ONLY by the frozen critic's
     value forward in pass A, never by the policy passes; [] when off."""
     from anvil.bridge.featurize import store_wire_hist
+    from anvil.store.trajectories import OversizeFrame
 
     mu = store.mu_for_game(g)
     if not mu:
@@ -468,7 +470,11 @@ def game_trajectories(
     if status not in ("won", "draw"):
         return [], f"status:{status}"
     winner = store.winner_seat(g)
-    traj = store.game(g)
+    try:
+        traj = store.game(g)
+    except OversizeFrame:
+        # a frame past the reader's bound is counted and skipped, never fatal
+        return [], "oversize"
     # M12 Build 4½ (the loop wiring, search_join): the search directive's
     # rows joined to this game's priority decs. An acted window's TWO decs
     # (the natural ask + the forced re-ask) merge into one training window

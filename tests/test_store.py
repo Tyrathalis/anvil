@@ -327,6 +327,43 @@ def test_undecodable_frame_quarantined(tmp_path):
     assert "QUARANTINED" in report.summary()
 
 
+def test_oversize_frame_refused_from_the_index(tmp_path, monkeypatch):
+    """A game whose frame is past the reader's bound raises OversizeFrame from
+    its index entry, games(skip_undecodable=True) passes over it, and the RL
+    loader counts it as an "oversize" skip (the big run's 2026-11-10 stop: one
+    1.07 GB frame against the 1 GiB bound raised a bare ZstdError)."""
+    import anvil.store.trajectories as tr
+    from anvil.store import OversizeFrame
+    from anvil.training.rl import game_trajectories
+
+    run_dir = _make_run(
+        tmp_path, [[_frame_records(0, 11), _frame_records(1, 22, n_decisions=9)]]
+    )
+    store = TrajectoryStore(ingest(run_dir, dest=tmp_path / "store", pool_version="cf2ca6ba"))
+    small, big = store._by_game[0]["rlen"], store._by_game[1]["rlen"]
+    assert small < big
+    monkeypatch.setattr(tr, "MAX_FRAME_BYTES", big - 1)
+
+    assert store.game(0).header["seed"] == 11
+    with pytest.raises(OversizeFrame, match="game 1"):
+        store.game(1)
+    assert [t.game_index for t in store.games(skip_undecodable=True)] == [0]
+
+    class _Covered:  # a store whose game 1 passes the loader's earlier skips
+        outcomes = {1: {"status": "won", "winner": "Anvil(1)-x"}}
+
+        def mu_for_game(self, g):
+            return {0: {}}
+
+        def winner_seat(self, g):
+            return 0
+
+        def game(self, g):
+            return store.game(g)
+
+    assert game_trajectories(_Covered(), None, 1) == ([], "oversize")
+
+
 def test_multistore_disjoint_union(tmp_path):
     """Pilot + extension shape: disjoint index ranges read as one corpus."""
     from anvil.store.trajectories import MultiStore, open_store

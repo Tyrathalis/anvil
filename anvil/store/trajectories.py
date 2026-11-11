@@ -57,6 +57,19 @@ class GameTrajectory:
         return self.header["g"]
 
 
+# The reader's bound on one decoded frame. Frames carry no content size, so
+# the decompressor needs a ceiling; the index entry's `rlen` is the true size.
+MAX_FRAME_BYTES = 1 << 30
+
+
+class OversizeFrame(ValueError):
+    """A game whose frame decodes past MAX_FRAME_BYTES. Raised from the index
+    entry before any read, so a reader can count the game and move on. One
+    such game stopped the big run's training step on 2026-11-10: a heuristic
+    seat was asked a one-option replacement choice 38,756 times in one turn
+    (m12 running record, 11-10)."""
+
+
 def decode_frame(
     data: bytes, schema_version: int = OBS_SCHEMA_VERSION
 ) -> tuple[dict, list[dict], dict | None, list[dict]]:
@@ -66,7 +79,7 @@ def decode_frame(
     records = [
         json.loads(line)
         for line in zstandard.ZstdDecompressor()
-        .decompress(data, max_output_size=1 << 30)
+        .decompress(data, max_output_size=MAX_FRAME_BYTES)
         .splitlines()
     ]
     if not records or records[0].get("k") != "game":
@@ -191,6 +204,11 @@ class TrajectoryStore:
 
     def game(self, g: int) -> GameTrajectory:
         entry = self._by_game[g]
+        if entry.get("rlen", 0) > MAX_FRAME_BYTES:
+            raise OversizeFrame(
+                f"{self.root.name} game {g}: the frame is {entry['rlen']} bytes decoded "
+                f"({entry.get('recs')} records), over the reader's {MAX_FRAME_BYTES}-byte bound"
+            )
         with open(self.root / entry["file"], "rb") as f:
             f.seek(entry["off"])
             data = f.read(entry["clen"])
