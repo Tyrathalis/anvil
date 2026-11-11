@@ -1,4 +1,4 @@
-"""D6 V-trace self-play loop driver (docs/design/d6-vtrace-loop.md).
+"""The V-trace self-play loop driver (design: docs/design/d6-vtrace-loop.md).
 
 Synchronous iterations on one GPU: serve ckpt_k with sampling on -> generate
 a batch of both-seats-bridged games -> ingest (mu.jsonl joined) -> V-trace
@@ -14,16 +14,24 @@ released between the serve and train phases.
 Stop file: touch <out>/STOP to finish the current iteration and exit; resume
 by re-running the same command (loop_state.json carries the chain).
 
-Wall budget (09-21, the shakedown's equal-box-time arms): --wall-hours H stops
-BETWEEN iterations once the run's accumulated box time (loop_state
-wall_used_s, summed across pauses and resumes) reaches H, then runs the
-closing reads like a completed loop; WALL-STOP in <out> records it. 0 = off.
-09-27: seconds the harness spent yielding the GPU to a foreign job (its
-gpu-yield.json ledger) come OUT of the budget (loop_state yielded_s), so equal
-box time is equal productive time; an interim paired read is skipped once the
-budget is reached (the closing read follows at once).
+One loop per directory: the driver holds <out>/loop.lock for its own life
+(anvil.runs hold_dir_lock) and exits LOOP_LOCKED_RC without touching the
+directory when another process holds it.
 
-M10 reset (ADR-0094): --sched-binding/--sched-basis/--sched-empty-rev pin
+Wall budget (equal-box-time arms): --wall-hours H stops BETWEEN iterations
+once the run's accumulated box time (loop_state wall_used_s, summed across
+pauses and resumes) reaches H, then runs the closing reads like a completed
+loop; WALL-STOP in <out> records it. 0 = off. Seconds the harness spent
+yielding the GPU to a foreign job (its gpu-yield.json ledger) come OUT of the
+budget (loop_state yielded_s), so equal box time is equal productive time; an
+interim paired read is skipped once the budget is reached (the closing read
+follows at once).
+
+Guards: every iteration's monitor row passes guard_flags; a breach rejects
+the checkpoint and halts the loop, or rolls back under --guard-action
+rollback (guard_decision).
+
+Serve regime and the primary read (ADR-0094): --sched-binding/--sched-basis/--sched-empty-rev pin
 the serve regime every driver-started server plays under (sched_flags), and
 --paired-read wires the stratified paired strength read (the PRIMARY read)
 at day zero (HALT below minus the bar, exit 5) and at the terminal — both
@@ -250,7 +258,7 @@ def paired_read_cmd(a, ckpt: str, tag: str, jar: str) -> list[str]:
     return cmd
 
 
-PAIRED_HEARTBEAT_S = 300  # progress row cadence during a paired read (watchd stall is 75 min)
+PAIRED_HEARTBEAT_S = 300  # progress row cadence during a paired read (inside the launcher's stall threshold: anvil.runs --stall-min, default 60)
 
 
 def _stamp() -> str:
@@ -589,14 +597,13 @@ def _run(cmd: list[str]) -> None:
 
 
 def batch_chunk(games: int, workers: int, chunk: int) -> int:
-    """Per-batch chunk size: a batch that resolves to fewer than two chunks
-    per worker is tail-bound — elapsed becomes the slowest worker's contiguous
-    deck-pair block (an 11x finish-time spread observed in the wild; see the
-    2026-08-03 bench retraction). args.chunk is a ceiling; each generation
-    batch (mirror / heur splits are separate launches) shrinks it so every
-    worker gets at least two rounds of refill — four since the fleet bench
-    (09-14: the tail is then a game, not a chunk; a JVM start per chunk is
-    ~20 s against a 20-min tail)."""
+    """Per-batch chunk size: at least four chunks per worker, with args.chunk
+    as the ceiling. Each generation batch (mirror / heur splits are separate
+    launches) shrinks the chunk to fit. At four chunks per worker the batch's
+    tail is a game, not a chunk (a JVM start per chunk is ~20 s against a
+    20-min tail). A batch with too few chunks per worker is tail-bound: its
+    elapsed time is the slowest worker's contiguous deck-pair block (an 11x
+    finish-time spread; the 2026-08-03 bench retraction)."""
     return max(1, min(chunk, games // (4 * workers)))
 
 
@@ -1141,9 +1148,11 @@ def guard_flags(
     state_spearman_run: float | None = None,
     spearman_run_floor: float | None = None,
 ) -> list[str]:
-    """ADR-0017 halt triplines. Any non-empty result rejects the iteration's
-    checkpoint and halts the loop — run-2 collapsed with every signal in
-    monitor.jsonl and nothing acting on it. kl is absolute (drift per
+    """ADR-0017 guard triplines. Any non-empty result rejects the iteration's
+    checkpoint. The loop then halts, or under --guard-action rollback
+    continues from the last accepted checkpoint (guard_decision). Run 2
+    collapsed with every signal in monitor.jsonl and nothing acting on it. kl
+    is absolute (drift per
     iteration); entropy/veto compare against the run's iter-0 baselines.
     casts_floor (§6c anti-passivity): halt if casts/game falls below this
     fraction of iter-0 — the cheapest way to zero vetoes under the

@@ -1,19 +1,24 @@
-"""AnvilNet v0 (M1 D4) + SA-level candidates (M2 D2): encoder + trunk + rung-1 heads.
+"""AnvilNet: the card encoder, the state assembler, the trunk and every decision head.
 
-Trunk: pre-LN transformer encoder, d=512, 8 heads, 10 layers (plan band
-8-12). Priority pointer scores PASS + candidate rows; since M2 D2 a
-candidate is a (host entity, SA descriptor) pair — the key adds a learned
-SA-string-vocab + kind embedding when n_sa > 0 (n_sa=0 reproduces the M1
-host-level architecture for old checkpoints). Target/X/one-field heads and
-the win-prob value head as at M1. The turn-plan latent (§3) enters as a
-second read-out token when the target pointer lands.
+Trunk: pre-LN transformer encoder, d=512, 8 heads, 10 layers. The priority
+pointer scores PASS + candidate rows. A candidate is a (host entity, SA
+descriptor) pair — the key adds a learned SA-string-vocab + kind embedding
+when n_sa > 0 (n_sa=0 is the host-level architecture of the oldest
+checkpoints). Target / X / one-field heads and the win-prob value head sit
+beside it. The turn-plan latent (§3) is the second read-out token
+(out[:, 1]); the plan aux heads (plan_*) supervise it.
 
-Combat heads (M2 D5): factorized per-candidate-row declare-attackers/
-blockers — attack yes/no logit + dedup count classes + target pointer per
-row; block pointer over attacker rows ∪ a learned none key. Factorized (not
-autoregressive) per the D5 design; the AR decoder is the documented D6
-exploration-coherence upgrade path. Pre-D5 checkpoints load via load_compat
-(task_emb row growth + fresh-init combat params).
+Combat heads: factorized per-candidate-row declare-attackers/blockers —
+attack yes/no logit + dedup count classes + target pointer per row; block
+pointer over attacker rows ∪ a learned none key. Factorized, not
+autoregressive.
+
+Later heads: the payment head (pay_*), the schedule surface (sched_*), the
+option-set surface decoder (surf_*, ADR-0105), the option scorer (opt_*,
+score_options), the allocation head (alloc_*, ADR-0109) and the ability
+table projections (abil_*, cand_abil_proj). A checkpoint older than a head
+loads through load_compat, which leaves that head at its fresh init. A head
+that was never fitted does not serve (the server's has_* checks).
 """
 
 from __future__ import annotations
@@ -354,15 +359,22 @@ class AnvilNet(nn.Module):
     )
 
     def load_compat(self, state: dict) -> None:
-        """Load a checkpoint state_dict across the D5 boundary: task_emb grew
-        6->8 rows (attack/block) — saved rows load exactly, new rows keep
-        their fresh init; combat-head params may be missing entirely. Any
-        OTHER mismatch still raises (this is not a blanket strict=False).
+        """Load a state_dict saved by an older architecture. Each growth is
+        absorbed so the old checkpoint's outputs do not change:
 
-        M3 D1 boundary: entity features grew 17->18 (cmd_tax, appended =
-        last ent_proj input column). Saved weights get a ZERO-padded new
-        column — zero, not fresh init, so pre-D1 checkpoints produce
-        byte-identical outputs until the feature is trained."""
+        - task_emb, pay_bias and the surface embeddings grew rows (new
+          tasks): saved rows load exactly, new rows keep their init.
+        - the surface decoder's query / key start as copies of the target
+          decoder's, and the pay query / key as copies of the priority
+          pointer's, when the checkpoint has none.
+        - ent_proj gained input columns (entity features): ZERO-padded, not
+          fresh init, so outputs are byte-identical until the feature trains.
+        - state_proj gained global columns: zero columns inserted where the
+          new globals sit (pad_state_proj; ADR-0120).
+        - head parameters newer than the checkpoint (_D5_PREFIXES) may be
+          missing and keep their fresh init.
+
+        Any OTHER mismatch still raises (this is not a blanket strict=False)."""
         cur = self.task_emb.weight
         saved = state.get("task_emb.weight")
         if saved is not None and saved.shape[0] < cur.shape[0]:
@@ -787,7 +799,7 @@ class AnvilNet(nn.Module):
         tokens, pad = self.assemble(card_vecs, batch)
         out = self.trunk(tokens, src_key_padding_mask=pad)
         state = out[:, 0]  # [STATE] read-out
-        plan = out[:, 1]  # [PLAN] latent (unsupervised at M1)
+        plan = out[:, 1]  # [PLAN] latent (supervised by the plan aux heads)
         n_ent = batch["entities"].shape[1]
         ent_out = out[:, 2 : 2 + n_ent]  # entity token outputs
 

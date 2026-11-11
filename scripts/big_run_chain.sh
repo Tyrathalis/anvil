@@ -47,22 +47,20 @@ JAR=${JAR:-$REPO/data/runs/tgtmask/forge-tgtmask3.jar}            # fork 5bd0403
 START=${START:-data/training/shakedown-alloc/iter-019/train/last.pt}   # the warm start (ADR-0123 §1)
 REF=${REF:-data/training/d6-run11/iter-019/train/last.pt}              # the era reference (the bar's base)
 BANK=${BANK:-data/runs/m12-build1}                                      # the state bank + the value anchor's terms
-# 11-02 (ADR-0124 addendum): the RUN-DISTRIBUTION holdout — a second, frozen state bank from the run's own games
+# The RUN-DISTRIBUTION holdout (ADR-0124 addendum): a second, frozen state bank from the run's own games
 # (scripts/run_holdout_bank.py, docs/design/run-holdout-bank-read.md), read by the loop as spearman_run beside the
-# Build 1 row. OFF until the segment-5 boundary session builds the bank and sets the two values here: the bank
-# dir and the floor (the boundary read minus two SE; 0 = exploratory, no floor on its first segment).
-# the segment-4 boundary bank (11-07; 1,894 rows, labelled by iter-405 at K=8): read 0.764 ± 0.010 on iter-405; floor 0 on its first segment = exploratory
+# Build 1 row. RUN_BANK is the bank dir and RUN_FLOOR its guard floor (0 = exploratory, no floor). The default is the
+# segment-4 boundary bank: 1,894 rows labelled by iter-405 at K=8, read 0.764 ± 0.010 on iter-405, exploratory on its
+# first segment.
 RUN_BANK=${RUN_BANK:-data/runs/run-holdout-seg4}; RUN_FLOOR=${RUN_FLOOR:-0}
 RUN_BANK_FLAGS=""; [[ -n "$RUN_BANK" ]] && RUN_BANK_FLAGS="--state-bank-run $RUN_BANK --guard-spearman-run-floor $RUN_FLOOR"
 SEED_BASE=${SEED_BASE:-20261006}; SEG_HOURS=${SEG_HOURS:-168}
 WORKERS=${WORKERS:-24}; READ_GAMES=${READ_GAMES:-1000}; LA_GAMES=${LA_GAMES:-500}
-# 10-17: the learner's DataLoader workers each open the WHOLE replay window (rl.py RlTrajectories: every store, sharded by game),
-# ≈ 4.5 GB apiece at this window — 12 of them (the settings cells' value) put the training step at ≈ 58 GB and systemd-oomd
-# killed the run twice (10-10 at iteration 60, 10-17 at 150) once the box's other residents took the slack. 6 halves it
-# (≈ 34 GB with the learner); the loader's parallelism and the per-epoch interleave of the same seeded schedule change, the
-# recipe does not (a different draw of the same data). RL_WORKERS=12 restores the old value. 18:05: 6 workers peaked at
-# 47.9 GB (≈ 6.8 GB apiece — the per-worker size is the whole window decompressed, not a share) with 8.9 GB to spare beside
-# an idle ComfyUI (16 GB); 4 ≈ 34 GB leaves room for a ComfyUI generation. The step took 483 s at 6 (670 s at 12, swapping).
+# The learner's DataLoader workers. 4 puts the training step at ≈ 34 GB and leaves room for a ComfyUI generation.
+# Each worker opens the WHOLE replay window (rl.py RlTrajectories: every store, sharded by game), ≈ 6.8 GB apiece
+# decompressed at this window. 6 peaked at 47.9 GB; 12 put the step at ≈ 58 GB, where systemd-oomd killed the run
+# twice (m12 running record, 10-10 and 10-17). The count changes the loader's parallelism and the per-epoch
+# interleave of the same seeded schedule, not the recipe (a different draw of the same data).
 RL_WORKERS=${RL_WORKERS:-4}
 # 10-24 (iteration 239, segment 3): the alloc-share guard halted on a denominator event — the batch's policy-gradient
 # magnitude fell to half its band while the alloc weight and loss were unchanged (the share = w*raw/|PG|; the
