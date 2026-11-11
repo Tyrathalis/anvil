@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -727,3 +728,351 @@ def test_a_generation_that_goes_quiet_stalls_the_tick(state):
     cmd = ["sh", "-c", f"echo '[harness] 29/120' ; for i in $(seq 1 14); do touch {d}/memory.jsonl; sleep 0.2; done; exit 0"]
     assert _launch(state, "gen", cmd, stall_sec=1, watch=str(loop)) == 0
     assert [a["kind"] for a in runs.read_alerts()] == ["stalled", "done"]
+
+
+# ---- the supervisor and the run share one fate (docs/ops/infra-survey-2026-11-09.md, findings 4 and 13)
+#
+# Detached runs in these tests are named proof-*: on a box with systemd each one is a transient
+# scope `anvil-proof-*`, the only unit names the survey's proofs are allowed to start.
+
+
+def _dead_pid():
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    os.waitpid(pid, 0)
+    return pid
+
+
+class _DeadProcess:
+    """A stand-in for a process that is certainly dead (a chain's shell)."""
+
+    def __init__(self):
+        self.pid = _dead_pid()
+
+
+def _foreground(state, name, script):
+    """A --foreground launch as its own process (its supervisor is that process)."""
+    return subprocess.Popen(
+        [sys.executable, "-m", "anvil.runs", "launch", "--name", name, "--dir", str(state / name), "--foreground",
+         "--tick-sec", "0.2", "--", "sh", "-c", script],
+        env=dict(os.environ), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def _wait_state(name, want=("running",), timeout=30):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        r = runs.read_run(name)
+        if r and r.get("state") in want:
+            return r
+        time.sleep(0.05)
+    raise AssertionError(f"{name}: {runs.read_run(name)}")
+
+
+def test_a_signalled_supervisor_records_failed_never_done(state):
+    """Proof A's reading: the supervisor was sent SIGTERM, passed it on, and the
+    launcher recorded `done rc=0`. The command now dies of the one signal and the
+    record is `failed` with the signal's name."""
+    p = _foreground(state, "sg", "exec sleep 600")
+    _wait_state("sg")
+    p.send_signal(signal.SIGTERM)
+    assert p.wait(20) == 1
+    st = runs.read_run("sg")
+    assert (st["state"], st["rc"], st["signal"]) == ("failed", -15, "SIGTERM"), st
+    al = runs.read_alerts()
+    assert [a["kind"] for a in al] == ["failed"] and "was sent SIGTERM" in al[0]["msg"]
+
+
+def test_a_command_that_exits_zero_on_the_signal_is_still_not_done(state):
+    """A run that was told to stop did not finish, whatever its exit code. And
+    the forward reaches the command once: the supervisor is not in the group it
+    signals (in one group the handler re-entered to the recursion limit and the
+    command saw hundreds of SIGTERMs)."""
+    seen = state / "terms"
+    script = (f"trap 'echo t >> {seen}' TERM; i=0; while [ $i -lt 300 ]; do sleep 0.1; i=$((i+1)); "
+              f"[ -s {seen} ] && break; done; sleep 1; exit 0")
+    p = _foreground(state, "sz", script)
+    st = _wait_state("sz")
+    assert os.getpgid(st["pid"]) == st["pid"] != os.getpgid(st["supervisor_pid"])  # the command leads its own group
+    time.sleep(0.3)  # the trap is installed
+    p.send_signal(signal.SIGTERM)
+    assert p.wait(20) == 1
+    st = runs.read_run("sz")
+    assert (st["state"], st["rc"], st["signal"]) == ("failed", 0, "SIGTERM"), st
+    assert seen.read_text() == "t\n"
+
+
+def _orphan_state(tmp, name, sleeper, **over):
+    d = tmp / name
+    d.mkdir()
+    (d / "run.log").write_text("working...\n")
+    base = {
+        "name": name, "state": "running", "pid": sleeper.pid, "pid_start": runs._pid_start(sleeper.pid),
+        "supervisor_pid": _dead_pid(), "scope": None, "started": runs._now(),
+        "cmd": ["sh", "-c", f"echo again >> {d}/starts"], "dir": str(d), "log": str(d / "run.log"),
+        "checkin": "none", "tag": "anvil", "launch_cwd": os.getcwd(), "watch": [], "resume": True,
+        "resume_max": 3, "resume_count": 0, "tick_sec": 0.2, "stall_sec": 60,
+    }
+    runs._write_json(runs._run_file(name), dict(base, **over))
+    return d
+
+
+def test_sweep_leaves_an_orphan_alone_and_alerts_once(state, capsys):
+    """Proof B: the supervisor is dead, the command is alive, the run is
+    --resume-on-gone. The sweep used to relaunch the recorded command beside
+    the live one. Now it records `orphaned`, alerts once, and every path that
+    could start a second copy refuses."""
+    sleeper = subprocess.Popen(["sleep", "600"])
+    try:
+        d = _orphan_state(state, "orph", sleeper)
+        assert runs.main(["sweep"]) == 0
+        st = runs.read_run("orph")
+        assert st["state"] == "orphaned" and st["resume_count"] == 0
+        al = runs.read_alerts()
+        assert [a["kind"] for a in al] == ["orphaned"]
+        assert f"pid {sleeper.pid}" in al[0]["msg"] and "relaunch --name orph" in al[0]["msg"]
+        assert runs.main(["sweep"]) == 0 and len(runs.read_alerts()) == 1  # one alert, not one per sweep
+        assert not (d / "starts").exists()
+        # every verb reads it the same way
+        assert runs.main(["relaunch", "--name", "orph", "--no-selftest"]) == 3
+        assert runs.main(["launch", "--name", "orph", "--dir", str(d), "--foreground", "--", "true"]) == 3
+        assert runs.main(["pause", "--name", "orph"]) == 3
+        assert runs.main(["wait", "--name", "orph", "--timeout", "3", "--poll", "0.2"]) == 5
+        capsys.readouterr()
+        assert runs.main(["status"]) == 0 and capsys.readouterr().out.startswith("orphaned")
+        assert not (d / "starts").exists() and sleeper.poll() is None  # nothing started, nothing killed
+    finally:
+        sleeper.kill()
+        sleeper.wait()
+    # the orphan has exited: gone, alerted, and NOT resumed — its exit was not observed
+    assert runs.main(["sweep"]) == 0
+    st = runs.read_run("orph")
+    assert st["state"] == "gone" and st["resume_count"] == 0
+    assert [a["kind"] for a in runs.read_alerts()] == ["orphaned", "gone"]
+    assert "not observed" in runs.read_alerts()[-1]["msg"]
+    assert not (d / "starts").exists()
+    assert runs.main(["wait", "--name", "orph", "--timeout", "3", "--poll", "0.2"]) == 2
+    # a hand's relaunch is free again
+    assert runs.main(["relaunch", "--name", "orph", "--no-selftest"]) == 0
+    _wait_done("orph")
+    assert (d / "starts").read_text() == "again\n"
+
+
+def test_an_unswept_orphan_is_refused_too(state):
+    """The guard is in launch and relaunch themselves, not only in the sweep:
+    between two sweeps the state still says `running`."""
+    sleeper = subprocess.Popen(["sleep", "600"])
+    try:
+        d = _orphan_state(state, "orph2", sleeper)
+        assert runs.liveness(runs.read_run("orph2")) == "orphaned"
+        assert runs.main(["relaunch", "--name", "orph2", "--no-selftest"]) == 3
+        assert runs.main(["launch", "--name", "orph2", "--dir", str(d), "--foreground", "--", "true"]) == 3
+        assert runs.main(["wait", "--name", "orph2", "--timeout", "3", "--poll", "0.2"]) == 5
+        assert runs.read_run("orph2")["state"] == "running" and not (d / "starts").exists()
+    finally:
+        sleeper.kill()
+        sleeper.wait()
+
+
+def test_a_reused_pid_is_not_the_command(state):
+    """After a reboot the recorded pid number can belong to anything. The start
+    time recorded beside it says whether it is still the command."""
+    sleeper = subprocess.Popen(["sleep", "600"])
+    try:
+        _orphan_state(state, "reuse", sleeper, pid_start=runs._pid_start(sleeper.pid) - 1, resume=False)
+        assert runs.command_alive(runs.read_run("reuse")) is None
+        assert runs.main(["sweep"]) == 0
+        assert runs.read_run("reuse")["state"] == "gone"
+    finally:
+        sleeper.kill()
+        sleeper.wait()
+
+
+def test_anything_left_in_the_scope_is_the_command(state, monkeypatch):
+    """The recorded pid is the chain's shell; its loop, servers and workers
+    outlive it in the scope. A relaunch beside them is still a second copy."""
+    _orphan_state(state, "left", _DeadProcess(), scope="anvil-left-1.scope")
+    asked = []
+    monkeypatch.setattr(runs, "_scope_active", lambda unit: asked.append(unit) or True)
+    assert runs.command_alive(runs.read_run("left")) == "scope anvil-left-1.scope"
+    assert runs.main(["sweep"]) == 0
+    assert runs.read_run("left")["state"] == "orphaned" and asked[0] == "anvil-left-1.scope"
+    assert "systemctl --user stop anvil-left-1.scope" in runs.read_alerts()[0]["msg"]
+    # a state file from before the field: the scope is named after the supervisor's pid
+    legacy = {k: v for k, v in runs.read_run("left").items() if k != "scope"}
+    monkeypatch.setattr(runs, "_systemd_user", lambda: True)
+    assert runs.run_scope(legacy) == f"anvil-left-{legacy['supervisor_pid']}.scope"
+
+
+def test_memsampler_stays_with_an_orphaned_owner(state, monkeypatch):
+    """An orphaned loop is still training: the box's one watchdog is not taken
+    from it by the next launch."""
+    monkeypatch.setenv("ANVIL_MEMSAMPLER", "1")
+    sleeper = subprocess.Popen(["sleep", "600"])
+    try:
+        _orphan_state(state, "own", sleeper, state="orphaned")
+        runs._write_json(runs.state_dir() / "memsampler.json", {"run": "own", "out": "x/memory.jsonl"})
+        fake = _Fake(active=True)
+        assert runs.arm_memsampler("other", state / "other", run=fake).startswith("memory watchdog: active (armed by own")
+        assert not any(c[0] == "systemd-run" for c in fake.calls)
+    finally:
+        sleeper.kill()
+        sleeper.wait()
+
+
+def test_a_supervisor_that_never_starts_is_a_recorded_failure(state, monkeypatch):
+    """The supervisor is started through systemd-run. When that fails nobody is
+    left to write the state, so the launcher does: `failed`, an alert, exit 1."""
+    if not sys.platform.startswith("linux"):
+        pytest.skip("the scoped supervisor is the Linux path")
+    b = state / "bin"
+    b.mkdir()
+    (b / "systemd-run").write_text("#!/bin/sh\necho 'Failed to connect to bus: no medium' >&2\nexit 1\n")
+    (b / "systemd-run").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{b}:{os.environ['PATH']}")
+    d = state / "nostart"
+    assert runs.main(["launch", "--name", "proof-nostart", "--dir", str(d), "--", "sh", "-c", "exit 0"]) == 1
+    st = runs.read_run("proof-nostart")
+    assert st["state"] == "failed" and "did not start" in st["error"] and "Failed to connect to bus" in st["error"]
+    assert st["cmd"] == ["sh", "-c", "exit 0"]  # a relaunch can still read the record
+    assert [a["kind"] for a in runs.read_alerts()] == ["failed"]
+
+
+def _user_systemd():
+    return (sys.platform.startswith("linux") and runs.shutil.which("systemd-run") is not None
+            and subprocess.run(["systemctl", "--user", "show-environment"], capture_output=True).returncode == 0)
+
+
+needs_systemd = pytest.mark.skipif(not _user_systemd(), reason="needs a systemd user manager")
+
+
+def _cgroup(pid):
+    return open(f"/proc/{pid}/cgroup").read().strip().rsplit("/", 1)[-1]
+
+
+def _scopes(name, *more):
+    out = subprocess.run(["systemctl", "--user", "list-units", f"anvil-{name}-*", "--no-legend", "--plain", *more],
+                         capture_output=True, text=True).stdout
+    return [ln.split()[0] for ln in out.splitlines() if ln.strip()]
+
+
+def _stop_scopes(name):
+    for unit in _scopes(name):
+        subprocess.run(["systemctl", "--user", "stop", unit], capture_output=True)
+
+
+def _wait_dead(pid, start=None):
+    for _ in range(200):
+        if not runs._same_process(pid, start):
+            return
+        time.sleep(0.05)
+    raise AssertionError(f"pid {pid} is still alive")
+
+
+@needs_systemd
+def test_the_supervisor_lives_in_the_runs_scope_and_an_orphan_is_seen_through_it(state):
+    """One cgroup for supervisor and command, named after the supervisor's pid.
+    Kill the supervisor alone (proof B): the sweep reads `orphaned`. Kill the
+    recorded pid as well and leave its child: still `orphaned`, through the scope."""
+    d = state / "proof-scope"
+    try:
+        assert runs.main(["launch", "--name", "proof-scope", "--dir", str(d), "--resume-on-gone", "--tick-sec", "0.2",
+                          "--", "sh", "-c", f"date +%s >> {d}/starts; sleep 600 & wait"]) == 0
+        st = runs.read_run("proof-scope")
+        unit = st["scope"]
+        assert unit == f"anvil-proof-scope-{st['supervisor_pid']}.scope"
+        assert _cgroup(st["supervisor_pid"]) == unit == _cgroup(st["pid"])
+        assert _cgroup(os.getpid()) != unit  # not the launcher's
+        assert os.getsid(st["pid"]) == st["pid"] != os.getsid(st["supervisor_pid"])
+        cmdline = open(f"/proc/{st['supervisor_pid']}/cmdline").read()
+        # the run's command is not on the supervisor's command line, where a pattern kill would find it
+        assert "_supervise" in cmdline and "sleep 600" not in cmdline
+        os.kill(st["supervisor_pid"], signal.SIGKILL)
+        _wait_dead(st["supervisor_pid"])
+        assert runs.main(["sweep"]) == 0
+        assert runs.read_run("proof-scope")["state"] == "orphaned"
+        os.kill(st["pid"], signal.SIGKILL)  # the shell goes; its `sleep` stays in the scope
+        _wait_dead(st["pid"], st["pid_start"])
+        assert runs.command_alive(runs.read_run("proof-scope")) == f"scope {unit}"
+        assert runs.main(["relaunch", "--name", "proof-scope", "--no-selftest"]) == 3
+        assert (d / "starts").read_text().count("\n") == 1 and _scopes("proof-scope", "--state=active") == [unit]
+        assert [a["kind"] for a in runs.read_alerts()] == ["orphaned"]
+    finally:
+        _stop_scopes("proof-scope")
+
+
+@needs_systemd
+def test_a_relaunch_by_the_sweep_service_outlives_the_service(state):
+    """Proof A: the sweep runs as a oneshot unit, the way the timer runs it, and
+    relaunches a gone run. The relaunch used to end with the unit about 5 s
+    later. Its supervisor now lives in the run's own scope."""
+    d = state / "proof-a"
+    repo = str(runs.Path(runs.__file__).resolve().parents[1])
+    env = {k: os.environ[k] for k in ("ANVIL_STATE_DIR", "ANVIL_MEMSAMPLER", "ANVIL_CHECKIN", "ANVIL_NOTIFY_SILENT")}
+    try:
+        assert runs.main(["launch", "--name", "proof-a", "--dir", str(d), "--resume-on-gone", "--no-selftest",
+                          "--tick-sec", "0.2", "--", "sh", "-c", f"date +%s >> {d}/starts; exec sleep 600"]) == 0
+        first = runs.read_run("proof-a")
+        os.kill(first["supervisor_pid"], signal.SIGKILL)
+        subprocess.run(["systemctl", "--user", "stop", first["scope"]], capture_output=True)  # what a reboot leaves
+        unit = f"anvil-proof-sweep-{os.getpid()}"
+        out = subprocess.run(
+            ["systemd-run", "--user", "--wait", "--collect", f"--unit={unit}", "-p", "Type=oneshot",
+             "-p", f"WorkingDirectory={repo}", *[f"--setenv={k}={v}" for k, v in env.items()],
+             sys.executable, "-m", "anvil.runs", "sweep"], capture_output=True, text=True, timeout=120)
+        assert out.returncode == 0, out.stderr
+        time.sleep(8)  # the old relaunch was dead 5 s after the unit finished
+        st = runs.read_run("proof-a")
+        assert st["state"] == "running" and st["resume_count"] == 1, st
+        assert st["supervisor_pid"] != first["supervisor_pid"] and runs._same_process(st["supervisor_pid"], None)
+        assert runs._same_process(st["pid"], st["pid_start"])
+        assert (d / "starts").read_text().count("\n") == 2
+        assert _scopes("proof-a", "--state=active") == [st["scope"]]
+        assert [a["kind"] for a in runs.read_alerts()] == ["relaunched"]
+    finally:
+        _stop_scopes("proof-a")
+
+
+# ---- the directory lock: two processes never work one loop dir, whatever started the second
+
+
+def test_dir_lock_is_exclusive_and_dies_with_its_holder(state):
+    d = state / "loopdir"
+    d.mkdir()
+    holder = subprocess.Popen(
+        [sys.executable, "-c", "import sys, time; from anvil import runs; f = runs.hold_dir_lock(sys.argv[1]); "
+                               "print('held', flush=True); time.sleep(600)", str(d)],
+        stdout=subprocess.PIPE, text=True)
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        with pytest.raises(runs.DirLocked) as e:
+            runs.hold_dir_lock(d)
+        assert f"pid {holder.pid}" in str(e.value) and "loop.lock" in str(e.value)
+    finally:
+        holder.kill()  # SIGKILL: no handler runs, the kernel drops the lock
+        holder.wait()
+    f = runs.hold_dir_lock(d)
+    assert (d / "loop.lock").read_text().startswith(f"pid {os.getpid()} ")
+    with pytest.raises(runs.DirLocked):
+        runs.hold_dir_lock(d)  # a second open file in the same process is refused as well
+    f.close()
+    runs.hold_dir_lock(d).close()
+
+
+def test_the_loop_takes_its_lock_before_it_touches_its_directory():
+    """selfplay.py locks <out> before it reads loop_state.json or opens a file
+    there, and exits 75; the big-run chain reads 75 as a duplicate and stops
+    before its retry and its STOP / WALL-STOP readings. Read from the source:
+    importing the loop pulls torch, and this suite stays stdlib."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "anvil" / "training" / "selfplay.py").read_text()
+    assert "LOOP_LOCKED_RC = 75" in src
+    body = src[src.index('out = Path("data/training") / args.name'):]
+    lock, first_read = body.index("hold_dir_lock(out)"), body.index('state_path = out / "loop_state.json"')
+    assert lock < first_read < body.index('open(out / "monitor.jsonl"')
+    assert body.index("sys.exit(LOOP_LOCKED_RC)") < first_read
+    chain = (root / "scripts" / "big_run_chain.sh").read_text()
+    code = "\n".join(ln for ln in chain.splitlines() if not ln.lstrip().startswith("#"))
+    assert code.index("$rc -eq 75") < code.index('-f "$OUT/WATCHDOG-TRIP"') < code.index('-f "$LOOP/STOP"')

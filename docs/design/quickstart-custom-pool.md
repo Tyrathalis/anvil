@@ -388,9 +388,9 @@ launcher's own files in that directory do not count as progress (the memory samp
 dies in its first ten seconds is a recorded failure, not a silent absence. The reads:
 
 ```bash
-uv run python -m anvil.runs status            # every run: running / stalled / paused / done / failed / gone
+uv run python -m anvil.runs status            # every run: running / stalled / paused / done / failed / gone / orphaned
 uv run python -m anvil.runs alerts --unacked  # what you have not seen yet
-uv run python -m anvil.runs wait --name mydecks-loop   # block a script until it ends: exit 0 done, 1 failed, 2 gone, 4 paused
+uv run python -m anvil.runs wait --name mydecks-loop   # block a script until it ends: exit 0 done, 1 failed, 2 gone, 4 paused, 5 orphaned
 uv run python -m anvil.runs tick --name mydecks-loop   # read-only: the newest file the stall check counts, and its age
 uv run python -m anvil.runs ack --all
 uv run python -m anvil.runs pause --name mydecks-loop --wait   # STOP for the loop (never its live generation); records `paused`, no FAILED push
@@ -398,9 +398,11 @@ uv run python -m anvil.runs relaunch --name mydecks-loop       # the same comman
 ```
 
 For a maintenance reboot: `pause --wait`, update, reboot, `relaunch`. A run launched with
-`--resume-on-gone` is relaunched by the sweep timer itself when its supervisor is found dead
-(a reboot, an OOM kill), up to `--resume-max` times (the count starts over whenever you
-`relaunch` by hand), so after the reboot your only step is the login. A job that is idle on purpose (the harness yielding the GPU to another job, the learner
+`--resume-on-gone` is relaunched by the sweep timer itself when it finds the supervisor dead and
+nothing of the run alive (a power loss, a hard reset, an OOM kill of the run), up to `--resume-max`
+times (the count starts over whenever you `relaunch` by hand), so after such a reboot your only
+step is the login. A reboot you ask for without `pause` first is not resumed: the supervisor is
+told to stop, passes the signal to the command and records `failed` with the signal's name. A job that is idle on purpose (the harness yielding the GPU to another job, the learner
 parked on a VRAM cotenant) writes `heartbeat.json` in the run dir so the stall alarm stays quiet.
 `selfplay.py --wall-hours H` stops a loop between iterations once its accumulated box time
 (summed across pauses) reaches H and runs the closing reads; time the harness spent yielding the
@@ -477,13 +479,26 @@ run was launched with, so one expired login does not turn it off for the run's l
 (`relaunch --checkin auto|claude|none` changes the mode). `--checkin none` turns it off; `--watch 'data/runs/<name>-*'` adds artifact
 roots to the stall check for a chain whose arms write outside its own dir.
 
-If the machine reboots or the supervisor itself is killed, the run's state says `running` with a
+If the machine loses power or the run is killed outright, the run's state says `running` with a
 dead pid; `uv run python -m anvil.runs sweep` marks it `gone`, alerts and checks in, and
 `uv run python -m anvil.runs install-sweep` puts that on a systemd user timer every ten minutes
 (a cron line elsewhere). [docs/ops/run-checkin.md](../ops/run-checkin.md) keeps the read-only
 prompt as a fallback for a machine with the desktop app but no CLI. `--memory-max 20G` caps the
-child through `systemd-run` on Linux and is ignored with a note elsewhere. `STOP` files still
+run's scope (the command and its supervisor) through `systemd-run` on Linux and is ignored with a note elsewhere. `STOP` files still
 work: the driver exits cleanly and the launcher records `done`.
+
+If only the supervisor dies and the command lives on, the run is `orphaned`. The sweep records
+that, alerts once and checks in, and starts nothing: a relaunch would be a second copy of the run
+beside the first. `launch`, `relaunch` and `pause` refuse an orphaned run and print the way out,
+which is also in the alert: stop the command (`systemctl --user stop anvil-<name>-<pid>.scope`,
+the unit the message names) or let it finish, then `relaunch`. Nothing watches an orphan for a
+stall or records its exit code. When it exits the sweep marks it `gone` and does not resume it,
+even under `--resume-on-gone`, because nobody saw how it ended. If you stopped an orphaned loop
+with a `STOP` file you wrote by hand, delete that file before the `relaunch`.
+
+A self-play loop also holds a lock on its own directory, `data/training/<name>/loop.lock`, for
+as long as it runs. A second `selfplay.py` on the same `--name`, however it was started, prints
+who holds the lock and exits with code 75 before it reads or writes anything there.
 
 ### 7¾. Memory on a long run (10-21)
 
@@ -496,12 +511,15 @@ Two things the launcher does for you, one you size yourself, and the watchdog ru
   line says `ARMED`, `active (armed by <run>)` or why not. `--no-memsampler` skips it for one launch,
   `ANVIL_MEMSAMPLER=0` for an environment without systemd (a Mac). The unit is transient — it dies with a
   reboot, which is why the launcher and not a hand arms it (10-29).
-- **A detached run gets its own cgroup.** `anvil.runs launch` wraps the command in a `systemd-run --user`
-  scope with `ManagedOOMPreference=avoid`, so the run outlives the terminal or desktop session that
-  launched it and `systemd-oomd` prefers other things when it acts on memory pressure. The mark does not
+- **A detached run gets its own cgroup.** `anvil.runs launch` puts the supervisor and the command together
+  in one `systemd-run --user` scope, `anvil-<name>-<supervisor pid>.scope`, with `ManagedOOMPreference=avoid`.
+  Both outlive the terminal or desktop session that launched them, and both outlive the sweep timer's
+  service when the sweep is what relaunched the run. `systemd-oomd` prefers other things when it acts on
+  memory pressure, and a kill of the scope takes supervisor and command together, which is what lets the
+  sweep resume the run. `systemctl --user stop <that scope>` is the way to stop a run outright; it records
+  `failed` with `SIGTERM`. The mark does not
   count for a swap-limit kill (oomd honours it there only on root-owned cgroups, and a user scope is not
-  one): on that path the memory watchdog below is the defence, and only while a learner is up. Before this, a run launched from a desktop
-  session died with the session's cgroup when the box ran out of memory.
+  one): on that path the memory watchdog below is the defence, and only while a learner is up.
 - **Size `--rl-workers` by memory, not cores.** Each DataLoader worker of the learner holds several GB
   of decoded-game state (≈ 7 GB at the self-play loop's 12-store replay window) regardless of how the
   games are sharded, so the training step needs about `rl_workers × 7 GB` on top of the learner's own

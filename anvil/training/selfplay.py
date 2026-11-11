@@ -45,6 +45,7 @@ import time
 from pathlib import Path
 
 from anvil.bridge.fleet import bridge_addrs, servers_for, wait_ports
+from anvil.runs import DirLocked, hold_dir_lock
 from anvil.torch.utils import get_torch_device
 from anvil.training.notify import notify as _shared_notify
 from anvil.training.notify import watch_register as _watch_register
@@ -360,6 +361,10 @@ def _ranking_meter(args, ckpt, out_json: Path) -> "dict | None":
 # one (STOP, self-written and self-cleared on the relaunch) so a human reads the
 # meter. One-shot per level: after a pause at gap g the line sits at g + rebase.
 SELF_STOP_MARK = "pause line (self-written by the loop)"
+
+# The loop's exit code when another loop holds <out>/loop.lock (EX_TEMPFAIL). A
+# chain reads it as "not mine to run", never as a failed iteration to retry.
+LOOP_LOCKED_RC = 75
 
 
 def anchor_gap_pause(gap, line, last_pause_gap, rebase: float = 0.05) -> "str | None":
@@ -2135,6 +2140,15 @@ def main() -> None:
 
     out = Path("data/training") / args.name
     out.mkdir(parents=True, exist_ok=True)
+    # One loop per directory, whatever started this one. A second loop on a live
+    # loop's dir deletes its behaviour-policy log mid-generation and rewrites its
+    # state. The lock is taken before anything in <out> is read or written and is
+    # held for the process's life (the kernel drops it at any exit).
+    try:
+        loop_lock = hold_dir_lock(out)  # noqa: F841 — the reference is the lock
+    except DirLocked as e:
+        print(f"[selfplay] another loop is working this directory: {e}. Exiting without touching it.", flush=True)
+        sys.exit(LOOP_LOCKED_RC)
     state_path = out / "loop_state.json"
     state = (
         json.loads(state_path.read_text())

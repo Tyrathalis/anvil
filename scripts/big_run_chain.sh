@@ -189,6 +189,9 @@ if [[ $WALL_DONE -eq 0 ]]; then
     --value-stopgrad-trunk --trunk-lr 3e-6 --value-head-lr 1e-4 \
     --grad-norm-every 50 >> "$OUT/seg-$SEGMENT.loop.log" 2>&1
   rc=$?
+  # rc 75 = another loop holds $LOOP/loop.lock (selfplay.py LOOP_LOCKED_RC): this chain is a second copy of the run.
+  # It exits before the retry, the STOP and the WALL-STOP readings below, which all describe the OTHER loop's state.
+  if [[ $rc -eq 75 ]]; then log "segment $SEGMENT: another loop holds $LOOP/loop.lock — this chain is a duplicate and exits; nothing was touched"; exit 1; fi
   # 10-21: the watchdog's retry — a learner the memory watchdog terminated (scripts/memory_sampler.sh; WATCHDOG-TRIP
   # newer than this loop's start) fails the iteration's training step and the loop; rerun the same loop (it resumes
   # from loop_state, the batches reused) with RL_WORKERS halved, floor 2, so the step fits instead of needing a hand.

@@ -7,15 +7,24 @@ construction, what the checklist used to ask each script to remember:
 
   detach      double-fork + setsid, stdin from /dev/null, the log in D
   buffering   PYTHONUNBUFFERED=1 in the child's environment
-  priority    nice (default 19); the child runs in its OWN systemd-run --user
-              scope where systemd is present (Linux; 10-10: own cgroup,
-              ManagedOOMPreference=avoid, outlives the launching app and the
-              sweep service) — --memory-max adds a MemoryMax cap to it,
-              ignored with a note elsewhere
+  priority    nice (default 19) on the command
+  one fate    where systemd is present (Linux) the supervisor re-executes
+              itself inside its own `systemd-run --user` scope and spawns the
+              command there: one cgroup, ManagedOOMPreference=avoid, for both.
+              They outlive the launching app and the sweep service together,
+              and whatever kills the cgroup takes both, so a dead supervisor
+              means a dead run (the sweep's resume rests on that). The command
+              is its own session and process group, which is what a forwarded
+              signal and `pause --now` reach; the supervisor is not in it.
+              --memory-max adds a MemoryMax cap to the scope, ignored with a
+              note elsewhere
   state       runs/<N>.json under the state dir: running -> done | failed
               (exit code, the log tail). A failure is a RECORDED state, never
               an absence — the 09-15 paired read failed in 18 s, unregistered
-              cleanly and nobody knew for an hour.
+              cleanly and nobody knew for an hour. A supervisor that was sent
+              SIGTERM / SIGINT / SIGHUP passes it to the command and records
+              `failed` with the signal's name, whatever the command returned:
+              a run that was told to stop did not finish.
   stall       the supervisor (this process, alive for the run's whole life)
               ticks on the newest mtime under D: running -> stalled ->
               recovered, on transition only. The launcher's own files do not
@@ -37,8 +46,8 @@ construction, what the checklist used to ask each script to remember:
               list is that line
   check-in    (ADR-0107 addendum 09-18) the supervisor itself invokes a
               headless Claude Code session (`claude -p`, read-only tools) on
-              the events that need a human: failed, stalled, gone, and done
-              after > 1 h — it pushes to the phone, messages the supervising
+              the events that need a human: failed, stalled, gone, orphaned,
+              and done after > 1 h — it pushes to the phone, messages the supervising
               desktop session, acks the alert. Event-driven: no polling task
               to remember to enable. `--checkin auto|claude|none` (auto =
               claude when the CLI is on PATH; $ANVIL_CHECKIN overrides); the
@@ -63,6 +72,16 @@ construction, what the checklist used to ask each script to remember:
   sweep       `anvil.runs sweep` marks runs whose supervisor died (reboot,
               OOM, kill -9) as gone, alerts, checks in; `install-sweep` puts
               it on a systemd user timer (10 min) where systemd exists
+  orphaned    a run whose supervisor is dead while its command (the recorded
+              pid, or anything left in its scope) is alive. The sweep records
+              it, alerts once, checks in and leaves it alone; `launch` and
+              `relaunch` refuse it. Nothing starts a second copy beside a live
+              one. When the orphan exits it reads `gone` and is never resumed
+              automatically: its exit was not observed.
+  dir lock    `hold_dir_lock(dir)` is the last line under the guards: an
+              exclusive flock a worker of a directory takes for its own life
+              (the self-play loop on <out>/loop.lock), so two processes cannot
+              work one directory whatever started the second
 
 No registry, no timer, no per-run waiter: one supervisor per run is its own
 watchdog. Stdlib only, zero repo imports — it must keep working while the
@@ -73,14 +92,14 @@ Verbs:
   launch  --name N --dir D [--stall-min 60] [--nice 19] [--memory-max 20G]
           [--log D/run.log] [--tick-sec 120] -- cmd...
   status  [--json]                 every run's state (newest first)
-  wait    --name N [--timeout S]   block until the run stops being live; exit 0 done, 1 failed,
-                                   2 gone (dead supervisor), 3 the --timeout, 4 paused
+  wait    --name N [--timeout S]   block until the run stops being supervised; exit 0 done, 1 failed,
+                                   2 gone (dead supervisor), 3 the --timeout, 4 paused, 5 orphaned
   tick    --name N                 read-only: what the stall tick sees right now (exit 1 = it would read stalled)
   alerts  [--unacked] [--json]     the queue
   ack     --all | --id ID...       mark alerts read
   prune   [--days 30]              drop terminal run records older than N days
-  sweep                            mark gone runs (dead supervisor), alert, check in
-  install-sweep                    a systemd user timer for sweep (Linux); a cron line elsewhere
+  sweep                            mark gone and orphaned runs (dead supervisor), alert, check in
+  install-sweep                   a systemd user timer for sweep (Linux); a cron line elsewhere
 State dir: $ANVIL_STATE_DIR, else ~/.local/state/anvil.
 """
 
@@ -432,41 +451,152 @@ def claude_selftest(timeout: int = 120) -> tuple[bool, str, int]:
         return False, repr(e)[:160], int(time.time() - t0)
 
 
-def _child_cmd(cmd: list[str], nice: int, memory_max: str | None, name: str,
-               scope: bool = True) -> tuple[list[str], str | None]:
-    """The command the supervisor spawns; a note when a requested wrapper
-    is unavailable on this platform.
+# ------------------------------------------------- the run's scope, and liveness
 
-    10-10: the child runs in its OWN systemd-run --user scope wherever
-    systemd is present, not only under --memory-max. The big run launched
-    from a Claude desktop session lived in that app's cgroup and died with
-    it when systemd-oomd killed the app (62 GB used, 60 GB of swap: the
-    run's 24 JVMs + the learner + the desktop in one unit); the sweep's
-    resume-on-gone relaunch then ran inside the oneshot sweep service's
-    cgroup and was killed 5 s later when the service ended. An own scope
-    outlives the launching app and the sweep, and ManagedOOMPreference=avoid
-    tells oomd to prefer the desktop on a memory-PRESSURE kill. 11-09: the
-    mark is not honoured for a swap-limit kill on a user-owned cgroup
-    (systemd.resource-control(5)) — the 10-17 kill took this scope with the
-    mark set; scripts/memory_sampler.sh is the defence there. The supervisor
-    itself stays in the launcher's cgroup (the survey's finding 4, routed).
-    `scope=False` (--foreground, the tests) spawns the bare command."""
-    note = None
-    have_systemd = bool(shutil.which("systemd-run")) and sys.platform.startswith("linux")
-    if scope and have_systemd:
-        # Nice is not a scope property (systemd-run refuses "Nice=" on --scope);
-        # the supervisor's preexec nice is inherited by the scoped command
-        props = ["-p", "ManagedOOMPreference=avoid"]
-        if memory_max:
-            props += ["-p", f"MemoryMax={memory_max}"]
-        return (
-            ["systemd-run", "--user", "--scope", "--quiet", f"--unit=anvil-{name}-{os.getpid()}"]
-            + props + cmd,
-            None,
-        )
+SPEC_ENV = "ANVIL_RUNS_SPEC"   # the launch's arguments, handed to the re-executed supervisor
+START_WAIT_S = 30.0            # how long `launch` waits for the supervisor's first state write
+LIVE_STATES = ("running", "stalled", "orphaned")
+
+
+def _systemd_user() -> bool:
+    return sys.platform.startswith("linux") and bool(shutil.which("systemd-run"))
+
+
+def scope_unit(name: str, supervisor_pid: int) -> str:
+    """The run's scope is named after its supervisor's pid: one name per launch."""
+    return f"anvil-{name}-{supervisor_pid}.scope"
+
+
+def _scope_argv(unit: str, memory_max: str | None, name: str) -> list[str]:
+    """The supervisor, re-executed inside its own `systemd-run --user` scope
+    (docs/ops/infra-survey-2026-11-09.md, finding 4). `systemd-run --scope`
+    moves the calling process into the new cgroup and then execs the command
+    in place, so the supervisor keeps the pid the unit is named after, and the
+    command it spawns is born in the same cgroup. One scope for both is the
+    point: a kill of the launching app or of the sweep's service reaches
+    neither, and a kill of the scope reaches both. ManagedOOMPreference=avoid
+    makes oomd prefer the desktop on a memory-pressure kill; it is not honoured
+    for a swap-limit kill on a user-owned cgroup (systemd.resource-control(5)),
+    where scripts/memory_sampler.sh is the defence. Nice is not a scope
+    property; the supervisor sets it on the command.
+
+    This file is run as a script under -P: the supervisor is the launcher's own
+    code whatever the cwd, and the script's directory never shadows the stdlib.
+    The launch's arguments travel in the environment (SPEC_ENV), not on the
+    command line, so a `pgrep -f` for the run's command does not match the
+    supervisor."""
+    props = ["-p", "ManagedOOMPreference=avoid"]
     if memory_max:
-        note = f"--memory-max {memory_max} ignored: no systemd-run on this platform"
-    return cmd, note
+        props += ["-p", f"MemoryMax={memory_max}"]
+    return (["systemd-run", "--user", "--scope", "--quiet", f"--unit={unit.removesuffix('.scope')}"] + props
+            + [sys.executable, "-P", str(Path(__file__).resolve()), "_supervise", name])
+
+
+def _scope_active(unit: str) -> bool:
+    """A scope is active for as long as one process is left in it."""
+    try:
+        return subprocess.run(["systemctl", "--user", "is-active", "--quiet", unit],
+                              capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _proc_stat(pid: int) -> tuple[str, int] | None:
+    """(state letter, start time in clock ticks since boot) from /proc/<pid>/stat;
+    None where there is no /proc or no such pid. The start time, with the pid,
+    is an identity a reused pid number does not share."""
+    try:
+        f = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+        return f[0], int(f[19])
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def _pid_start(pid: int | None) -> int | None:
+    st = _proc_stat(pid) if pid else None
+    return st[1] if st else None
+
+
+def _same_process(pid: int | None, start: int | None) -> bool:
+    """Is `pid` alive and still the process that was recorded with that start
+    time? A zombie is not alive. Without /proc the pid alone decides."""
+    if not _alive(pid):
+        return False
+    st = _proc_stat(pid)
+    if st is None:
+        return True
+    return st[0] != "Z" and (start is None or st[1] == start)
+
+
+def run_scope(r: dict) -> str | None:
+    """The scope a run's processes live in. A state file from before the field
+    was recorded names it the same way, after the supervisor's pid."""
+    if "scope" in r:
+        return r["scope"]
+    if r.get("name") and r.get("supervisor_pid") and _systemd_user():
+        return scope_unit(r["name"], r["supervisor_pid"])
+    return None
+
+
+def command_alive(r: dict) -> str | None:
+    """What is still alive of a run's command: the recorded pid, or anything
+    left in its scope (the command's own children outlive it there). A phrase
+    naming it, or None."""
+    if _same_process(r.get("pid"), r.get("pid_start")):
+        return f"pid {r['pid']}"
+    unit = run_scope(r)
+    if unit and _scope_active(unit):
+        return f"scope {unit}"
+    return None
+
+
+def liveness(r: dict | None) -> str:
+    """supervised | orphaned | dead — the one question every verb asks before
+    it starts, stops or reports a run. `orphaned` is a dead supervisor over a
+    live command: nothing may be launched beside it."""
+    if not r or r.get("state") not in LIVE_STATES:
+        return "dead"
+    if r["state"] != "orphaned" and _alive(r.get("supervisor_pid")):
+        return "supervised"
+    return "orphaned" if command_alive(r) else "dead"
+
+
+def _orphan_advice(r: dict) -> str:
+    unit = run_scope(r)
+    stop = f"`systemctl --user stop {unit}`" if unit else f"`kill {r.get('pid')}`"
+    return f"stop it ({stop}) or let it finish, then `anvil.runs relaunch --name {r.get('name')}`"
+
+
+# ------------------------------------------------------------ the directory lock
+
+
+class DirLocked(RuntimeError):
+    """Another live process holds the directory's lock."""
+
+
+def hold_dir_lock(d: Path, name: str = "loop.lock"):
+    """Take <d>/<name> exclusively, without waiting, and return the open file.
+    The lock lasts as long as that file object: keep the reference for the
+    process's life. It is a flock, so the kernel drops it when the process
+    dies however it dies, and no stale lock can exist; the file's text (the
+    holder's pid) is for the reader of a refusal. Children do not inherit it:
+    Python opens files close-on-exec. Raises DirLocked when another process
+    holds it."""
+    import fcntl
+
+    f = open(Path(d) / name, "a+")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.seek(0)
+        holder = f.read().strip() or "an unnamed process"
+        f.close()
+        raise DirLocked(f"{Path(d) / name} is held by {holder}") from None
+    f.seek(0)
+    f.truncate()
+    f.write(f"pid {os.getpid()} since {_now()}\n")
+    f.flush()
+    return f
 
 
 MEMSAMPLER_UNIT = os.environ.get("ANVIL_MEMSAMPLER_UNIT", "anvil-memsampler")
@@ -501,7 +631,7 @@ def arm_memsampler(name: str, run_dir: Path, run=subprocess.run) -> str:
     if active:
         owner = rec.get("run")
         own = read_run(owner) if owner and owner != name else None
-        if owner == name or (own and own.get("state") in ("running", "stalled") and _alive(own.get("supervisor_pid"))):
+        if owner == name or liveness(own) != "dead":  # an orphaned owner still trains: it keeps the watchdog
             return f"memory watchdog: active (armed by {owner} -> {rec.get('out')})"
         run(["systemctl", "--user", "stop", MEMSAMPLER_UNIT], capture_output=True)
     run(["systemctl", "--user", "reset-failed", MEMSAMPLER_UNIT], capture_output=True)
@@ -516,14 +646,36 @@ def arm_memsampler(name: str, run_dir: Path, run=subprocess.run) -> str:
     return f"memory watchdog: ARMED -> {out}"
 
 
+def _base_state(a: argparse.Namespace, cmd: list[str], run_dir: Path, log: Path) -> dict:
+    """The fields of a state file that a relaunch reads back, whatever the
+    launch came to (supervise fills in the live ones; a supervisor that never
+    started still leaves a record `relaunch` can use)."""
+    return {
+        "name": a.name, "cmd": cmd, "dir": str(run_dir), "log": str(log),
+        "stall_sec": a.stall_sec if a.stall_sec is not None else a.stall_min * 60,
+        "tick_sec": a.tick_sec, "tag": a.tag,
+        "checkin_requested": getattr(a, "checkin", None) or "auto",
+        "launch_cwd": os.getcwd(), "watch": [str(w) for w in (getattr(a, "watch", None) or [])],
+        "launched_by": getattr(a, "launched_by", None) or None,
+        "nice": a.nice, "memory_max": a.memory_max, "cwd": a.cwd,
+        "resume": bool(getattr(a, "resume_on_gone", False)), "resume_max": getattr(a, "resume_max", 3),
+        "resume_count": getattr(a, "resume_count", 0),
+    }
+
+
 def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
-    """Runs in the detached grandchild: spawn the command, tick the stall
-    check, write the terminal state, alert on every transition."""
+    """The supervisor: spawn the command, tick the stall check, write the
+    terminal state, alert on every transition. Detached, it runs inside the
+    run's own scope (`a.scope`, see _scope_argv) and the command is born
+    there; in the foreground, or without systemd, there is no scope."""
     run_dir = Path(a.dir).resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
     log = Path(a.log).resolve() if a.log else run_dir / "run.log"
     env = dict(os.environ, PYTHONUNBUFFERED="1", ANVIL_RUN_NAME=a.name)
-    real_cmd, note = _child_cmd(cmd, a.nice, a.memory_max, a.name, scope=not getattr(a, "foreground", False))
+    scope = getattr(a, "scope", None)
+    note = None
+    if a.memory_max and not scope:
+        note = f"--memory-max {a.memory_max} ignored: the run is not in a systemd scope"
     stall_s = a.stall_sec if a.stall_sec is not None else a.stall_min * 60
     watch = [str(w) for w in (getattr(a, "watch", None) or [])]
 
@@ -543,34 +695,27 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         except OSError:
             pass
 
+    mode = getattr(a, "checkin_resolved", None) or checkin_mode(getattr(a, "checkin", None))
+    # `checkin` = what this launch RESOLVED to (the sweep's and a reader's view);
+    # `checkin_requested` = what was asked, which is what a relaunch resolves again
+    st = dict(_base_state(a, cmd, run_dir, log), supervisor_pid=os.getpid(), started=_now(),
+              note=note, checkin=mode, scope=scope)
     try:
+        # The command is its own session, so its own process group: a signal the
+        # supervisor passes on (and `pause --now`) reaches the command's whole tree
+        # and never the supervisor. In one group, the handler below signalled itself
+        # and re-entered until the recursion limit (the survey's finding 13).
         child = subprocess.Popen(
-            real_cmd, stdout=logf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-            env=env, cwd=a.cwd or None, preexec_fn=preexec,
+            cmd, stdout=logf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            env=env, cwd=a.cwd or None, preexec_fn=preexec, start_new_session=True,
         )
     except Exception as e:  # noqa: BLE001
-        st = {
-            "name": a.name, "state": "failed", "rc": -1, "started": _now(), "ended": _now(),
-            "cmd": cmd, "dir": str(run_dir), "log": str(log), "error": f"spawn failed: {e}",
-            "supervisor_pid": os.getpid(),
-        }
+        st.update(state="failed", rc=-1, ended=_now(), error=f"spawn failed: {e}")
         _write_json(_run_file(a.name), st)
         alert(a.name, "failed", f"spawn failed: {e}", str(run_dir), a.tag)
         return 1
-    mode = getattr(a, "checkin_resolved", None) or checkin_mode(getattr(a, "checkin", None))
-    st = {
-        "name": a.name, "state": "running", "pid": child.pid, "supervisor_pid": os.getpid(),
-        "started": _now(), "cmd": cmd, "dir": str(run_dir), "log": str(log),
-        "stall_sec": stall_s, "tick_sec": a.tick_sec, "note": note, "tag": a.tag,
-        # `checkin` = what this launch RESOLVED to (the sweep's and a reader's view);
-        # `checkin_requested` = what was asked, which is what a relaunch resolves again
-        "checkin": mode, "checkin_requested": getattr(a, "checkin", None) or "auto",
-        "launch_cwd": os.getcwd(), "watch": watch,
-        "launched_by": getattr(a, "launched_by", None) or None,
-        "nice": a.nice, "memory_max": a.memory_max, "cwd": a.cwd,
-        "resume": bool(getattr(a, "resume_on_gone", False)), "resume_max": getattr(a, "resume_max", 3),
-        "resume_count": getattr(a, "resume_count", 0),
-    }
+    # pid_start: with the pid, the command's identity for the orphan check (command_alive)
+    st.update(state="running", pid=child.pid, pid_start=_pid_start(child.pid))
     _write_json(_run_file(a.name), st)
     threads: list[threading.Thread] = []
     last_checkin = [0.0]
@@ -589,14 +734,19 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         th.start()
         threads.append(th)
 
-    def forward(signum, _frame):  # noqa: ANN001
-        try:
-            os.killpg(os.getpgid(child.pid), signum)
-        except Exception:  # noqa: BLE001
-            child.send_signal(signum)
+    signalled: list[int] = []
 
-    signal.signal(signal.SIGTERM, forward)
-    signal.signal(signal.SIGINT, forward)
+    def forward(signum, _frame):  # noqa: ANN001
+        signalled.append(signum)
+        if child.returncode is not None:
+            return
+        try:
+            os.killpg(child.pid, signum)  # the command leads its own group
+        except OSError:
+            pass
+
+    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(s, forward)
 
     stalled = False
     t0 = time.time()
@@ -625,7 +775,10 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
             alert(a.name, "recovered", "fresh artifacts again", str(run_dir), a.tag)
     logf.write(f"[runs] {_now()} exit rc={rc}\n".encode())
     logf.close()
-    kind = "done" if rc == 0 else "failed"
+    # A supervisor that was told to stop did not see a run finish, whatever the
+    # command returned on its way down: never `done`.
+    sig = signal.Signals(signalled[0]).name if signalled else None
+    kind = "done" if rc == 0 and sig is None else "failed"
     # a `pause` marks the state file while the child drains; the exit is
     # then PAUSED (no failure push, no check-in), whatever the rc
     cur = read_run(a.name) or {}
@@ -634,17 +787,71 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
         st["pause_requested"] = cur["pause_requested"]
         st["stop_files"] = cur.get("stop_files", [])
     st.update(state=kind, rc=rc, ended=_now(), wall_s=int(time.time() - t0))
+    if sig:
+        st["signal"] = sig
     st.pop("stalled_since", None)
     _write_json(_run_file(a.name), st)
     tail = _tail(log)
-    msg = f"rc={rc} after {st['wall_s']} s; log {log}" + ("" if kind != "failed" else f"\n{tail}")
+    msg = ((f"the supervisor was sent {sig} and passed it to the command; " if sig else "")
+           + f"rc={rc} after {st['wall_s']} s; log {log}" + ("" if kind != "failed" else f"\n{tail}"))
     if kind == "paused":
         alert(a.name, "paused", msg + "; `anvil.runs relaunch --name " + a.name + "` resumes it", str(run_dir), a.tag)
     else:
         checkin(alert(a.name, kind, msg, str(run_dir), a.tag))
     for th in threads:  # the terminal event's check-in finishes before the supervisor exits
         th.join(CHECKIN_TIMEOUT_S + 30)
-    return 0 if rc == 0 else 1
+    return 0 if rc == 0 and sig is None else 1
+
+
+def _supervise_entry() -> int:
+    """`runs.py _supervise <name>`: the supervisor as its own process, started
+    by _scope_argv inside the run's scope. The launch's arguments arrive in
+    SPEC_ENV and leave the environment before the command is spawned."""
+    spec = json.loads(os.environ.pop(SPEC_ENV))
+    a = argparse.Namespace(**spec["args"])
+    a.scope = spec.get("scope")
+    return supervise(a, spec["cmd"])
+
+
+def _spawn_supervisor(a: argparse.Namespace, cmd: list[str], run_dir: Path) -> int | None:
+    """Detach the supervisor and return its pid (None when the fork chain broke).
+    Double fork + setsid: it is nobody's child and holds no terminal. With
+    systemd it then execs itself into the run's scope; elsewhere it supervises
+    in the forked process."""
+    r, w = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        code = 1
+        try:
+            os.close(r)
+            os.setsid()
+            if os.fork() != 0:
+                os._exit(0)
+            os.write(w, str(os.getpid()).encode())
+            os.close(w)
+            devnull = os.open(os.devnull, os.O_RDWR)
+            os.dup2(devnull, 0)
+            sup_log = open(run_dir / "supervisor.log", "ab")
+            os.dup2(sup_log.fileno(), 1)
+            os.dup2(sup_log.fileno(), 2)
+            if _systemd_user():
+                unit = scope_unit(a.name, os.getpid())
+                spec = json.dumps({"args": vars(a), "cmd": cmd, "scope": unit}, default=str)
+                argv = _scope_argv(unit, a.memory_max, a.name)
+                try:
+                    os.execvpe(argv[0], argv, dict(os.environ, **{SPEC_ENV: spec}))
+                except OSError as e:
+                    os.write(2, f"[runs] cannot exec {argv[0]}: {e}\n".encode())
+                    code = 127
+            else:
+                code = supervise(a, cmd)
+        finally:
+            os._exit(code)
+    os.close(w)
+    with os.fdopen(r) as f:
+        got = f.read().strip()
+    os.waitpid(pid, 0)
+    return int(got) if got.isdigit() else None
 
 
 def launch(a: argparse.Namespace, cmd: list[str]) -> int:
@@ -652,9 +859,15 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
         print("launch: no command after --", file=sys.stderr)
         return 2
     prev = read_run(a.name)
-    if prev and prev.get("state") in ("running", "stalled") and _alive(prev.get("supervisor_pid")):
+    live = liveness(prev)
+    if live == "supervised":
         print(f"launch: run {a.name} is still {prev['state']} (supervisor pid {prev['supervisor_pid']})",
               file=sys.stderr)
+        return 3
+    if live == "orphaned":
+        # the guard under every path that could start a second copy: a hand, a chain, the sweep
+        print(f"launch: run {a.name} is orphaned — its supervisor is dead and its command is still alive "
+              f"({command_alive(prev)}); {_orphan_advice(prev)}", file=sys.stderr)
         return 3
     run_dir = Path(a.dir).resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -677,29 +890,34 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
     # 10-29: the memory watchdog is armed by every detached launch (relaunch included)
     mem_note = ("memory watchdog: off (--no-memsampler)" if getattr(a, "no_memsampler", False)
                 else arm_memsampler(a.name, run_dir))
-    # double fork: the supervisor outlives the launching shell / app
-    pid = os.fork()
-    if pid == 0:
-        os.setsid()
-        if os.fork() != 0:
-            os._exit(0)
-        devnull = os.open(os.devnull, os.O_RDWR)
-        os.dup2(devnull, 0)
-        sup_log = open(run_dir / "supervisor.log", "ab")
-        os.dup2(sup_log.fileno(), 1)
-        os.dup2(sup_log.fileno(), 2)
-        code = 1
-        try:
-            code = supervise(a, cmd)
-        finally:
-            os._exit(code)
-    os.waitpid(pid, 0)
-    for _ in range(100):
-        st = read_run(a.name)
-        if st and st.get("started") and (prev is None or st.get("started") != prev.get("started")):
+    sup = _spawn_supervisor(a, cmd, run_dir)
+    # wait for THIS supervisor's first state write; one that dies first is a recorded failure
+    st: dict = {}
+    deadline = time.time() + START_WAIT_S
+    while sup is not None and time.time() < deadline:
+        st = read_run(a.name) or {}
+        if st.get("supervisor_pid") == sup:
+            break
+        st = {}
+        if not _same_process(sup, None):
+            st = read_run(a.name) or {}  # it may have written and exited between the two reads
+            if st.get("supervisor_pid") != sup:
+                st = {}
             break
         time.sleep(0.05)
-    st = read_run(a.name) or {}
+    if not st and (sup is None or not _same_process(sup, None)):
+        log = Path(a.log).resolve() if a.log else run_dir / "run.log"
+        err = "the supervisor did not start: " + (_tail(run_dir / "supervisor.log", 3).replace("\n", " | ") or "no output")
+        st = dict(_base_state(a, cmd, run_dir, log), state="failed", rc=-1, started=_now(), ended=_now(),
+                  error=err, supervisor_pid=sup, checkin=mode)
+        _write_json(_run_file(a.name), st)
+        alert(a.name, "failed", err, str(run_dir), a.tag)
+        print(f"[runs] NOT LAUNCHED {a.name}: {err}", file=sys.stderr, flush=True)
+        return 1
+    if not st:
+        print(f"[runs] UNCONFIRMED {a.name}: supervisor pid {sup} is alive and wrote no state in "
+              f"{int(START_WAIT_S)} s; read {run_dir / 'supervisor.log'} and `anvil.runs status`", file=sys.stderr, flush=True)
+        return 1
     sinks = ["queue"]
     if os.environ.get("ANVIL_NOTIFY_CMD"):
         sinks.append("notify-cmd")
@@ -739,8 +957,10 @@ def status(a: argparse.Namespace) -> int:
             r = json.loads(p.read_text())
         except json.JSONDecodeError:
             continue
-        if r.get("state") in ("running", "stalled") and not _alive(r.get("supervisor_pid")):
-            r["state"] = "gone"  # the supervisor died (reboot, kill): not a clean exit
+        if r.get("state") in LIVE_STATES:
+            live = liveness(r)
+            if live != "supervised":  # the supervisor died (reboot, kill): not a clean exit
+                r["state"] = "orphaned" if live == "orphaned" else "gone"
         runs.append(r)
     if a.json:
         print(json.dumps(runs, indent=1))
@@ -754,7 +974,7 @@ def status(a: argparse.Namespace) -> int:
 
 
 # `wait`'s exit codes, one per way a run stops being live (3 = the wait's own --timeout)
-WAIT_RC = {"done": 0, "failed": 1, "gone": 2, "paused": 4}
+WAIT_RC = {"done": 0, "failed": 1, "gone": 2, "paused": 4, "orphaned": 5}
 
 
 def wait(a: argparse.Namespace) -> int:
@@ -777,7 +997,13 @@ def wait(a: argparse.Namespace) -> int:
             print(f"{a.name}: {state}" + (" (the sweep found the supervisor dead)" if state == "gone" else
                                          f" — `anvil.runs relaunch --name {a.name}` resumes it"))
             return WAIT_RC[state]
-        if state in ("running", "stalled") and not _alive(r.get("supervisor_pid")):
+        if state in LIVE_STATES and liveness(r) != "supervised":
+            # a dead supervisor ends the wait either way: nothing will write a later state
+            alive = command_alive(r)
+            if alive:
+                print(f"{a.name}: orphaned (supervisor died; the command is still alive: {alive}) — "
+                      + _orphan_advice(r))
+                return WAIT_RC["orphaned"]
             print(f"{a.name}: gone (supervisor died)")
             return WAIT_RC["gone"]
         if a.timeout and time.time() - t0 > a.timeout:
@@ -890,13 +1116,19 @@ def pause(a: argparse.Namespace) -> int:
     (09-27: the loop roots, never a loop's live generation — --scope all for
     every watched dir), `pause_requested` on the state so the supervisor
     records PAUSED (no FAILED push, no check-in) when the command exits;
-    --now also SIGTERMs the command's process group (the harness drains,
-    ADR-0092)."""
+    --now also SIGTERMs the command's process group: every process of the
+    run's tree receives it itself, and the supervisor, which is outside that
+    group, does not."""
     r = read_run(a.name)
     if not r:
         print(f"pause: no run {a.name}", file=sys.stderr)
         return 2
-    if r.get("state") not in ("running", "stalled") or not _alive(r.get("supervisor_pid")):
+    live = liveness(r)
+    if live == "orphaned":
+        print(f"pause: run {a.name} is orphaned ({command_alive(r)} alive, no supervisor to record a pause); "
+              + _orphan_advice(r), file=sys.stderr)
+        return 3
+    if live != "supervised":
         print(f"pause: run {a.name} is {r.get('state')}, nothing to pause", file=sys.stderr)
         return 3
     stops = []
@@ -910,7 +1142,7 @@ def pause(a: argparse.Namespace) -> int:
     r.update(pause_requested=_now(), stop_files=stops)
     _write_json(_run_file(a.name), r)
     if a.now and r.get("pid"):
-        try:
+        try:  # the command's own group (it leads one): its whole tree, never the supervisor
             os.killpg(os.getpgid(r["pid"]), signal.SIGTERM)
         except OSError:
             try:
@@ -956,8 +1188,13 @@ def relaunch(a: argparse.Namespace) -> int:
     if not r:
         print(f"relaunch: no run {a.name}", file=sys.stderr)
         return 2
-    if r.get("state") in ("running", "stalled") and _alive(r.get("supervisor_pid")):
+    live = liveness(r)
+    if live == "supervised":
         print(f"relaunch: run {a.name} is still {r['state']}", file=sys.stderr)
+        return 3
+    if live == "orphaned":  # before the STOP files go: a refused relaunch changes nothing
+        print(f"relaunch: run {a.name} is orphaned — its supervisor is dead and its command is still alive "
+              f"({command_alive(r)}); {_orphan_advice(r)}", file=sys.stderr)
         return 3
     for f in r.get("stop_files") or []:
         try:
@@ -987,24 +1224,47 @@ def relaunch(a: argparse.Namespace) -> int:
 
 
 def sweep(a: argparse.Namespace) -> int:
-    """Runs whose supervisor died (reboot, OOM, kill -9) never alert
-    themselves: mark them gone, alert, check in — or, launched with
-    --resume-on-gone and under the cap, relaunch them (09-21). Idempotent;
-    a timer's job."""
-    n = 0
+    """Runs whose supervisor died never alert themselves. Idempotent; a
+    timer's job. Three readings of a dead supervisor:
+
+    orphaned  the command is still alive (command_alive). Recorded, one alert,
+              a check-in, and nothing else: a relaunch here would be a second
+              copy of the run beside the first.
+    gone      nothing of the run is alive. Alert and check in — or, for a run
+              launched with --resume-on-gone and under its cap, relaunch the
+              recorded command. The resume rests on supervisor and command
+              sharing a scope: they died together, of the same outside cause.
+    gone, after orphaned
+              the orphan has exited. Its exit was not observed (it may have
+              finished, crashed or been halted by a guard), so it is never
+              resumed automatically."""
+    n = n_orphaned = 0
     for p in (state_dir() / "runs").glob("*.json"):
         try:
             r = json.loads(p.read_text())
         except json.JSONDecodeError:
             continue
-        if r.get("state") not in ("running", "stalled") or _alive(r.get("supervisor_pid")):
+        if r.get("state") not in LIVE_STATES or liveness(r) == "supervised":
+            continue
+        was_orphaned = r["state"] == "orphaned"
+        alive = command_alive(r)
+        if alive:
+            if not was_orphaned:
+                r.update(state="orphaned", orphaned_since=_now())
+                _write_json(p, r)
+                n_orphaned += 1
+                rec = alert(r["name"], "orphaned", f"supervisor pid {r.get('supervisor_pid')} is dead and the command "
+                            f"is still alive ({alive}): nothing was relaunched, and nothing watches it for a stall or "
+                            f"records its exit. To recover: {_orphan_advice(r)}", r.get("dir"), r.get("tag", "anvil"))
+                if checkin_mode(r.get("checkin_requested") or r.get("checkin")) == "claude":
+                    llm_checkin(rec, r)
             continue
         r.update(state="gone", ended=_now())
         _write_json(p, r)
         log = Path(r["log"]) if r.get("log") else None
         tail = _tail(log) if log and log.exists() else "(no log)"
         n += 1
-        if r.get("resume") and r.get("resume_count", 0) < r.get("resume_max", 3):
+        if not was_orphaned and r.get("resume") and r.get("resume_count", 0) < r.get("resume_max", 3):
             r["resume_count"] = r.get("resume_count", 0) + 1
             _write_json(p, r)
             alert(r["name"], "relaunched", f"supervisor pid {r.get('supervisor_pid')} was dead (reboot / OOM / kill); "
@@ -1015,13 +1275,14 @@ def sweep(a: argparse.Namespace) -> int:
                 os.chdir(r["launch_cwd"])
             launch(ra, list(r["cmd"]))
             continue
-        rec = alert(r["name"], "gone", f"supervisor pid {r.get('supervisor_pid')} is dead (reboot / OOM / kill); "
-                    f"the run's last log lines:\n{tail}", r.get("dir"), r.get("tag", "anvil"))
+        why = ("the orphaned command has exited and its exit was not observed (it is not resumed automatically)"
+               if was_orphaned else f"supervisor pid {r.get('supervisor_pid')} is dead (reboot / OOM / kill)")
+        rec = alert(r["name"], "gone", f"{why}; the run's last log lines:\n{tail}", r.get("dir"), r.get("tag", "anvil"))
         # resolved now, from the request: a launch-time `none` (an expired login) must not
         # also silence the one event the supervisor cannot report itself
         if checkin_mode(r.get("checkin_requested") or r.get("checkin")) == "claude":
             llm_checkin(rec, r)
-    print(f"swept {n} gone run(s)")
+    print(f"swept {n} gone run(s)" + (f", {n_orphaned} orphaned" if n_orphaned else ""))
     return 0
 
 
@@ -1086,6 +1347,8 @@ def prune(a: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["_supervise"]:  # the detached supervisor re-executing itself (_scope_argv); not a user verb
+        return _supervise_entry()
     cmd: list[str] = []
     if "--" in argv:
         i = argv.index("--")
@@ -1102,11 +1365,11 @@ def main(argv: list[str] | None = None) -> int:
     la.add_argument("--stall-sec", type=int, default=None, help=argparse.SUPPRESS)
     la.add_argument("--tick-sec", type=float, default=120.0)
     la.add_argument("--nice", type=int, default=19)
-    la.add_argument("--memory-max", default=None, help="e.g. 20G: a systemd-run --user scope where available")
+    la.add_argument("--memory-max", default=None, help="e.g. 20G: MemoryMax on the run's systemd scope (the command and its supervisor), where available")
     la.add_argument("--tag", default="anvil")
     la.add_argument("--foreground", action="store_true", help="supervise in this process (tests, chains)")
     la.add_argument("--checkin", default=None, choices=["auto", "claude", "none"],
-                    help="the LLM check-in on failed / stalled / gone / long done (auto = claude when the CLI "
+                    help="the LLM check-in on failed / stalled / gone / orphaned / long done (auto = claude when the CLI "
                          "is on PATH; $ANVIL_CHECKIN overrides)")
     la.add_argument("--no-selftest", action="store_true", help="skip the launch-time claude -p self-test")
     la.add_argument("--no-memsampler", action="store_true",
@@ -1122,15 +1385,17 @@ def main(argv: list[str] | None = None) -> int:
     la.add_argument("--watch", action="append", default=None, metavar="GLOB",
                     help="extra artifact roots for the stall tick (a glob; repeatable), e.g. 'data/runs/b4post-*'")
     la.add_argument("--resume-on-gone", action="store_true",
-                    help="the sweep relaunches this run's recorded command when its supervisor is found dead "
-                         "(a reboot, an OOM kill) — for a command that resumes from its own state, e.g. selfplay")
+                    help="the sweep relaunches this run's recorded command when it finds the supervisor dead and "
+                         "nothing of the run alive (a reboot, an OOM kill of the run's scope) — for a command that "
+                         "resumes from its own state, e.g. selfplay. A dead supervisor over a live command reads "
+                         "`orphaned` and is never relaunched")
     la.add_argument("--resume-max", type=int, default=3,
                     help="the relaunch cap under --resume-on-gone (a crash loop stops); the count starts over at "
                          "every manual `relaunch`")
     la.add_argument("--resume-count", type=int, default=0, help=argparse.SUPPRESS)
     pa = sub.add_parser("pause", help="write STOP for the run's command, mark it paused when it exits (no FAILED push)")
     pa.add_argument("--name", required=True)
-    pa.add_argument("--now", action="store_true", help="also SIGTERM the command's process group (the harness drains its games)")
+    pa.add_argument("--now", action="store_true", help="also SIGTERM the command's process group: every process of the run's tree gets it itself")
     pa.add_argument("--wait", action="store_true", help="block until the run has exited")
     pa.add_argument("--scope", choices=("loop", "all"), default="loop",
                     help="loop (default): STOP in the run dir + watched loop roots, never a loop's live "
@@ -1146,8 +1411,8 @@ def main(argv: list[str] | None = None) -> int:
                          "the check-in relays to it and it owns the close (ADR-0107); default: the recorded one")
     st = sub.add_parser("status")
     st.add_argument("--json", action="store_true")
-    wa = sub.add_parser("wait", help="block until the run is done (0) / failed (1) / gone (2) / paused (4); "
-                                     "3 = --timeout")
+    wa = sub.add_parser("wait", help="block until the run is done (0) / failed (1) / gone (2) / paused (4) / "
+                                     "orphaned (5); 3 = --timeout")
     wa.add_argument("--name", required=True)
     wa.add_argument("--timeout", type=float, default=0)
     wa.add_argument("--poll", type=float, default=10.0)
