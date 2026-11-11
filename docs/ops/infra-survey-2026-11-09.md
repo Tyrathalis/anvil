@@ -550,7 +550,7 @@ Twelve tests in [tests/test_runs.py](../../tests/test_runs.py) cover it. All twe
 
 ### The two proof readings
 
-Run 2026-11-10 19:11 on scratch state exactly as [the proof section](#finding-4-the-proof-step-by-step) sets it up, from this branch's code, and run again on the branch tip after the commit with the same readings. Every proof scope was stopped afterwards and the scratch directory removed.
+Run 2026-11-10 19:11 on scratch state exactly as [the proof section](#finding-4-the-proof-step-by-step) sets it up, from this branch's code. Run again at 19:17 on the code commit `2f410fb` with a clean tree, with the same readings; the listing below is the first run's. Every proof scope was stopped afterwards and the scratch directory removed.
 
 **Proof A reads `running`.** After the launch, both processes were in one scope:
 
@@ -586,7 +586,7 @@ The recipe does not change: no selfplay flag, no chain variable, no served file.
 
 - **The supervisor is a different process in a different place.** It is `python3 -P …/anvil/runs.py _supervise big-run` inside `anvil-big-run-<its pid>.scope`, beside the chain. It is no longer a fork of the `relaunch` command inside the desktop app's scope. Find it by `supervisor_pid` in the state file, not by its command line.
 - **The chain leads its own session and process group.** `pause --now` and a forwarded signal reach the chain's tree and not the supervisor.
-- **`systemctl --user stop anvil-big-run-<pid>.scope` stops the run outright** and records `failed` with `SIGTERM`. Each process receives the signal twice, once from systemd and once from the supervisor's forward. Before, a signal to the supervisor reached each process several hundred times.
+- **`systemctl --user stop anvil-big-run-<pid>.scope` stops the run outright** and records `failed` with `SIGTERM`. systemd signals every process in the scope and the supervisor's forward signals the command's group again, so a process is sent SIGTERM at most twice. A shell with a trap, stopped this way in a proof scope, ran its trap once. Before, a signal to the supervisor reached each process several hundred times.
 - **The check-in's `claude -p` and the notify sinks run inside the run's scope.** A `--memory-max` cap, which the big run does not set, would count them.
 - **The loop writes `data/training/big-run/loop.lock`** once at each start. The stall tick counts that one write as an artifact.
 - **The state file gains `scope` and `pid_start`**, and `signal` or `orphaned_since` when they apply. A state file from before the merge is read as it is: the scope name is derived from `supervisor_pid`, which is how the old layout named it too.
