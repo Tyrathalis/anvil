@@ -3962,3 +3962,9 @@ record.*
     game is the one counted skip the fix adds. The iteration's row: holdout Spearman 0.4518 ± 0.0222 (the hold is
     within one SE of 0.452), anchor gap 0.0977, run bank 0.7658, kl_mu 0.0074, entropy 0.161, veto rate 0.061. The
     loop went on to iteration 442's generation.
+- **2026-11-10 evening (infrastructure) — the finding-4 fix is built on branch `claude/pensive-mcnulty-900bce`, not merged.** Tip
+  `3489099` (code `2f410fb`), cut from main at `a425c98`. The supervisor runs inside the run's own scope, the sweep
+  records `orphaned` and starts nothing beside a live command, and the self-play loop holds `<out>/loop.lock`. The
+  side session reports twelve new tests and both proofs reading the fixed way on scratch state; this session has
+  not re-run them. The merge waits for the big run's next stop, where proofs A and B are re-run as the acceptance
+  test and `"resume"` can go back to `true`. The steps are in the branch's survey section.
