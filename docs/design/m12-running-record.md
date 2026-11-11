@@ -4026,3 +4026,32 @@ record.*
     line (`os.setpriority` to the absolute value) and waits for a stop, because it edits `anvil/runs.py`. Whether
     earlier launches ran the same way was not checked.
   - **`"resume"` stays `false`.** The user has not said. It is editable only while the run is down.
+- **2026-11-11 07:30 (the big run) — the casts basis fell to 301 at iterations 448 and 449; it is search volume, not passivity. The casts guard's basis is about 85% search-copy rows.**
+  - **The question (the user's, at the 06:25 glance).** `casts_per_game` had fallen four iterations running: 409.1,
+    375.2, 348.8, 330.0, 302.7, then 300.7 at iteration 449. The guard floor is 252 (0.7 × day-zero 359.88).
+  - **What the number counts.** `_census_tallies` counts priority rows on bridged seats whose first attempt is not a
+    pass and not an engine veto: any accepted play, on the first ask. It does not filter the search copies' rows
+    (`copy`), so the generation's figure is live rows plus copy rows.
+  - **The split** (a streamed read of four iterations' census files). Live first casts per game: 45.4 (442), 44.0
+    (444), 45.3 (448), 44.3 (449). Copy first casts per game: 313.5, 365.1, 257.4, 256.4. The live cast share of
+    windows is 0.106–0.112 and the copy share 0.307–0.315 in all four. Live windows per game are 405–418. Mean game
+    length is 20.7–21.5 turns. Everything that moved is the number of copy windows per game: 997, 1,190, 823, 829.
+  - **Why the copies moved.** The search runs where the allocation head scores a window above tau, and tau is refit
+    every iteration at recall 0.9. Iterations 448 and 449 were served at tau 0.0474 and 0.0447, the two highest of
+    the last fourteen, and searched 40.1 and 37.1 rows per game against 46.5 at iteration 444 (tau 0.0220). Over the
+    last 45 iterations the correlation between searched rows per game and `casts_per_game` is 0.73.
+  - **A prediction.** Iteration 450 is served at tau 0.0188 (windows share 0.41), so its basis should rise back
+    toward 350–400. If it stays near 300 at that tau, this reading is wrong.
+  - **The 11-08 halt at iteration 416** was read as a sample event. Its row: tau 0.0385, 40.8 searched
+    rows per game, basis 273.3. It was not re-split here.
+  - **What it means for the guard.** The anti-passivity guard watches a number that is mostly search volume. A high
+    tau can halt the run with the live policy unchanged, and a passive live policy would move the number little.
+    The clean basis is live rows only, against a live-rows baseline. That changes a guard and edits
+    `anvil/training/selfplay.py`, so it is the user's call and waits for a stop. `GUARD_CASTS_FLOOR` is the stopgap.
+  - **The interim arms are flat.** Network-alone at iteration 444: 0.580 ± 0.025 (400 games); with lookahead 0.6175.
+    Segment 5 pooled over eight reads: 0.5797 ± 0.0087 (3,200 games), against 0.5759 ± 0.0075 over segment 4's last
+    eleven (4,400). These reads use the interim pairs file and do not compare with the 2,000-game standard read.
+  - **One arm oddity, attributed.** The iteration-444 network-alone arm had 397 `unpayable` first vetoes against 9–25
+    in the four reads before. 382 of them are one game (seed set s0, game 129): Engineered Explosives at X=0,
+    re-asked and rescued each time. Without that game the count is 15. Whether X=0 Engineered Explosives is a
+    payability-probe error is routed to the closeout scoping, beside the oversize game's source.
