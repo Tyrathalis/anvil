@@ -415,6 +415,16 @@ Coffers control).
   box has no Xvfb; the capture needs the desktop unlocked (I drive it with xdotool + spectacle) or
   `xorg-server-xvfb` installed. Description drafted (`pr-menu.md`, screenshot slot open).
 
+### 11-10 — Tier 0.2 re-checked on master: still a bug, the fix re-cut
+
+**Verdict: master `2549d11cbc` still crashes, and the fix is ready to open when the engine slot frees.**
+`chooseTapType` still runs the size guard before the Station power filter. The fork's `StationTapCostTest`, run as a
+scratch file, throws `Index 0 out of bounds for length 0` on unfixed master, and both cases pass with the fix. No
+upstream PR or issue since 10-07 touches it (searched `chooseTapType` and `station`). The fix is re-cut on a fresh
+branch `station-tap-guard` (`bcdf3dcfdd`, 3 lines, no comment, no test class) in `../forge-upstream`; not pushed.
+The 10-07 branch `ai-station-tap-guard` is superseded and can be pruned. The description draft was updated to the
+new line count and base; it still names #9038 as related, not closed.
+
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 
 7 crashes in 50,000 games. All games' obs frames are readable; policy labels

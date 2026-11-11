@@ -3904,3 +3904,7 @@ record.*
   plays for flat Monte Carlo to compare instead of returning one, so the entry point is where the final choice is
   known. One `sim` Commander game per mode confirmed the behaviour: nothing by default, 103 lines at debug, and 8,185
   lines to the file at trace with none on the console. The forge-ai unit tests were not run locally; CI runs them.
+- **2026-11-10 (upstream, evening) — Tier 0.2 still reproduces on master, and its fix is ready to open.** The fork's
+  station test fails on unfixed master (`2549d11cbc`) with the same `IndexOutOfBounds` and passes with the 3-line fix.
+  The fix is re-cut on a fresh branch from master, `station-tap-guard`, and is not pushed. It opens when #12180 leaves
+  the engine slot. No upstream change since 10-07 touches the path.
