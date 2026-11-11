@@ -1046,7 +1046,9 @@ def _census_tallies(run_dirs) -> dict:
     """Field semantics mirror scripts/arms_report.py: priority records carry
     veto (string reason) / pick=="pass" / else cast. Accepts one run dir or a
     list (§6d iteration batch groups); the by=bridge filter keeps every rate
-    model-seat-only regardless of opponent mix."""
+    model-seat-only regardless of opponent mix. A search copy's rows (`copy`)
+    count in every tally except live_first_cast, the casts guard's basis: the
+    copies' rows are search volume, which follows the allocation threshold."""
     from collections import Counter
 
     dirs = run_dirs if isinstance(run_dirs, (list, tuple)) else [run_dirs]
@@ -1077,6 +1079,8 @@ def _census_tallies(run_dirs) -> dict:
                         c["reask_rescued"] += 1
                     else:
                         c["first_cast"] += 1
+                        if not r.get("copy"):
+                            c["live_first_cast"] += 1
             if r.get("m") == "payManaCost" and r.get("pick") is not None:
                 # M9 rung 3 (§3c goal surface): sampled payment-deviation
                 # tally — the D4 probe's cheapest signal. Argmax deviation is
@@ -1121,6 +1125,31 @@ def _census_tallies(run_dirs) -> dict:
     return dict(c)
 
 
+def _backfill_live_baseline(state: dict, name: str, runs_dir: Path | None = None) -> str | None:
+    """Give a baseline that has no live_casts_per_game one, from the run's
+    first iteration's run dirs. The figure is accepted only when the same dirs
+    reproduce the stored casts_per_game: that is the proof they hold the
+    baseline's games. Returns the line to print, or None when the baseline is
+    absent or already has the figure. Without it the casts guard reads all rows."""
+    base = state.get("baseline")
+    if not base or base.get("live_casts_per_game") is not None:
+        return None
+    root = runs_dir or RUNS_DIR
+    dirs = sorted(d for sfx in ("", "h0", "h1") for d in glob.glob(str(root / f"{name}-i000{sfx}-*")))
+    games = _game_stats(dirs).get("games") if dirs else 0
+    if not games:
+        return (f"[selfplay] live casts baseline not backfilled: no games under {root}/{name}-i000*; "
+                "the casts guard reads all rows")
+    census = _census_tallies(dirs)
+    all_rows = round(census.get("first_cast", 0) / games, 2)
+    if all_rows != base.get("casts_per_game"):
+        return (f"[selfplay] live casts baseline not backfilled: {name}-i000* give casts_per_game {all_rows}, "
+                f"the baseline holds {base.get('casts_per_game')}; the casts guard reads all rows")
+    base["live_casts_per_game"] = round(census.get("live_first_cast", 0) / games, 2)
+    return (f"[selfplay] live casts baseline backfilled from {len(dirs)} run dirs: "
+            f"{base['live_casts_per_game']} per game (all rows {all_rows}, as recorded)")
+
+
 def guard_flags(
     census: dict,
     rl: dict,
@@ -1154,9 +1183,9 @@ def guard_flags(
     collapsed with every signal in monitor.jsonl and nothing acting on it. kl
     is absolute (drift per
     iteration); entropy/veto compare against the run's iter-0 baselines.
-    casts_floor (§6c anti-passivity): halt if casts/game falls below this
-    fraction of iter-0 — the cheapest way to zero vetoes under the
-    rejected-intent penalty is to stop casting."""
+    casts_floor (§6c anti-passivity): halt if live casts/game (the search
+    copies' rows excluded) falls below this fraction of iter-0 — the cheapest
+    way to zero vetoes under the rejected-intent penalty is to stop casting."""
     flags = []
     m = rl.get("mean") or {}
     # m10-probe1 (ADR-0085): share guards read the step MEDIAN (mean
@@ -1251,9 +1280,12 @@ def guard_flags(
         veto, veto0 = census.get("veto_rate"), baseline.get("veto_rate")
         if veto is not None and veto0 and veto > veto_mult * veto0:
             flags.append(f"guard: veto_rate {veto} > {veto_mult}x iter-0 ({veto0})")
-        cpg, cpg0 = census.get("casts_per_game"), baseline.get("casts_per_game")
+        basis = "live_casts_per_game"
+        if census.get(basis) is None or not baseline.get(basis):
+            basis = "casts_per_game"  # a baseline with no live figure (_backfill_live_baseline could not supply one)
+        cpg, cpg0 = census.get(basis), baseline.get(basis)
         if cpg is not None and cpg0 and cpg < casts_floor * cpg0:
-            flags.append(f"guard: casts_per_game {cpg} < {casts_floor}x iter-0 ({cpg0})")
+            flags.append(f"guard: {basis} {cpg} < {casts_floor}x iter-0 ({cpg0})")
     return flags
 
 
@@ -1893,7 +1925,7 @@ def main() -> None:
         "--guard-casts-floor",
         type=float,
         default=0.8,
-        help="halt if casts/game falls below this fraction of iter-0 (§6c anti-passivity)",
+        help="halt if live casts/game (search copies excluded) falls below this fraction of iter-0 (§6c anti-passivity)",
     )
     ap.add_argument(
         "--guard-seq-share",
@@ -2169,6 +2201,9 @@ def main() -> None:
     # whole 36h — "===== iteration" markers, guard text — starving the log
     # watcher; subprocess output interleaved fine (own fds). Found 2026-07-25.
     sys.stdout.reconfigure(line_buffering=True)
+    backfill = _backfill_live_baseline(state, args.name)
+    if backfill:
+        print(backfill)
     monitor = open(out / "monitor.jsonl", "a", buffering=1)
     (out / "loop_config.json").write_text(json.dumps(vars(args), indent=2))
     if not args.no_inhibit:
@@ -2663,6 +2698,8 @@ def main() -> None:
         if gstats.get("games"):
             # §6c anti-passivity basis (first attempts: chain-independent)
             census["casts_per_game"] = round(census.get("first_cast", 0) / gstats["games"], 2)
+            # the guard's basis: the live game only (casts_per_game also counts the search copies' rows)
+            census["live_casts_per_game"] = round(census.get("live_first_cast", 0) / gstats["games"], 2)
         rl = _rl_summary(train_dir)
         flags = []
         if census.get("fallback"):
@@ -2891,6 +2928,7 @@ def main() -> None:
                 "veto_rate": census.get("veto_rate"),
                 "first_veto_rate": census.get("first_veto_rate"),
                 "casts_per_game": census.get("casts_per_game"),
+                "live_casts_per_game": census.get("live_casts_per_game"),
                 # M9 D4: the live-window pay_deviation baseline the plan calls
                 # for (no pre-run number exists for it). RECORD-ONLY — the
                 # deviation tripwire is an anomaly-set entry, never a guard

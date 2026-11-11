@@ -71,7 +71,9 @@ RL_WORKERS=${RL_WORKERS:-4}
 # x cast share, and 416 drew the run's lowest window count (1,167/game; segment 4's floor 1,204) at an in-band cast share
 # (0.234; band 0.233-0.272), so the product fell to 273 against 0.8 x 359.88 = 288 while the policy's pass share was where
 # iterations 302, 380 and 400 had it. Floor 0.7 (252; 2.8 sd under segment 4's 359 +- 39) for the rest of the run, the
-# user's call as at 239; GUARD_CASTS_FLOOR overrides. Not a learning change. The share-based form is routed to the boundary.
+# user's call as at 239; GUARD_CASTS_FLOOR overrides. Not a learning change.
+# The casts guard reads live rows only (live_casts_per_game): a search copy's rows are search volume, which follows the
+# allocation threshold. The floor is a fraction of the live day-zero figure, which the loop backfills from iteration 0's games.
 SEGMENT=$(cat "$OUT/segment" 2>/dev/null || echo 1)
 . "$REPO/scripts/recipe.sh"   # RECIPE — the one definition of the search recipe
 # 10-29 (the segment-3 boundary): ParallelGC is behaviour-neutral on the launch jar (forkcheck 499/500, the standing seed
