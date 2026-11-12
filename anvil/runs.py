@@ -321,6 +321,16 @@ def newest_file(root: Path, ignore: frozenset[str] = frozenset()) -> tuple[float
     return newest, which
 
 
+def set_nice(value: int) -> None:
+    """Set this process's nice to `value` itself. `os.nice` adds to the caller's
+    nice, so a launch from a shell that is not at 0 lands somewhere else (a shell
+    at -4 gave 15 for 19). Lowering needs a privilege; that failure is ignored."""
+    try:
+        os.setpriority(os.PRIO_PROCESS, 0, value)
+    except OSError:
+        pass
+
+
 def newest_mtime(root: Path, ignore: frozenset[str] = frozenset()) -> float:
     return newest_file(root, ignore)[0]
 
@@ -694,10 +704,7 @@ def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
     logf.flush()
 
     def preexec() -> None:
-        try:
-            os.nice(a.nice)
-        except OSError:
-            pass
+        set_nice(a.nice)
 
     mode = getattr(a, "checkin_resolved", None) or checkin_mode(getattr(a, "checkin", None))
     # `checkin` = what this launch RESOLVED to (the sweep's and a reader's view);

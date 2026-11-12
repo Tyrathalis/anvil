@@ -90,12 +90,14 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 [[ -f "$OUT/read.md" ]] || printf '# The big run (ADR-0123) — the start-point and segment reads\n\nAll reads: the launch jar (forge-tgtmask3.jar, 5bd040351f), the decoder masked, seed base %s, network-alone 2,000 games / with-lookahead 1,000 under RECIPE + the checkpoint'"'"'s alloc tau; raw. Paired columns: game-for-game on the same seeds (paired_arms.py).\n\n| point | wall h | iterations | games | ckpt | network-alone | with-lookahead | vs reference (paired) | vs warm start (paired) | last Spearman |\n|---|---|---|---|---|---|---|---|---|---|\n' "$SEED_BASE" > "$OUT/read.md"
 
 tau_of() { uv run python -c "from anvil.training.selfplay import alloc_tau_of; t=alloc_tau_of('$1'); print('' if t is None else f'{t:.5f}')" 2>/dev/null | tail -1; }
+# The reads run at nice 19. `nice -n` adds to this shell's nice, which the desktop's ananicy rule for bash
+# holds below 0, so the adjustment is 39 and the kernel clamps it at 19.
 # read_na <tag> <ckpt> [<seed base>] : the network-alone read, READ_GAMES per seat -> $OUT/<tag>.na.done (the two arm dirs)
 read_na() {
   local tag=$1 ckpt=$2 sb=${3:-$SEED_BASE}
   [[ -f "$OUT/$tag.na.done" ]] && return 0
   log "read $tag network-alone: ckpt=$ckpt games=$READ_GAMES/seat seed_base=$sb"
-  nice -n 19 uv run python scripts/final_read.py --ckpt "$ckpt" --name "br-$tag" --games "$READ_GAMES" --games-per-pair 5 \
+  nice -n 39 uv run python scripts/final_read.py --ckpt "$ckpt" --name "br-$tag" --games "$READ_GAMES" --games-per-pair 5 \
     --seed-base "$sb" --workers "$WORKERS" --port 50086 --servers 0 --jar "$JAR" --skip-ante >> "$OUT/$tag.na.log" 2>&1 \
     || { log "read $tag network-alone FAILED"; return 1; }
   ls -dt "data/runs/br-${tag}arm-s0-"* | head -1 | tr -d '\n' > "$OUT/$tag.na.done"; echo -n "," >> "$OUT/$tag.na.done"; ls -dt "data/runs/br-${tag}arm-s1-"* | head -1 >> "$OUT/$tag.na.done"
@@ -108,7 +110,7 @@ read_la() {
   tau=$(tau_of "$ckpt"); fa="$RECIPE"
   [[ -n "$tau" ]] && fa="$RECIPE -searchalloc $tau -searchfloor 0.1" || log "read $tag: NO alloc tau on $ckpt — the uniform rate"
   log "read $tag with-lookahead: ckpt=$ckpt games=$LA_GAMES/seat forge_args='$fa'"
-  nice -n 19 uv run python scripts/final_read.py --ckpt "$ckpt" --name "brla-$tag" --games "$LA_GAMES" --games-per-pair 5 \
+  nice -n 39 uv run python scripts/final_read.py --ckpt "$ckpt" --name "brla-$tag" --games "$LA_GAMES" --games-per-pair 5 \
     --seed-base "$SEED_BASE" --workers "$WORKERS" --port 50086 --servers 0 --jar "$JAR" --skip-ante --forge-args "$fa" --labels >> "$OUT/$tag.la.log" 2>&1 \
     || { log "read $tag with-lookahead FAILED"; return 1; }
   ls -dt "data/runs/brla-${tag}arm-s0-"* | head -1 | tr -d '\n' > "$OUT/$tag.la.done"; echo -n "," >> "$OUT/$tag.la.done"; ls -dt "data/runs/brla-${tag}arm-s1-"* | head -1 >> "$OUT/$tag.la.done"
