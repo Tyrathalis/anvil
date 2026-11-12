@@ -4110,4 +4110,8 @@ record.*
   - **The mechanism.** The model declares the Beast as the lone attacker (`assign` 1, `applied` 1). `canAttack` passes it; `validateAttackers` refuses the declaration. `CombatRealizer`'s first tier has nothing to merge (`forced` 0), so the second tier replaces the model's declaration with the heuristic's best attack. The servers log no fallback or model error: the mark is the realizer's.
   - **The cost.** About one game in 480 per iteration loses its attack declarations to the heuristic for the rest of the game. The model gets no signal that the lone declaration is illegal.
   - **Routed to the closeout scoping.** The fix is on the fork (the realizer drops the offending attacker as the menace repair does for blocks, or the observation marks the restriction), so it is a boundary matter and not for this run.
+- **2026-11-12 00:25 (the big run) — the live casts column is in the monitor row; the glance is clean.**
+  - **The owed check.** Iterations 457 and 458 carry `live_casts_per_game` 44.83 and 49.51 (all rows 343.8 and 400.8), and `loop_state.json` holds the live baseline 39.81. The guard's floor is 31.8.
+  - **The glance.** Iteration 459 is in generation at 752.7 wall hours. Iteration 458: holdout Spearman 0.4451 ± 0.0221, run bank 0.7644 (contested 0.327), veto 0.066, no guard and no flag. `kl_mu` median 0.010, entropy 0.13–0.18.
+  - **The gap is the reading to watch.** It read 0.1127 at iteration 458, the segment's high, after 0.100 and 0.103. The segment-5 slope is 0.00020 per iteration against segment 4's 0.00106, inside the pre-registered halving. The pause line is 0.15.
 
