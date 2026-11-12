@@ -4115,3 +4115,8 @@ record.*
   - **The glance.** Iteration 459 is in generation at 752.7 wall hours. Iteration 458: holdout Spearman 0.4451 ± 0.0221, run bank 0.7644 (contested 0.327), veto 0.066, no guard and no flag. `kl_mu` median 0.010, entropy 0.13–0.18.
   - **The gap is the reading to watch.** It read 0.1127 at iteration 458, the segment's high, after 0.100 and 0.103. The segment-5 slope is 0.00020 per iteration against segment 4's 0.00106, inside the pre-registered halving. The pause line is 0.15.
 
+- **2026-11-12 06:25 (the big run) — the glance is clean; the gap came back down to 0.084.**
+  - **The glance.** Iteration 463 is in generation (95 of 240 in the first half) at 759.2 wall hours. Iterations 459–462 closed with no guard. Iteration 462: holdout Spearman 0.4613 ± 0.0217, run bank 0.7636 (contested 0.328), veto 0.070, live casts 44.0 per game against the 31.8 floor. `kl_mu` 0.013–0.018 over 457–462, entropy 0.15–0.16.
+  - **The gap.** It read 0.107, 0.084, 0.090 and 0.084 at iterations 459–462, after the 0.1127 high at 458. The segment-5 slope is 0.00017 per iteration over 57 iterations, against segment 4's 0.00106.
+  - **One flag.** Iteration 461 carries `tripwire=1`: one trajectory dropped (game 221499, seat 0, 1 of 128 decisions off). The flag has fired on 80 iterations of the run and is not a guard.
+  - **The in-loop arm read at iteration 459.** 0.5675 ± 0.0248 network-alone on 400 games, with no crash. It is exploratory. The read took the 53 minutes between iteration 459's training step and iteration 460's start.
