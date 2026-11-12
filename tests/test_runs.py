@@ -1076,3 +1076,16 @@ def test_the_loop_takes_its_lock_before_it_touches_its_directory():
     chain = (root / "scripts" / "big_run_chain.sh").read_text()
     code = "\n".join(ln for ln in chain.splitlines() if not ln.lstrip().startswith("#"))
     assert code.index("$rc -eq 75") < code.index('-f "$OUT/WATCHDOG-TRIP"') < code.index('-f "$LOOP/STOP"')
+
+
+def test_set_nice_is_absolute():
+    """The launcher's nice is the value asked for, whatever nice the launching shell holds."""
+    code = (
+        "import os; os.nice(5); from anvil.runs import set_nice; set_nice(10); "
+        "print(os.getpriority(os.PRIO_PROCESS, 0))"
+    )
+    base = os.getpriority(os.PRIO_PROCESS, 0)
+    if base > 5:
+        pytest.skip("the test process is already nicer than the values it sets")
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "10"
