@@ -608,3 +608,73 @@ def test_yielded_seconds_sum_every_ledger_once(tmp_path):
     b.mkdir()
     (b / "gpu-yield.json").write_text("{not json")
     assert _yielded_s([a, a, b, None, tmp_path / "missing"]) == 150.5
+
+
+def _census_dir(root, name, rows, games=2):
+    """A run dir with one worker: `games` finished games and the given census rows."""
+    import json as _json
+
+    wd = root / name / "workers" / "inv-000"
+    wd.mkdir(parents=True)
+    (wd / "census.jsonl").write_text("\n".join(_json.dumps(r) for r in rows) + "\n")
+    (wd / "games.jsonl").write_text(
+        "\n".join(_json.dumps({"status": "won", "turns": 20, "winner": "Anvil(1)"}) for _ in range(games)) + "\n")
+    return root / name
+
+
+def test_live_first_cast_excludes_search_copies(tmp_path):
+    """The casts guard's basis: a search copy's rows count in first_cast and not in live_first_cast."""
+    from anvil.training.selfplay import _census_tallies
+
+    m = "chooseSpellAbilityToPlay"
+    rows = [
+        {"by": "bridge", "m": m, "pick": "Bolt"},
+        {"by": "bridge", "m": m, "pick": "Bolt", "copy": True},
+        {"by": "bridge", "m": m, "pick": "Ring", "copy": True},
+        {"by": "bridge", "m": m, "pick": "pass", "copy": True},
+        {"by": "bridge", "m": m, "pick": "Ring", "reask": 1},  # a rescue is not a first attempt
+    ]
+    c = _census_tallies(_census_dir(tmp_path, "r", rows))
+    assert c["first_cast"] == 3 and c["live_first_cast"] == 1
+
+
+def test_casts_guard_reads_live_rows():
+    """Search volume moves casts_per_game and not the guard; a passive live policy trips it."""
+    base = {"ent": 0.18, "veto_rate": 0.237, "casts_per_game": 360.0, "live_casts_per_game": 40.0}
+    rl = _rl_of(0.01, 0.18)
+    # the all-rows figure at half its baseline, the live game unchanged: quiet
+    assert guard_flags({"veto_rate": 0.2, "casts_per_game": 180.0, "live_casts_per_game": 41.0}, rl, base,
+                       casts_floor=0.7) == []
+    # the live game passive under a full search: halts
+    flags = guard_flags({"veto_rate": 0.2, "casts_per_game": 400.0, "live_casts_per_game": 27.0}, rl, base,
+                        casts_floor=0.7)
+    assert flags == ["guard: live_casts_per_game 27.0 < 0.7x iter-0 (40.0)"]
+    # a baseline with no live figure keeps the all-rows basis
+    old = {"ent": 0.18, "veto_rate": 0.237, "casts_per_game": 360.0}
+    flags = guard_flags({"veto_rate": 0.2, "casts_per_game": 180.0, "live_casts_per_game": 41.0}, rl, old,
+                        casts_floor=0.7)
+    assert flags == ["guard: casts_per_game 180.0 < 0.7x iter-0 (360.0)"]
+
+
+def test_backfill_live_baseline_needs_the_recorded_figure(tmp_path):
+    """The live baseline is taken from iteration 0's run dirs only when they reproduce the stored casts_per_game."""
+    from anvil.training.selfplay import _backfill_live_baseline
+
+    m = "chooseSpellAbilityToPlay"
+    live, copy = {"by": "bridge", "m": m, "pick": "Bolt"}, {"by": "bridge", "m": m, "pick": "Bolt", "copy": True}
+    _census_dir(tmp_path, "run-i000-20260101-000000", [live, live, copy, copy, copy, copy])   # 2 games
+    _census_dir(tmp_path, "run-i000h0-20260101-010000", [live, copy, copy, copy])              # 2 games
+    _census_dir(tmp_path, "run-i001-20260101-020000", [live] * 40)                             # not iteration 0
+
+    state = {"baseline": {"casts_per_game": 2.5}}  # 10 first casts / 4 games
+    line = _backfill_live_baseline(state, "run", tmp_path)
+    assert state["baseline"]["live_casts_per_game"] == 0.75 and "backfilled from 2 run dirs" in line
+    assert _backfill_live_baseline(state, "run", tmp_path) is None  # already there
+
+    wrong = {"baseline": {"casts_per_game": 9.0}}
+    line = _backfill_live_baseline(wrong, "run", tmp_path)
+    assert "live_casts_per_game" not in wrong["baseline"] and "not backfilled" in line
+    missing = {"baseline": {"casts_per_game": 2.5}}
+    assert "not backfilled" in _backfill_live_baseline(missing, "other", tmp_path)
+    assert "live_casts_per_game" not in missing["baseline"]
+    assert _backfill_live_baseline({}, "run", tmp_path) is None  # no baseline yet: the first iteration records both
