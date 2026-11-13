@@ -122,6 +122,40 @@ SURFACE_TAG_OF_TASK = {"surf_one": "mtg.surface.entity_one", "surf_set": "mtg.su
                        "surf_damage": "mtg.surface.damage", "surf_target": "mtg.surface.target"}
 
 
+SLOW_ASK_S = 2.0  # an answer slower than this prints one SLOW ASK line (--slow-ask-ms)
+SLOW_LINE_CAP = 200  # per process and per kind; one notice when the cap is reached
+
+
+class AskClock:
+    """Phase marks for one ask on its stream thread. `answer()` marks the end
+    of each phase; the servicer prints `line()` when the whole answer was
+    slow. The forward is one phase of several: the featurizer and the
+    schedule hooks run on the stream thread, outside the batcher, so a stall
+    there never shows in the batcher's stats."""
+
+    __slots__ = ("t0", "marks")
+
+    def __init__(self) -> None:
+        self.t0 = time.monotonic()
+        self.marks: list[tuple[str, float]] = []
+
+    def mark(self, phase: str) -> None:
+        self.marks.append((phase, time.monotonic()))
+
+    def total(self) -> float:
+        return time.monotonic() - self.t0
+
+    def line(self, what: str) -> str:
+        parts, prev = [], self.t0
+        for phase, t in self.marks:
+            parts.append(f"{phase} {t - prev:.2f}")
+            prev = t
+        tail = time.monotonic() - prev
+        if tail >= 0.01 or not parts:
+            parts.append(f"rest {tail:.2f}")
+        return f"SLOW ASK {what}: {self.total():.1f}s ({', '.join(parts)})"
+
+
 class _Batcher:
     """GPU micro-batching (D6 groundwork): worker streams featurize in
     parallel and submit examples here; one thread drains up to max_batch
@@ -143,9 +177,15 @@ class _Batcher:
         temperature: float = 1.0,
         autocast: bool = True,
         stats_every: float = 60.0,
+        slow_forward_s: float = SLOW_ASK_S,
     ):
         import queue
 
+        # one batch slower than this prints a SLOW FORWARD line with its size
+        # and phase times (0 = off); the stats line only carries the mean
+        self.slow_forward_s = slow_forward_s
+        self._slow_lines = 0
+        self._phase = (0.0, 0.0)  # the last group's (collate + to-device, act) seconds
         self.net = net
         self.torch = torch_mod
         self.device = device
@@ -223,8 +263,10 @@ class _Batcher:
         its per-item view. An exception marks every slot of the group."""
         import contextlib
 
+        t0 = t1 = time.monotonic()
         try:
             batch = {k: v.to(self.device) for k, v in collate([s["ex"] for s in slots]).items()}
+            t1 = time.monotonic()
             pd = self.torch.tensor(
                 [[s["pd"]] for s in slots], device=self.device, dtype=self.torch.float32
             )
@@ -255,6 +297,29 @@ class _Batcher:
         except Exception as e:
             for s in slots:
                 s["err"] = e
+        finally:
+            c, a = self._phase
+            self._phase = (c + t1 - t0, a + time.monotonic() - t1)
+
+    def _slow_forward_line(self, slots: list, dt: float, depth: int) -> "str | None":
+        """The SLOW FORWARD line for one batch, or None (fast, off, capped)."""
+        if not self.slow_forward_s or dt < self.slow_forward_s or self._slow_lines > SLOW_LINE_CAP:
+            return None
+        self._slow_lines += 1
+        if self._slow_lines > SLOW_LINE_CAP:
+            return f"SLOW FORWARD: {SLOW_LINE_CAP} lines printed, further ones suppressed"
+        tasks: Counter = Counter()
+        for s in slots:
+            t = s["ex"].get("task") if isinstance(s["ex"], dict) else None
+            tasks[int(t) if t is not None else -1] += 1
+        ents = [int(s["ex"]["entities"].shape[0]) for s in slots
+                if isinstance(s["ex"], dict) and "entities" in s["ex"]]
+        collate_s, act_s = self._phase
+        return (
+            f"SLOW FORWARD: {dt:.1f}s batch {len(slots)} (collate {collate_s:.2f}, act {act_s:.2f}, "
+            f"other {max(dt - collate_s - act_s, 0.0):.2f}), tasks {dict(sorted(tasks.items()))}, "
+            f"max entities {max(ents) if ents else 0}, queue behind {depth}"
+        )
 
     def _loop(self) -> None:
         from anvil.policy.sampling import pad_noise
@@ -279,6 +344,7 @@ class _Batcher:
                 self._items += len(slots)
                 self._batches += 1
                 self._depth_max = max(self._depth_max, self.q.qsize())
+            self._phase = (0.0, 0.0)
             try:
                 # M12 Build 4½ (ADR-0113): a sampled server's queue MIXES
                 # sampled mainline asks with greedy ones (the search copies,
@@ -299,10 +365,14 @@ class _Batcher:
                     if "out" not in s:
                         s["err"] = e
             finally:
+                dt = time.monotonic() - now
                 with self._stat_lock:
-                    self._forward_s += time.monotonic() - now
+                    self._forward_s += dt
                 for s in slots:
                     s["ev"].set()
+                line = self._slow_forward_line(slots, dt, self.q.qsize())
+                if line:
+                    print("[server] " + line, flush=True)
 
 
 class ModelBackend:
@@ -336,6 +406,7 @@ class ModelBackend:
         stats_every: float = 60.0,
         target_mask: bool = True,
         prune_unfit: bool = False,
+        slow_ask_s: float = SLOW_ASK_S,
     ):
         import torch
 
@@ -428,6 +499,7 @@ class ModelBackend:
         self.batcher = _Batcher(
             self.net, torch, device, self.counts, max_batch=max_batch, window_ms=window_ms,
             temperature=temperature, autocast=autocast, stats_every=stats_every,
+            slow_forward_s=slow_ask_s,
         )
         # sampling mode (M2 D6): Gumbel-max instead of argmax, behavior-policy
         # record per answered decision -> mu.jsonl, joined at ingest on (g, s)
@@ -522,7 +594,22 @@ class ModelBackend:
         on the emission window; under binding a whole turn plays natural).
         Runs n synthetic priority windows through the batcher before the
         port opens. Best-effort: a featurizer error here is logged, never
-        fatal (the wave is a QoS hazard, not a correctness one)."""
+        fatal (the wave is a QoS hazard, not a correctness one).
+
+        The synthetic windows go to the batcher directly, so they do not
+        cover the stream-thread hooks of `answer()`. The one slow lazy load
+        among those is the schedule surface's card table (every Forge card
+        script, parsed); a checkpoint that carries the schedule builds it
+        here, before the first real own-turn window asks for it."""
+        if getattr(self, "sched_serve", None) is not None:
+            t0 = time.monotonic()
+            try:
+                from anvil.training.sched_targets import card_table
+
+                n_cards = len(card_table())
+                print(f"[server] warm-up: card table {n_cards} entries in {time.monotonic() - t0:.2f}s")
+            except Exception as e:  # noqa: BLE001 — best-effort, as below
+                print(f"[server] warm-up: card table skipped: {e!r}")
         dec = {
             "p": 0, "t": 1, "s": 0, "m": "chooseSpellAbilityToPlay",
             "obs": {
@@ -586,11 +673,14 @@ class ModelBackend:
         header: dict | None,
         game_seed: int | None = None,
         greedy: bool = False,
+        clock: "AskClock | None" = None,
     ) -> pb.DecisionResponse | None:
         """None = decline (worker falls back, tagged). Any exception is the
-        caller's to turn into a loud decline — silence would poison an arm."""
+        caller's to turn into a loud decline — silence would poison an arm.
+        `clock` takes the phase marks the servicer's SLOW ASK line prints."""
         from anvil.bridge.featurize import TAG_TASK
 
+        clk = clock if clock is not None else AskClock()
         task = TAG_TASK.get(req.decision_tag)
         if task is None or not req.observation or header is None:
             return None
@@ -607,6 +697,7 @@ class ModelBackend:
             self.counts["reask"] += 1
         ex, aux = self.feat.example(dec, header, task)
         apply_target_mask(ex, aux, mask=self.target_mask, prune=self.prune_unfit)  # -> aux["tm"], the mu row
+        clk.mark("featurize")
         plan_key, plan_emit = self._plan_inject(ex, header, dec)
         sched_ctx = None
         if self.sched_serve is not None and (
@@ -618,6 +709,7 @@ class ModelBackend:
             if req.retry_of:
                 dec["retry_of"] = True  # trigger-1 detector (m10-build-spec §3)
             sched_ctx = self.sched_serve.inject(ex, aux, dec, header, task)
+        clk.mark("sched_inject")
         delta = self.pass_delta if task == "priority" else 0.0
         if req.forbid_decline and task == "priority":
             # M7 forced-branch act ask: mask the pass logit so the sampled/
@@ -669,6 +761,7 @@ class ModelBackend:
                 self.counts["sched_bind_twopass"] += 1
             bind_row = self.sched_serve.bind(sched_ctx, ex, aux, dec)
         out = self.batcher.submit(ex, delta, noise)
+        clk.mark("queue+forward")
         if plan_emit and plan_key is not None:
             self._plan_store(plan_key, dec.get("t", 0), out["plan"][0].float().cpu())
         sched_row = None
@@ -701,6 +794,7 @@ class ModelBackend:
                             "choice": int(out["choice"][0]),
                             "n_cands": len(aux["cand_first_opt"]),
                         }) + "\n")
+        clk.mark("sched_after")
         if sampled and not wire_fork:
             self._write_mu(header["g"], dec, task, ex, aux, out, sched=sched_row)
         resp = pb.DecisionResponse(decision_seq=req.decision_seq)
@@ -951,7 +1045,11 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         backend: ModelBackend | None = None,
         drill_backend: ModelBackend | None = None,
         certifier=None,
+        slow_ask_s: float = SLOW_ASK_S,
     ):
+        # an answer slower than this prints a SLOW ASK line (0 = off)
+        self.slow_ask_s = slow_ask_s
+        self._slow_lines = 0
         self.mode = mode
         self.bridged_tags = bridged_tags
         self.deadline_ms = deadline_ms
@@ -1050,6 +1148,7 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                             game_seed,
                             self.drill_backend if use_drill else self.backend,
                             greedy=greedy,
+                            worker=worker,
                         )
                     )
                 else:
@@ -1107,11 +1206,13 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         game_seed: int = 0,
         backend: ModelBackend | None = None,
         greedy: bool = False,
+        worker: str = "?",
     ) -> pb.DecisionResponse:
         if backend is None:
             backend = self.backend
+        clk = AskClock()
         try:
-            resp = backend.answer(req, header, game_seed, greedy=greedy)
+            resp = backend.answer(req, header, game_seed, greedy=greedy, clock=clk)
         except Exception as e:  # loud decline; a silent wrong answer poisons the arm
             print(f"[server] MODEL ERROR on {req.decision_tag} seq={req.decision_seq}: {e!r}")
             n_tr = self._err_traces.get(req.decision_tag, 0)
@@ -1124,10 +1225,28 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 self._err_traces[req.decision_tag] = n_tr + 1
                 traceback.print_exc()
             resp = None
+        self._slow_ask(clk, req, header, worker)
         if resp is None:
             self.fallbacks[req.decision_tag] += 1
             return pb.DecisionResponse(decision_seq=req.decision_seq, fallback=True)
         return resp
+
+    def _slow_ask(self, clk: AskClock, req: pb.DecisionRequest, header: dict | None, worker: str) -> None:
+        """One line for an answer that took `slow_ask_s` or longer: which ask,
+        and where on the stream thread the time went. The worker's bridge
+        deadline (20 s under the harness) fails the game without a word on
+        the server side; this line is the server's half of that story."""
+        if not self.slow_ask_s or clk.total() < self.slow_ask_s or self._slow_lines > SLOW_LINE_CAP:
+            return
+        self._slow_lines += 1
+        if self._slow_lines > SLOW_LINE_CAP:
+            print(f"[server] SLOW ASK: {SLOW_LINE_CAP} lines printed, further ones suppressed", flush=True)
+            return
+        h = header or {}
+        what = f"{req.decision_tag} seq={req.decision_seq} worker={worker} g={h.get('g')}"
+        if h.get("wid") is not None:
+            what += f" wid={h['wid']}"
+        print("[server] " + clk.line(what), flush=True)
 
     def stats(self) -> str:
         dt = time.monotonic() - self.t0
@@ -1186,6 +1305,13 @@ def main() -> None:
     ap.add_argument(
         "--stats-every", type=float, default=60.0,
         help="seconds between `[server] stats` occupancy lines (asks, mean batch, queue wait, busy %%); 0 = off",
+    )
+    ap.add_argument(
+        "--slow-ask-ms", type=float, default=SLOW_ASK_S * 1000,
+        help="print one `SLOW ASK` line for any answer slower than this, with "
+        "its phase times on the stream thread (featurize, schedule hooks, "
+        "queue + forward), and one `SLOW FORWARD` line for any batch slower "
+        "than this (0 = off; at most %d lines of each per process)" % SLOW_LINE_CAP,
     )
     ap.add_argument(
         "--no-autocast",
@@ -1369,6 +1495,7 @@ def main() -> None:
             max_batch=args.max_batch,
             window_ms=args.window_ms,
             stats_every=args.stats_every,
+            slow_ask_s=args.slow_ask_ms / 1000,
         )
         if args.drill_ckpt:
             drill_backend = ModelBackend(
@@ -1379,6 +1506,7 @@ def main() -> None:
                 max_batch=args.max_batch,
                 window_ms=args.window_ms,
                 stats_every=args.stats_every,
+                slow_ask_s=args.slow_ask_ms / 1000,
                 sample=args.drill_sample,
                 temperature=args.temperature,
                 mu_path=args.drill_mu_out,
@@ -1421,7 +1549,7 @@ def main() -> None:
         print(f"[server] inline certification ON: rate {args.certify_rate} arm cap {certifier.arm_cap}")
     servicer = DecisionServicer(
         args.mode, tags.split(","), backend=backend, drill_backend=drill_backend,
-        certifier=certifier,
+        certifier=certifier, slow_ask_s=args.slow_ask_ms / 1000,
     )
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=32))
     pb_grpc.add_DecisionBridgeServicer_to_server(servicer, server)

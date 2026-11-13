@@ -23,6 +23,7 @@ surface simply carry no conditioning; targets still build.
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 import torch
@@ -52,14 +53,27 @@ COLORS = "WUBRG"
 PRIORITY = "chooseSpellAbilityToPlay"
 
 _TABLE = None
+_TABLE_LOCK = threading.Lock()
 
 
 def card_table():
+    """The card-knowledge table (veto_knowability.build_card_table: every
+    Forge card and token script, parsed), built once per process.
+
+    The lock is load-bearing on the model server. The build reads about
+    35,000 files; one thread does it in under a second, but N threads doing
+    it at once take about 2 s x N under the GIL (each file read drops and
+    re-takes it). Without the lock every gRPC stream thread that reaches the
+    schedule surface before the first build finishes starts its own, and
+    twelve of them outlast the workers' 20 s bridge deadline. The server
+    also builds the table in its warm-up, before the port opens."""
     global _TABLE
     if _TABLE is None:
-        from veto_knowability import build_card_table
+        with _TABLE_LOCK:
+            if _TABLE is None:
+                from veto_knowability import build_card_table
 
-        _TABLE = build_card_table()
+                _TABLE = build_card_table()
     return _TABLE
 
 
