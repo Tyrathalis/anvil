@@ -1046,7 +1046,15 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
         drill_backend: ModelBackend | None = None,
         certifier=None,
         slow_ask_s: float = SLOW_ASK_S,
+        seat_backends: "dict[int, ModelBackend] | None" = None,
     ):
+        # --seat-ckpt (the head-to-head read): {registered seat: backend}.
+        # An ask from one of these seats is answered by that seat's
+        # checkpoint; every other seat stays on `backend`. Empty = one
+        # checkpoint for every bridged seat, as before.
+        self.seat_backends = dict(seat_backends or {})
+        self.seat_requests: Counter[int] = Counter()
+        self.seat_unrouted = 0
         # an answer slower than this prints a SLOW ASK line (0 = off)
         self.slow_ask_s = slow_ask_s
         self._slow_lines = 0
@@ -1134,19 +1142,24 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
                 self.requests_by_tag[msg.request.decision_tag] += 1
                 if use_drill:
                     self.drill_requests += 1
+                routed = self.backend
+                if self.seat_backends and msg.request.decision_tag != CERTIFY_TAG:
+                    routed = self._seat_backend(msg.request)
                 if msg.request.decision_tag == CERTIFY_TAG:
                     yield pb.ServerMsg(response=self._certify_answer(msg.request, game_seed))
+                elif routed is None and self.seat_backends:
+                    yield pb.ServerMsg(response=self._unrouted(msg.request, worker))
                 elif msg.request.decision_tag == VALUE_TAG:
-                    yield pb.ServerMsg(response=self._value_answer(msg.request, header))
+                    yield pb.ServerMsg(response=self._value_answer(msg.request, header, backend=routed))
                 elif msg.request.decision_tag == ALLOC_TAG:
-                    yield pb.ServerMsg(response=self._value_answer(msg.request, header, "alloc"))
+                    yield pb.ServerMsg(response=self._value_answer(msg.request, header, "alloc", backend=routed))
                 elif self.mode == "model":
                     yield pb.ServerMsg(
                         response=self._model_answer(
                             msg.request,
                             header,
                             game_seed,
-                            self.drill_backend if use_drill else self.backend,
+                            self.drill_backend if use_drill else routed,
                             greedy=greedy,
                             worker=worker,
                         )
@@ -1179,18 +1192,44 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             resp.index_lists.add().indices.extend(arm)
         return resp
 
+    def _seat_backend(self, req: pb.DecisionRequest) -> "ModelBackend | None":
+        """The backend for this ask under --seat-ckpt: the asking seat (the
+        observation's `p`, a registered seat index) picks it. None = the
+        seat cannot be read, and the caller declines: an answer from the
+        wrong checkpoint would be a silent error in a head-to-head read."""
+        if not req.observation:
+            return self.backend  # no observation: every backend declines it
+        try:
+            p = int(json.loads(req.observation)["p"])
+        except (ValueError, KeyError, TypeError):
+            return None
+        self.seat_requests[p] += 1
+        return self.seat_backends.get(p, self.backend)
+
+    def _unrouted(self, req: pb.DecisionRequest, worker: str) -> pb.DecisionResponse:
+        """A loud decline for an ask whose seat --seat-ckpt could not read."""
+        self.seat_unrouted += 1
+        if self.seat_unrouted <= 5:
+            print(f"[server] SEAT UNROUTED {req.decision_tag} seq={req.decision_seq} worker={worker}: "
+                  "no seat in the observation; declined")
+        self.fallbacks[req.decision_tag] += 1
+        return pb.DecisionResponse(decision_seq=req.decision_seq, fallback=True)
+
     def _value_answer(self, req: pb.DecisionRequest, header: dict | None,
-                      kind: str = "value") -> pb.DecisionResponse:
+                      kind: str = "value", backend: "ModelBackend | None" = None) -> pb.DecisionResponse:
         """anvil.value (M12 Build 0): the masked head at a search leaf; any
         error is a loud decline (the worker counts the leaf unserved).
-        kind="alloc" (Build 4): the allocation head on the same wire."""
+        kind="alloc" (Build 4): the allocation head on the same wire.
+        `backend` is the --seat-ckpt route (default: the server's own)."""
+        if backend is None:
+            backend = self.backend
         try:
             if self.mode != "model":
                 resp = None
             elif kind == "alloc":
-                resp = self.backend.alloc(req, header)
+                resp = backend.alloc(req, header)
             else:
-                resp = self.backend.value(req, header)
+                resp = backend.value(req, header)
         except Exception as e:  # noqa: BLE001
             print(f"[server] {kind.upper()} ERROR seq={req.decision_seq}: {e!r}")
             resp = None
@@ -1261,6 +1300,13 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             lines += [f"  certify {k}: {n}" for k, n in self.certifier.counts.most_common()]
         if self.backend is not None:
             lines += [f"  model {k}: {n}" for k, n in self.backend.counts.most_common()]
+        if self.seat_backends:
+            for p, n in sorted(self.seat_requests.items()):
+                who = "--seat-ckpt" if p in self.seat_backends else "--ckpt"
+                lines.append(f"  seat {p} requests ({who}): {n}")
+            lines.append(f"  seat unrouted: {self.seat_unrouted}")
+            for p, b in sorted(self.seat_backends.items()):
+                lines += [f"  seat {p} model {k}: {n}" for k, n in b.counts.most_common()]
         return "\n".join(lines)
 
 
@@ -1446,6 +1492,16 @@ def main() -> None:
         "instrument/read servers have no mu file and name it explicitly)",
     )
     ap.add_argument(
+        "--seat-ckpt",
+        action="append",
+        default=[],
+        metavar="SEAT=CKPT",
+        help="the head-to-head read: asks from registered seat SEAT are answered by CKPT, "
+        "every other seat by --ckpt (repeatable). Both checkpoints are served under this "
+        "server's flags and must announce the same tags. Argmax serving only: refused with "
+        "--sample and --drill-ckpt. Run the harness with every seat bridged.",
+    )
+    ap.add_argument(
         "--no-warmup",
         action="store_true",
         help="skip the cold-start warm-up forwards (default: 3 synthetic "
@@ -1468,17 +1524,14 @@ def main() -> None:
 
     backend = None
     drill_backend = None
+    seat_backends: dict[int, ModelBackend] = {}
     if args.mode == "model":
-        backend = ModelBackend(
-            args.ckpt,
-            args.pass_delta,
-            args.device,
-            sample=args.sample,
+        # one serve regime for --ckpt and every --seat-ckpt backend
+        serve_kw = dict(
             temperature=args.temperature,
             pay_bar=args.pay_bar,
             pay_gate=args.pay_gate,
             serve_init_pay=args.serve_init_pay,
-            mu_path=args.mu_out,
             target_mask=args.target_mask,
             prune_unfit=args.prune_unfit,
             instrument=args.fork_instrument,
@@ -1497,6 +1550,23 @@ def main() -> None:
             stats_every=args.stats_every,
             slow_ask_s=args.slow_ask_ms / 1000,
         )
+        backend = ModelBackend(
+            args.ckpt, args.pass_delta, args.device, sample=args.sample, mu_path=args.mu_out, **serve_kw
+        )
+        for spec in args.seat_ckpt:
+            seat_s, _, path = spec.partition("=")
+            if not seat_s.isdigit() or not path:
+                raise SystemExit(f"--seat-ckpt {spec!r}: expected SEAT=CKPT")
+            if args.sample or args.drill_ckpt:
+                raise SystemExit("--seat-ckpt serves argmax reads only: not with --sample or --drill-ckpt")
+            sb = ModelBackend(path, args.pass_delta, args.device, **serve_kw)
+            for cap in ("has_combat", "has_pay", "has_surf", "surface_tags"):
+                if getattr(sb, cap, None) != getattr(backend, cap, None):
+                    raise SystemExit(
+                        f"--seat-ckpt {path}: {cap} differs from --ckpt's; one server announces one tag list"
+                    )
+            seat_backends[int(seat_s)] = sb
+            print(f"[server] seat routing: seat {int(seat_s)} -> {path}; every other seat -> {args.ckpt}")
         if args.drill_ckpt:
             drill_backend = ModelBackend(
                 args.drill_ckpt,
@@ -1522,7 +1592,7 @@ def main() -> None:
                 abilities=args.abilities,
             )
         if not args.no_warmup:
-            for b in (backend, drill_backend):
+            for b in (backend, drill_backend, *seat_backends.values()):
                 if b is not None:
                     b.warmup()
     tags = (
@@ -1549,7 +1619,7 @@ def main() -> None:
         print(f"[server] inline certification ON: rate {args.certify_rate} arm cap {certifier.arm_cap}")
     servicer = DecisionServicer(
         args.mode, tags.split(","), backend=backend, drill_backend=drill_backend,
-        certifier=certifier, slow_ask_s=args.slow_ask_ms / 1000,
+        certifier=certifier, slow_ask_s=args.slow_ask_ms / 1000, seat_backends=seat_backends,
     )
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=32))
     pb_grpc.add_DecisionBridgeServicer_to_server(servicer, server)
@@ -1583,6 +1653,12 @@ def main() -> None:
                 if drill_backend.sched_serve is not None:
                     dump.update({"drill_" + k: v for k, v in drill_backend.sched_serve.counts.items()})
             dump["fallbacks"] = dict(servicer.fallbacks)
+            if seat_backends:
+                # the head-to-head driver's routing check reads these
+                dump["seat_requests"] = {str(p): n for p, n in servicer.seat_requests.items()}
+                dump["seat_unrouted"] = servicer.seat_unrouted
+                for p, b in seat_backends.items():
+                    dump.update({f"seat{p}_{k}": v for k, v in b.counts.items()})
             if servicer.certifier is not None:
                 dump.update({"certify_" + k: v for k, v in servicer.certifier.counts.items()})
             Path(counts_path).write_text(json.dumps(dump, indent=1) + "\n")
