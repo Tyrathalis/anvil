@@ -542,6 +542,17 @@ drill work, and 62.1% ± 1.1 after four weeks of the search loop of §7a (all on
 network alone). We know of no other Forge project reporting much past 55% against the heuristic
 with a network alone.
 
+To read one checkpoint against another instead of against the heuristic, use the head-to-head read.
+Both seats are bridged and one server answers them, each seat from its own checkpoint
+(`--seat-ckpt` on the model server). The score is checkpoint A's over both seat assignments, with a
+draw as one half:
+
+```bash
+uv run python scripts/h2h_read.py --a data/training/<name>-loop/iter-024/train/last.pt --b data/training/<name>-loop/iter-004/train/last.pt --name <name>-i24-vs-i4 --format $GAME --pairs-file data/runs/bc-corpus-<timestamp>/pairs.txt --games 1000 --workers 8 --seed-base 20261115
+```
+
+The two checkpoints must serve the same decision surfaces. The read is network-alone only.
+
 ## 9. What it costs
 
 | Stage | Wall (one 7950X + 4090) |
