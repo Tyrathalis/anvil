@@ -1,6 +1,6 @@
 # The three measurements before the M13 scoping — design draft
 
-**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); nothing here is launched or pre-registered until the user pins it
+**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder is pinned and launched; the gate and the wall cost are not launched
 
 Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured prices, not measurements. Each design ends with what the user has to pin before launch.
 
@@ -40,7 +40,7 @@ Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured pri
 - `iter-405` against `iter-513`. The heuristic read put `iter-513` −0.78 ± 0.73pp under. A head-to-head read at SE 0.6pp is the first that could separate them.
 - Seat effect per pair. The one read on file shows seat 0 winning 0.483 of decisive games.
 
-**To pin.** The seed base. Whether 5,000 on the adjacent pairs is worth 7.4 h, or 2,000 everywhere (6.6 h total) is enough for a first scoreboard.
+**Pinned and launched 2026-11-16 (the user).** Seed base 20261116; 5,000 games on the adjacent pairs and 2,000 on the other five. The run is `ladder` ([`scripts/ladder_chain.sh`](../../scripts/ladder_chain.sh)); its reports are `data/runs/lad-<A>-<B>-h2h.json`. The Bradley-Terry fit is written while it runs.
 
 ## 2. The search-ranking gate
 
@@ -70,7 +70,7 @@ Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured pri
 - **That the floor at 1.0 covers acted windows.** The deep round is documented as running in a margin band plus a floor draw on every other window.
 - **The deep set is the top three, not all options.** The ranking is over at most four options per window. Windows with two options contribute little.
 
-**The proposed bar, for the user to pin.** The soft-target arm is not run if the un-acted Spearman is under 0.15, which is about a third of the prior read's all-window figure. Between 0.15 and 0.30 the arm runs with a note that its dose is the risk. At 0.30 or more it runs without the note. The acted figure carries no bar; it is the reference.
+**The bar (the user agreed 11-16 to skip the soft-target arm if the read is not promising; the numbers are the draft's).** The soft-target arm is not run if the un-acted Spearman is under 0.15, which is about a third of the prior read's all-window figure. Between 0.15 and 0.30 the arm runs with a note that its dose is the risk. At 0.30 or more it runs without the note. The acted figure carries no bar; it is the reference.
 
 **What the gate does not show.** Ranking is not teaching. A positive read says the targets carry signal; only the arm says whether the policy can use it (ADR-0100's rule: a ceiling is not learnability).
 
