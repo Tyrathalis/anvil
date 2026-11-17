@@ -425,6 +425,17 @@ branch `station-tap-guard` (`bcdf3dcfdd`, 3 lines, no comment, no test class) in
 The 10-07 branch `ai-station-tap-guard` is superseded and can be pruned. The description draft was updated to the
 new line count and base; it still names #9038 as related, not closed.
 
+### 11-16 — Tier 0.10 queued: a rollout-count budget for Flat Monte Carlo
+
+**Verdict: queued near the front, as the next forge-ai PR after #12180 closes, and built before our own upstream merge (the user, 11-16).** We want it in our fork regardless, and the M13 merge's reads are not worth running on a jar without it.
+
+- **The problem.** Upstream's Flat Monte Carlo mode (#12308, 10-24) stops its rollouts at wall-clock deadlines (`FLAT_MC_DECISION_BUDGET_MS`, `FLAT_MC_TURN_BUDGET_MS`), backs off after a slow streak, and draws each decision's base seed from the game's random stream. The same seed can therefore give a different game, and the mode's strength depends on machine load. Upstream's own picker carries a comment about a verdict that changed from run to run with the time budget.
+- **The change.** One AI property that turns the clock off: the candidate and rollout counts alone bound the search, no deadline cuts a round, and the slow-streak back-off does not fire. Default off, so stock behaviour is unchanged.
+- **Where it is built.** On upstream master in the clean `../forge-upstream` worktree, since the mode does not exist at our merge base. The M13 merge then takes upstream plus this branch.
+- **Its test.** The same seed and decks played twice with the property on give the same game; that fails today with the mode on.
+- **For our own reads** the counts are set to the desktop allowance (the user, 11-16): what a desktop player's opponent gets when its clock is never starved.
+- **Not yet read:** every place the picker consults the clock (the first-rollout timing that trims the candidate list, the adaptive playout length, `AITimeoutTracker`). The patch's size is unknown until that read. Scoping: [m13-upstream-merge-scoping.md](m13-upstream-merge-scoping.md).
+
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 
 7 crashes in 50,000 games. All games' obs frames are readable; policy labels

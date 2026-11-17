@@ -1,8 +1,16 @@
 # The M13 upstream merge — scoping draft
 
-**Doc status:** living · draft scoping of the upstream merge that opens M13: its size, the Flat Monte Carlo heuristic mode, and the opponent question; nothing here is decided or built
+**Doc status:** living · scoping of the upstream merge that opens M13: its size, the Flat Monte Carlo heuristic mode, and the opponent question; three points pinned by the user 11-16, nothing built
 
 Drafted 2026-11-16 from a read of `upstream/master` at `0f82b4f469` (2026-11-17 UTC). Nothing was merged or checked out; the trial merge ran in memory. The facts about Flat Monte Carlo come from reading its code, not from running it.
+
+## Pinned by the user, 2026-11-16
+
+- **The merge happens inside M13, as its opening boundary, after the design.**
+- **The rollout-count budget is built before the merge**, on upstream master, and queued early on the upstream list ([upstream-worklist.md](upstream-worklist.md), Tier 0.10). The merge's reads run only on a jar that has it.
+- **The announcement's Monte Carlo opponent uses the higher allowance**: the desktop mode's candidate and rollout counts, never starved by the clock. Beside the plain-heuristic read it also shows how much the heuristic has improved.
+
+The open questions at the end are still open.
 
 ## Summary
 
@@ -84,8 +92,7 @@ All after the merged jar builds and the bridge's hooks are confirmed on it.
 
 - Does the merge bundle the routed next-boundary items (ADR-0126's table) and forced-decision replay, or land alone first? One boundary is cheaper to prove; a bare merge is easier to debug.
 - Do `Hard.ai` and `Hardest.ai` join the profile draw? They change the opponent mix even with the mode off.
-- Which Monte Carlo budget is "the opponent" for the announcement: desktop as served (1,500 ms / 6,000 ms), or the Default profile's own numbers (450 / 2,000)?
-- Is the count budget built on our fork first, or proposed upstream first? The engine PR slot is occupied by #12180.
+- What the desktop allowance is in counts. The desktop mode raises more than the two time budgets; the patch's read of the picker settles it.
 
 ## Not yet looked at
 
