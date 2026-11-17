@@ -107,6 +107,10 @@ def n_good(o: dict) -> int:
 
 
 def spearman(x: list[float], y: list[float]) -> float | None:
+    """Ranks ties by position, so two tied sides read as agreeing: the rank-agreement figures are
+    inflated wherever both leaves tie (0.438 against end reads 0.052 with ties averaged; the
+    2026-11-17 devlog). Kept as is because the stored reads were made with it; use
+    search_rank_split.py for a ranking claim."""
     if len(x) < 3:
         return None
     rx = np.argsort(np.argsort(x))

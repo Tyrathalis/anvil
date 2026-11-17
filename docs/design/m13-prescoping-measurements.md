@@ -106,11 +106,25 @@ The four reads, all exploratory:
 - **That the floor at 1.0 covers acted windows.** The deep round is documented as running in a margin band plus a floor draw on every other window.
 - **The deep set is the top three, not all options.** The ranking is over at most four options per window. Windows with two options contribute little.
 
-**The bar (the user agreed 11-16 to skip the soft-target arm if the read is not promising; the numbers are the draft's).** The soft-target arm is not run if the un-acted Spearman is under 0.15, which is about a third of the prior read's all-window figure. Between 0.15 and 0.30 the arm runs with a note that its dose is the risk. At 0.30 or more it runs without the note. The acted figure carries no bar; it is the reference.
+**The bar (the user agreed 11-16 to skip the soft-target arm if the read is not promising; the numbers are the draft's). Withdrawn 11-17 for the slope bar under the step 0 result below.** The soft-target arm is not run if the un-acted Spearman is under 0.15, which is about a third of the prior read's all-window figure. Between 0.15 and 0.30 the arm runs with a note that its dose is the risk. At 0.30 or more it runs without the note. The acted figure carries no bar; it is the reference.
 
 **What the gate does not show.** Ranking is not teaching. A positive read says the targets carry signal; only the arm says whether the policy can use it (ADR-0100's rule: a ceiling is not learnability).
 
 **To pin.** The bar and its bands. K=4 or K=8 for the truth (K=8 doubles the cost). Whether step 0 runs first and can cancel step 1.
+
+### Step 0 result (2026-11-17): the per-window Spearman is not a usable statistic, and the prior figure was an artifact
+
+`scripts/search_rank_split.py` on the stored rows; outputs in `data/runs/search-rank-gate/step0-*.txt`.
+
+- **ADR-0106's 0.438 is a tie artifact.** Its Spearman ranks tied values by their position in the option list. End-rollout means at K=4 are flat across the options in 57% of windows, and tied in most others, so both sides were ranked by position and read as agreeing. With ties averaged, the same rows give 0.052 ± 0.052 over the 206 windows where a rank correlation is defined. The script reproduces 0.4378 with the old ranking, so the difference is the tie rule alone.
+- **The truth cannot rank itself at K=4.** Its split-half ceiling (two rolls against two) is 0.09 ± 0.08. A perfect ranker would fail a bar of 0.15. The Spearman bar above is withdrawn.
+- **The replacement statistic is a pooled slope.** Centre the shallow means and the end means within each window, then regress one on the other over all windows. The slope is the share of a shallow value difference that the outcome realizes. Rollout noise widens its error and does not bias it.
+- **On the old head it does not separate the two groups.** Slope at acted windows 0.24 ± 0.11 (81 windows); at un-acted windows 0.10 ± 0.07 (737 windows), and 0.21 ± 0.07 against the salted truth. The values carry some signal away from the bar, at a third to a half of face value. The read is too small to say more, and it is Build 3's head on heuristic games.
+- **The top-pick gain agrees with ADR-0106.** Where the search would act, its pick beats the natural one by +0.061 ± 0.030 in end outcome; elsewhere by +0.004 ± 0.005.
+
+**Step 1 is unchanged as a data collection.** The same flags and the same games serve the slope. At about 2,900 un-acted windows its error would be about ± 0.035 (*estimate*, scaled from step 0).
+
+**The bar, redrafted on the slope (to pin before the read closes).** The soft-target arm is not run if the un-acted slope is within two standard errors of zero. It runs with a note on its dose if the slope is under 0.10. Otherwise it runs. The acted slope is the reference beside it.
 
 ## 3. The search's wall cost on the current recipe
 
