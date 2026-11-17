@@ -1,6 +1,6 @@
 # The M13 upstream merge — scoping draft
 
-**Doc status:** living · scoping of the upstream merge that opens M13: its size, the Flat Monte Carlo heuristic mode, and the opponent question; three points pinned by the user 11-16, nothing built
+**Doc status:** living · scoping of the upstream merge that opens M13: its size, the Flat Monte Carlo heuristic mode, and the opponent question; three points pinned by the user 11-16, one revised 11-17; the count budget is built locally, nothing merged
 
 Drafted 2026-11-16 from a read of `upstream/master` at `0f82b4f469` (2026-11-17 UTC). Nothing was merged or checked out; the trial merge ran in memory. The facts about Flat Monte Carlo come from reading its code, not from running it.
 
@@ -8,7 +8,7 @@ Drafted 2026-11-16 from a read of `upstream/master` at `0f82b4f469` (2026-11-17 
 
 - **The merge happens inside M13, as its opening boundary, after the design.**
 - **The rollout-count budget is built before the merge**, on upstream master, and queued early on the upstream list ([upstream-worklist.md](upstream-worklist.md), Tier 0.10). The merge's reads run only on a jar that has it.
-- **The announcement's Monte Carlo opponent uses the higher allowance**: the desktop mode's candidate and rollout counts, never starved by the clock. Beside the plain-heuristic read it also shows how much the heuristic has improved.
+- **The announcement's Monte Carlo opponent is the desktop mode at a count budget matched to what an idle desktop achieves** (the user, 11-17; it replaces the 11-16 pin of the unstarved allowance). The reason: a desktop is already above the average machine running Forge, and the unstarved allowance is far beyond what any player meets. Beside the plain-heuristic read it also shows how much the heuristic has improved.
 
 The open questions at the end are still open.
 
@@ -101,11 +101,11 @@ The patch exists locally: `FLAT_MC_COUNT_BUDGET` on branch `flat-mc-count-budget
 - **The desktop mode's counts are the same for Default, Hard and Hardest.** At most 17 candidates per decision and 14 rounds, so at most 238 rollouts per decision, plus up to 84 for the attack search and 42 for land choice. The plain mode allows 66 (Default), 96 (Hard) and 130 (Hardest).
 - **Unstarved, the desktop allowance is far more than the clock grants.** One four-player game under the count budget averaged 12.1 rollouts per decision after pruning, with a median decision of 1.6 s and a 95th percentile of 14.8 s. The clock grants 1.5 s. The pinned announcement opponent ("the desktop allowance, never starved") is therefore stronger and several times slower than the opponent a player meets.
 - **The AI timeout acts in harness-built games.** `Game.AI_TIMEOUT` defaults to 5 s and every heuristic session arms it, with or without the mode. The property lifts it only for a seat that has the property; a strict read also raises the game's timeout and gives every seat the profile.
-- **Three rollout errors switch the mode off for that player for the rest of the game.** With the copier failures of the cost measurement (a quarter of four-player rollouts on the 11-10 jar) that breaker matters. The patch's own four-player checks on 11-17 master saw no such failure in about 8,500 rollouts, so the failures are either fixed upstream since 11-10 or specific to some precons. Not resolved.
+- **Three rollout errors switch the mode off for that player for the rest of the game.** With the copier failures of the cost measurement (a quarter of four-player rollouts on the 11-10 jar) that breaker matters. The patch's own four-player checks on 11-17 master saw no such failure in about 8,500 rollouts, so the failures are either fixed upstream since 11-10 or specific to some precons. Not resolved; the user's expectation is that they were always tied to specific cards and may well be fixed.
 - **Heaps of 768 MB or less silently turn the desktop mode into the mobile one.**
 - **Stock upstream replayed a two-player game identically on an idle box.** The clock breaks replay only when it binds.
 
-Still open: whether the announcement uses the unstarved allowance as pinned, given its cost, or a count budget set to what an idle desktop actually achieves.
+**Decided 11-17 (the user): a count budget matched to an idle desktop.** The calibration is a step of the merge's reads: play the desktop mode on the clock with one JVM on an idle box, read its achieved rounds and candidates per decision from `FLATMC-STATS`, and set the counts to that. The cost measurement's cells give a first figure under a light load: 7.95 rollouts per decision two-player and 5.46 four-player, against a ceiling of 238.
 
 ## Not yet looked at
 
