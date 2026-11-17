@@ -1,4 +1,4 @@
-# M12 plan — SEARCH AS THE BEHAVIOR POLICY, built through to one big run (RECHARTERED 2026-09-06; SCOPED 2026-09-06 session 3; Builds 0–4½ closed; the big run running since 2026-10-05)
+# M12 plan — SEARCH AS THE BEHAVIOR POLICY, built through to one big run (RECHARTERED 2026-09-06; SCOPED 2026-09-06 session 3; Builds 0–4½ closed; the big run closed 2026-11-16)
 
 **Doc status:** living · the open milestone plan — charter, build order, forks, kill conditions (the record: m12-running-record.md)
 
@@ -11,7 +11,7 @@ value head, search, the remaining decision surfaces), then one really big run wi
 the model must be strong WITHOUT search, or the project is "search for the heuristic"; search
 depth is a budget from day one. SCOPED 2026-09-06 (session 3, ADR-0101 addendum): forks A/G/H/I
 adjudicated, Build 1 numbers, day-zero arms and band rules, the shakedown run, full multi-format
-readiness — every pin below is the record. Build 0 OPENED 2026-09-06 session 4 ([ADR-0102](../decisions/ADR-0102-m12-build0-pins.md): six pins, fork J). **Where it stands (2026-11-09):** Builds 0–4½ and the settings pass are closed, and the big run launched 10-05 ([ADR-0123](../decisions/ADR-0123-big-run-launch.md)) and is in its fifth weekly segment. Its bars, reads and promotions are in ADR-0123 and the running record, not in the build order below, whose reference numbers (0.5279) are the pre-launch era's.*
+readiness — every pin below is the record. Build 0 OPENED 2026-09-06 session 4 ([ADR-0102](../decisions/ADR-0102-m12-build0-pins.md): six pins, fork J). **Where it stands (2026-11-16):** Builds 0–4½ and the settings pass are closed. The big run launched 10-05 ([ADR-0123](../decisions/ADR-0123-big-run-launch.md)) and closed 11-16 after five weekly segments, with `big-run/iter-405` as its result (the ADR's 11-16 addendum). The closeout scoping (Build order 6) is next. Its bars, reads and promotions are in ADR-0123 and the running record, not in the build order below, whose reference numbers (0.5279) are the pre-launch era's.*
 
 ## Charter
 
