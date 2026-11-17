@@ -13,7 +13,7 @@ attack yes/no logit + dedup count classes + target pointer per row; block
 pointer over attacker rows ∪ a learned none key. Factorized, not
 autoregressive.
 
-Later heads: the payment head (pay_*), the schedule surface (sched_*), the
+Further heads: the payment head (pay_*), the schedule surface (sched_*), the
 option-set surface decoder (surf_*, ADR-0105), the option scorer (opt_*,
 score_options), the allocation head (alloc_*, ADR-0109) and the ability
 table projections (abil_*, cand_abil_proj). A checkpoint older than a head

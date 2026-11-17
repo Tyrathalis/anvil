@@ -26,7 +26,7 @@ never guesses.
 | Format | Pool slot | Model row | Status |
 |---|---|---|---|
 | **1v1 Commander** (40 life, 100-card singleton, command zone) | `dc` | `Commander` | **works end to end**; the project's own pool |
-| **Constructed** (60-card, or 40-card untested; sideboard) | `pauper` (the name is historical; any lists) | `Constructed` | **row landed 2026-09-27** ([ADR-0120](../decisions/ADR-0120-constructed-model-row.md)): proven at the encoder and the checkpoint loader (the identity tests); the step-4 smoke on played games is routed to the next quickstart pass. The pool pipeline works (`--banlist none` for your own lists) |
+| **Constructed** (60-card, or 40-card untested; sideboard) | `pauper` (the name is historical; any lists) | `Constructed` | **row landed 2026-09-27** ([ADR-0120](../decisions/ADR-0120-constructed-model-row.md)): proven at the encoder and the checkpoint loader (the identity tests); the step-4 smoke on played Constructed games is still owed ([ADR-0126](../decisions/ADR-0126-m12-closeout.md), clause 5). The pool pipeline works (`--banlist none` for your own lists) |
 | Anything else Forge plays (Brawl, Oathbreaker, Limited as its own type, …) | none | none | needs a slot and a row (the checklist below) |
 | Multiplayer | — | — | not supported: the bridge, the reads and the value head are 1v1 |
 
@@ -34,7 +34,7 @@ never guesses.
 
 Follow the [quickstart](quickstart-custom-pool.md) with these settings:
 
-| | 1v1 Commander | Constructed (once unblocked) |
+| | 1v1 Commander | Constructed |
 |---|---|---|
 | `SLOT` (pool commands, `--pool-format`) | `dc` | `pauper` |
 | `GAME` (`--format` on runs and reads) | `Commander` | `Constructed` |
@@ -44,10 +44,11 @@ Follow the [quickstart](quickstart-custom-pool.md) with these settings:
 | Forge deck store | `~/.forge/decks/commander/` | `~/.forge/decks/constructed/` |
 
 **The banlist.** `build` drops every deck containing a card on the slot's banlist: the Duel Commander
-list for `dc`, the Pauper list for `pauper`. If that is not your format's list, skip the `banlist`
-command and write an empty snapshot instead:
-`echo '{"fetched": "custom", "cards": []}' > <pool dir>/raw/banlist-custom.json`. The build uses the
-newest-sorting `banlist-*.json`, and `custom` sorts after the dated snapshots. Always read the
+list for `dc`, the Pauper list for `pauper`. If that is not your format's list, the `pauper` slot
+builds without one: skip the `banlist` command and pass `--banlist none` to `build`. The `dc` slot
+ignores that flag and always applies the newest-sorting `raw/banlist-*.json`. To build `dc` decks
+under no banlist, write an empty snapshot that sorts last:
+`echo '{"fetched": "custom", "cards": []}' > data/pool/raw/banlist-custom.json`. Always read the
 build's list of excluded decks and their reasons.
 
 **One ingredient per deck the quickstart names:** each `<id>.txt` decklist needs a `<id>.json`
@@ -62,8 +63,8 @@ record it in an ADR and never compare numbers across it.
 1. **The model row.** Append the Forge game-type name to `formats` and its row to `format_features`
    in `anvil/encoder/vocab_mtg.json`, and a matching `fmt_<name>` column after the last `fmt_*`
    entry in `GLOBAL_FEATURES` (`anvil/encoder/transform.py`; `GLOBAL_SCALE` grows with it).
-   `Vocab` refuses to load if the two lists disagree. The column's position is handled: since
-   [ADR-0120](../decisions/ADR-0120-constructed-model-row.md) the checkpoint loader
+   `Vocab` refuses to load if the two lists disagree. The column's position is handled
+   ([ADR-0120](../decisions/ADR-0120-constructed-model-row.md)): the checkpoint loader
    (`model.pad_state_proj`) and the pre-featurized banks (`value_pretrain.widen_globals`) map
    every older layout through one column map (`transform.globals_layout`), so a new one-hot
    column inserts at the one-hot's end and older checkpoints project byte-identically. Run
@@ -83,7 +84,7 @@ record it in an ADR and never compare numbers across it.
 **Worked example: Constructed (landed 2026-09-27, ADR-0120).** Step 1 only: `Constructed` with
 start life 20, deck size 60, singleton 0, command zone 0, mulligan variant 1 (London), the
 layout-aware pad and its identity tests. The `pauper` slot already existed. The step-4 smoke on
-played games is routed to the next quickstart pass.
+played games is still owed.
 
 ## Research-grade onboarding
 

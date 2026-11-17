@@ -18,31 +18,31 @@ carries the same state tensors; task-specific label fields are pad values
   cand_sa    (C,)   int64     SA-string vocab id per candidate (-1 = PASS/pad)
   cand_kind  (C,)   int64     KINDS id per candidate (-1 = PASS/pad)
   label      ()     int64     index into cand_rows the expert chose; -1 = the
-                              SA-level label is ambiguous (masked from policy
-                              loss; measured ~0.003% of casts, D2 sweep)
+                              SA-level label is ambiguous (masked from the
+                              policy loss; rare)
   label_row  ()     int64     expert's chosen HOST row (-1 = pass) — the
-                              host-level agreement basis (continuity with M1),
-                              known even when the SA-level label is masked
+                              host-level agreement basis, known even when
+                              the SA-level label is masked
   has_outcome / won ()        value-head target (games without outcomes carry
                               has_outcome=0 and are excluded from value loss)
 
 Design notes:
-- All windows kept, pass included as candidate 0 (m1-bc-plan: imbalance is a
-  training-time knob — weighting/downsampling lives in the sampler, not here).
+- All windows are kept, pass included as candidate 0. Imbalance is a
+  training-time knob: weighting and downsampling live in the sampler, not
+  here.
 - Candidates are (host dedup-group row, normalized SA string) pairs from the
-  logged timing-legal options (ADR-0005 basis; M2 D2 moves the interface from
-  host rows to SAs). Identical (row, sa) options collapse into ONE candidate:
-  entity-level duplicates are §2 multiset semantics ("a Rat Colony"), and
-  SA-level duplicates (commander permission routes, same-rendering cost
-  variants) are indistinguishable to the model anyway — collapsing them makes
-  the expert label exact at candidate level; the executor keeps first-fit for
-  the residual engine-side tie.
-- Labels resolve in order: exact logged option index ("oi", rets since
-  2026-07-10) -> exact normalized-string match at the chosen host -> prefix-min
-  match (the option/plan serializations truncate at different lengths) ->
-  masked (-1). Masked windows keep their state, host-level label, and value
-  target; the target/X heads are padded out (their conditioning is the chosen
-  candidate, which is exactly what is unknown).
+  logged timing-legal options (ADR-0005). Identical (row, sa) options
+  collapse into ONE candidate: entity-level duplicates are §2 multiset
+  semantics ("a Rat Colony"), and SA-level duplicates (commander permission
+  routes, same-rendering cost variants) are indistinguishable to the model
+  anyway — collapsing them makes the expert label exact at candidate level;
+  the executor keeps first-fit for the residual engine-side tie.
+- Labels resolve in order: the exact logged option index ("oi", when the
+  record carries one) -> exact normalized-string match at the chosen host ->
+  prefix-min match (the option/plan serializations truncate at different
+  lengths) -> masked (-1). Masked windows keep their state, host-level
+  label, and value target; the target/X heads are padded out (their
+  conditioning is the chosen candidate, which is exactly what is unknown).
 - entity_row_of is loader plumbing (label/candidate resolution); it is never
   a model input, so entity ids stay out of the information set.
 - Windows whose chosen host resolves to no candidate row are IMPOSSIBLE by
@@ -50,8 +50,8 @@ Design notes:
   skip here would hide exactly the corpus-poisoning class the validator
   exists to catch).
 
-Combat examples (M2 D5, tasks attack/block) add per-candidate-row fields
-(pad -1 / empty on other tasks; batch-padded in collate):
+Combat examples (tasks attack/block) add per-candidate-row fields (pad -1 /
+empty on other tasks; batch-padded in collate):
 
   cmb_rows        (A,) int64  candidate creature dedup rows (derived basis:
                               decider's battlefield creatures, untapped
@@ -69,11 +69,11 @@ Combat examples (M2 D5, tasks attack/block) add per-candidate-row fields
   blk_atk_rows    (M,) int64  attacker rows in the dec obs (pointer key set)
 
 Labels come from the obs-side join (_combat_label_window): the declare
-callbacks never serialized rets, but post-declaration windows carry atk/blk
-flags. The join is bounded at the next declareAttackers dec — turn-only
-bounding poisoned 145 corpus block labels via extra-combat overshoot
-(classified 2026-07-13). Forced-empty windows (no candidates / no attackers)
-are skipped: nothing to learn, and serve answers them without the model.
+callbacks do not serialize their answers, but post-declaration windows carry
+atk/blk flags. The join is bounded at the next declareAttackers dec.
+Bounding by the turn alone overshoots into an extra combat and mislabels its
+blocks. Forced-empty windows (no candidates / no attackers) are skipped:
+nothing to learn, and serve answers them without the model.
 """
 
 from __future__ import annotations

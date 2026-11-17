@@ -31,11 +31,12 @@ Guards: every iteration's monitor row passes guard_flags; a breach rejects
 the checkpoint and halts the loop, or rolls back under --guard-action
 rollback (guard_decision).
 
-Serve regime and the primary read (ADR-0094): --sched-binding/--sched-basis/--sched-empty-rev pin
-the serve regime every driver-started server plays under (sched_flags), and
---paired-read wires the stratified paired strength read (the PRIMARY read)
-at day zero (HALT below minus the bar, exit 5) and at the terminal — both
-recorded in loop_state, idempotent on resume.
+Serve regime and the primary read (ADR-0094): --sched-binding,
+--sched-basis and --sched-empty-rev pin the serve regime every
+driver-started server plays under (sched_flags). --paired-read wires the
+stratified paired strength read (the PRIMARY read) at day zero (HALT below
+minus the bar, exit 5) and at the terminal. Both are recorded in loop_state
+and are idempotent on resume.
 """
 
 from __future__ import annotations

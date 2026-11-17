@@ -10,479 +10,134 @@ file is the operational layer under them.)
 Maintenance: when an ADR births a rule, add it here in the same commit
 batch; when a rule is superseded, or its mechanism leaves the recipe, move
 it verbatim to [standing-rules-retired.md](standing-rules-retired.md) with
-the date and the reason — never silently delete (the documentation pass of
-2026-09-23 moved the first eight; the active list is what a scoping session
-reads).
+the date and the reason — never silently delete. A rule is capped at about
+two lines: the rule and at most one clause of why. The numbers, the runs and
+the story stay in its ADR.
 
 ## Gates, reads, and statistics
 
-- Gate a capability on a **discrimination statistic**, never an
-  accuracy count; a day-zero-0-correct sub-population is a gate defect
-  ([ADR-0069](decisions/ADR-0069-d4-read-adjudication.md)).
-- **Measure the ceiling before building the learner**
-  ([ADR-0073](decisions/ADR-0073-m9-ceiling-measurement.md)).
-- **Per-window value and gate-scale value are distinct claims** — a
-  ceiling statement carries both ([ADR-0073](decisions/ADR-0073-m9-ceiling-measurement.md)).
-- A re-cert threshold on a selected population must price
-  **winner's-curse regression**, not only drift
-  ([ADR-0073](decisions/ADR-0073-m9-ceiling-measurement.md)).
-- **Read every pre-registered signal** before closing a run's verdict
-  ([ADR-0069](decisions/ADR-0069-d4-read-adjudication.md)).
-- A recipe pin that removes a condition must be **re-checked against
-  every pre-registered readout**; a control restores the CONDITION,
-  not the asset ([ADR-0069](decisions/ADR-0069-d4-read-adjudication.md)/[ADR-0072](decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)).
-- An evalset's **certification horizon is part of its type** — never
-  let "certified" stand unqualified in a strength argument
-  ([ADR-0072](decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)).
-- **Fixed-subset arms reads are ONE observation, not N**
-  ([ADR-0058](decisions/ADR-0058-m7-closeout.md)); ~1.5σ small-N arms
-  teases are a confirmed recurring artifact — three instances on file.
-- **Single-seed-set reads at ~1pp are inconclusive** — the combined
-  paired read is the standard ([ADR-0037](decisions/ADR-0037-m5-closeout.md));
-  fresh-seed paired confirmation is the marginal-t tiebreaker
-  ([ADR-0033](decisions/ADR-0033-m4-closeout.md)).
-- When a gate goes flat while instruments improve, **audit the signal
-  path before reaching for the next lever**
-  ([ADR-0049](decisions/ADR-0049-flat-cycle-audit.md)).
-- Battery findings are **exploratory only** — verdicts stay
-  pre-registered ([run-analysis-protocol](design/run-analysis-protocol.md)).
-
-- **A probe's PRIMARY read is a strength read on the funded stratum with
-  the ceiling's own paired instrument; competency proxies are
-  exploratory** — six probes read proxies that measured the wrong thing
-  (presence, lumped counters, natural-line inflation) while the prize
-  sat unmeasured; a day-zero read decomposes the claim before training
-  is spent ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
-- **Measure a learning target's label reliability (split-half / test-retest) before building a
-  head on it, and read the head's learning curve before scaling data or compute** — an hour of
-  diagnostics answered what two build sessions could not
-  ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
-
-- **An exposure split keyed on one arm's own game is post-treatment when exposure correlates
-  with survival** (a multi-trigger window, a multi-block: they fire in the games where that seat's
-  board lived, i.e. that arm's better games — the split's sign follows the conditioning arm:
-  trigger ordering +9.6 ± 2.5 keyed on the served arm, −2.2 ± 2.7 keyed on the withheld arm, the
-  same 580 pairs). Attribution is ablation arms on one reference (the ladder); a split is
-  exploratory and, if read at all, keyed symmetrically (the window fired in both arms' games).
-  ADR-0105 (evening 3).
-
-- **A network arm serves the same tag set as its reference, or the difference is declared as its
-  own arm** — every M12 arm from Build 1 served the pay tag at its design init (≈ 0.25 random goal
-  payments per game, inside every search copy too) while the `iter-019` reference never carried the
-  head: the day-zero cost dz − ref (−1.63 ± 1.15) carries an unmeasured payment-noise term; the
-  evening-4 off arm withholds the tag, the ablation arm (e3 pay-withheld vs the evening-3 on arm)
-  bounds the term ([ADR-0105 addendum 09-08](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md),
-  [ADR-0104 addendum](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
-- **A head is served only with a FIT record in the checkpoint** — an "argmax is safe by design"
-  init is not a fit: the +2.0-init pay head's pointer residuals deviated on 2.7% of windows for a
-  measured −2.56 ± 1.88pp; the server's `has_pay` reads `pay_fit` as `has_surf` reads the surface
-  params (the never-serve-fresh-init rule, no exceptions; [ADR-0104 addendum 09-09](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
-- **The pool's leaf arithmetic predicts a distilled head's paired read — run the pick-vs-leaf read
-  before any arm**: value the head's deviations by the pool's own leaf (pick − auto), positives
-  and ties apart, out of sample; the net per deviation forecasts the served read within one SE
-  (five pay heads: −1.02 / −1.36 / −1.74 / −0.87 / −0.84 vs a leaf net of ≈ 0). A head whose
-  deviations net ≤ 0 by its own label does not serve; a gate must clear the arithmetic's
-  precision bar (positives' gain × q − ties' cost × (1 − q) > 0) on the held-out curve before it
-  earns a read (`pay_fit --eval`; [ADR-0105 addenda 09-11](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
-
-- **A pre-registered tie-break that names "the cheaper arm" defines cheaper at registration** — as forward
-  calls per game (ADR-0101's budget unit), never left to the reader: the shakedown's best point estimate
-  (alloc) was not its cheapest arm (shallow), and the clause read both ways
-  ([ADR-0115](decisions/ADR-0115-m12-shakedown-scoping.md), the 09-27 verdict addendum).
-- **A control for a label-side check must contain the labelling seat.** A model
-  self-play store cannot miss its own options, so it reads as a clean control for
-  any option-coverage or label-vs-option check regardless of the engine under it;
-  read the store manifest's bridge / seats before citing a control
-  ([ADR-0122](decisions/ADR-0122-union-target-mask.md) addendum 10-05: the "0 in
-  300 games" control was vacuous; the heuristic-seat stores showed the class at the
-  corpus's rate).
+- Gate a capability on a **discrimination statistic**, never an accuracy count. A sub-population with zero correct at day zero is a gate defect ([ADR-0069](decisions/ADR-0069-d4-read-adjudication.md)).
+- **Measure the ceiling before building the learner** ([ADR-0073](decisions/ADR-0073-m9-ceiling-measurement.md)).
+- **Per-window value and gate-scale value are distinct claims.** A ceiling statement carries both ([ADR-0073](decisions/ADR-0073-m9-ceiling-measurement.md)).
+- A re-certification threshold on a selected population prices **winner's-curse regression**, not only drift ([ADR-0073](decisions/ADR-0073-m9-ceiling-measurement.md)).
+- **Read every pre-registered signal** before closing a run's verdict ([ADR-0069](decisions/ADR-0069-d4-read-adjudication.md)).
+- A recipe pin that removes a condition is **re-checked against every pre-registered readout**. A control restores the condition, not the asset ([ADR-0069](decisions/ADR-0069-d4-read-adjudication.md), [ADR-0072](decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)).
+- An evalset's **certification horizon is part of its type**. "Certified" never stands unqualified in a strength argument ([ADR-0072](decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)).
+- **A fixed-subset arms read is one observation, not N.** A small-N arms tease near 1.5σ is a recurring artifact, three instances on file ([ADR-0058](decisions/ADR-0058-m7-closeout.md)).
+- **A single-seed-set read at about 1pp is inconclusive.** The combined paired read is the standard ([ADR-0037](decisions/ADR-0037-m5-closeout.md)), and a fresh-seed paired confirmation breaks a marginal t ([ADR-0033](decisions/ADR-0033-m4-closeout.md)).
+- When a gate goes flat while instruments improve, **audit the signal path before reaching for the next lever** ([ADR-0049](decisions/ADR-0049-flat-cycle-audit.md)).
+- Battery findings are **exploratory only**. Verdicts stay pre-registered ([run-analysis-protocol](design/run-analysis-protocol.md)).
+- **A probe's primary read is a strength read on the funded stratum with the ceiling's own paired instrument.** Competency proxies are exploratory, and a day-zero read decomposes the claim before training is spent ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
+- **Measure a learning target's label reliability before building a head on it** (split-half or test-retest), and read the head's learning curve before scaling data or compute ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
+- **An exposure split keyed on one arm's own game is post-treatment when exposure correlates with survival.** Attribution is ablation arms on one reference; a split is exploratory and keyed symmetrically if read at all ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+- **A network arm serves the same tag set as its reference**, or the difference is declared as its own arm ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md), [ADR-0104](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md) addenda).
+- **A head is served only with a fit record in the checkpoint.** An init that is "safe by design" is not a fit, and there are no exceptions ([ADR-0104](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md) addendum).
+- **Run the pick-vs-leaf read before any arm of a distilled head.** Value the head's deviations by the pool's own leaf, out of sample, positives and ties apart. A head whose deviations net ≤ 0 does not serve, and a gate clears the arithmetic's precision bar on the held-out curve before it earns a read ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md) addenda).
+- **A pre-registered tie-break that names "the cheaper arm" defines cheaper at registration**, as forward calls per game ([ADR-0115](decisions/ADR-0115-m12-shakedown-scoping.md)).
+- **A control for a label-side check contains the labelling seat.** A model self-play store cannot miss its own options, so read the store manifest's bridge and seats before citing a control ([ADR-0122](decisions/ADR-0122-union-target-mask.md) addendum).
 
 ## Training-loop design
 
-- **Clips at birth** for engineered aggregates AND loss terms
-  ([ADR-0050](decisions/ADR-0050-m6-closeout.md)/[ADR-0056](decisions/ADR-0056-run14-seq-divergence.md)).
-- Auto-calibrated weights get their invariant **instrumented, guarded,
-  and recalibrated at the cadence it varies**
-  ([ADR-0057](decisions/ADR-0057-run15-share-drift.md)) — per-iteration
-  w recalibration is the default.
-- **An aux-target's SHAPE is a behavioral prior** — what the latent
-  predicts is what the policy is nudged to enact; target design is
-  behavior design ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
-- Price a conditioning channel's lr by its **gradient DENSITY, not its
-  init** ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)); the
-  starved-param arithmetic ([ADR-0069](decisions/ADR-0069-d4-read-adjudication.md))
-  applies to heads fed by rare windows.
-- **Falling reliance + compounding behavior = absorption**, not disuse
-  — read the flip metric jointly with the behavioral series
-  ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
-- A guard-halt relaunch after a **recipe change must clear the
-  rejected phase's artifacts** (archive, don't delete) — phase-reuse is
-  for crashes, not amendments ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
-- **Probe-first discipline**: a D4-shape short run with a
-  pre-registered kill signal before any promotion-scale run (M9
-  practice, priced as intended at [ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
-- **A dense aux term never trains on the policy's own emissions
-  without a grounded anchor of comparable mass** — self-referential
-  decode-on-own-emissions has a degenerate fixed point (empty) and
-  reached it in ONE iteration; share guards read the step MEDIAN, and
-  a heavy-tailed aux CE gets its own spike tripline
-  ([ADR-0085](decisions/ADR-0085-m10-probe1-read.md)).
-- **Auto-calibration is unsound for a FIXED SMALL BATCH applied every
-  step**: calibrate-then-freeze measures the term pre-application, so a
-  memorizable batch delivers full frac-scale mass for a few steps, then
-  collapses — the share telemetry only starts after, and the share
-  guard is structurally blind to the impulse (170 windows fitted in ~10
-  steps doubled the iteration KL)
-  ([ADR-0087](decisions/ADR-0087-m10-probe2-read.md)).
-- **A small fixed label batch is not a substitute for a dense
-  conditioning driver**: certified seed labels at 2× weight moved
-  PRESENCE while the content channel went quiet and decode CE on live
-  emission rows degraded past day zero — grounded supervision must
-  reach trajectory scale to carry the channel
-  ([ADR-0087](decisions/ADR-0087-m10-probe2-read.md)).
-- **Fixed label batches apply subsampled (one k-chunk per step, epoch-
-  shuffled) with a warmup ramp and carry-w**; per-iteration
-  recalibration against a partially-fitted batch is an amplifier
-  (probe1 grew w_seedlab 12× over three iterations), and the
-  memorization tripline (iteration-MIN per-step raw < 0.25×
-  raw-at-calibration — per-step keys; the row values are ÷
-  traj_per_step, the probe3 false-halt lesson) guards from first
-  launch ([ADR-0088](decisions/ADR-0088-grounded-driver.md),
-  re-based at [ADR-0090](decisions/ADR-0090-m10-probe4-read.md)).
-- The standing veto account: under auto-payment, **probing-via-veto IS
-  optimal play** — the veto channel is the model's only affordability
-  oracle; deterrence-family levers are CLOSED
-  ([ADR-0062](decisions/ADR-0062-m8-closeout.md), falsification
-  completed at [ADR-0072](decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)).
-
-- **A distilled clone of the executor cannot learn where the executor is wrong from the
-  executor's own features**; search-adjudicated labels need a representation trained on them
-  ([ADR-0096](decisions/ADR-0096-m10-closeout.md), the ADR-0050 density argument sharpened).
-
-- **A read on a training population is cross-fit** — when the read's windows are the training
-  windows, fold the population by game hash and pool the held-out folds at the cell's full n; a
-  single holdout at a fraction of that n cannot resolve the pre-registered bar
-  ([ADR-0103](decisions/ADR-0103-m12-build1-value-head-and-build3-enumerators.md)).
-- **A gate's bars and its instrument share one scale** — name the read instrument beside the
-  bar when the bar is set, and check the instrument can run every arm before pinning it (the
-  M12 day-zero read was pinned at K=8/N=600 on the fork-window paired read while its reference
-  number lived on the 2,000-game read, and that instrument could not search inside its own
-  completions) ([ADR-0104](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
-- **A value head that trains inside the loop is audited against rollout truth every iteration**
-  (the state-ranking Spearman on the frozen holdout, `value_pretrain eval`), and a head that also
-  serves as the search's leaf is **anchored to that truth** — outcome targets alone pull it off it
-  (the shakedown's 0.374 → 0.256 in 16 iterations;
-  [ADR-0118](decisions/ADR-0118-value-head-drift-under-the-loop.md)).
-- **An anchor bank is read on its training rows beside its holdout** — a growing train − holdout gap is
-  the anchor memorizing, and a memorized anchor holds nothing (the big run: 0.84 on all rows vs 0.33 on
-  the holdout at 301 iterations, ≈ 1,170 passes over 8,403 rows, the holdout sliding from iteration 25);
-  size the bank and the draw budget so one iteration stays under a pass, and never raise the anchor
-  weight to fix a sliding holdout ([ADR-0124](decisions/ADR-0124-anchor-bank-refresh.md)).
-- **Adding or removing a loss on a shared trunk re-sizes every other loss's step under AdamW** —
-  the per-parameter scaling hands the freed (or taken) gradient budget to whatever remains, so a
-  recipe tuned with the value gradient on the trunk runs the policy ≈ 10× faster once it is off
-  (rung 2's first cell: kl_mu doubling per iteration, the kl guard at iteration 3). Before any cell
-  that changes which losses reach the trunk, **replay one iteration's training on an existing store
-  and re-match kl_mu to the control** (≈ 4 min per setting), then pin the per-group lr
-  (`--trunk-lr`, `--value-head-lr`) as part of the recipe
-  ([ADR-0119](decisions/ADR-0119-value-function-first-before-the-big-run.md) addendum 10-03).
+- **Clips at birth** for engineered aggregates and for loss terms ([ADR-0050](decisions/ADR-0050-m6-closeout.md), [ADR-0056](decisions/ADR-0056-run14-seq-divergence.md)).
+- Auto-calibrated weights get their invariant **instrumented, guarded, and recalibrated at the cadence it varies**. Per-iteration recalibration is the default ([ADR-0057](decisions/ADR-0057-run15-share-drift.md)).
+- **An aux target's shape is a behavioral prior.** What the latent predicts is what the policy is nudged to enact ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
+- Price a conditioning channel's lr by its **gradient density, not its init** ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)). The starved-parameter arithmetic applies to heads fed by rare windows ([ADR-0069](decisions/ADR-0069-d4-read-adjudication.md)).
+- **Falling reliance with compounding behavior is absorption**, not disuse. Read the flip metric jointly with the behavioral series ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
+- A guard-halt relaunch after a **recipe change clears the rejected phase's artifacts** (archive, do not delete). Phase reuse is for crashes, not amendments ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
+- **Probe first**: a short run with a pre-registered kill signal precedes any promotion-scale run ([ADR-0076](decisions/ADR-0076-d6-probe-read.md)).
+- **A dense aux term never trains on the policy's own emissions without a grounded anchor of comparable mass.** Share guards read the step median, and a heavy-tailed aux CE gets its own spike tripline ([ADR-0085](decisions/ADR-0085-m10-probe1-read.md)).
+- **Auto-calibration is unsound for a fixed small batch applied every step.** The batch is memorized within steps of calibration, and the share guard is blind to the impulse ([ADR-0087](decisions/ADR-0087-m10-probe2-read.md)).
+- **A small fixed label batch is not a substitute for a dense conditioning driver.** Grounded supervision reaches trajectory scale before it can carry a channel ([ADR-0087](decisions/ADR-0087-m10-probe2-read.md)).
+- **Fixed label batches apply subsampled** (one k-chunk per step, epoch-shuffled) with a warmup ramp and a carried weight. A memorization tripline on per-step keys guards from first launch: the iteration minimum under 0.25× the raw value at calibration ([ADR-0088](decisions/ADR-0088-grounded-driver.md), [ADR-0090](decisions/ADR-0090-m10-probe4-read.md)).
+- The standing veto account: under auto-payment, **probing by veto is optimal play**, because the veto channel is the model's only affordability oracle. Deterrence-family levers are closed ([ADR-0062](decisions/ADR-0062-m8-closeout.md), [ADR-0072](decisions/ADR-0072-d4-control-run-veto-collapse-falsified.md)).
+- **A distilled clone of the executor cannot learn where the executor is wrong from the executor's own features.** Search-adjudicated labels need a representation trained on them ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
+- **A read on a training population is cross-fit**: fold by game hash and pool the held-out folds at the cell's full n ([ADR-0103](decisions/ADR-0103-m12-build1-value-head-and-build3-enumerators.md)).
+- **A gate's bars and its instrument share one scale.** Name the read instrument beside the bar when the bar is set, and check that it can run every arm before pinning it ([ADR-0104](decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)).
+- **A value head that trains inside the loop is audited against rollout truth every iteration** (`value_pretrain eval` on the frozen holdout). A head that also serves as the search's leaf is anchored to that truth, because outcome targets alone pull it off ([ADR-0118](decisions/ADR-0118-value-head-drift-under-the-loop.md)).
+- **An anchor bank is read on its training rows beside its holdout**; a growing gap is the anchor memorizing. Size the bank and the draw budget so one iteration stays under a pass, and never raise the anchor weight to fix a sliding holdout ([ADR-0124](decisions/ADR-0124-anchor-bank-refresh.md)).
+- **Adding or removing a loss on a shared trunk re-sizes every other loss's step under AdamW.** Before such a cell, replay one iteration on an existing store, re-match `kl_mu` to the control, and pin `--trunk-lr` and `--value-head-lr` in the recipe ([ADR-0119](decisions/ADR-0119-value-function-first-before-the-big-run.md) addendum).
 
 ## Curation, drills, and the critic
 
-- **Drill mainlines never enter training ingest**; curation regenerates
-  from the current ckpt-of-record's own losses every cycle;
-  selection/evalset versions are ckpt-era-scoped
-  ([ADR-0033](decisions/ADR-0033-m4-closeout.md)/[ADR-0031](decisions/ADR-0031-a2-resolution.md)).
-- **The migration read gatekeeps cycle pricing**
-  (`scripts/migration_read.py`, [ADR-0037](decisions/ADR-0037-m5-closeout.md)).
-- **Critic ordering is not evidence in loss-adjacent populations** —
-  ranking comes from rollouts ([ADR-0036](decisions/ADR-0036-d3-critic-calibration.md));
-  critic-classified fractions are instrument-limited, rollout maps
-  authoritative ([ADR-0037](decisions/ADR-0037-m5-closeout.md)).
-- **Isotonic maps are era-scoped assets**; the value-audit label set
-  grows with every map/sweep ([ADR-0036](decisions/ADR-0036-d3-critic-calibration.md)).
-- **Probe on `[STATE]`, never the trained head**; inner-val pools are
-  pinned ([ADR-0050](decisions/ADR-0050-m6-closeout.md)).
-- Mid-campaign checkpoints **sweep the two leading Ns**
-  ([ADR-0050](decisions/ADR-0050-m6-closeout.md)).
-- Check whether candidate curation stock is **gate-seeded** before
-  using it (`m9-rebaselinearm` shares `final_read.py`'s seed base —
-  [ADR-0068](decisions/ADR-0068-m9-boundary-bundle.md)).
-- **Curriculum composition (behind/ahead balance) is a first-class
-  lever** ([ADR-0033](decisions/ADR-0033-m4-closeout.md)).
-- **Veto-elevated run stores never enter a training mixture**:
-  run14/15/16 ([ADR-0058](decisions/ADR-0058-m7-closeout.md)),
-  run18/19/20 ([ADR-0077](decisions/ADR-0077-m9-closeout.md)) —
-  permanent.
-
-- **Critic lookahead is NOT a one-turn labeler; K is the cheap-label dial** — the full-vis
-  critic after one applied option ranks the rollout spread at 0.30 (label reliability 0.66) while
-  ONE two-turn rollout's composite ranks it at 0.47 at ~2× the copy cost; the learned pivotality
-  read-out aims certification at zero search cost (AUC 0.69 vs the critic's 0.65)
-  ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
-- **A replay coordinate names the seat's natural pick, its turn, its phase and the seat
-  profiles; the fork point is that pick's window, continued through the seat's own chooser under
-  the pre-decision RNG** — never the first window holding the option (the AI declines many) and
-  never a re-approval through `canPlaySa` (its chance checks re-roll); an opponent-turn or
-  in-response cast has no faithful fork point and reads `never_fired`
-  ([ADR-0117](decisions/ADR-0117-certifier-merge.md)).
+- **Drill mainlines never enter training ingest.** Curation regenerates from the current checkpoint of record's own losses every cycle, and selection and evalset versions are scoped to the checkpoint era ([ADR-0033](decisions/ADR-0033-m4-closeout.md), [ADR-0031](decisions/ADR-0031-a2-resolution.md)).
+- **The migration read gatekeeps cycle pricing** (`scripts/migration_read.py`, [ADR-0037](decisions/ADR-0037-m5-closeout.md)).
+- **Critic ordering is not evidence in loss-adjacent populations.** Ranking comes from rollouts ([ADR-0036](decisions/ADR-0036-d3-critic-calibration.md)); critic-classified fractions are instrument-limited ([ADR-0037](decisions/ADR-0037-m5-closeout.md)).
+- **Isotonic maps are era-scoped assets.** The value-audit label set grows with every map and sweep ([ADR-0036](decisions/ADR-0036-d3-critic-calibration.md)).
+- **Probe on `[STATE]`, never the trained head.** Inner-validation pools are pinned ([ADR-0050](decisions/ADR-0050-m6-closeout.md)).
+- Mid-campaign checkpoints **sweep the two leading Ns** ([ADR-0050](decisions/ADR-0050-m6-closeout.md)).
+- Check whether candidate curation stock is **gate-seeded** before using it: `m9-rebaselinearm` shares `final_read.py`'s seed base ([ADR-0068](decisions/ADR-0068-m9-boundary-bundle.md)).
+- **Curriculum composition (the behind/ahead balance) is a first-class lever** ([ADR-0033](decisions/ADR-0033-m4-closeout.md)).
+- **Veto-elevated run stores never enter a training mixture**, permanently: run14/15/16 ([ADR-0058](decisions/ADR-0058-m7-closeout.md)) and run18/19/20 ([ADR-0077](decisions/ADR-0077-m9-closeout.md)).
+- **Critic lookahead is not a one-turn labeler; K is the cheap-label dial.** One two-turn rollout out-ranks the critic after one applied option, and the learned pivotality read-out aims certification at no search cost ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
+- **A replay coordinate names the seat's natural pick, its turn, its phase and the seat profiles.** The fork point is that pick's window, continued through the seat's own chooser under the pre-decision RNG, never the first window holding the option and never a re-approval through `canPlaySa`. An opponent-turn or in-response cast reads `never_fired` ([ADR-0117](decisions/ADR-0117-certifier-merge.md)).
 
 ## Engine, fork, and data hygiene
 
-- **A convention is checked through the model's row space, not by label↔decode agreement**: for every
-  head with a player or seat reference, a permutation test over the whole path (swap the registered
-  seats; the decoded engine object must be the same object) — the cast-target decoder's label and
-  decode agreed in registered coordinates while indexing self-first rows for two months (46%
-  self-targets served) ([ADR-0116](decisions/ADR-0116-player-target-positions.md)).
-- **Every read reports the target-sanity row** (the model's self-target rate vs the heuristic's in
-  the same games; the eval battery) and **a checkpoint records its label conventions, a loader
-  refuses a mismatch** ([ADR-0116](decisions/ADR-0116-player-target-positions.md)).
-- **A format addition edits the vocab row and the feature column and nothing else**: every
-  pre-featurized asset and checkpoint reads through the encoder's one layout map
-  (`transform.globals_layout`), and the change lands with the identity test green — the row alone
-  is a schema change with a proof, the first data in that format is the boundary event
-  ([ADR-0120](decisions/ADR-0120-constructed-model-row.md)).
-- **A chance event that voids knowledge the ledger tracks is a stream record, not an inference**: the
-  shuffle is a store-frame mark from the engine's own event, either seat, recording only; the ledger
-  cleanses its poison, tuck and seen state on the mark, after the mark's own record, and stores without
-  marks read as before ([ADR-0121](decisions/ADR-0121-shuffle-mark.md)).
-- **A legality mask on a learned pointer is proven on a corpus before it serves:** every expert-chosen
-  label inside the mask, the bar zero (the ADR-0005 lesson, now a gate); where the engine cannot
-  enumerate faithfully the option is declared unmasked, never given a wrong set; the mask field is
-  additive (older stores read unmasked) and the serve rule rides the mu row so the loader recomputes
-  under it ([ADR-0122](decisions/ADR-0122-union-target-mask.md)).
-
-- **Replaying a model-generated store requires the generating run's
-  trajectory-perturbing flag set (-reask/-paytelemetry/... from ITS
-  run.json) AND its serve config (ckpt, sampled, temperature), and
-  parity is WITNESSED by an obs decision-stream comparison, never
-  argued** (`sched_mint.py parity`;
-  [ADR-0088](decisions/ADR-0088-grounded-driver.md)).
-- **Stores with overlapping game-index ranges never replay concurrently
-  against one carry-stateful server** — the serve carry is keyed
-  (g, seat), so cross-store collisions flip answers at emission windows
-  (97% of games diverged in the first mint run; phased-by-store is the
-  safe shape until carry is channel-keyed — routed serve-hardening
-  item; ADR-0088 addendum).
-- **Every input to the serve path must be replay-stable, and the obs
-  seq is a serve input** (sampling noise is keyed (game_seed, s)) — any
-  machinery that adds or removes obs records relative to generation
-  shifts the POLICY, not just bookkeeping (Obs.mark consumed one id per
-  fork point and re-rolled every post-fork decision; fixed at fork
-  `f9eadfa8d4`; [ADR-0089](decisions/ADR-0089-mint-replay-integrity.md)).
-- **Bridged JVMs leak one game graph per game unless AiCache is cleared
-  between games — chunk recycling is load-bearing**; never run a
-  bridged JVM unbounded without one or the other (upstream
-  `AiCache.dataMap` clears only on the heuristic AI priority path
-  bridged seats never take; heap-dump-proven at the M10 sweep OOM;
-  within-game clears = a boundary-event candidate
-  ([ADR-0078](decisions/ADR-0078-m10-ceiling-measurement.md))).
-- **Every Anvil-side scan or test that touches engine code runs on a throwaway RNG**
-  (`AnvilOptions.withScratchRng`): Forge's legality/payability helpers draw from the game
-  RNG (`isManaSourceReserved` → `MyRandom.percentTrue` on every shard × source), so an
-  unguarded scan perturbs the trajectory a seed plays and any skipped scan (a cache hit)
-  shifts the stream — the D2 "`-obs` perturbs" finding, explained and closed at Build 0
-  ([ADR-0102 addendum](decisions/ADR-0102-m12-build0-pins.md)). The obs-diff gate
-  (`scripts/obs_diff.py`, first-divergence classes) is the witness.
-- **Engine upgrades are dataset-boundary events**; the
-  behavior-identical exemption is proven empirically (same seeds →
-  identical forkcheck trace hashes), never argued
-  ([ADR-0025](decisions/ADR-0025-d4-rebase-closeout.md)); `forge
-  forkcheck` at the BC certification ckpt is the standing bump gate.
-- **An engine bump lands as a MERGE with a pre-merge tag, never a rebase**
-  — the fork's tip hashes are cited by every run header, ADR and
-  forkcheck record and must stay resolvable; the merge commit names the
-  boundary ([ADR-0110](decisions/ADR-0110-m12-upstream-merge-20260916.md)).
-- **Every pre-boundary number is old-scale** — never compare winrates
-  across eras; cross-era gen_s comparisons only at identical chunking
-  ([ADR-0025](decisions/ADR-0025-d4-rebase-closeout.md)/[ADR-0033](decisions/ADR-0033-m4-closeout.md)).
-- An enumerator's **unit of exclusivity must be the unit the executor
-  consumes** ([ADR-0066](decisions/ADR-0066-certify-salvage-host-exclusivity.md));
-  corollary: a certified "best" over rolled-out arms is a **CLASS
-  statement** — any consumer collapsing it to one index must show the
-  collapse is behavior-neutral (the "unreachable" evalset positives
-  were exact-index scoring on margin-tied arms,
-  [ADR-0082](decisions/ADR-0082-payment-evalset-repair.md)).
-- **`sa_vocab` is pinned — never regenerate in place**
-  ([ADR-0012](decisions/ADR-0012-d2-d3-closeout.md)); obs sv eras never
-  mix (strict reader gate, [ADR-0068](decisions/ADR-0068-m9-boundary-bundle.md)).
-- **Never read a bridge answer field without checking `fallback`
-  first**; eval runs keep census+obs on; zero-error validation is the
-  corpus-launch gate ([ADR-0009](decisions/ADR-0009-m1-closeout.md)).
-- **BC is finished as a strength program** (the pre-RL scope rule,
-  [ADR-0012](decisions/ADR-0012-d2-d3-closeout.md)).
-- Milestone close includes the **stale-data deletion pass** (inventory
-  → reference-grep → kill list → user sign-off); drills.jsonl dirs,
-  ckpts of record, selection/evalset assets, baseline arm stores, and
-  Ante certs are unconditional keeps (CLAUDE.md's session wrap-up checklist).
-- Standing hazards: the playable build shares Forge's user deck store
-  with research (`launch --pool` hash-gates it); **never check out
-  `playable` in the research worktree**; pool selection rides
-  `data/pool/CURRENT`, never mtime.
-- **Replay parity of a SAMPLED mainline is bounded by serving jitter (~20% of games flip a
-  near-tied pick under micro-batch composition)**: replay instruments pair within-run (CRN) and
-  budget cross-run divergence, never assume it ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
-
-- **Readers over fork/trajectory stores STREAM one game (or one window's completions) at a time
-  and keep floats only; big reads/ingests launch under a cgroup cap** (`systemd-run --user --scope
-  -p MemoryMax=…`) — decoded obs are ~10× raw JSON in Python objects; a retained-trajectory read
-  of 96K completions hit 51.6 GB and OOM-killed the desktop session 2026-09-06
-  ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
-- **Every detached run launches through `uv run python -m anvil.runs launch --name <run> --dir <dir> -- <cmd>`** (ADR-0107): the launcher's supervisor detaches, records done / failed with the log tail, ticks its own stall check on the artifact dir and queues an alert on every transition; the launch message is its one coverage line and a session never claims coverage it did not arm. A chain's `fail()` is `exit 1`; nothing new registers with the watcher or notifies itself. The check-in task drains the queue to the phone and the supervising session; it is enabled at launch and named in the launch message, disabled when the last run lands (user, 09-15). **Amended 10-03 (ADR-0107 addendum): the launch passes `--launched-by '<name> [<ref>]'` as ListAgents prints the session to itself (peers list a titled session by its title; the ref is the handle, 10-04); the check-in relays the run's events to that session alone while it is live (fallback: any live anvil session), and every relay says the launcher owns the close. A run event delivered by the check-in is informational unless you launched the run — before writing any close, read the state file's `launched_by` and `git log -3` on main; one record per event, merged toward the launcher's.** **Amended 09-18 (ADR-0107 addendum): the supervisor answers its own alerts with an event-driven headless `claude -p` check-in; the coverage line names the check-in consumer (a failed self-test = `NONE`, loud); chains whose arms write outside their dir launch with `--watch`; `anvil.runs sweep` on a timer catches dead supervisors; the launching session still arms its own background wait.**
-- **A horizon calibration's outcome arm runs under an independent roll salt** (ADR-0106 addendum 09-15): under common random numbers the deeper leaf's copy and the end copy of the same roll share their first turns, so the deeper leaf's agreement with the outcome is optimistic by construction (h2's flips +0.022 ± 0.008 under CRN → +0.010 ± 0.010 salted). `-searchrollsalt <long>` on the outcome arm; the rate draw stays unsalted so the arms join per window.
-
-- **A surface's hook site is verified by the census counts before the hook lands** — the engine's controller callback API is where a human decides; the AI decides inside its own logic (`doTrigger` targets its triggers, never `chooseTargetsFor`), and a hook on the wrong site records nothing while looking complete: count the census rows on the candidate sites in a smoke first ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
-- **An ability table crosses an engine boundary by extension, never a rebuild** — base rows byte-identical (row indices kept), only the new keys embedded under a revision check, dropped keys kept for the banked stores; an older build serves the superset through `bridge.server --abilities` so a paired read's reference arm carries no OOV confound ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
-
-- **A distillation that shapes a subset of windows anchors the rest to the teacher** — the first offline search re-warm shaped the 7% acted windows and nothing held the other 93%: the shared heads generalized freely (a pass-happy policy, −47 pp); below the acting bar the rule plays the current policy, so the teacher's distribution is the target there ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
-- **A trainer's join reports its match rate before its first fit** — the same re-warm matched 12.5% of its search rows to their records (contiguous searched-option indices vs the mask, truncated labels) and trained two plausible-looking models on the mana-free slice ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
-- **The search values only what the decoder can plan — the void class is a coverage bound, not a copy-fidelity artifact** — a first-ply candidate whose forced ask the realizer vetoes (or the model passes despite the mask) is never valued, so the acting rule can never pick it: 35.8% of first-ply copies on `b4-tgtlab` (43.8% of spells, 33.7% of abilities, 1.1% of lands), 98% `no_shape_fit`; a searched arm's census-level veto rate counts the copies' forced asks (the banked 14% of ADR-0112 was this, not the mainline's). Read the void class by reason (`vr`) before sizing an arm; the void-rescue read priced it: the heuristic's own planner refuses 91% of the void class, the rescued 9% reads −0.015 vs the best valued candidate, a rescue clears the bar on 0.8% of searched windows — ≈ 29% of options by count, ≈ 3% by playability, worth less than the valued set; the loop's PG on the decoder's own casts is the route, no offline machinery ([ADR-0114](decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md)).
+- **A convention is checked through the model's row space, not by label↔decode agreement.** Every head with a player or seat reference gets a permutation test over the whole path: swap the registered seats, and the decoded engine object must be the same object ([ADR-0116](decisions/ADR-0116-player-target-positions.md)).
+- **Every read reports the target-sanity row**, the model's self-target rate beside the heuristic's in the same games. A checkpoint records its label conventions and a loader refuses a mismatch ([ADR-0116](decisions/ADR-0116-player-target-positions.md)).
+- **A format addition edits the vocab row and the feature column and nothing else.** Every asset and checkpoint reads through `transform.globals_layout`, the change lands with the identity test green, and the first data in the format is the boundary event ([ADR-0120](decisions/ADR-0120-constructed-model-row.md)).
+- **A chance event that voids knowledge the ledger tracks is a stream record, not an inference.** The shuffle is a store-frame mark from the engine's own event, and the ledger cleanses its poison, tuck and seen state on it ([ADR-0121](decisions/ADR-0121-shuffle-mark.md)).
+- **A legality mask on a learned pointer is proven on a corpus before it serves**: every expert-chosen label inside the mask, the bar zero. An option the engine cannot enumerate faithfully is declared unmasked, never given a wrong set ([ADR-0122](decisions/ADR-0122-union-target-mask.md)).
+- **Replaying a model-generated store requires the generating run's trajectory-perturbing flags and its serve config** (checkpoint, sampled, temperature), both from its `run.json`. Parity is witnessed by an obs decision-stream comparison, never argued (`sched_mint.py parity`; [ADR-0088](decisions/ADR-0088-grounded-driver.md)).
+- **Stores with overlapping game-index ranges never replay concurrently against one carry-stateful server.** The serve carry is keyed (game, seat), so phase by store until the carry is channel-keyed ([ADR-0088](decisions/ADR-0088-grounded-driver.md) addendum).
+- **Every input to the serve path is replay-stable, and the obs seq is a serve input.** Machinery that adds or removes obs records relative to generation shifts the policy, not just bookkeeping ([ADR-0089](decisions/ADR-0089-mint-replay-integrity.md)).
+- **A bridged JVM leaks one game graph per game unless `AiCache` is cleared between games, so chunk recycling is load-bearing.** Never run a bridged JVM unbounded without one or the other ([ADR-0078](decisions/ADR-0078-m10-ceiling-measurement.md)).
+- **Every Anvil-side scan or test that touches engine code runs on a throwaway RNG** (`AnvilOptions.withScratchRng`), because Forge's legality and payability helpers draw from the game RNG. `scripts/obs_diff.py` is the witness ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md) addendum).
+- **Engine upgrades are dataset-boundary events.** The behavior-identical exemption is proven empirically (same seeds, identical forkcheck trace hashes), never argued; `forkcheck` at the BC certification checkpoint is the bump gate ([ADR-0025](decisions/ADR-0025-d4-rebase-closeout.md)).
+- **An engine bump lands as a merge with a pre-merge tag, never a rebase.** The fork's tip hashes are cited by run headers, ADRs and forkcheck records and must stay resolvable ([ADR-0110](decisions/ADR-0110-m12-upstream-merge-20260916.md)).
+- **Every pre-boundary number is old-scale.** Never compare winrates across eras, and compare generation times across eras only at identical chunking ([ADR-0025](decisions/ADR-0025-d4-rebase-closeout.md), [ADR-0033](decisions/ADR-0033-m4-closeout.md)).
+- An enumerator's **unit of exclusivity is the unit the executor consumes** ([ADR-0066](decisions/ADR-0066-certify-salvage-host-exclusivity.md)). A certified "best" over rolled-out arms is a class statement, and a consumer collapsing it to one index shows the collapse is behavior-neutral ([ADR-0082](decisions/ADR-0082-payment-evalset-repair.md)).
+- **`sa_vocab` is pinned and never regenerated in place** ([ADR-0012](decisions/ADR-0012-d2-d3-closeout.md)). Obs schema eras never mix; the reader gate is strict ([ADR-0068](decisions/ADR-0068-m9-boundary-bundle.md)).
+- **Never read a bridge answer field without checking `fallback` first.** Eval runs keep census and obs on, and zero-error validation is the corpus-launch gate ([ADR-0009](decisions/ADR-0009-m1-closeout.md)).
+- **BC is finished as a strength program** ([ADR-0012](decisions/ADR-0012-d2-d3-closeout.md)).
+- Milestone close includes the **stale-data deletion pass**; its steps and its unconditional keeps are in CLAUDE.md's session wrap-up checklist.
+- Standing hazards: the playable build shares Forge's user deck store with research (`launch --pool` hash-gates it). **Never check out `playable` in the research worktree.** Pool selection rides `data/pool/CURRENT`, never mtime.
+- **Replay parity of a sampled mainline is bounded by serving jitter.** Replay instruments pair within-run and budget cross-run divergence, never assume it ([ADR-0096](decisions/ADR-0096-m10-closeout.md)).
+- **Readers over fork and trajectory stores stream one game, or one window's completions, at a time and keep floats only.** Big reads and ingests launch under a cgroup cap (`systemd-run --user --scope -p MemoryMax=…`) ([ADR-0098](decisions/ADR-0098-build0-critic-lookahead-read.md)).
+- **Every detached run launches through `uv run python -m anvil.runs launch --name <run> --dir <dir> --launched-by '<name> [<ref>]' -- <cmd>`.** Its coverage line is the only coverage a session claims, and chains whose arms write elsewhere add `--watch`. The launching session owns the close and arms its own background wait. A relayed event for a run you did not launch is informational: read the state file's `launched_by` and `git log -3` before writing, one record per event ([ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md) and addenda).
+- **A horizon calibration's outcome arm runs under an independent roll salt** (`-searchrollsalt`), because under common random numbers the deeper leaf's agreement with the outcome is optimistic by construction. The rate draw stays unsalted so the arms join per window ([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md) addendum).
+- **A surface's hook site is verified by the census counts before the hook lands.** The AI decides inside its own logic, not at the controller callback, and a hook on the wrong site records nothing while looking complete ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
+- **An ability table crosses an engine boundary by extension, never a rebuild**: base rows byte-identical, new keys embedded under a revision check, dropped keys kept. An older build serves the superset through `bridge.server --abilities`, so a reference arm carries no OOV confound ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
+- **A distillation that shapes a subset of windows anchors the rest to the teacher**, or the shared heads generalize freely on the unshaped windows ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
+- **A trainer's join reports its match rate before its first fit** ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)).
+- **The search values only what the decoder can plan, so the void class is a coverage bound, not a copy-fidelity artifact.** Read the void class by reason (`vr`) before sizing an arm. The route to it is the loop's policy gradient on the decoder's own casts, with no offline rescue ([ADR-0114](decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md)).
 
 ## Scoping and routing
 
-- **Measuring a ceiling is not evidence a route can learn it**: a label route funds its mint only
-  after a learnability read at ~10³ windows clears a pre-registered bar ABOVE a trivial prior on
-  the same holdout (arm length 0.15, the auto-correct sign prior 0.42 — ADR-0099)
-  ([ADR-0100](decisions/ADR-0100-m11-closeout.md)).
-- **Plan-type (composite) option quality is not regressible from the pre-action state at harvest
-  scale** — three head shapes, two targets, both trunk modes; a future plan-type surface shows a
-  within-window ranking above a length prior before a training run funds it
-  ([ADR-0099](decisions/ADR-0099-build1-scorer-kill.md), [ADR-0100](decisions/ADR-0100-m11-closeout.md)).
-- **Every deferral is routed BY NAME** at the next scoping session and
-  the closeout ADR — scheduled, or re-deferred with a recorded reason;
-  silent loss is not an outcome (the payment-queue rule, m9-plan;
-  executed at [ADR-0077](decisions/ADR-0077-m9-closeout.md)).
-- **Capabilities over heuristic fallback** (user default): keep/add
-  model capabilities unless dramatically weaker — the
-  compounding-surface hypothesis (plan × payment).
-- **Promote on cleared gate** (user default) unless the run itself is
-  suspect.
-- Content breadth scales in set-sized dataset-boundary chunks after
-  core features ([ADR-0018](decisions/ADR-0018-ruleset-scope-clarification.md)
-  recipe-first).
-- **Every store row carries an explicit format id and pool id**, and a new format onboards by
-  the recipe doc ([format-onboarding.md](design/format-onboarding.md); the [quickstart](design/quickstart-custom-pool.md) is its Constructed instance) as one boundary event — extends the
-  content-in-chunks rule to formats
-  ([ADR-0101 addendum](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **One decision MECHANISM per milestone; surfaces attribute through
-  per-tag reads** (the certifier's per-tag spreads + the paired read with
-  the mask closed per tag) — amends design-doc §3d′'s "one decision
-  surface per milestone", which still binds any surface lacking its own
-  per-tag read ([ADR-0097](decisions/ADR-0097-m11-charter-adjudication.md)).
-- **Design forks lead with the simpler, more coherent architecture and
-  price its extra data/compute honestly** (user principle, stated at the
-  M10 reset), **and a build is staged around its cheapest decisive read**
-  (the day-zero read needed a third of the build)
-  ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
+- **Measuring a ceiling is not evidence a route can learn it.** A label route funds its mint only after a learnability read at about 10³ windows clears a pre-registered bar above a trivial prior on the same holdout ([ADR-0100](decisions/ADR-0100-m11-closeout.md)).
+- **Plan-type (composite) option quality is not regressible from the pre-action state at harvest scale.** A future plan-type surface shows a within-window ranking above a length prior before a training run funds it ([ADR-0099](decisions/ADR-0099-build1-scorer-kill.md), [ADR-0100](decisions/ADR-0100-m11-closeout.md)).
+- **Every deferral is routed by name** at the next scoping session and the closeout ADR: scheduled, or re-deferred with a recorded reason, never silently lost ([ADR-0077](decisions/ADR-0077-m9-closeout.md)).
+- **Capabilities over heuristic fallback** (user default): keep or add model capabilities unless dramatically weaker, on the compounding-surface hypothesis.
+- **Promote on cleared gate** (user default) unless the run itself is suspect.
+- Content breadth scales in set-sized dataset-boundary chunks after core features, recipe first ([ADR-0018](decisions/ADR-0018-ruleset-scope-clarification.md)).
+- **Every store row carries an explicit format id and pool id.** A new format onboards by [format-onboarding.md](design/format-onboarding.md) as one boundary event; the [quickstart](design/quickstart-custom-pool.md) is its Constructed instance ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md) addendum).
+- **One decision mechanism per milestone; surfaces attribute through per-tag reads.** The design doc's "one decision surface per milestone" still binds any surface without its own per-tag read ([ADR-0097](decisions/ADR-0097-m11-charter-adjudication.md)).
+- **Design forks lead with the simpler, more coherent architecture and price its extra data and compute honestly** (user principle). A build is staged around its cheapest decisive read ([ADR-0094](decisions/ADR-0094-m10-reset.md)).
 
 ## Search, budgets, and run sizing
 
-- **An arm's box time is the driver's accumulated wall (`selfplay.py --wall-hours`), never its game
-  count; a paused arm resumes its budget** — the shakedown's equal-box-time arms are sized in hours, the
-  arm's games are what the shape bought ([ADR-0115](decisions/ADR-0115-m12-shakedown-scoping.md)).
-- **A deliberate stop is `anvil.runs pause`, a return `relaunch`; a long run launches with
-  `--resume-on-gone`**; a job idle on purpose (a GPU yield, a VRAM park) heartbeats the run dir — the
-  stall alarm and the FAILED push are for what went wrong, not for what was asked
-  ([ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md) addendum 09-21).
-- **A long run is segmented by its wall budget, never by chained loops** — one loop, one state file,
-  one replay window, one drift series; launched with `--wall-hours` for the first segment, the loop's own
-  wall stop is the review point, the chain's reads run there, and the next segment is the same command
-  relaunched with the budget raised (a fresh loop per segment thins the mixture for its first iterations
-  and restarts the series the kill rule reads) ([ADR-0123](decisions/ADR-0123-big-run-launch.md)).
-
-- **Size every run to its effect**: a power statement (games needed to detect the target,
-  games needed to produce it) precedes every launch; a gate that cannot resolve the effect it
-  seeks is a null generator, not a measurement
-  ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **The natural line is always in the searched option set**; under a margin-gated acting rule a
-  surface cannot be dramatically worse than its fallback, so search-acted surfaces bundle
-  without per-surface attribution (amends the ADR-0097 one-mechanism rule for search-acted
-  surfaces only) ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **Search budgets are in evaluations during training, never wall-clock**; a per-device
-  calibration map converts at deployment; the model never sees the clock
-  ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **A gated search keeps a uniform exploration floor**, and its pivotality labels are the
-  search's own margins, era-scoped and regenerated per cycle (the §3d self-sealing hazard)
-  ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **An identity gate on a served arm runs ONE worker** — under bf16 autocast the micro-batch composition flips near-tie argmax picks (13/120 games diverged on identical masks at 8 workers; 0/32 at one), so a multi-worker obs-diff cannot separate a code change from serve nondeterminism. The memo gate, m12-plan record 2026-09-14.
-- **A search run's load is part of its recipe** — workers × servers pinned per run and kept under the core ceiling (24 workers on the 32-core box; 32 runs games 2.5× slower) and under the GPU's process count (a fourth server costs −11%: forward latency +35% from time-sharing); N servers = ceil(workers / 12) (a server at 12 workers is not binding, at 16 it is). Served runs are NOT seed-reproducible across fleet configurations (bf16 micro-batch composition moves the logits; the same 64 seeds gave 4,590–5,441 search windows across the 24-worker cells) — a paired read pins its fleet on both arms. The fleet bench, m12-plan record 2026-09-14.
-- **Search recipes are compared at EQUAL BOX TIME, never equal games, and the read is the
-  network-alone gain per box-hour** — the training-signal question (which shape teaches most per
-  hour); fork F's two-budget read on a fixed checkpoint is the serving-budget question and does
-  not answer it; "no detectable difference" is itself the decision (the cheaper arm)
-  ([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
-- **Every search cost is priced per game against generation rate**; throughput is the binding
-  constraint until measured otherwise
-  ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **A served surface answer is realized with everything the heuristic's answer bundles** — read
-  the engine's realization path for what the heuristic decides jointly (a mode's targets at cast)
-  before serving the callback alone; where the bundle cannot be served, the search copy plays the
-  pair and the leaf judges it (the mode head: −7.3 ± 3.2 in single-mode games mode-only, gone
-  behind the playability gate; mainline surface acting is the principled form)
-  ([ADR-0108](decisions/ADR-0108-m12-build3-closeout.md)).
-- **Surface coverage closes before a big run, not after** — a decision family the heuristic still
-  owns at launch gets no behavior logp, no policy gradient and no lookahead for the run's whole
-  envelope; the pre-launch audit = the engine's decision API vs the bridged tags + hooks, and the
-  search's own waste on a bench cell's rows ([ADR-0109](decisions/ADR-0109-prelaunch-completeness-audit.md)).
-- **A search shape's per-copy price is MEASURED on the calibration arms before its arm is
-  sized; assumed multipliers do not size arms** — an h2 copy is ≈ 10× a next copy in wall and
-  ≈ 13× in forward calls (the 09-15 calibration arms + the deep smoke), not the 3× C2 assumed;
-  the deep arm's shape (a natural-margin band gate + a floor) follows from the price
-  ([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md) C3 addendum).
-- **The mask's legality predicate is the executor's apply-time predicate** — filter and
-  adjudicator agree by construction; residual veto classes are counted by name, never absorbed
-  by a penalty or a guard ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).
-- **An ability's identity in the observation is its canonical engine text, keyed by hash** —
-  the script parameters + description the fork emits (`ak` on every ability-bearing option and
-  answer; `AnvilRun -abilities` for the pool), never a display render; every consumer of ability
-  text (priority candidates, surface options, stack entries) reads ONE shared table
-  ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
-- **An ability's key is a function of its STATIC canonical text — runtime state never enters it**
-  (a trigger's run-parameter dump, a granted or copied ability's source attribution: 10,325
-  one-off keys in 1,000 games before `AbilityKey.stripRuntime`); the proof of any change to the
-  key function is the byte-identical pool re-dump (5,148 keys, the same set), so every `ak` in
-  every store stays valid ([ADR-0105 addendum 09-08](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
-- **A probe on the game path is game-neutral — RNG AND engine memory**: the payment window's
-  auto-payability test (`ComputerUtilMana.canPayManaCost` in test mode) drew the game RNG per
-  candidate source and cleared / wrote the AI's mana-reservation sets on every bridged window
-  before the real payment; a bridged seat answering auto everywhere lost ≈ 2.7pp (three reads);
-  every enumeration / legality / payability probe runs under `AnvilOptions.withScratchRng` and
-  restores what it can touch (`PlayerControllerAnvil.quietProbe`), and a served-vs-withheld read
-  proves it before a head is read through it ([ADR-0105 addendum 09-09](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
-- **A search copy is determinized to the acting seat's information set**: hidden zones are
-  resampled, never carried true, and the sampler is a named teacher setting in the store's
-  provenance; a value computed on a true-hand copy leaks regardless of channel width
-  ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).
-- **A big run is preceded by a shakedown run of the same loop shape** (~10% of its size, every
-  flag on) that tests the training settings under the new label mix and supplies the
-  learning-curve slope for the power statement's "games to produce" line
-  ([ADR-0101 addendum](decisions/ADR-0101-architecture-review-m12-recharter.md)).
-- **An allocation gate's ask is a server ask on the value wire, declined without a fit record** —
-  the search's allocation (`-searchalloc tau -searchfloor f`) is the head's probability against a
-  threshold plus a uniform floor drawn from its own seeded stream (the rate draw and the arms
-  still join per window); no default rate is baked into the engine, and an unfitted head never
-  allocates (the worker searches at its uniform rate, `by: unserved`)
-  ([ADR-0112](decisions/ADR-0112-m12-build4-allocation-head-served.md)).
-- **An acted window's training record is the search's, merged from the engine's two records** —
-  the natural ask (the policy's sample, `ret` set though never played) and the forced re-ask
-  (`by: search`, the pass masked) become ONE window: the full option set, the choice = the acted
-  candidate, its behavior probability = the search's mass on it, the plan factors from the forced
-  record; the forced dec and the re-ask chain are dropped, and a window whose record cannot be
-  built is dropped, never trained under the policy's own mu (the pre-wiring loader mislabeled
-  every acted window) ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
-- **Drift guards and the mu tripwire read un-acted windows only** on a searched store — on acted
-  windows the policy and the behavior differ by design; the acted windows' fraction, ratio and KL
-  are their own telemetry series ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
-- **The allocation head's tau is re-derived every cycle on the searched windows weighted to
-  the population** (a floor window stands for 1 / floor rejected windows, a head window for
-  itself) under the trained head at the recall target, and written into the checkpoint's fit
-  record — a fixed tau on a moving head has no meaning; the floor's windows alone are NOT an
-  unbiased sample (the floor draws only among head-rejected windows, so the old tau's recall
-  reads 0 on them by construction) ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
-- **The trainer reconstructs every serve-side carry the server activates for the serving
-  checkpoint** — the server switches a carry on by the params' presence (the M10 schedule carry,
-  the D6 plan carry); a loop launched without the matching loader flag rebuilds different windows
-  than were served and the recorded behavior log-probabilities stop being the network's (09-18:
-  2.3% of priority windows > 0.2 nats off, the tripwire dropping trajectories). The driver probes
-  the checkpoint (`--sched-carry auto`); the sampled serve path is smoked whenever a serve tag or
-  carry lands ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md) addendum).
+- **An arm's box time is the driver's accumulated wall (`selfplay.py --wall-hours`), never its game count.** A paused arm resumes its budget ([ADR-0115](decisions/ADR-0115-m12-shakedown-scoping.md)).
+- **A deliberate stop is `anvil.runs pause`, a return `relaunch`, and a long run launches with `--resume-on-gone`.** A job idle on purpose heartbeats the run dir, so the stall alarm and the failed push stay for what went wrong ([ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md) addendum).
+- **A long run is segmented by its wall budget, never by chained loops**: one loop, one state file, one replay window, one drift series. The loop's wall stop is the review point, and the next segment is the same command relaunched with the budget raised ([ADR-0123](decisions/ADR-0123-big-run-launch.md)).
+- **Size every run to its effect.** A power statement (games to detect the target, games to produce it) precedes every launch; a gate that cannot resolve its effect is a null generator ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **The natural line is always in the searched option set.** Under a margin-gated acting rule a surface cannot be dramatically worse than its fallback, so search-acted surfaces bundle without per-surface attribution; this amends the one-mechanism rule for them only ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **Search budgets are in evaluations during training, never wall-clock.** A per-device calibration map converts at deployment, and the model never sees the clock ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **A gated search keeps a uniform exploration floor.** Its pivotality labels are the search's own margins, era-scoped and regenerated per cycle ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **An identity gate on a served arm runs one worker.** Under bf16 autocast the micro-batch composition flips near-tie argmax picks, so a multi-worker obs-diff cannot separate a code change from serve nondeterminism ([running record](design/m12-running-record.md), 2026-09-14).
+- **A search run's load is part of its recipe.** Workers × servers are pinned per run, under the core ceiling (24 workers on the 32-core box) and one server per 12 workers. Served runs are not seed-reproducible across fleet configurations, so a paired read pins its fleet on both arms ([running record](design/m12-running-record.md), 2026-09-14).
+- **Search recipes are compared at equal box time, never equal games, and the read is the network-alone gain per box-hour.** A two-budget read on a fixed checkpoint answers the serving-budget question instead. "No detectable difference" is itself the decision: the cheaper arm ([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
+- **Every search cost is priced per game against generation rate.** Throughput is the binding constraint until measured otherwise ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).
+- **A served surface answer is realized with everything the heuristic's answer bundles.** Read the engine's realization path for what the heuristic decides jointly before serving the callback alone; where the bundle cannot be served, the search copy plays the pair and the leaf judges it ([ADR-0108](decisions/ADR-0108-m12-build3-closeout.md)).
+- **Surface coverage closes before a big run, not after.** A decision family the heuristic still owns at launch gets no policy gradient and no lookahead for the whole run; the pre-launch audit sets the engine's decision API against the bridged tags and hooks ([ADR-0109](decisions/ADR-0109-prelaunch-completeness-audit.md)).
+- **A search shape's per-copy price is measured on the calibration arms before its arm is sized.** Assumed multipliers do not size arms ([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md) C3 addendum).
+- **The mask's legality predicate is the executor's apply-time predicate.** Residual veto classes are counted by name, never absorbed by a penalty or a guard ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).
+- **An ability's identity in the observation is its canonical engine text, keyed by hash** (`ak`), never a display render. Every consumer of ability text reads one shared table ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)).
+- **An ability's key is a function of its static canonical text; runtime state never enters it.** The proof of any change to the key function is the byte-identical pool re-dump ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md) addendum).
+- **A probe on the game path is game-neutral in RNG and in engine memory.** Every enumeration, legality or payability probe runs under `withScratchRng` and restores what it can touch (`quietProbe`), and a served-vs-withheld read proves it before a head is read through it ([ADR-0105](decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md) addendum).
+- **A search copy is determinized to the acting seat's information set.** Hidden zones are resampled, never carried true, and the sampler is a named teacher setting in the store's provenance ([ADR-0102](decisions/ADR-0102-m12-build0-pins.md)).
+- **A big run is preceded by a shakedown run of the same loop shape**, about 10% of its size with every flag on. It tests the training settings and supplies the slope for the power statement's "games to produce" line ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md) addendum).
+- **An allocation gate's ask is a server ask on the value wire, declined without a fit record.** No default rate is baked into the engine, and an unfitted head never allocates: the worker searches at its uniform rate ([ADR-0112](decisions/ADR-0112-m12-build4-allocation-head-served.md)).
+- **An acted window's training record is the search's, merged from the engine's two records**: the full option set, the acted candidate as the choice, the search's mass on it as the behavior probability. A window whose record cannot be built is dropped, never trained under the policy's own mu ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
+- **Drift guards and the mu tripwire read un-acted windows only** on a searched store. The acted windows' fraction, ratio and KL are their own telemetry series ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
+- **The allocation head's tau is re-derived every cycle on the searched windows weighted to the population**, and written into the checkpoint's fit record. The floor's windows alone are not an unbiased sample ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
+- **The trainer reconstructs every serve-side carry the server activates for the serving checkpoint**; the driver probes the checkpoint (`--sched-carry auto`). The sampled serve path is smoked whenever a serve tag or carry lands ([ADR-0113](decisions/ADR-0113-m12-loop-wiring.md) addendum).

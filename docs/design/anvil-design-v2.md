@@ -63,139 +63,66 @@ Engine auto-payment as the default action; policy override via a payment-choice 
 
 ### 3d′ (ledger). Decision-surface coverage — what the model cannot yet answer
 
-*(Added 2026-08-19 at the M9 D2a session. Motivation: §3c's veto account
-proved an interface exclusion can masquerade as a training-signal problem
-for three milestones. This ledger names every decision family the engine
-asks that the model cannot currently answer, so each future expansion is a
-routing decision, not a rediscovery. Traffic = DC-pool census,
-`data/census/run-20260704-dcpool`.)*
+This ledger names every decision family the engine asks and who answers it.
+An interface exclusion can pass for a training-signal problem (§3c's veto
+account), so each expansion is a routing decision made from this table, not a
+rediscovery. Traffic is per game on the DC-pool census
+(`data/census/run-20260704-dcpool`). The history of each row is in the ADR its
+last column names; the audit that fixed the list is
+[ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md).
 
-**Model-decided today** (re-audited 2026-09-16, [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md)):
-priority CastPlans (targets/X/optional costs/card faces inside the candidate
-set), mulligan *keep* and *tuck*, optional-trigger yes/no, binary/number
-one-fielders, attackers/blockers (M2 D5 constructs), and — M12 Build 3
-([ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md)) — entity picks
-(tutor/fetch/discard/sacrifice/destroy/zone change/spell picks), modes
-(behind the playability gate), trigger ordering, library ordering
-(scry/surveil/move-to-zone), combat damage; 14 bridged tags; and — M12 Build 4
-([ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)) —
-**targets chosen outside a cast** (the AI's own trigger preparation,
-`preparedTrigger` + `playTriggerTargets`), after which the mode playability
-gate RETIRED (nogate − off −1.19 ± 1.29, noise). Served set of record (09-21):
-entity one + set, mode (ungated), order, damage, target, mulligan tuck, from
-`m12-build4-e1a-tgt`. Payment composition is trained and withheld — five
-served heads, five negatives within one SE of the leaf's own prediction; its
-serve routes to the loop's PG (item 1). **Search lookahead covers only the
-acting seat's quiescent main-phase windows** (a copier-fidelity boundary, not
-a deferral); the search values only what the decoder can plan — the void
-class (≈ 29% of first-ply candidates by count, ≈ 3% by playability) is the
-decoder's coverage bound, closed on the number at
-[ADR-0114](../decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md). How the
-search works: §3e.
+**Coverage** (as of 2026-11-16, the M12 close; the served build is in CLAUDE.md's state table):
 
-**0. Targets chosen outside a cast** (`chooseTargetsFor`, `chooseNewTargetsFor`,
-`chooseTarget` — triggered-ability targets, re-targeting; not traced, no
-hook; every targeted ETB/death trigger) — was the largest deferral left after
-Build 3 and the mode head's own mechanism (a model-chosen mode aimed by the
-heuristic at cast). **LANDED at M12 Build 4 (09-16,
-[ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)):**
-the real site is the AI's own trigger preparation (47 `playTrigger` vs 3
-`chooseTargetsFor` per 4 games), hooked at `PlayerControllerAi.preparedTrigger`;
-the target decoder serves it (pooled 0.512 on `b4-tgtlab`); the player-position
-convention corrected at both ends the same week
-([ADR-0116](../decisions/ADR-0116-player-target-positions.md): self-first turn
-order, pinned in every checkpoint, the whole-path permutation test).
+| Surface (engine callbacks) | Traffic | Answered by | Record |
+|---|---|---|---|
+| Priority: cast, activate or pass, with cast-time targets, X, optional costs and card faces | every window | **Model** — the CastPlan decoder; targets point only inside each option's legal-target union | [ADR-0122](../decisions/ADR-0122-union-target-mask.md), [ADR-0116](../decisions/ADR-0116-player-target-positions.md) |
+| Attackers and blockers | — | **Model** | [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md) (audit) |
+| Mulligan keep | — | **Model** | [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md) (audit) |
+| Mulligan bottoming (`tuckCardsViaMulligan`) | — | **Model** — `mtg.mulligan_tuck` | [ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md) |
+| Optional-trigger yes/no; the binary and number one-fielders | — | **Model** | [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md) (audit) |
+| Mid-resolution object choices: tutor and fetch targets, discard, sacrifice, destroy, zone-change and spell picks (`chooseSingleEntityForEffect`, `chooseCardsForEffect`, `chooseCardsToDiscard`, …) | — | **Model** — the entity-one and entity-set surfaces of the option-set decoder | [ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md), [ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md) |
+| Modal choice (`chooseModeForAbility`) | — | **Model** — the mode surface, served without the playability gate | [ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md), [ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md) (09-16 addendum) |
+| Trigger ordering (`orderSimultaneousSa`, `orderAndPlay…`) | ~12.6/g, every game | **Model** — the order surface, fit by imitation | [ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md) |
+| Library ordering (scry, surveil, `orderMoveToZoneList`) | — | **Model** — scry and surveil on the entity-set surface, move-to-zone on the order surface | [ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md) |
+| Combat damage assignment | — | **Model** — the damage surface, fit by imitation | [ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md) |
+| Targets chosen outside a cast: the AI's own trigger preparation (`preparedTrigger`, `playTriggerTargets`) | ~22/g (a 4-game smoke) | **Model** — the target surface | [ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md), [ADR-0116](../decisions/ADR-0116-player-target-positions.md) |
+| Targets through the generic choosers (`chooseTargetsFor`, `chooseNewTargetsFor`, `chooseTarget`) and divided-amount targeting | under 1/g (the same smoke) | Not established for the generic choosers — see [ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md) decision 5. **Heuristic** for divided amounts (no window is opened) | [ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md) |
+| Payment composition (`payManaCost` 189/g: ~73/g mana-ability and nested windows, ~61/g cast and activation, ~54/g resolution effects; `chooseColor` ~17/g) | 189/g | **Heuristic** — the engine's auto-payer. A trained head is on file and withheld: five served heads read negative | [ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md) (addenda 09-09 to 09-11), [ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md); the M9 machinery, [ADR-0077](../decisions/ADR-0077-m9-closeout.md) |
+| Resolution-effect payments (`payManaCost` `effect=true`: pay or suffer during resolution) | ~54/g | **Heuristic** — the ceiling probed below the bar | [ADR-0080](../decisions/ADR-0080-m11-routing-probes.md) |
+| Cost-composition cousins (`chooseCardsForConvokeOrImprovise`, `chooseCardsToDelve`, `payCombatCost`) | ~28/g where live | **Heuristic** — enumeration and executor are built; withheld with the payment head | [ADR-0083](../decisions/ADR-0083-cousins-touch.md), [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md) |
+| Attention and stops (`autoPassCancel`; §3b) | ~39/g | **Heuristic** — learnable stops are unbuilt; a candidate for M13 | [ADR-0078](../decisions/ADR-0078-m10-ceiling-measurement.md), [ADR-0126](../decisions/ADR-0126-m12-closeout.md) (routing) |
+| Replacement and static ordering, counter type, type and color picks (`chooseSingleReplacementEffect`, `chooseSingleStaticAbility`, `chooseCounterType`) | 9.6/g, 9.1/g | **Heuristic** — enumerated, unserved | [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md) |
+| Open-vocabulary naming (`chooseCardName`) | — | **Heuristic** — needs a name-ranking answer and the belief head | [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md) |
+| The low-weight untraced class: card piles (`chooseCardsPile`), shield division, play or draw, opening-hand Leylines, the resolution-time confirms | — | **Heuristic** — not traced, unscheduled | [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md) |
+| Concession (§3d) | — | Neither — designed and gated, not built | [ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md) |
 
-**Excluded families, by strategic weight:**
+A dash in the traffic column means this ledger carries no census figure for the row.
 
-1. **Payment composition** (`payManaCost` 189/g total: ~73/g
-   mana-ability zero-mana/nested windows, ~61/g cast/activation
-   `effect=false` — the M9 v1 scope — ~54/g `effect=true`;
-   `chooseColor` ~17/g; re-measured 2026-08-19 at the D3 session) —
-   dork/color/chain residuals. **Built at M9 (§3c, [ADR-0077](../decisions/ADR-0077-m9-closeout.md)):
-   legality-derived enumeration + float-then-apply executor, carried as
-   infrastructure; the headroom is real (+2.96pp/g, ADR-0075) and not yet
-   converted into strength.** M12 Build 3 evening 4 built the payment
-   SURFACE (the pay slot's own expansion, the copy-side gate, the
-   end-of-turn / h2 leaf family, the h2 pool) and fit five heads; every
-   served head read negative within one SE of the pool's leaf arithmetic →
-   **the head is withheld and its serve routes to the loop's policy gradient**
-   ([ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)
-   addenda 09-09 → 09-11; [ADR-0108](../decisions/ADR-0108-m12-build3-closeout.md)).
-   The auto-payability probe on every bridged window cost ≈ 2.7pp until it was
-   made game-neutral (`quietProbe`) — every M12 network arm before 09-09 carried it.
-   1a. **Resolution-effect payments** (`payManaCost` `effect=true`,
-   ~54/g — pay-or-suffer during resolution, often opponent's turn) —
-   deferred OUT of M9 v1 (D3 pin 2026-08-19: zero contribution to the
-   veto-collapse read, different genre). Ceiling probed at
-   [ADR-0080](../decisions/ADR-0080-m11-routing-probes.md) (0.69pp/g,
-   below the bar; force-decline costs 2.5pp/window and the heuristic
-   already captures it) — RE-DEFERRED; the whether-to-pay confirm is a
-   separate callback already.
-2. **Mid-resolution object choices** (`chooseSingleEntityForEffect`,
-   `chooseCardsForEffect`, `chooseCardsToDiscard`, …) — tutor and fetch
-   targets, discard/sac picks. In a tutor-defined format this is the
-   largest excluded class by game impact: the model casts, the heuristic
-   resolves. Expansion shape: one generic entity-set answer over the
-   observation — the pointer decoder's native operation. Ceiling probed at
-   [ADR-0080](../decisions/ADR-0080-m11-routing-probes.md) (1.41pp/g, no
-   single-candidate policy beats the heuristic; residual value is
-   state-dependent selection) — RE-DEFERRED; **LANDED at M12 Build 3
-   evening 1 (entity one + set served, ADR-0105/0108).**
-3. **Attention/stops** (`autoPassCancel` ~39/g) — §3b; shelved on
-   ceiling grounds at M10 ([ADR-0078](../decisions/ADR-0078-m10-ceiling-measurement.md)),
-   in the M12 queue by name.
-4. **Cost-composition cousins** (`chooseCardsForConvokeOrImprovise`
-   ~28/g where live, `chooseCardsToDelve`, `payCombatCost`) — the same
-   residual logic as §3c payment classes (which creature taps, which
-   card leaves the graveyard). **Stance recorded (D3 pin 2026-08-19):
-   OUT of M9, graftable** — the §3c class abstraction is written as a
-   resource-commitment set so these attach without redesign; their
-   callbacks are already `SELECT_K` on the wire, so the deferred cost
-   is model-side only. LANDED at M10 R6
-   ([ADR-0083](../decisions/ADR-0083-cousins-touch.md), the cousins touch).
-5. **Trigger ordering** (`orderSimultaneousSa`/`orderAndPlay…` ~12.6/g,
-   100% of games) — ETB/death-trigger stacking. **LANDED at M12 Build 3
-   evening 3 (with combat damage assignment; imitation only).**
-6. **Modal choice** (`chooseModeForAbility`, both interception points) —
-   spec'd in the §3 preamble, cut at M1 rung 1; its absence is already
-   measured as the `no_shape_fit` veto family. **LANDED at M12 Build 3
-   evening 2 behind the playability gate** (mode-only vs the heuristic's joint
-   mode + target choice cost −7.3 ± 3.2 in single-mode games); **the gate
-   RETIRED at Build 4** once targets were served (ADR-0111 addendum; served
-   ungated from `m12-build4-e1`). Mode acting through the search
-   (`-searchactkinds mode`) fired 9 times in 600 games at bar 0.10 — nearly
-   inert, kept in the recipe.
-7. **Library ordering** (scry/surveil, `orderMoveToZoneList`) —
-   compounding card-selection edge. **LANDED at M12 Build 3 (scry rides
-   the set head; move-to-zone at evening 3).**
-8. **Replacement/static ordering + counter type**
-   (`chooseSingleReplacementEffect` 9.6/g, `chooseSingleStaticAbility`
-   9.1/g, `chooseCounterType`) — occasionally pivotal. Low priority.
-9. **Open-vocabulary naming** (`chooseCardName`) — Pithing-Needle class;
-   natural belief-head consumer; needs a name-ranking answer shape (the
-   encoder's card-embedding table already ranks names). Unscheduled.
-10. **Mulligan bottoming** (`tuckCardsViaMulligan`) — keep is
-    model-decided, tuck is not; cheap completion, needs a card-subset
-    answer. **LANDED at M12 Build 3 evening 2 (`mtg.mulligan_tuck`).**
-11. **Concession** — §3d, designed and gated, not yet built.
-12. **The low-weight untraced class** (2026-09-16 audit): card piles
-    (`chooseCardsPile`), shield division, play-or-draw, opening-hand
-    Leylines, the resolution-time confirms — after the big run.
+**Under the search** (§3e). Which windows are searched is itself a model head,
+`anvil.alloc` ([ADR-0112](../decisions/ADR-0112-m12-build4-allocation-head-served.md)).
+On a searched window the seat can act an (option, answer) pair for the
+entity-one, entity-set and mode surfaces
+([ADR-0106](../decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
+Payments are expanded for study and never acted. **Search lookahead covers
+only the acting seat's quiescent main-phase windows.** That is a
+copier-fidelity boundary, not a deferral: every other window is answered by
+the network alone. The search values only what the decoder can plan; a
+candidate it cannot plan is void, about 29% of first-ply candidates by count
+and 3% by playability
+([ADR-0114](../decisions/ADR-0114-m12-route-b-rescoped-void-rescue.md)).
 
 **Capability floors (representation, not decision windows):** choice-state
-obs emission ("as enters, choose" results — boundary-bundle rider,
-2026-08-19); the belief head (§4, machinery parked since M2);
-revealed-info memory beyond the `HISTORY_K` window.
+obs emission ("as enters, choose" results); the belief head (§4, parked
+since M2); revealed-info memory beyond the `HISTORY_K` window.
 
 **Standing rule:** every expansion follows the §3c template — probe the
 premise, build behind an engine capability audit, attribute with its own
-pre-registered read. One decision MECHANISM per milestone; surfaces attribute
-through per-tag reads (the certifier's per-tag spreads + the paired read with
-the mask closed per tag) — amended 2026-09-05 at
-[ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md); originally "one
-decision surface per milestone" (the M9 lesson: attribution dies at two), which
-still binds any surface lacking its own per-tag read.
+pre-registered read. One decision mechanism per milestone. Surfaces attribute
+through per-tag reads: the certifier's per-tag spreads and the paired read
+with the mask closed per tag
+([ADR-0097](../decisions/ADR-0097-m11-charter-adjudication.md)). A surface
+with no per-tag read of its own is still bound by "one decision surface per
+milestone" (the M9 lesson: attribution dies at two).
 
 ### 3e. Search as the behavior policy (M12; ADR-0101 → ADR-0118)
 
@@ -265,8 +192,10 @@ the rest), −7 to −9pp anchored, neutral at a third of the dose; the harm sca
 with the dose, so the loop's in-line distillation is the only route
 ([ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)
 addenda). A **network-alone** read is the promotion gate; the **with-lookahead**
-read is the deployment ceiling and the mid-run teaching-channel check (a
-lookahead curve that climbs while network-alone stays flat is the Build 5 kill).
+read is the deployment ceiling and the mid-run teaching-channel check. A
+lookahead curve that climbs while network-alone stays flat is the kill
+condition; it did not fire in the big run, where network-alone carried the gain
+([ADR-0126](../decisions/ADR-0126-m12-closeout.md)).
 
 **Measured.** Day-zero (Build 2): a masked-head lookahead is worth +2.5 ± 1.0pp to
 any policy, and heuristic + lookahead ≈ network + lookahead → "the value head
@@ -274,9 +203,13 @@ carries it". Post-Build-4: act − on +2.29 ± 1.02, alloc − on +2.70 ± 1.00.
 Multiplier: ≈ 1.75× forward calls / 2.1× wall at rate 1 (Build 2); the recipe
 arm 294–347 g/h on the 24-worker × 2-server fleet. **The value head under the
 loop drifts off rollout truth** (state-ranking Spearman 0.374 → 0.256 in 16
-iterations, both shakedown arms) — the fourth invariant's audit is now a
-per-iteration read and the settings pass opens with a value anchor
-([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)).
+iterations, both shakedown arms), so the fourth invariant's audit is a
+per-iteration read and the loop carries a value anchor
+([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md); §4).
+**At scale** the big run moved the network +9.46 ± 0.77pp paired over its era
+reference, network alone, and lookahead adds 3.2pp on top. No search-off arm
+exists at that scale, so the search's share of the gain is unattributed
+([ADR-0126](../decisions/ADR-0126-m12-closeout.md)).
 
 **What it is not.** Not MCTS: no tree, no visit counts, no backed-up statistics —
 one ply of options (plus the answer round on the chosen paths and the gated deep
@@ -293,7 +226,7 @@ free path is what mobile ships — §3a's expert-iteration channel realized).
 
 - **Asymmetric critic:** sees both hands/decklists in training; policy never does.
 - **Belief head:** posterior over opponent hand and decklist, initialized from the meta prior (population embedding), updated by evidence; **match-persistent** across sideboarding. Supervised free in self-play. Uncertainty doubles as Mentor's per-advice confidence. Caveat: the posterior inherits the self-play population prior — deployment against off-population decks degrades it; population breadth is the mitigation.
-- **Win probability** as sole reward-bearing target; auxiliary *predictions* only (life diff, card advantage, material, opponent hand, turns-to-end). *M12 (ADR-0101): the value head lives inside the shared trunk and is the search's leaf — the central asset. Built at Build 1 on K=8 rollout composites + the full-vis critic's leaf values (one-ply Spearman 0.28 → 0.39, state ranking 0.39; [ADR-0103](../decisions/ADR-0103-m12-build1-value-head-and-build3-enumerators.md)). Under the loop's V-trace outcome targets alone it drifts off rollout truth (0.374 → 0.256 in 16 shakedown iterations) → audited every iteration on the frozen state holdout (`value_pretrain eval`) and anchored to the rollout banks from the settings pass on ([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)). The anchor of record is head-only at weight 0.1 with the value gradient stopped at the trunk ([ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md)); a fixed bank is memorized within a run ([ADR-0124](../decisions/ADR-0124-anchor-bank-refresh.md)), and the proposed replacement is a truth stream from the loop's own games ([ADR-0125](../decisions/ADR-0125-value-head-track.md)).*
+- **Win probability** as sole reward-bearing target; auxiliary *predictions* only (life diff, card advantage, material, opponent hand, turns-to-end). *M12 ([ADR-0101](../decisions/ADR-0101-architecture-review-m12-recharter.md)): the value head lives inside the shared trunk and is the search's leaf. It is fit on K=8 rollout composites and the full-vis critic's leaf values ([ADR-0103](../decisions/ADR-0103-m12-build1-value-head-and-build3-enumerators.md)). Under the loop's V-trace outcome targets alone it drifts off rollout truth, so it is audited every iteration on the frozen state holdout (`value_pretrain eval`) and anchored to the rollout banks ([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)). The anchor of record is head-only at weight 0.1 with the value gradient stopped at the trunk ([ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md)). A fixed bank is memorized within a run ([ADR-0124](../decisions/ADR-0124-anchor-bank-refresh.md)). The value head is M12's weakest product: its holdout ranking did not improve over the big run ([ADR-0126](../decisions/ADR-0126-m12-closeout.md)). The proposed replacement is a truth stream from the loop's own games ([ADR-0125](../decisions/ADR-0125-value-head-track.md), status proposed).*
 - **Drill regime:** short-horizon rollout deltas as value targets, task-token flagged; drills capped as a fraction of value batches.
 
 ## 5. Tutor (deckbuilder head)
@@ -333,7 +266,7 @@ Set-transformer over the candidate pool (shared encoder), conditioned on deck-so
 
 **Expert-iteration regeneration:** advise heuristic games at high-disagreement nodes, fork, roll out, engine adjudicates → contrastive blunder pairs, falsified disagreements (→ error queue), trajectory diversification. Never train on unverified model-advised trajectories.
 
-**Search distillation:** pivotal-turn search lines (§3a) as policy targets — the same expert-iteration channel. *M12: realized in-line as the loop's pick-distillation term on search-acted windows, with the search as the behavior policy (§3e, ADR-0113); the offline form (a re-warm between runs) read −47 → −7pp and closed ([ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md) addenda).*
+**Search distillation:** pivotal-turn search lines (§3a) as policy targets — the same expert-iteration channel. *M12: realized in-line as the loop's pick-distillation term on search-acted windows, with the search as the behavior policy (§3e, [ADR-0113](../decisions/ADR-0113-m12-loop-wiring.md)). The offline form, a re-warm between runs, lost between 7 and 47pp with the dose and is closed ([ADR-0111](../decisions/ADR-0111-m12-build4-opening-targets-surface-site.md) addenda). Whether the in-line term teaches is unattributed ([ADR-0126](../decisions/ADR-0126-m12-closeout.md)).*
 
 **Pro-game corpus:** advantage-weighted imitation (upweight critic-endorsed moves); confident model-pro disagreements → error queue or drill miner.
 
@@ -430,7 +363,7 @@ Pro games punch above volume: eval benchmark, Grindstone seeds from the true com
 - **M1 — BC:** encoder + trunk + policy head, pure supervised. Validates representations with zero RL machinery. **Done 2026-07-10 ([ADR-0009](../decisions/ADR-0009-m1-closeout.md)): held-out agreement 0.9758, 46.8% vs the teacher.**
 - **M2 — RL:** critic + Ante certification test + first V-trace self-play from BC start. **Done 2026-07-17 ([ADR-0020](../decisions/ADR-0020-m2-closeout.md)): the loop runs end-to-end; first RL ckpt superseded BC.**
 - **Then, attaching to a running loop:** Grindstone + error accounting → match play & sideboarding → Tutor → Mentor → pro-data pipeline → skill conditioning → pivotal-turn search + distillation → Android + recording. Build vertically to a trained artifact at each stage.
-- **Measured record, M3 onward** (one row per milestone in the root README's milestone table; the closeout ADRs are the record): M3 strength parity with the heuristic, +6.69pp over BC ([ADR-0026](../decisions/ADR-0026-m3-closeout.md)) · M4 Grindstone online, the one promotion to date ([ADR-0033](../decisions/ADR-0033-m4-closeout.md)) · M5–M8 the curation × credit × representation family measured out, every gate a TIE ([ADR-0037](../decisions/ADR-0037-m5-closeout.md), [0050](../decisions/ADR-0050-m6-closeout.md), [0058](../decisions/ADR-0058-m7-closeout.md), [0062](../decisions/ADR-0062-m8-closeout.md)) · M9 the payment interface, veto collapse falsified ([ADR-0077](../decisions/ADR-0077-m9-closeout.md)) · M10 the generative turn planner NEGATIVE ([ADR-0096](../decisions/ADR-0096-m10-closeout.md)) · M11 the option scorer NEGATIVE ([ADR-0100](../decisions/ADR-0100-m11-closeout.md)) · M12 search as the behavior policy — the "pivotal-turn search + distillation" item of the list above, reached after the loop's own signal ran out ([m12-plan](m12-plan.md)); RECHARTERED 2026-09-06 at the architecture review ([ADR-0101](../decisions/ADR-0101-architecture-review-m12-recharter.md)) as a staged build to one big run — engine bundle → value head → search → the whole decision surface → the run; the value function named as the central asset; SCOPED the same day (ADR-0101 addendum): envelope four to six weeks, value head in the shared trunk, four-arm day-zero read, shakedown run before the launch, full multi-format readiness (format-as-features §2 emitted, open-vocabulary ability text) with second-format training deferred. **Built 09-06 → 09-16 (Builds 0–4, one fork era-boundary at the 09-16 upstream merge, [ADR-0110](../decisions/ADR-0110-m12-upstream-merge-20260916.md)):** the engine bundle (exact payability in the mask, caps, the budgeted search directive, the enumerators; [ADR-0102](../decisions/ADR-0102-m12-build0-pins.md)) → the value head in the trunk (GO, [ADR-0103](../decisions/ADR-0103-m12-build1-value-head-and-build3-enumerators.md)) → the acting rule + the day-zero read (in-band; the control arm: the value head carries the lookahead; [ADR-0104](../decisions/ADR-0104-m12-build2-acting-rule-and-dayzero-read.md)) → six decision surfaces served from one option-set decoder, the payment head withheld to the loop, the search's shape priced ([ADR-0105](../decisions/ADR-0105-m12-build3-decision-surfaces-and-ability-representation.md)–[0108](../decisions/ADR-0108-m12-build3-closeout.md)) → targets outside a cast, the allocation head, the representation completions, the offline re-warm closed, the loop wired ([ADR-0109](../decisions/ADR-0109-prelaunch-completeness-audit.md)–[0113](../decisions/ADR-0113-m12-loop-wiring.md)); the post-Build-4 read cleared the launch condition (act − on +2.29 ± 1.02); the player-position convention fixed ([ADR-0116](../decisions/ADR-0116-player-target-positions.md)); the certifier merged onto search copies ([ADR-0117](../decisions/ADR-0117-certifier-merge.md)). **The shakedown** (four arms at equal box time, [ADR-0115](../decisions/ADR-0115-m12-shakedown-scoping.md)) running 09-21 →: the recipe arm +0.55pp in 30 h (noise); the value head found drifting off rollout truth under the loop ([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)) — the settings pass opens with a value anchor before the big run. **Since 09-27 (a summary; the full pass is the closeout's):** the shakedown's verdict was the allocation arm; the settings pass closed 10-03 on the value recipe of record (a head-only anchor at weight 0.1, the value gradient stopped at the trunk, a slower trunk lr; [ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md)); the cast decoder serves inside each option's legal-target union ([ADR-0122](../decisions/ADR-0122-union-target-mask.md)); **the big run launched 10-05** ([ADR-0123](../decisions/ADR-0123-big-run-launch.md)) and promoted three checkpoints, the latest at 0.621 ± 0.011 network-alone against the heuristic (+9.46 ± 0.77pp paired over the era reference); the anchor was found to memorize its fixed bank ([ADR-0124](../decisions/ADR-0124-anchor-bank-refresh.md)) and its replacement, rollout truth as a stream, is proposed for after the run ([ADR-0125](../decisions/ADR-0125-value-head-track.md)); **M12 closed 11-16** ([ADR-0126](../decisions/ADR-0126-m12-closeout.md)): training scale works, the run's result is `big-run/iter-405` at 0.6214 ± 0.0069 on 5,000 games, and whether search teaches is unattributed. The live state is CLAUDE.md's Now block.
+- **Measured record, M3 onward** (one row per milestone in the root README's milestone table; the closeout ADRs are the record): M3 strength parity with the heuristic, +6.69pp over BC ([ADR-0026](../decisions/ADR-0026-m3-closeout.md)) · M4 Grindstone online, the one promotion to date ([ADR-0033](../decisions/ADR-0033-m4-closeout.md)) · M5–M8 the curation × credit × representation family measured out, every gate a TIE ([ADR-0037](../decisions/ADR-0037-m5-closeout.md), [0050](../decisions/ADR-0050-m6-closeout.md), [0058](../decisions/ADR-0058-m7-closeout.md), [0062](../decisions/ADR-0062-m8-closeout.md)) · M9 the payment interface, veto collapse falsified ([ADR-0077](../decisions/ADR-0077-m9-closeout.md)) · M10 the generative turn planner NEGATIVE ([ADR-0096](../decisions/ADR-0096-m10-closeout.md)) · M11 the option scorer NEGATIVE ([ADR-0100](../decisions/ADR-0100-m11-closeout.md)) · M12 search as the behavior policy, closed positive on scale and open on mechanism ([ADR-0126](../decisions/ADR-0126-m12-closeout.md)). M12 is the "pivotal-turn search + distillation" item of the list above, rechartered at the architecture review as a staged build to one big run ([ADR-0101](../decisions/ADR-0101-architecture-review-m12-recharter.md); [m12-plan](m12-plan.md)). Builds 0 to 4 delivered the engine bundle, the value head in the shared trunk, the one-ply search with its acting rule, the decision surfaces of §3d′ and the wired loop ([ADR-0102](../decisions/ADR-0102-m12-build0-pins.md) to [ADR-0113](../decisions/ADR-0113-m12-loop-wiring.md)). The shakedown and the settings pass fixed the recipe: search allocation by a learned head, and a head-only value anchor ([ADR-0115](../decisions/ADR-0115-m12-shakedown-scoping.md), [ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md)). The big run played 246,720 games in 840.8 wall hours over five segments ([ADR-0123](../decisions/ADR-0123-big-run-launch.md)). Training scale works: its result, `big-run/iter-405`, reads 0.6214 ± 0.0069 on 5,000 games against the heuristic, network alone, +9.46 ± 0.77pp paired over the era reference. Whether search teaches is unattributed, and M13 is not chartered. The live state is CLAUDE.md's Now block.
 
 ## 14. Budget to "Beats the Heuristic AI"
 
@@ -438,7 +371,7 @@ Pro games punch above volume: eval benchmark, Grindstone seeds from the true com
 
 ## 15. Standing Probability Estimates (selected)
 
-*Frozen 2026-09-06 as the pre-M0 planning estimates (last recalibrated at [ADR-0003](../decisions/ADR-0003-m0-closeout.md)). Measured outcomes live in the closeout ADRs and the root README's milestone table; this table is not re-estimated per ADR — rows are annotated with their outcome when one lands. Rows since resolved, for the record: BC agreement high-80s → 0.9758 (ADR-0009); "turn-plan latent alone handles 3–4 action lines post-drilling" → negative at M9/M10 ([ADR-0077](../decisions/ADR-0077-m9-closeout.md), [ADR-0096](../decisions/ADR-0096-m10-closeout.md)); "with pivotal-turn search layered on" is M12's charter — the lookahead is worth +2.3 to +2.7pp to the network at Build 4 (ADR-0112 addendum), the network-alone gain is the big run's question; "search distillation recovers most search gain into the mobile path" → the OFFLINE form negative (−47 → −7pp, ADR-0111 addenda), the in-loop form is the shakedown's and the big run's object; "format-as-features" → emitted on every row and in the encoder (ADR-0110/0111), the two-format read unscheduled; "tiered ledger keeps the GPU non-bottleneck" → the GPU never bound at any fleet size (the throughput week, 09-14: the cores bind at 24–32 workers); learnable stops (§3b) unbuilt; belief head parked since M2 (the canonical register's item 3); "Ante: ≥3x effective samples" → ×1.03–1.04 measured on the 10-03 re-measure, below the 1.5× bar: the critic binds, and raw reads stay of record ([ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md) evening addendum; the 3–4× figures in §7 and §11 are the design target, not a measurement).*
+*Frozen 2026-09-06 as the pre-M0 planning estimates (last recalibrated at [ADR-0003](../decisions/ADR-0003-m0-closeout.md)). Measured outcomes live in the closeout ADRs and the root README's milestone table; this table is not re-estimated per ADR — rows are annotated with their outcome when one lands. Rows since resolved, for the record: BC agreement high-80s → 0.9758 (ADR-0009); "turn-plan latent alone handles 3–4 action lines post-drilling" → negative at M9/M10 ([ADR-0077](../decisions/ADR-0077-m9-closeout.md), [ADR-0096](../decisions/ADR-0096-m10-closeout.md)); "with pivotal-turn search layered on" → the lookahead is worth +2.3 to +2.7pp to the network at Build 4 (ADR-0112 addendum) and 3.2pp at `big-run/iter-405` ([ADR-0126](../decisions/ADR-0126-m12-closeout.md)); "search distillation recovers most search gain into the mobile path" → the OFFLINE form negative (−47 → −7pp, ADR-0111 addenda), the in-loop form ran through the big run, where the network-alone gain is +9.46 ± 0.77pp paired and the search's share of it is unattributed ([ADR-0126](../decisions/ADR-0126-m12-closeout.md)); "format-as-features" → emitted on every row and in the encoder (ADR-0110/0111), the two-format read unscheduled; "tiered ledger keeps the GPU non-bottleneck" → the GPU never bound at any fleet size (the throughput week, 09-14: the cores bind at 24–32 workers); learnable stops (§3b) unbuilt; belief head parked since M2 (the canonical register's item 3); "Ante: ≥3x effective samples" → ×1.03–1.04 measured on the 10-03 re-measure, below the 1.5× bar: the critic binds, and raw reads stay of record ([ADR-0119](../decisions/ADR-0119-value-function-first-before-the-big-run.md) evening addendum; the 3–4× figures in §7 and §11 are the design target, not a measurement).*
 
 | Claim | P |
 |---|---|

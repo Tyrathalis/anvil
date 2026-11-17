@@ -4,7 +4,7 @@
 
 ## Why
 
-ComfyUI keeps its last model loaded after a job: 17–19 GB of VRAM at 0% SM and a 21–23 GB host-RAM offload, for as long as the daemon lives. The harness's GPU yield rule holds any foreign process with ≥ 1,024 MB of VRAM as foreign (it cannot know when the next job arrives, and the training step cannot fit beside 17 GB on the 24 GB card), so a loaded-idle ComfyUI costs the big run the whole idle span: 2.2 h of generation inside iteration 378 on 11-04, of which the job itself was a fraction. The host offload is the standing hazard behind the host-memory wait (the learner's 33–35 GB beside 23 GB on a 62 GB box).
+ComfyUI keeps its last model loaded after a job: 17–19 GB of VRAM at 0% SM and a 21–23 GB host-RAM offload, for as long as the daemon lives. The harness's GPU yield rule holds any foreign process with ≥ 1,024 MB of VRAM as foreign (it cannot know when the next job arrives, and the training step cannot fit beside 17 GB on the 24 GB card), so a loaded-idle ComfyUI costs a training run the whole idle span: 2.2 h of generation inside one iteration of the big run on 2026-11-04, of which the job itself was a fraction. The host offload is the standing hazard behind the host-memory wait (the learner's 33–35 GB beside 23 GB on a 62 GB box).
 
 In use and loaded-idle are distinguishable from ComfyUI's own API (`GET /prompt` → `exec_info.queue_remaining`; `GET /queue`; `GET /history`), and ComfyUI has the unload verb the front end's "Unload Models" button uses: `POST /free {"unload_models": true, "free_memory": true}`. The worker unloads every model, resets its output cache and runs gc; `set_flag` notifies the queue's condition, so an idle worker acts at once (verified 11-04 17:42: the cache re-creation logged within the second).
 

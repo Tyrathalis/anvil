@@ -46,7 +46,7 @@ and has the checklist for a format that is not here yet.
 
 | Thing | Why |
 |---|---|
-| Linux or macOS, 16+ cores, 32+ GB RAM (everything below was measured on Linux with 128 GB) | Forge workers are the bottleneck: ~5 CPU-seconds per game, one JVM per worker at 2 GB heap. Under 64 GB, keep the two memory flags in the §7 command. Nothing needs systemd or `/proc`; the run launcher (§7½) is plain Python |
+| Linux or macOS, 16+ cores, 32+ GB RAM (everything below was measured on Linux with 64 GB) | Forge workers are the bottleneck: ~5 CPU-seconds per game, one JVM per worker at 2 GB heap. Under 64 GB, keep the two memory flags in the §7 command. Nothing needs systemd or `/proc`; the run launcher (§7½) is plain Python |
 | An NVIDIA GPU with ≥ 12 GB (a 4090 is what everything below was measured on) | the decision server and the learner; the self-play loop, the RL trainer and the model server take `--device cpu` (generation then waits on inference), the BC trainer and the paired read pick the device themselves |
 | JDK 17+ and Maven | building the Forge fork (Java 26 works; the fork compiles at release 17) |
 | Python ≥ 3.11 and [uv](https://docs.astral.sh/uv/) | the Anvil package |
@@ -212,7 +212,7 @@ What the flags mean, in the order you would change them:
   re-asked with that option removed instead of passing. Keep it on.
 - **`--penalty 0.01 --penalty-grouping first`**: the small cost on vetoed attempts that keeps the
   veto rate from drifting; `--guard-veto-mult 4.0` halts the run if it drifts 4× anyway.
-- **`--guard-action rollback`** (10-21; default `halt`): what a guard breach (kl, entropy, veto,
+- **`--guard-action rollback`** (default `halt`): what a guard breach (kl, entropy, veto,
   casts, Spearman, the share guards) does. `halt` is the registered response: the iteration is
   marked `REJECTED`, the loop exits 3 with `loop_state.json` unchanged and a human reads it.
   `rollback` rejects the iteration the same way, then continues from the last accepted checkpoint
@@ -228,7 +228,8 @@ What the flags mean, in the order you would change them:
   trend instrument (±2.5pp); do not quote it.
 - **`--rl-seg 64`** bounds learner memory; raise it on a bigger card.
 - **`--rl-workers 4 --train-mem-floor-gb 8`**: the two host-memory settings, sized here for a
-  32–64 GB box. Their defaults (12 workers, a 40 GB floor) are ours, for 128 GB. The floor is a
+  32–64 GB box. Their defaults (12 workers, a 40 GB floor) do not fit a small box: 12 workers
+  need about 90 GB by the §7¾ rule, and our own 64 GB box runs 4 workers. The floor is a
   gate: the training step waits, with no timeout, while free memory is under it, so a floor above
   what your box ever has free stalls the loop at its first training step without an alarm. §7¾
   has the sizing rule.
@@ -239,9 +240,10 @@ dir exits cleanly after the current iteration.
 
 ### 7a. Optional: search as the behavior policy
 
-The plain loop above is the proven path, and the one to run first. The search is this project's
-current research line (M12): it can make the games the loop learns from better than the network
-would play alone, at about 2.5× the time per game. On our pool a lookahead is worth +1 to +4pp
+The plain loop above is the proven path, and the one to run first. The search is the research
+line of this project's milestone M12, closed 2026-11-16
+([ADR-0126](../decisions/ADR-0126-m12-closeout.md)): it can make the games the loop learns from
+better than the network would play alone, at about 2.5× the time per game. On our pool a lookahead is worth +1 to +4pp
 to the network that uses it, depending on the checkpoint. Training under it has taken the network *alone* from 53.8% to
 62.1% against the heuristic over four weeks of box time (2,000-game reads; +9.5 ± 0.8pp on a
 5,000-game paired read). No arm at that scale ran without the search, so how much of the gain is
@@ -283,10 +285,18 @@ follow-up choices above. *Leaf*: where a copy stops and the value head scores it
 **Turn it on** by adding `--search-recipe` to the §7 command, with our recipe. The full flag
 string of our recipe of record (the search recipe plus the loop's value-head settings,
 [ADR-0123](../decisions/ADR-0123-big-run-launch.md)) is the loop command in
-`scripts/big_run_chain.sh`, the big run's chain: read it for every flag the run of record passes.
+`scripts/big_run_chain.sh`: read it for every flag the run of record passed. That script is the
+chain of our five-week run, which closed 2026-11-16. Nothing runs from it now, and it stays as
+the reference for a run of several segments: one loop, stopped at each segment's end by
+`--wall-hours`, read there, and resumed by `anvil.runs relaunch`. Its paths and checkpoints are
+ours, so copy its shape and not its values. Two companions sit beside it:
+`scripts/big_run_confirm_read.sh` is the paired read that confirms a promotion (5,000 games per checkpoint), and
+`scripts/big_run_post5_reads.sh` is the pair of reads taken at the run's end (a head-to-head
+against the warm start, and the final checkpoint on the confirming read's seeds). The chain's own
+close step (`CLOSE=1`) was not used at the run's end.
 The search recipe's one definition
-is `scripts/recipe.sh` (`RECIPE`; also `SHALLOW` and `DEEP`, the shakedown's other arms), which
-the chain scripts source; today it reads:
+is `scripts/recipe.sh` (`RECIPE`; also `SHALLOW` and `DEEP`, the other arms of an earlier comparison), which
+the chain scripts source; it reads:
 
 ```
 --search-recipe "-search -searchrate 1 -searchrolls 2 -searchsurf 2 -searchsurfcap 8 -searchact 0.10 -searchtemp 0.025 -searchactkinds entity_one,entity_set,mode"
@@ -348,7 +358,7 @@ happened. A `YIELD` file in a run dir stops new chunks from
 launching without asking workers to exit (a foreign GPU job does the same automatically), and the
 load — workers × servers — is part of any search run's recipe: a paired read pins it on both arms.
 
-**The target mask ([ADR-0122](../decisions/ADR-0122-union-target-mask.md)).** Since fork `5b54fbe6ef` every
+**The target mask ([ADR-0122](../decisions/ADR-0122-union-target-mask.md)).** Every
 priority option in a recorded window carries its legal-target union, and the model server points the cast
 decoder only inside the chosen option's set. Nothing to configure: a store without the field reads as before,
 and the server records which rule it applied in the mu row so the trainer recomputes under the same one.
@@ -377,7 +387,7 @@ into `<dir>/run.log`, runs it at low priority, records the run's state as it goe
 line naming what it armed:
 
 ```
-[runs] LAUNCHED mydecks-loop: state ~/.local/state/anvil/runs/mydecks-loop.json (running, pid 41213), log .../run.log, stall alarm 60 min on data/training/mydecks-loop, sinks queue+desk, check-in claude (self-test OK, 3 s), relay to <name> [<ref>], memory watchdog ARMED
+[runs] LAUNCHED mydecks-loop: state ~/.local/state/anvil/runs/mydecks-loop.json (running, pid 41213), log .../run.log, stall alarm 60 min on data/training/mydecks-loop, sinks queue+desk, check-in claude (self-test OK, 3 s), relay to <name> [<ref>], memory watchdog: ARMED -> data/training/mydecks-loop/memory.jsonl
 ```
 
 While it runs, the launcher's supervisor watches the run's own directory: no new file for
@@ -408,19 +418,19 @@ parked on a VRAM cotenant) writes `heartbeat.json` in the run dir so the stall a
 (summed across pauses) reaches H and runs the closing reads; time the harness spent yielding the
 GPU to another job is not counted, and an interim paired read is skipped once the budget is
 reached. `pause` writes STOP to the loop's root only — a running generation finishes and the loop
-stops at its iteration boundary (`--scope all` stops every watched dir, the old behaviour). The
+stops at its iteration boundary (`--scope all` stops every watched dir, a live generation included). The
 loop's log stamps every phase line, and a yielding harness marks its progress line.
 
-Two value-head instruments ride every loop since 09-27
+Two value-head instruments ride every loop
 ([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)): each iteration's checkpoint
 is scored on the frozen state-ranking holdout (`--state-bank`, CPU, ≈ 25 s; the row is in
 `monitor.jsonl` and the battery's curves) with a collapse floor (`--guard-spearman-floor 0.15`,
 0 = off), and `--value-anchor data/runs/m12-build1` adds the Build 1 replay term to the trainer so
 the head stays on rollout truth (`--anchor-weight`, `--anchor-families state,leaf`). Both need the
 Build 1 banks, which are ours — without them the row is skipped and the anchor is off.
-Since 10-29 ([ADR-0124](../decisions/ADR-0124-anchor-bank-refresh.md)) the anchor has a draw budget and a
-memorization meter: `--anchor-every K` runs one bank mini-batch every K optimizer steps (1 = every
-step, the recipe before 10-29 — which memorized an 8,403-row bank in ≈ 25 iterations; size K so one
+The anchor has a draw budget and a memorization meter
+([ADR-0124](../decisions/ADR-0124-anchor-bank-refresh.md)): `--anchor-every K` runs one bank mini-batch every K optimizer steps (1 = every
+step, the default, which memorized an 8,403-row bank in ≈ 25 iterations; size K so one
 iteration's draws stay under a quarter pass of the bank), and with the anchor on the state-ranking row
 also scores a fixed sample of the anchor bank's training rows (`train_spearman`, `gap` = train −
 holdout; `value_pretrain eval --split holdout,train` is the same read by hand, `--split all` scores every
@@ -429,18 +439,18 @@ iteration, then stops the loop before the next one (a self-written `STOP` the ne
 clears; the reason in `PAUSE-iter-NNN.txt` and the row's `pause`), and the line re-bases 0.05 above the
 pausing gap so a relaunch does not pause again on the same reading.
 Two gates stand before each training step, both on by default and both charging their wait to the
-yield ledger rather than the wall: the GPU gate (11-03; `--no-gpu-wait` skips it) waits while a foreign
+yield ledger rather than the wall: the GPU gate (`--no-gpu-wait` skips it) waits while a foreign
 compute process holds the card under the harness's own yield rule (the trainer CUDA-OOMs inside another
-job's VRAM — its elasticity is forward-only), and the host-memory gate (11-07; `--train-mem-floor-gb 40`,
+job's VRAM — its elasticity is forward-only), and the host-memory gate (`--train-mem-floor-gb 40`,
 0 = off) waits while `MemAvailable` is under the floor (the learner holds ≈ 35 GB of host RSS at a step
-with `RL_WORKERS` 4; a ComfyUI offload or a large game beside it is what the two 10-10 / 10-17 OOM kills
-were). The seconds land in the iteration's `yield.json` as `train_wait_s` / `mem_wait_s`.
+with `--rl-workers 4`, and another large process beside it can run the box out of memory). The seconds
+land in the iteration's `yield.json` as `train_wait_s` / `mem_wait_s`.
 
-Since 11-02 (the ADR-0124 addendum) the row can carry a **second holdout**: `--state-bank-run <dir>` names a
+The row can carry a **second holdout** (the ADR-0124 addendum): `--state-bank-run <dir>` names a
 FROZEN bank drawn from the run's own games and scores every checkpoint on it too, into `spearman_run` /
 `se_boot_run` / `n_run` beside the Build 1 fields (its own file, `state-ranking-run.json`, per iteration), with
 the bank's contested rows (rollout winrate in (0.2, 0.8)) as `spearman_run_contested` / `se_boot_run_contested` /
-`n_run_contested` since 11-07 (the pooled row is carried by decided states; `value_pretrain eval --split
+`n_run_contested` (the pooled row is carried by decided states; `value_pretrain eval --split
 holdout,contested` reads both by hand); the
 Build 1 row stays the continuity line and this one says whether its movement transfers to the states the run
 plays. Nothing trains on that bank — never name it in `--value-anchor`. `--guard-spearman-run-floor F` (0 = off,
@@ -451,12 +461,12 @@ box-hours), `sample` draws the states stratified by turn × phase into the Build
 (`value_pretrain bank-run`), `read` gives the boundary value — and is never regenerated mid-segment (its
 labels depend on the labelling checkpoint). The procedure is
 [run-holdout-bank-read.md](run-holdout-bank-read.md).
-`--value-stopgrad-trunk` (10-01, ADR-0119 ladder rung 2) makes the value head read a detached trunk
+`--value-stopgrad-trunk` (the second step of ADR-0119's value-recipe ladder) makes the value head read a detached trunk
 read-out, so every value-side term trains the head alone and the trunk is the policy's; the
 gradient-norm row's `gn_v` / `gn_anchor` read 0 under it. Off by default. With it, two lr groups keep
 the optimizer's step comparable: `--trunk-lr` for everything upstream of the detach (the value gradients
 leaving the trunk otherwise hand its whole AdamW step to the policy; 3e-6 against a 1e-5 trunk restored
-the un-switched kl_mu on 10-01) and `--value-head-lr` for the head that now trains alone (1e-4).
+the un-switched kl_mu in our measurement) and `--value-head-lr` for the head that now trains alone (1e-4).
 
 Alerts land in `~/.local/state/anvil/alerts.jsonl` and, as side effects, on a desktop toast
 (`notify-send` on Linux, `osascript` on macOS). To reach your phone set `ANVIL_NOTIFY_CMD` to any
@@ -468,10 +478,10 @@ curl -s -H "Title: $1" -d "$2" https://ntfy.sh/<your-topic> > /dev/null
 ```
 
 **The LLM check-in.** With the Claude Code CLI installed and logged in (`claude login`), the
-launcher's supervisor answers its own alerts: on `failed`, `stalled`, `gone` and a `done` after
+launcher's supervisor answers its own alerts: on `failed`, `stalled`, `gone`, `orphaned` and a `done` after
 more than an hour it runs a short headless `claude -p` session (read-only tools) that pushes one
 notification to your phone, messages the Claude Code session named by `--launched-by` (without
-the flag, the newest session on the machine whose title mentions Anvil), and acks the alert. The launch runs a three-second self-test first and says so in the
+the flag, the newest session on the machine whose title mentions Anvil), and acks the alert. A run you `pause` raises no check-in. The launch runs a short self-test first (one headless call) and says so in the
 coverage line (`check-in claude (self-test OK, 3 s)`); if the CLI is missing or its login has
 expired the line says `check-in NONE — ...` and an alert records it, so you know at launch that
 nobody will answer. Every `relaunch` resolves and self-tests the check-in again from the mode the
@@ -500,7 +510,7 @@ A self-play loop also holds a lock on its own directory, `data/training/<name>/l
 as long as it runs. A second `selfplay.py` on the same `--name`, however it was started, prints
 who holds the lock and exits with code 75 before it reads or writes anything there.
 
-### 7¾. Memory on a long run (10-21)
+### 7¾. Memory on a long run
 
 Two things the launcher does for you, one you size yourself, and the watchdog run by hand:
 
@@ -510,7 +520,7 @@ Two things the launcher does for you, one you size yourself, and the watchdog ru
   loader workers before oomd acts) unless it is already armed by a run that is still live; the coverage
   line says `ARMED`, `active (armed by <run>)` or why not. `--no-memsampler` skips it for one launch,
   `ANVIL_MEMSAMPLER=0` for an environment without systemd (a Mac). The unit is transient — it dies with a
-  reboot, which is why the launcher and not a hand arms it (10-29).
+  reboot, which is why the launcher and not a hand arms it.
 - **A detached run gets its own cgroup.** `anvil.runs launch` puts the supervisor and the command together
   in one `systemd-run --user` scope, `anvil-<name>-<supervisor pid>.scope`, with `ManagedOOMPreference=avoid`.
   Both outlive the terminal or desktop session that launched them, and both outlive the sweep timer's
@@ -523,12 +533,13 @@ Two things the launcher does for you, one you size yourself, and the watchdog ru
 - **Size `--rl-workers` by memory, not cores.** Each DataLoader worker of the learner holds several GB
   of decoded-game state (≈ 7 GB at the self-play loop's 12-store replay window) regardless of how the
   games are sharded, so the training step needs about `rl_workers × 7 GB` on top of the learner's own
-  ≈ 7 GB. On a 64 GB box run 4; on 128 GB, 12. A step that swaps is slower than a step with fewer workers.
+  ≈ 7 GB. On a 64 GB box run 4 (ours does); 12, the default, needs about 90 GB. A step that swaps is slower than a step with fewer workers.
 - **A memory watchdog beside the loop.** `scripts/memory_sampler.sh <out.jsonl> 20` (run it as a user
   unit; the header shows how) samples the box and the run's process classes every 20 s and, when
   available memory stays under 2 GB for two samples while a learner is up, terminates the learner and its
-  worker tree before the box thrashes. The iteration's training step reruns on the next relaunch; the big
-  run's chain halves `RL_WORKERS` on a trip and reruns by itself.
+  worker tree before the box thrashes. The iteration's training step reruns on the next relaunch. A chain
+  script can absorb the trip itself: `scripts/big_run_chain.sh` halves `RL_WORKERS` when it finds the trip
+  marker (`WATCHDOG-TRIP` in the run dir) and reruns the loop.
 
 ## 8. Read the result
 

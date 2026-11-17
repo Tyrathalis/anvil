@@ -132,6 +132,51 @@ the natural pick + turn + phase + seat profiles, never "the first window
 holding the option" (the AI declines many)
 ([ADR-0117](decisions/ADR-0117-certifier-merge.md)).
 
+**`Spell.canPlay()` is not the whole cast-legality test.** It never consults
+the `CantBeCast` statics. Forge's own AI checks them in a second step
+(`AiController.canPlaySa` runs `checkRestrictions` on a copy placed in the stack
+zone). An option list built from `canPlay()` alone offers casts the engine will
+refuse. Ours offered Spider-Man 2099 ("you can't cast this during your first,
+second, or third turns") on those turns: one card was 2,655 of 9,565 cast vetoes
+in a 5,000-game read, about 28%. Detect it with a veto census by reason and by
+card; one card owning a reason is a mask bug, not a policy error. The fix is one
+shared predicate for the option scan and the realizer; the class read zero
+afterward, strength unchanged at +0.15 ± 0.30pp paired
+([running record](design/m12-running-record.md), 2026-10-02 and 2026-10-03).
+
+**Per-creature attack legality is not declaration legality.** `canAttack` passes
+a creature that "can't attack or block alone"; `validateAttackers` refuses the
+declaration that sends it alone. Our model declared Toby's Beast token as a lone
+attacker, the declaration was refused, and the realizer substituted the
+heuristic's attack on every later turn of that game. Every fallback row we
+sampled (38 of 38) was this one card, about one game in 480. The model gets no
+signal that the declaration was illegal. Detect it by attributing every fallback
+row to a card and a callback. The fix is a repair step that drops the offending
+attacker, or an observation feature for the restriction
+([running record](design/m12-running-record.md), 2026-11-11 21:15).
+
+**Forge's AI can recurse through its own payability test until the stack
+overflows.** Paying a cost from a sacrifice-for-mana source asks which creature
+to sacrifice, which asks whether each will die in combat, which asks whether a
+blocker can regenerate, which asks whether the regeneration cost is payable,
+which re-enters mana payment. The conjunction is a first-strike or double-strike
+combat with a sacrifice-for-mana source on the paying side. It is upstream
+code and about 0.04% of our games. You will not see the cycle unless the worker
+prints the trace at the catch site, since a `StackOverflowError` reaches a
+generic handler as a bare crash status. The fix is a re-entrancy guard in
+`ComputerUtil.canRegenerate`
+([running record](design/m12-running-record.md), 2026-09-29; [upstream worklist](design/upstream-worklist.md), Tier 0.6).
+
+**A model seat does not replay from seed and checkpoint.** The engine side
+replays; the serving side does not. Batch composition on the model server
+changes float results in the last bits, and a near-tie flips. The same
+checkpoint on both seats with the seats swapped gave 82 identical games of 96.
+Two arms that differed only in the JVM's garbage collector, trace-identical on
+the heuristic path, differed in 6 and 11 of about 390 games.
+Treat that flip rate as the floor under any game-for-game comparison, and run a
+control-versus-control arm before attributing flips to a change
+([running record](design/m12-running-record.md), 2026-10-29 23:33 and 2026-11-15 22:12).
+
 **TestNG interleaves classes; core code reads the LAST `StaticData` built.**
 Adding any test class reshuffles the suite order. `DeckRecognizer` resolves
 cards through `StaticData.instance()`, so a mock-based test class (Forge's
@@ -144,8 +189,9 @@ suspect class alone before calling a regression
 ## Data and labels
 
 **Check the fallback flag. Always.** Every answer over our bridge carries
-provenance (`bridge` vs `heuristic-fallback`), evals gate on zero fallbacks,
-and the serve path never silently substitutes. This isn't hypothetical
+provenance (`bridge` vs `heuristic-fallback`), every run counts fallback rows
+and flags any, and the serve path never silently substitutes. Attribute the ones
+you find: ours were one card (the lone-attacker entry above). This isn't hypothetical
 paranoia: another project's headline "54% parity with the heuristic" turned
 out to be the heuristic playing against itself behind a dead model-server
 flag, and their RL trajectories contained heuristic decisions labeled as
@@ -197,6 +243,48 @@ record the convention in the checkpoint so a loader refuses a mismatch
 external user reading our code (Kryptic); the kind of bug a second pair of
 eyes finds and a metric never does.
 
+**Mask a target pointer to the engine's legal targets, and gate the mask on
+the heuristic's own picks.** A free pointer over every entity learns target
+legality one veto at a time: illegal picks were about 3% of our cast attempts,
+spread over 361 abilities. The mask lists, per offered option, the union of its
+legal targets, and the decoder may point nowhere else. Its gate is an agreement
+check: on a fresh heuristic-labelled corpus, every target the heuristic chose
+must lie inside the mask. Our first read failed it on 1,586 of 23,768 targets,
+for reasons any Forge builder will meet. A modal spell's targets live in its
+modes until one is bound. `getAllCandidates` never lists abilities on the stack,
+and lists a spell card in the stack zone as a card. A restriction can name the
+parent's target in its text. After the fixes the check read 0 of 23,647, the
+illegal-pick vetoes fell 38%, and the paired read was −0.61 ± 0.49pp, inside
+noise. The heuristic itself picks targets the engine refuses (10 in that
+corpus); mark them at record time with `!sa.canTarget` so the check counts them
+apart ([ADR-0122](decisions/ADR-0122-union-target-mask.md)).
+
+**Heuristic labels contain casts the engine never completed.** The AI's
+payability test and the real payment disagree on some shapes, so the heuristic
+"casts" a spell it cannot pay for and the card is stranded. We found 57 such
+labels in 107,247 heuristic casts: a modal commander's back face tested without
+commander tax (fixed upstream in
+[#12283](https://github.com/Card-Forge/forge/pull/12283)), an equip with no
+untapped land, X spells and sacrifice-reduced costs. A model on the same path can
+loop on one: Peer Through Depths was picked 1,998 times in one main phase,
+aborted after its splice prompts and re-offered. Detect it by checking each cast
+label's host against the options recorded for that window, and by reading a
+per-game concentration column on any cast count. Run the check on a store where
+the labelling seat plays. Our first control read "0 in 300 games" on a model
+self-play store, where every cast is an option by construction; the right store
+read 4 in 6,240, the same rate
+([running record](design/m12-running-record.md), 2026-10-05 10:21 and 2026-10-21).
+
+**Bound the size of one game's record before you decode it.** One game in
+212,149 decoded to 1.07 GB and stopped a training step: the engine asked the
+unbridged seat `chooseSingleStaticAbility`, with one possible answer, 38,756
+times in one turn, and each record carried a full observation. The next largest
+frames were 424 MB and 368 MB. The reader refuses a frame over a named bound
+from the index entry, before any read, and the learner counts the skip
+(`MAX_FRAME_BYTES` in `anvil/store/trajectories.py`). The source side is open:
+a recorder should not write a full observation for a one-option choice
+([running record](design/m12-running-record.md), 2026-11-10 17:17).
+
 ## Training
 
 **High agreement ≠ strength; measure both, trust games.** Our BC agent hit
@@ -231,10 +319,25 @@ every iteration.** Our value head, fit on K=8 rollout composites, ranked held-ou
 states against rollout winrate at Spearman 0.37; after 16 self-play iterations
 training on V-trace outcome targets it read 0.26, in two independent arms, while
 the policy's winrate stayed flat within noise. If the head is also your search's
-leaf, the search's labels drift with it. Keep a frozen rollout-labelled holdout,
-score every checkpoint on it (seconds on CPU), and anchor the head to the
-rollout labels when it trains inside the loop
+leaf, the search's labels drift with it. Keep a frozen rollout-labelled holdout
+and score every checkpoint on it (seconds on CPU). An anchor term toward the
+rollout labels holds the head only while it has not memorized them; see the
+next entry
 ([ADR-0118](decisions/ADR-0118-value-head-drift-under-the-loop.md)).
+
+**A fixed bank of truth labels is memorized inside one long run.** We anchored
+the value head to 8,403 rollout-labelled states. Over 300 iterations the
+anchor's own loss fell from 0.69 to 0.19 while the head's holdout ranking fell
+from 0.48 to 0.33; on the bank's training rows it read 0.84. The head saw the
+bank about 3.9 times per iteration. A memorized anchor constrains nothing.
+Detect it by scoring the anchor's training rows beside the holdout every
+iteration and pausing on the gap (our line is 0.15). A refit head, with the bank
+drawn at a quarter pass per iteration or less, held the ranking at 0.45 for 200
+more iterations and did not raise it. The fixed bank
+also goes stale as the policy's states move; the form we have designed and not
+built is truth generated continuously from the loop's own games
+([ADR-0124](decisions/ADR-0124-anchor-bank-refresh.md),
+[ADR-0125](decisions/ADR-0125-value-head-track.md)).
 
 **A distillation that shapes a subset of windows must anchor the rest.** Our
 first offline re-warm distilled the search's picks on the 7% of windows the
@@ -242,9 +345,13 @@ search acted on and nothing held the other 93%; the shared heads generalized
 freely into a pass-happy policy (−47pp at serve). With a frozen-teacher KL on
 the un-acted windows the harm shrank but scaled with the dose; the in-loop form
 (the search as the behavior policy, distillation on acted windows beside the
-policy gradient on all) is the one that works
+policy gradient on all) is the one that does no harm. Whether it teaches is not
+measured: our 247K-game run gained +9.46 ± 0.77pp with no search-off arm beside
+it, the search acted on 0.4% of windows, and its distillation gradient on the
+trunk was 0.005 against the policy gradient's 0.07
 ([ADR-0111](decisions/ADR-0111-m12-build4-opening-targets-surface-site.md)
-addenda, [ADR-0113](decisions/ADR-0113-m12-loop-wiring.md)).
+addenda, [ADR-0113](decisions/ADR-0113-m12-loop-wiring.md),
+[ADR-0126](decisions/ADR-0126-m12-closeout.md)).
 
 ## Evaluation
 
@@ -260,6 +367,23 @@ errors* via per-class zero-mean tests
 found that Forge's London mulligan tucks **before** the keep decision, making
 re-deal keeps choice-filtered rather than chance — the kind of thing that
 silently biases any luck-adjustment scheme.
+
+**A luck ledger must see shuffles.** A draw is correctable only while the
+library's order is unknown to its owner. A scry, a surveil or a put-on-top ends
+that, and only a shuffle restores it. Without shuffles in the record stream, one
+order-revealing decision disqualifies that player's draws for the rest of the
+game: 10,735 draws skipped against 9,930 corrected in our reference read. Every
+shuffle goes through `Player.shuffle`, which fires `GameEventShuffle`; record it
+as a stream event for either seat. Draw coverage rose from 48% to 64%
+([ADR-0121](decisions/ADR-0121-shuffle-mark.md)).
+
+**A crashed game is not a missing game, and the two arms of a paired read do not
+crash alike.** Our read scripts count a crashed game against the model. A fault
+that hits only the candidate's servers then leans the paired difference against
+the candidate. The card-table race under "Long unattended runs" cost affected
+400-game reads one to two points this way. Report crashes per arm and per
+exception beside every winrate
+([running record](design/m12-running-record.md), 2026-11-13 10:30).
 
 ## Reinforcement learning
 
@@ -300,6 +424,59 @@ them, a coverage bound no search depth fixes
 depth before sizing it: a two-turn leaf cost 10× a next-window leaf in wall and
 bought nothing the shallow leaf did not
 ([ADR-0106](decisions/ADR-0106-m12-evening5-surface-acting-and-search-shape-reads.md)).
+Doubling the rollouts per option read −1.23 ± 0.83pp, and a leaf that ranked
+held-out states 8 points better read +0.82 ± 1.20pp with lookahead
+([ADR-0125](decisions/ADR-0125-value-head-track.md), context).
+
+## Long unattended runs
+
+Measured on one 64 GB box with a 24 GB GPU, over a 41-day run.
+
+**Give the run its own cgroup, and size the learner's loader workers against
+the box.** A run launched from a desktop session lives in that session's cgroup,
+and `systemd-oomd` kills the whole group: ours died at hour 102 with the
+desktop. Launch detached runs in their own `systemd-run --user --scope` with
+`ManagedOOMPreference=avoid`. The second kill was the learner itself: twelve
+DataLoader workers decoding stored games held about 58 GB at the training step.
+At four workers the learner holds about 35 GB. A watchdog now terminates the
+learner's whole process tree when available memory stays under 2 GB for two
+samples, and the step reruns
+([running record](design/m12-running-record.md), 2026-10-10 and 2026-10-17).
+
+**A halt guard on a mixed count fires on the mix, not on the policy.** Our
+anti-passivity guard counted casts per game over all recorded rows, and about
+85% of those rows were search copies. It halted a healthy run when the search
+allocated fewer windows. On live rows the count ran 44.0 ± 1.9 per game across
+the run; on all rows 359 ± 39. A second guard, a ratio of two loss terms, halted
+when its denominator had a weak batch; the retrained step reproduced to four
+decimals. One looping game moved a third: 6,928 re-asks on its search copies.
+Before a guard halts a run, decompose its basis into the factors it multiplies,
+and guard the factor that is the policy's
+([running record](design/m12-running-record.md), 2026-10-24, 2026-11-08 and 2026-11-11 07:30).
+
+**A stall alarm keyed on file freshness is blind beside any timer that writes.**
+Our supervisor took the newest file under the run directory. A memory sampler
+appended a row there every 20 seconds, and the model server printed an idle
+stats line every minute, so the alarm could not fire: zero stall alerts in five
+weeks. The alarm now skips the launcher's own files, idle writers stay silent,
+and a read-only `tick` verb names the artifact it counted. Two neighbours from
+the same survey: a supervisor outside the run's cgroup can die alone, after
+which an auto-resume sweep launched a second copy beside the live run; and a
+relaunch made from a oneshot service died with the service and was recorded as
+a clean finish. The supervisor now shares the run's scope and the loop holds a
+directory lock
+([infrastructure survey](ops/infra-survey-2026-11-09.md); [running record](design/m12-running-record.md), 2026-11-09 17:55 and 2026-11-10 17:17).
+
+**A lazy global on the serving path is built once per waiting thread.** Our
+model server parsed 34,689 Forge card scripts on first use, with no lock, on a
+request thread the warm-up never exercised. One build takes 0.7 s; eight at once
+took 16.2 s; a server's twelve workers exceed the 20-second bridge deadline.
+Nine of 96 in-loop reads lost four to nine games of 400 on their first wave, on
+one server each time. The servers logged no error. Detect it with a log line for
+any answer slower than a threshold, and by checking that failed games share a
+server and a first-minute timestamp. The fix is a lock and a build inside the
+warm-up; six reads after it lost no game
+([running record](design/m12-running-record.md), 2026-11-13 09:55 and 10:30).
 
 ---
 
@@ -324,6 +501,13 @@ bought nothing the shallow leaf did not
 - **The run launcher** (`anvil.runs`, [ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md))
   — detach, stall alarm, alert queue, pause / relaunch, a self-answering
   check-in; the whole unattended-run checklist as one command.
+- **The union target mask** ([ADR-0122](decisions/ADR-0122-union-target-mask.md))
+  — the fork's `TargetUnion` writes each option's legal targets; one Python
+  builder (`anvil/encoder/target_mask.py`) serves the featurizer and the loader;
+  `anvil.store validate` runs the agreement check on any labelled store.
+- **The head-to-head read** (`scripts/h2h_read.py`, the server's `--seat-ckpt`)
+  — two checkpoints on one server fleet, routed by asking seat, with a
+  same-checkpoint symmetry control.
 - **The state-ranking audit** (`value_pretrain eval`) — score any checkpoint's
   value head on a frozen rollout-labelled holdout in seconds, on CPU.
 - **[The upstream worklist](design/upstream-worklist.md)** — what we've sent

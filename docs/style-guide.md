@@ -125,9 +125,8 @@ The meanings of "pin", "fork" and "rung" are my reading of the docs and need the
 
 - **Forward:** every new edit follows the guide from the day it is adopted.
 - **Backfill, once:** CLAUDE.md's Now block was rewritten under the state rules on 2026-11-09, with the displaced
-  text moved to the status archive. Still to do: reorganize the quickstart from §7 on for the outside reader; rewrite the module
-  headers of `server.py`, `model.py`, `dataset.py`, `selfplay.py` and `value_pretrain.py`; fix the nine stale
-  comments the review found. Code edits wait for a stop of the run.
+  text moved to the status archive. The five module headers and the nine stale
+  comments the review found are done. Still to do: reorganize the quickstart from §7 on for the outside reader.
 - **At the closeout documentation pass:** the design doc, the field guide and the standing-rules prune, as already
   routed.
 - **Never:** ADRs, the running record, devlogs and the status archive are not rewritten to match.

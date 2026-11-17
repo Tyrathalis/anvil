@@ -1,56 +1,67 @@
-"""The masked value head trained INSIDE the shared trunk on banked rollout
-labels, and the state-ranking read (m12-plan.md Build 1; ADR-0103).
+"""The value head's rollout-label banks, its fit inside the shared trunk, and the state-ranking read.
 
-What the module does today: `bank` and `fit` build a label bank and fit the
-value head from it; `eval` is the state-ranking read on any checkpoint (the
-self-play loop's per-iteration Spearman row); `bank-run` freezes a
-run-distribution holdout; and the RL learner takes the value anchor's terms
-from here (ValueAnchor).
+Subcommands and what else is imported from here:
 
-The fit keeps the policy heads in place (a KL anchor to the frozen teacher on
-live priority windows) and moves the value head + the top-N trunk layers with
-three label families, banked in the iter-019 era (obs sv=2, pool cf2ca6ba):
+  bank      build the three label banks (below) under --out.
+  fit       fit the value head and the top-N trunk layers on the banks.
+            --fold K is one cross-fit fold; --build trains on every window
+            and saves a checkpoint to --ckpt-out.
+  read      pool the fold results under --out and print the verdict against
+            BARS (ADR-0101 §3, ADR-0102 item 6).
+  eval      the state-ranking read on any checkpoint: the bank's frozen
+            holdout scored by that checkpoint's value head (Spearman against
+            rollout winrate). The self-play loop runs it every iteration.
+  bank-run  freeze a run-distribution holdout: an all-holdout state bank
+            drawn from rollout-label stores (ADR-0124). The loop reads it as
+            a second Spearman row (--state-bank-run).
+  ValueAnchor  the RL learner's value anchor: the fit's replay terms on the
+            banked labels, one mini-batch per optimizer step (ADR-0119).
 
-  state    labelset-c2-v3 c2 rows — K=8 rollout winrate at the first
-           obs-carrying decision of turn t (the ADR-0036/0041 benchmark;
-           frozen holdout = the STATE-RANKING read). RankNet pairs
-           (|dwr|-weighted, gate 0.2) + a 0.05 BCE anchor on wr.
-  leaf     the cl2 completions' eot / h2 windows per (window, arm, roll):
-           ~108K post-action states with (i) the full-vis critic's value
-           already banked in lookahead-read.json — distilled into the
-           masked head (soft BCE) — and (ii) the paired h2 composite per
-           (arm, roll) — RankNet over arms within a (window, roll, horizon)
-           group. The ONE-PLY read (masked / eot / K=1 vs comp8, the
-           ADR-0098 cell at 0.277) is CROSS-FIT: windows split into folds by
-           game hash, each fold's read comes from the model that never saw
-           it, pooled over folds at the full 650-window precision.
-  outcome  priority windows sampled from the m9-rebaseline stores (iter-019
-           vs the heuristic, 2 x 1,000 games, terminal outcomes): BCE on won
-           + the policy anchor KL(teacher || student) on the pointer logits.
+The fit keeps the policy heads in place with a KL anchor to the frozen
+teacher on live priority windows. It moves the value head on three label
+families:
 
-Pre-registered (m12-plan Build 1, ADR-0101 §3 / ADR-0102 item 6): GO at
-one-ply >= 0.35 and/or state-ranking holdout mean >= 0.50; KILL if neither
-clears 0.32. Mint per-arm rows carry no stored post-action state and are not
-used; the drill fork points are already rows of the labelset.
+  state    labelset rows: the K_ROLLS-rollout winrate at the first
+           observation-carrying decision of a turn (the ADR-0036 / ADR-0041
+           benchmark). RankNet over pairs, weighted by the winrate gap and
+           gated at PAIR_GATE_WR, plus a small BCE term on the winrate. The
+           held-out rows are the state-ranking read's frozen holdout.
+  leaf     post-action states of the lookahead completions, one per
+           (window, arm, roll). Two targets: the full-visibility critic's
+           value, distilled into the masked head as a soft BCE, and the
+           paired composite, ranked over arms within a (window, roll,
+           horizon) group.
+  outcome  priority windows sampled from the OUTCOME_STORES games, with
+           their terminal outcomes: BCE on won, and the policy anchor
+           KL(teacher || student) on the pointer logits.
+
+Contract and traps:
+
+- Every split is a hash of the game, never of the row (held_out, leaf_fold,
+  outcome_held). The one-ply read is cross-fit: each fold's windows are read
+  by the model that never trained on them, then pooled.
+- The anchor trains on the non-holdout state rows only. The holdout stays
+  the audit's, so `eval` on an anchored checkpoint is still out of sample.
+- The default assets (CKPT, LABELSET, CL2_*, OUTCOME_STORES) belong to one
+  era (ERA; obs sv=2, pool cf2ca6ba). A bank's globals are narrower than a
+  later net's; widen_globals pads them at load.
+- bank-run's labels depend on the checkpoint that served the labelling run.
+  --label-ckpt records it; the labelling itself is
+  scripts/run_holdout_bank.py label.
+- eval and bank-run default to the CPU so a read never takes the GPU from a
+  running fleet.
+- Mint per-arm rows carry no stored post-action state and are not banked.
 
 Usage:
-  uv run python -m anvil.training.value_pretrain bank --out data/runs/m12-build1
-  uv run python -m anvil.training.value_pretrain fit  --out data/runs/m12-build1 --fold 0
-  uv run python -m anvil.training.value_pretrain fit  --out data/runs/m12-build1 --build \\
-      --ckpt-out data/training/m12-build1
-  uv run python -m anvil.training.value_pretrain read --out data/runs/m12-build1
-  uv run python -m anvil.training.value_pretrain eval --ckpt <last.pt> [--ckpt ...] \
-      [--device cpu] [--write data/runs/shakedown/state_ranking.jsonl]
-    (the state-ranking read on ANY checkpoint — the frozen holdout scored
-     by its value head; the shakedown's per-arm column and the big run's
-     mid-run plateau tripline; CPU by default so it never trips the
-     fleet's GPU yield)
-  uv run python -m anvil.training.value_pretrain bank-run --out data/runs/run-holdout-seg4 \
-      --stores 'data/trajectories/runbank-seg4-*' --label-ckpt <the labelling ckpt> --n 2000
-    (ADR-0124 addendum 11-02: the run-distribution holdout — a frozen,
-     all-holdout bank from rollout-label stores the checkpoint of record
-     played; the loop's --state-bank-run reads it as a second Spearman row;
-     the labelling run itself is scripts/run_holdout_bank.py label)
+  uv run python -m anvil.training.value_pretrain bank --out <bank dir>
+  uv run python -m anvil.training.value_pretrain fit  --out <bank dir> --fold 0
+  uv run python -m anvil.training.value_pretrain fit  --out <bank dir> --build \\
+      --ckpt-out <ckpt dir>
+  uv run python -m anvil.training.value_pretrain read --out <bank dir>
+  uv run python -m anvil.training.value_pretrain eval --out <bank dir> \\
+      --ckpt <last.pt> [--ckpt ...] [--device cpu] [--write <rows.jsonl>]
+  uv run python -m anvil.training.value_pretrain bank-run --out <holdout dir> \\
+      --stores '<rollout-label store glob>' --label-ckpt <the labelling ckpt> --n 2000
 """
 
 from __future__ import annotations
