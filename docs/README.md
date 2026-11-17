@@ -29,7 +29,7 @@
 - [flat-mc-count-budget-brief.md](design/flat-mc-count-budget-brief.md) — the brief for the separate session that builds upstream-worklist Tier 0.10; written 11-17, not yet started (the starting session could not open one over Remote Control)
 - [fork-lineage.md](design/fork-lineage.md) — the research fork's commit chain with each tip's ADR-0025 proof (the current pin lives in CLAUDE.md)
 - [format-onboarding.md](design/format-onboarding.md) — what a "format" is in Anvil, which ones run today, and the checklist for adding one
-- [m13-prescoping-measurements.md](design/m13-prescoping-measurements.md) — draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the gate and the wall cost are not launched
+- [m13-prescoping-measurements.md](design/m13-prescoping-measurements.md) — draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the precon cost measurement is done (§4); the gate and the wall cost are not launched
 - [m13-upstream-merge-scoping.md](design/m13-upstream-merge-scoping.md) — scoping of the upstream merge that opens M13: its size, the Flat Monte Carlo heuristic mode, and the opponent question; three points pinned by the user 11-16, nothing built
 - [playable-fork-worklist.md](design/playable-fork-worklist.md) — playable-track doc of record
 - [run-analysis-protocol.md](design/run-analysis-protocol.md) — the standing post-run analysis battery (anvil/evals/battery.py)

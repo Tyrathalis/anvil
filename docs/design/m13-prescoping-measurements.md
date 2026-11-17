@@ -1,6 +1,6 @@
-# The three measurements before the M13 scoping — design draft
+# The measurements before the M13 scoping — designs and results
 
-**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the gate and the wall cost are not launched
+**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the precon cost measurement is done (§4); the gate and the wall cost are not launched
 
 Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured prices, not measurements. Each design ends with what the user has to pin before launch.
 
@@ -125,6 +125,46 @@ The four reads, all exploratory:
 **Also read from the same cells, at no cost.** The training step's share of an iteration is already on file (422 s of about 4,600 s). With the search-off games-per-hour beside it, the two numbers size the "more learning per game" arm as well.
 
 **To pin.** Nothing but the go; this one has no judgement in it.
+
+## 4. The cost of a precon game, two-player and four-player (measured 2026-11-17)
+
+**A four-player precon game costs about 13 times a two-player one on the stock heuristic, and Flat Monte Carlo at the desktop setting multiplies either by 4 to 12.** This is the cost side of the benchmark's two tracks (ADR-0126, the benchmark addendum). Every seat is the stock AI; no model, no bridge, no GPU.
+
+**Instrument.** [`scripts/precon_cost.py`](../../scripts/precon_cost.py) on the jar in `../forge-upstream` (upstream as of 11-10 plus the decision-log PR), Forge's own `sim` mode, pods drawn at random from the 184 precons under `res/quest/commanderprecons`, seed 20261117. A two-player cell plays the first two decks of each four-player pod. Six JVMs at once on an otherwise idle box. Times exclude each JVM's first game; counts are over all games. Reports: `data/runs/precon-cost/<cell>/report.json`.
+
+| | 2 players, plain | 4 players, plain | 2 players, Monte Carlo max | 4 players, Monte Carlo max |
+|---|---|---|---|---|
+| Games | 120 | 120 | 24 | 24 |
+| Seconds per game, mean | 2.9 | 37.9 | 35.8 | 131 |
+| Seconds per game, median | 1.9 | 17.6 | 24.3 | 141 |
+| Seconds per game, 90th percentile | 4.2 | 60.6 | 37.6 | 173 |
+| Longest game, seconds | 18.5 | 609 | 204 | 227 |
+| Player-turns per game, median | 20 | 48.5 | 17 | 46 |
+| Plays put on the stack, median | 46.5 | 158 | 38.5 | 171 |
+| Seconds per player-turn, median | 0.10 | 0.35 | 1.29 | 2.65 |
+| Draws | 0 | 1 | 0 | 0 |
+| AI decision timeouts | 0 | 14 | 0 | 4 |
+
+The Monte Carlo mode's own statistics, summed over each cell:
+
+| | 2 players | 4 players |
+|---|---|---|
+| Decisions it took up | 1,129 | 3,613 |
+| Rollouts per decision | 7.95 | 5.46 |
+| Rollouts that failed | 98 of 8,977 | 4,939 of 19,718 |
+| Decisions left to the heuristic because the play could not be simulated | 28 | 1,189 |
+| Decisions where it overrode the heuristic | 355 | 786 |
+| 95th-percentile decision time per pod, ms | 1,440 to 2,147 | 1,553 to 2,458 |
+
+What the cells say:
+
+- **The four-player game is 2.4 times longer in turns and 3.2 times larger in plays.** The rest of the plain cost is per turn: each turn takes about 3.5 times as long.
+- **The plain four-player tail is heavy.** The mean is twice the median, one game ran ten minutes, and the stock AI hit its own decision timeout 14 times.
+- **Monte Carlo at the desktop setting costs about 1.3 s per player-turn in two-player and 2.7 s in four-player.** That is 12 times the plain two-player game and about 4 times the plain four-player game by the mean.
+- **The mode is half-working in four-player.** A quarter of its rollouts failed there, mostly in the game copier ("Couldn't map" a card), and a third of its decisions fell back to the heuristic as unsimulatable. In two-player 1% failed. A four-player Monte Carlo opponent on this jar is weaker than its setting says, and our own search copies games through the same copier.
+- **The 95th-percentile decision ran past the 1,500 ms budget in every pod.** Six JVMs on 32 cores is a light load, so the clock binds even on a quiet box.
+
+What they do not say: anything about a model-served seat. The 27 s median game of the recipe of record is a different measurement (model-served, the Duel Commander pool, the bridge in the loop). The small Monte Carlo cells (24 games) carry wide errors on every figure.
 
 ## Order
 

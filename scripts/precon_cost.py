@@ -1,7 +1,7 @@
 """Price heuristic-only Commander precon games on a stock Forge jar (ADR-0126, the benchmark addendum; a utility).
 
 Plays pods of precon decks with Forge's own `sim` mode, every seat the stock AI, no bridge and
-no GPU, and reads each game's wall time, turn count and play counts from the game log. It is
+no GPU, and reads each game's wall time, player-turn count and play counts from the game log. It is
 the cost side of the two-player and four-player benchmark tracks: how long a game is and how
 much happens in it. The same pod draw serves every cell, so a two-player cell plays the first
 two decks of each four-player pod.
@@ -49,11 +49,11 @@ def parse(path: str, pod: int) -> list[dict]:
         if not m:
             continue
         heads = [x.split(':', 1)[0] for x in lines]
-        turn = [int(t.group(1)) for x in lines if (t := re.match(r'Game Outcome: Turn (\d+)', x))]
+        ai_timeouts = sum('AI eval thread at timeout' in x for x in lines)
         games.append({
             'pod': pod, 'game': int(m.group(1)), 'ms': int(m.group(2)), 'draw': 'Draw' in line,
             'timeout': any('Stopping slow match' in x for x in lines),
-            'turns': turn[-1] if turn else None,
+            'turns': heads.count('Turn'), 'ai_timeouts': ai_timeouts,
             'stack': heads.count('Add To Stack'), 'lands': heads.count('Land'),
             'combats': heads.count('Combat'), 'log_lines': len(lines),
         })
@@ -83,6 +83,7 @@ def main() -> None:
     ap.add_argument('--decks', default=os.path.join(FORGE, 'forge-gui/res/quest/commanderprecons'))
     ap.add_argument('--out', required=True)
     a = ap.parse_args()
+    a.out = os.path.abspath(a.out)  # the JVM runs from Forge's own directory
     os.makedirs(a.out, exist_ok=True)
 
     names = sorted(x for x in os.listdir(a.decks) if x.endswith('.dck'))
@@ -101,6 +102,7 @@ def main() -> None:
         'turns': stats([g['turns'] for g in games if g['turns']]),
         'stack_adds': stats([g['stack'] for g in games]),
         'lands': stats([g['lands'] for g in games]),
+        'ai_decision_timeouts': sum(g['ai_timeouts'] for g in games),
         'combats': stats([g['combats'] for g in games]),
         'seconds_per_turn_after_first': stats([g['ms'] / 1000 / g['turns'] for g in warm if g['turns']]),
         'mc_summary': [x.rstrip() for path in logs for x in open(path, errors='replace')
