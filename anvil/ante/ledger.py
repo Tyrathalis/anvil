@@ -9,7 +9,7 @@ to ~0, corrected winrate converges to 50% no slower than raw) with the
 current BC value head, and the variance-reduction number is re-measured when
 the D4 rollout-labeled critic lands.
 
-v0 chance-node classes (per the 2026-07-11 D4 scope decision):
+v0 chance-node classes:
 
 - **opener**: the FIRST `mulliganKeepHand` dec per player = the opening 7,
   a uniform 7-subset of (hand ∪ derived library). E[v] by Monte Carlo over

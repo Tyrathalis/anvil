@@ -1,4 +1,4 @@
-"""M12 Build 4 (ADR-0111): the stack-entry fields — the representation's
+"""The stack-entry fields (ADR-0111) — the representation's
 completion of §J item 10 (a pending trigger's identity and its targets never
 reached the model; the encoder fed `stack_size` alone).
 

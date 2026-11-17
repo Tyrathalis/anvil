@@ -353,8 +353,8 @@ def validate(store: TrajectoryStore, limit: int | None = None) -> ValidationRepo
             report.undecodable.append(f"game {g}: {type(e).__name__}: {str(e)[:80]}")
             continue
         validate_game(traj, report)
-        # winner cross-check (2026-07-11 lesson: two records encoding the same
-        # fact must be compared somewhere). Pre-fix stores fail this ~50% of
+        # winner cross-check (two records encoding the same fact must be
+        # compared somewhere). Pre-fix stores fail this ~50% of
         # games (end.winner from the post-elimination live list — fork
         # 06dd428313); readers must use winner_seat(), so a mismatch is an
         # error only for stores generated after the fix would exist — flag all,

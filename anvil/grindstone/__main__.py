@@ -89,7 +89,7 @@ def plan(a: argparse.Namespace) -> None:
                 "store": store,
                 # M9 boundary: per-source-store fork-id namespace (AnvilRun
                 # -forkns) — synthetic fork ids unique ACROSS source stores
-                # in one selection (the run17 iter-2 MultiStore collision)
+                # in one selection (unnamespaced ids collide in a MultiStore)
                 "fork_ns": fork_ns,
                 "source_run": str(run_dir),
                 "drillfile": str(drillfile),
@@ -332,8 +332,8 @@ def report(a: argparse.Namespace) -> None:
         # supersedes (the re-drill flow: fix a crash class, rerun just
         # those rows). Keyed per fork POINT, not per game: multi-turn
         # drillfiles fire several forks in one mainline (fp 0,1,...)
-        # and a game-keyed join silently kept only one of them (caught
-        # by the M8 audit sample, 2026-08-17 — 124 of 500 points lost).
+        # and a game-keyed join silently keeps only one of them
+        # (measured: 124 of 500 points lost).
         by_game: dict[tuple[int, int], dict] = {}
         for run_dir in run_dirs:
             for lf in glob.glob(f"{run_dir}/workers/*/labels.jsonl"):
@@ -471,11 +471,10 @@ def select(a: argparse.Namespace) -> None:
         w, n = by_t[t]
         picked.append(dict(cur[key], drill_turn=t, sel_rule=rule, sel_wr=round(w / n, 4), sel_n=n))
 
-    # Fork-store index namespace (run17 iter-2, 2026-08-18): fork indices
-    # encode source_g only — the same g selected in two source stores
-    # collides in the training mixture. Loud until the next-era namespace
-    # fix (run13's selection carried 38 such pairs and survived on
-    # rotation luck alone).
+    # Fork-store index namespace: fork indices encode source_g only — the
+    # same g selected in two source stores collides in the training
+    # mixture. Loud, because a selection can carry dozens of such pairs
+    # and survive on rotation luck alone.
     stores_by_g: dict[int, set] = defaultdict(set)
     for r in picked:
         stores_by_g[r["g"]].add(r["store"])

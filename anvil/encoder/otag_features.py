@@ -1,4 +1,4 @@
-"""Oracle-tag functional features (M6 exploratory probe, 2026-08-08).
+"""Oracle-tag functional features (an exploratory probe).
 
 Motivated by an outside-builder observation (talor, Discord): embedding
 card text alone under-clusters FUNCTION — Basalt Monolith files under

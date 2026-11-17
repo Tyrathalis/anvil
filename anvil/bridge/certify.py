@@ -1,6 +1,5 @@
-"""M10 reset Fork 3 — INLINE certification, the Python side (m10-reset-draft
-§D.3, adjudicated 2026-09-03; built 2026-09-04 after the day-zero HALT
-adjudication: better labels before any training).
+"""INLINE certification, the Python side (m10-reset-draft §D.3): better
+labels before any training.
 
 The generation worker's rollout monitor asks the bridge at a quiescent MAIN1
 fork point: "here are the seat's options — which schedule arms?" (tag
@@ -13,7 +12,7 @@ set is what the ceiling sweep and the mint would have enumerated at the same
 window. Arms come back as ordered OPTION-INDEX lists (armId = position + 1;
 the natural line is implicit, arm 0). Empty = no rollouts at this window.
 
-Uniform sampling for probe7 (fresh labels comparable with era zero); the
+Sampling is uniform (fresh labels stay comparable with era zero); the
 `weight` hook is where the pivotal-moment head / value-band weighting plug
 in later (draft §D.3 "smart sampling is strictly easier inline").
 """

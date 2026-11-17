@@ -15,7 +15,7 @@
 # decision paths is our documented twin-nondeterminism residual; with this on,
 # that class stops being probabilistic and becomes reproducible across JVMs, so
 # a twin/bridge run isolates it from every other divergence source. Technique
-# from liamiak's upstream #11360 diagnosis (2026-07-24). Diagnostic only —
+# from liamiak's upstream #11360 diagnosis. Diagnostic only —
 # never pin it for corpus generation: it changes the very ordering we want to
 # measure under production conditions.
 #
@@ -25,19 +25,18 @@ set -euo pipefail
 
 FORGE_DIR="${FORGE_DIR:-$HOME/Everything/Projects/forge}"
 FORGE_GUI_DIR="$FORGE_DIR/forge-gui"
-# NEWEST jar, not alphabetical: `ls | head -1` picked a stale 2.0.14 over the
-# era 2.0.15 for the ADR-0055 fidelity runs (found 2026-08-17 — the whole
-# "post-rebase" characterization ran the pre-rebase jar). Override with JAR=.
+# NEWEST jar, not alphabetical: `ls | head -1` picks a stale 2.0.14 over a
+# current 2.0.15, and a whole characterization then runs the wrong jar
+# (ADR-0055). Override with JAR=.
 JAR="${JAR:-$(ls -t "$FORGE_DIR"/forge-gui-desktop/target/forge-gui-desktop-*-jar-with-dependencies.jar | head -1)}"
 if [[ "$(ls "$FORGE_DIR"/forge-gui-desktop/target/forge-gui-desktop-*-jar-with-dependencies.jar | wc -l)" -gt 1 ]]; then
   echo "WARNING: multiple candidate jars in target/ — using newest: $JAR" >&2
 fi
-# The launch cds into forge-gui/, so a relative JAR= would not resolve either
-# (the 09-07 Build 3 forkcheck launched twice against a missing jarfile).
+# The launch cds into forge-gui/, so a relative JAR= would not resolve either.
 case "$JAR" in /*) ;; *) JAR="$PWD/$JAR" ;; esac
 OUT_DIR="${1:-$HOME/Everything/Projects/Anvil/data/forkcheck/run-$(date +%Y%m%d-%H%M%S)}"
 # Absolutize: the java launch cds into forge-gui/, so a relative out dir would
-# resolve there (the 09-06 repro-run trap).
+# resolve there.
 case "$OUT_DIR" in /*) ;; *) OUT_DIR="$PWD/$OUT_DIR" ;; esac
 N_GAMES="${N_GAMES:-500}"
 SEED="${SEED:-20260703}"

@@ -1,8 +1,8 @@
-"""M12 Build 3 evening 2 (ADR-0105 item 4): the sub-row distillation term.
+"""The surfaces' sub-row distillation term (ADR-0105 item 4).
 
 The search's expansion round (-searchsurf B) enumerates the answers of the
 first traced surface on the top-B candidates' paths and values each with a
-leaf copy; the sub row carries, from the evening-2 fork, the surface
+leaf copy; the sub row carries the surface
 window's own dec record (`frame`: options + obs + hist, the wire shape) —
 the state the answers were chosen in on the COPY, not the mainline (only
 8-19% of sub rows share their option with the mainline). This module turns

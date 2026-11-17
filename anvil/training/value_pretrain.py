@@ -272,7 +272,7 @@ def bank_state(ev, out_dir: Path, smoke: int | None) -> None:
 def bank_leaf(ev, out_dir: Path, smoke: int | None) -> None:
     """Every cl2 completion's eot + h2 window from the acting seat, with the
     banked full-vis value and the paired composite. Streams one completion
-    at a time (the 09-06 OOM lesson); windows without a banked value (the
+    at a time (the whole set does not fit in memory); windows without a banked value (the
     completion ended inside the arm's turn) are skipped."""
     import torch
 
@@ -419,10 +419,10 @@ def bank(args: argparse.Namespace) -> None:
 # ------------------------------------------------------------- the run-distribution holdout
 
 
-# ADR-0124 addendum (11-02): a SECOND, frozen holdout drawn from the run's own
-# games. The Build 1 bank's holdout is drawn from the same bank the anchor
-# trains on, so its Spearman reads generalization inside that bank's state
-# distribution (August states, iter-019-era play); this bank's rows are fork
+# ADR-0124: a SECOND, frozen holdout drawn from the run's own games. The
+# Build 1 bank's holdout is drawn from the same bank the anchor trains on,
+# so its Spearman reads generalization inside that bank's state distribution
+# (states from an earlier checkpoint's play); this bank's rows are fork
 # points of games the run's own checkpoint played, labelled by the fork's
 # rollout labeler, every row `holdout`, nothing trains on it (the anchor must
 # never name it). The on-disk form is the Build 1 bank's (`bank-state.pt`:
@@ -722,8 +722,8 @@ def set_trainable(net, unfreeze: str) -> int:
 def value_logits(net, chunk: dict):
     """The cheap path: cards -> assemble -> trunk -> value head. Honors the
     net's value_stopgrad switch (ADR-0119 rung 2) exactly as AnvilNet.forward
-    does, so the anchor term is head-only under it (the 10-01 smoke: without
-    this, gn_anchor kept reaching the trunk while gn_v read 0)."""
+    does, so the anchor term is head-only under it (without this, gn_anchor
+    keeps reaching the trunk while gn_v reads 0)."""
     card_vecs = net.cards(chunk["ent_emb"])
     tokens, pad = net.assemble(card_vecs, chunk)
     h = net.trunk(tokens, src_key_padding_mask=pad)
@@ -1202,8 +1202,8 @@ def load_net_from(ckpt: str, device: str):
 
 def widen_globals(examples: list, n_global: int, fmt: str) -> list:
     """The bank's examples were featurized in an older globals layout (the
-    iter-019 era: the base columns + the fmt one-hot; a Build 4 bank would
-    carry the scalars too). Re-lay them onto the net's layout through the
+    base columns + the fmt one-hot; a newer bank carries the format scalars
+    too). Re-lay them onto the net's layout through the
     encoder's column map (transform.widen_globals_columns): saved columns
     keep their meaning, newer one-hot columns read zero, and the format
     scalars — when the bank predates them — are filled with the vocab's row
@@ -1252,11 +1252,11 @@ def eval_split_rows(meta: list, split: str, train_sample: int = 2000, seed: int 
     FIXED seeded sample of the anchor's training rows (the non-holdout rows the
     anchor draws from) — the memorization meter's other side: read beside the
     holdout, a growing train − holdout gap is the anchor memorizing its bank
-    (the big run: all-rows 0.84 vs holdout 0.33 at iter-301). `contested` =
+    (measured at 3.9 passes per iteration: all-rows 0.84 vs holdout 0.33). `contested` =
     the holdout rows whose rollout winrate lies strictly inside (0.2, 0.8): the
     states still in play. On the run-distribution bank 44% of the labels are
     exactly 0 or 1 and carry the pooled 0.76; the contested rows read 0.31 under
-    every head (ADR-0124 addendum 11-07), so they are the row that can separate
+    every head (ADR-0124), so they are the row that can separate
     heads."""
     ho = np.array([bool(m["holdout"]) for m in meta])
     if split == "all":
@@ -1277,9 +1277,9 @@ def eval_split_rows(meta: list, split: str, train_sample: int = 2000, seed: int 
 def eval_ckpts(args: argparse.Namespace) -> None:
     """The state-ranking read on any checkpoint: the frozen holdout of the
     state benchmark (1,197 rows — ADR-0103's cell, reference 0.27–0.48, the
-    Build 1 build 0.392) scored by the checkpoint's value head. The
-    shakedown's per-arm column and the big run's mid-run plateau tripline
-    (m12-plan Build order 5). CPU by default: a GPU eval beside a running
+    Build 1 build 0.392) scored by the checkpoint's value head. It is a
+    per-arm column of a comparison and a long run's mid-run plateau tripline.
+    CPU by default: a GPU eval beside a running
     fleet trips the yield and eats an arm's box time."""
     import torch
 
@@ -1294,7 +1294,7 @@ def eval_ckpts(args: argparse.Namespace) -> None:
     rows = []
     swap_state = None
     if getattr(args, "swap_head", None):
-        # ADR-0118 addendum (the 09-24 head-swap read): score the checkpoint's
+        # ADR-0118 (the head-swap read): score the checkpoint's
         # TRUNK under another checkpoint's value-head tensors — unchanged
         # Spearman = the drift lives in the representation, not the head
         swap_state = {
@@ -1439,7 +1439,7 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=20260906)
     p.add_argument("--smoke", type=int, default=None, help="cap rows/windows per family")
     p.set_defaults(fn=bank)
-    p = sub.add_parser("bank-run", help="the run-distribution holdout bank (ADR-0124 addendum 11-02): "
+    p = sub.add_parser("bank-run", help="the run-distribution holdout bank (ADR-0124): "
                                         "a frozen, all-holdout state bank from rollout-label stores")
     p.add_argument("--out", required=True, help="the bank dir (bank-state.pt + manifest.json)")
     p.add_argument("--stores", nargs="+", required=True,
@@ -1536,13 +1536,13 @@ class ValueAnchor:
     the Build 1 fit's replay terms on the banked rollout truth, one mini-batch
     per optimizer step, so the head that serves as the search's leaf stays on
     rollout truth while V-trace trains it (the loop's own value term has no
-    anchor; the trunk under the head drifted four SE in 16 iterations on both
-    shakedown arms). State rows: RankNet on rollout win-rate pairs
+    anchor: unanchored, the trunk under the head drifts four SE in 16
+    iterations). State rows: RankNet on rollout win-rate pairs
     (PAIR_GATE_WR) + w_state_bce * BCE, on the NON-holdout rows — the frozen
     holdout stays the audit's (`eval`, the per-iteration Spearman). Leaf rows:
     one window's leaves per step, the full-vis critic's fv as a BCE target +
     the composite ranking within (roll, hz) groups, as the build fit. The
-    banks' iter-019-era globals widen to the net's (`widen_globals`)."""
+    banks' older globals layout widens to the net's (`widen_globals`)."""
 
     def __init__(self, bank_dir: str, families: str, n_global: int, device: str, seed: int,
                  batch: int = 96, leaf_cap: int = 96, fmt: str = "Commander",

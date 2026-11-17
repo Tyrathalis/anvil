@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# MEMORY SAMPLER + WATCHDOG for a running loop (10-17, after the second systemd-oomd kill of the big run at a
-# training step — the run's own scope at 58 GB resident + 47 GB swapped; the learner's DataLoader workers ≈ 7 GB
-# apiece of decode state, see the 10-17 devlog). Every INTERVAL seconds, one JSON line with the box's free/swap and
+# MEMORY SAMPLER + WATCHDOG for a running loop. It exists because a training step can outgrow the box and die to
+# systemd-oomd with no record (measured: a run's scope at 58 GB resident + 47 GB swapped; the learner's DataLoader
+# workers hold ≈ 7 GB apiece of decode state). Every INTERVAL seconds, one JSON line with the box's free/swap and
 # the RSS + swap + count of each process class in the run (java workers, the model servers, the learner rl.py and its
 # forkserver DataLoader workers, the loop driver, the harness), plus the box's cotenants: `comfy` (a resident ComfyUI,
-# the one GPU cotenant that has run beside the big run; 10-31) and `other` (every other process with a command line —
+# the box's usual GPU cotenant) and `other` (every other process with a command line —
 # the desktop, the browser, kopia, the app — so the unattributed share is a named number, not a gap).
 #
-# THE WATCHDOG (user, 10-17): when MemAvailable stays under AVAIL_MIN_MB for TRIP_SAMPLES consecutive samples WHILE a
+# THE WATCHDOG: when MemAvailable stays under AVAIL_MIN_MB for TRIP_SAMPLES consecutive samples WHILE a
 # learner is up, it terminates the learner and its whole forkserver tree together (rl.py, the forkserver, every
-# pt_data_worker, the resource tracker — a learner killed alone leaves its workers alive at full size, the 10-17
+# pt_data_worker, the resource tracker — a learner killed alone leaves its workers alive at full size, as
 # orphans) before the box swaps into oomd's 90% line. The iteration's training step fails cleanly (the stores and the
 # checkpoint are on disk; the loop records the failure, the chain exits FAILED, a relaunch reruns the step); the
 # trip is recorded in the sample line and in <out dir>/WATCHDOG-TRIP. The chain's retry at a smaller RL_WORKERS on a
@@ -64,7 +64,7 @@ low=low+1 if (avail<amin and learner_up) else 0
 open(state,'w').write(str(low))
 if armed and low>=need:
     # the learner tree: rl.py + the forkserver tree (pt_data_worker children carry the forkserver cmdline). Descend
-    # from every rl pid by ppid so nothing of the tree survives (the 10-17 orphans).
+    # from every rl pid by ppid so nothing of the tree survives as an orphan.
     tree=set(pids['rl'])|set(pids['rl_worker'])
     changed=True
     while changed:

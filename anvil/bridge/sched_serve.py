@@ -5,7 +5,7 @@ schedule for the CURRENT own turn: slots decoded by the model's emission
 head at the first own MAIN1 priority window, statuses advanced as answers
 execute, revisions ONLY at the four engine-detectable triggers
 (1 veto/`retry_of`, 2 ANY opponent action resolved during our turn,
-3 END_OF_TURN entry, 4 schedule exhausted — user pins 2026-08-27).
+3 END_OF_TURN entry, 4 schedule exhausted — user pins).
 Unprovoked revision is structurally impossible: the decode runs only when
 `decode` was set by emission-or-trigger logic.
 
@@ -141,8 +141,8 @@ class SchedServe:
             raise ValueError(f"empty_rev must be one of {EMPTY_REV_MODES}: {empty_rev!r}")
         self.feat = feat
         self.binding = binding
-        # What an EMPTY revision decode means under binding (day-zero
-        # adjudication instrument, 2026-09-03): "hold" = the reset's pin
+        # What an EMPTY revision decode means under binding (an
+        # adjudication instrument): "hold" = the reset's pin
         # verbatim (a hold IS a decision — spells bind closed for the rest
         # of the turn); "noop" = an empty re-decode at a trigger with slots
         # still pending keeps the remaining plan (the least-supervised
@@ -154,7 +154,7 @@ class SchedServe:
         # trace: 75% of holds sat under a post-exhaustion empty re-decode).
         # Advisory mode: no behavioral difference.
         self.empty_rev = empty_rev
-        # Isolation instruments (day-zero adjudication, 2026-09-03):
+        # Isolation instruments (day-zero adjudication):
         # land_first=False — lands are never FORCED (rule 1 off); at a
         # quiescent main window a land option stays open alongside the
         # bound answer, the cast head picks. bind_slots=N>0 — only the

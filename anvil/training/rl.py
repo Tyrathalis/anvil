@@ -43,8 +43,8 @@ from anvil.training.search_join import (
 )
 
 # bf16 autocast around every forward; --no-autocast clears it (a device
-# without a bf16 path — the Mac users' mps / cpu train step, community
-# thread 09-09). Module state: set once in main(), read by the two forwards.
+# without a bf16 path — the Mac users' mps / cpu train step).
+# Module state: set once in main(), read by the two forwards.
 AUTOCAST = True
 
 
@@ -475,7 +475,7 @@ def game_trajectories(
     except OversizeFrame:
         # a frame past the reader's bound is counted and skipped, never fatal
         return [], "oversize"
-    # M12 Build 4½ (the loop wiring, search_join): the search directive's
+    # The loop wiring (search_join; ADR-0113): the search directive's
     # rows joined to this game's priority decs. An acted window's TWO decs
     # (the natural ask + the forced re-ask) merge into one training window
     # under the search's behavior distribution; the forced dec is never a
@@ -649,9 +649,9 @@ def seq_pass(
     aux BCE toward wr_nat. margin > 0 hinges the contrast at ±margin: a
     window where the preferred action already wins by the margin contributes
     zero gradient, so L_seq is bounded (|L_seq| ≤ clip·margin) — the raw
-    log-prob contrast is unbounded and ran away in d6-run14 (seq_raw −0.22 →
-    −8.5 across three iterations under a frozen w_seq; the M6 rule is clips
-    at birth). Means are over the whole seq batch. grad=True backwards the
+    log-prob contrast is unbounded and runs away under a frozen w_seq
+    (seq_raw −0.22 → −8.5 across three iterations, measured; the rule is
+    clips at birth). Means are over the whole seq batch. grad=True backwards the
     weighted total into the current accumulation window; grad=False
     (calibration) just measures. Returns (raw L_seq, raw aux)."""
     n_total = sum(next(iter(s.values())).shape[0] for s in seq_segs)
@@ -679,8 +679,8 @@ def entropy_hinge(ent: "torch.Tensor", floor: float, b: int, t_len: int):
     """ADR-0017 hinge floor: a penalty (ADDED to the loss) only when the
     segment's mean composite entropy sinks below `floor`; identically zero —
     zero gradient — above it. Replaces the always-on bonus, which was the
-    sole persistent gradient under mirror-self-play ~zero advantages and ran
-    away with lr (run-2). Weighted by the segment's share of the trajectory
+    sole persistent gradient under mirror-self-play ~zero advantages and runs
+    away with lr. Weighted by the segment's share of the trajectory
     so multi-segment trajectories aggregate to a trajectory-level hinge."""
     return torch.relu(torch.as_tensor(floor, device=ent.device, dtype=ent.dtype) - ent.mean()) * (
         b / t_len
@@ -727,8 +727,8 @@ class RlTrajectories(torch.utils.data.IterableDataset):
         self.penalty_grouping = penalty_grouping
         self.plan = plan
         self.sched = sched
-        self.search = search  # M12 Build 4½: {"bar": the acting bar} or None
-        # Collate WORKER-SIDE at exactly the learner's seg size (2026-07-26).
+        self.search = search  # {"bar": the acting bar} or None
+        # Collate WORKER-SIDE at exactly the learner's seg size.
         # Yielding per-window example dicts shipped ~20 tensors x hundreds of
         # windows x2 (masked + fv) through the DataLoader's shm+pickle path for
         # the single main process to deserialize and collate: measured 87% of
@@ -762,8 +762,8 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                     continue
                 # SCHED_COUNTERS accumulates in THIS (worker) process; the
                 # learner only sees what rides the item — ship per-game
-                # deltas (found at the R2 integration smoke: --workers > 0
-                # left the learner-side dict empty)
+                # deltas (--workers > 0 would otherwise leave the
+                # learner-side dict empty)
                 snap = dict(SCHED_COUNTERS) if self.sched else None
                 search_counts: Counter | None = Counter() if self.search else None
                 trajs, skip = game_trajectories(
@@ -1017,14 +1017,13 @@ def plan_pass0(net, segs: list, dev: str) -> None:
 def make_forward_segments(dev: str, seg: int):
     """Segmented GPU forward passes over a trajectory's examples.
 
-    VRAM elasticity (task #12): seg is pure micro-batching — activation
-    peak scales with it, semantics don't — so cotenant memory pressure (a
-    resident ComfyUI job, run-3's OOM class) is absorbed by halving it
-    and retrying instead of crashing the iteration. Extended 2026-08-18
-    (user directive, the run17 iter-8 incident): at the halving floor the
-    learner PARKS for the cotenant instead of raising (scale-to-zero),
-    and after a quiet stretch a free-VRAM tier probe restores seg toward
-    the launch size (replacing the original sticks-for-the-run policy)."""
+    VRAM elasticity: seg is pure micro-batching — activation peak scales
+    with it, semantics don't — so cotenant memory pressure (a resident
+    ComfyUI job) is absorbed by halving it and retrying instead of
+    crashing the iteration. At the halving floor the learner PARKS for
+    the cotenant instead of raising (scale-to-zero), and after a quiet
+    stretch a free-VRAM tier probe restores seg toward the launch size,
+    so one squeeze does not stick for the run (anvil.training.vram)."""
     from anvil.training.vram import free_mb, park_for_cotenant, seg_tier
 
     seg_size = {"n": seg, "target": seg, "ok": 0}
@@ -1119,7 +1118,7 @@ def main() -> None:
         default=None,
         help="separate lr for the M9 §3c payment params (pay_ prefix). "
         "The loop takes one optimizer step per --traj-per-step "
-        "trajectories (~417/iteration at run17 volumes), so at the "
+        "trajectories (~417/iteration at loop volumes), so at the "
         "trunk lr a fresh head displaces <=0.03 across a whole probe "
         "run: pay_bias would sit at its +2.0 init and pay_kind_emb "
         "would never reach the ~0.1 per-element scale its neighbours "
@@ -1143,8 +1142,8 @@ def main() -> None:
     ap.add_argument("--anchor-batch", type=int, default=96, help="state-bank rows per anchor step")
     ap.add_argument("--anchor-every", type=int, default=1,
                     help="ADR-0124: one anchor mini-batch every K optimizer steps — the draw budget. Size it so one "
-                         "iteration's draws stay under a quarter pass of the bank (the big run's 3.9 passes per "
-                         "iteration memorized 8,403 rows: all-rows rho 0.84 vs holdout 0.33 at iter-301); 1 = every "
+                         "iteration's draws stay under a quarter pass of the bank (at 3.9 passes per iteration "
+                         "the head memorizes an 8,403-row bank: all-rows rho 0.84 vs holdout 0.33); 1 = every "
                          "step, the pre-ADR-0124 recipe")
     ap.add_argument("--anchor-leaf-cap", type=int, default=96,
                     help="leaf rows per anchor step (one window's leaves, capped); 0 = the state bank only")
@@ -1205,8 +1204,8 @@ def main() -> None:
         help="§6c pricing basis (ADR-0054): first = one penalty per "
         "veto WINDOW (re-ask chain continuations free — chain "
         "length is realizer walk-down, not graded intent); "
-        "event = the superseded per-attempt pricing (run5-run13 "
-        "era reproduction only).",
+        "event = the superseded per-attempt pricing (era "
+        "reproduction only).",
     )
     # ---- C-seq + C2a policy-side aux (ADR-0054) ----
     ap.add_argument(
@@ -1330,7 +1329,7 @@ def main() -> None:
         default=None,
         help="separate (slower) lr for the slot-token input path "
         "(assemble.sched_*) — dense PG gradient at every carried window; "
-        "the run20 iter-0 lesson applied FROM FIRST LAUNCH (guard "
+        "at the head's lr the kl guard binds at the first iteration (guard "
         "posture pin: 1e-4); default = --sched-lr",
     )
     ap.add_argument(
@@ -1383,7 +1382,7 @@ def main() -> None:
         help="ADR-0088 fixed-batch subsampling: build the pay/seed label "
         "batches in k-window chunks and apply ONE chunk per optimizer step "
         "(epoch-shuffled, without replacement) instead of the full batch — "
-        "the m10-probe2 memorization-impulse fix. 0 = legacy full-batch "
+        "the memorization-impulse fix. 0 = legacy full-batch "
         "(calibration always measures the full batch either way)")
     ap.add_argument(
         "--lab-warmup", type=int, default=0,
@@ -1405,7 +1404,7 @@ def main() -> None:
         help="hinge on the L_seq contrast at ±margin (log-prob units): a "
         "window already preferring its target by e^margin odds gives "
         "zero gradient, bounding |L_seq| ≤ seq_clip*margin. 0 = raw "
-        "unbounded contrast — the d6-run14 divergence; keep > 0.",
+        "unbounded contrast, which diverges; keep > 0.",
     )
     ap.add_argument(
         "--kl-abort",
@@ -1413,11 +1412,11 @@ def main() -> None:
         default=0.0,
         help="end the phase early if a log-window's mean kl_mu exceeds "
         "this (0 = off). A runaway diverges exponentially within one "
-        "phase (d6-run14 iter 2: 0.05 -> 20 in ~300 steps); the driver "
+        "phase (measured: 0.05 -> 20 in ~300 steps); the driver "
         "guard still rejects the ckpt — this just stops wasting steps "
         "and leaves a cleaner state.",
     )
-    # ---- M12 Build 4½ (ADR-0113): the loop wiring — the search's rows in
+    # ---- ADR-0113: the loop wiring — the search's rows in
     # the trainer. --search turns on the acted-window merge (the loader),
     # the un-acted KL / tripwire basis, the pick-distillation CE on the
     # acted windows, the allocation head's BCE on the searched windows and
@@ -1425,7 +1424,7 @@ def main() -> None:
     ap.add_argument(
         "--search",
         action="store_true",
-        help="M12 Build 4½: the stores carry the search directive's rows "
+        help="the stores carry the search directive's rows "
         "(search.jsonl, ingested from the run's labels) — join them, merge "
         "the acted windows under the search's behavior distribution, train "
         "the search-row terms. Off = byte-identical to the pre-wiring loop.",
@@ -1531,13 +1530,13 @@ def main() -> None:
     if args.pay_lr is not None:
         groups.append(("pay_", args.pay_lr))
     if args.plan_lr is not None:
-        # run20 iter-0 amendment: the aux HEADS keep --plan-lr (dense aux
-        # signal, no kl path once measured), but the consumption proj gets
-        # its own slower group — it receives dense PG at every carried
-        # window, so at 1e-3 the policy left the behavior policy at ~100x
-        # recipe speed and the kl guard bound at iteration 0 (rms 0.0039 in
-        # 9 steps, kl 0.07 pre-aux). ADR-0069's starved-param arithmetic
-        # never applied to it.
+        # The aux HEADS keep --plan-lr (dense aux signal, no measured kl
+        # path), but the consumption proj gets its own slower group — it
+        # receives dense PG at every carried window, so at 1e-3 the policy
+        # leaves the behavior policy at ~100x recipe speed and the kl guard
+        # binds at the first iteration (measured: rms 0.0039 in 9 steps, kl
+        # 0.07 pre-aux). ADR-0069's starved-param arithmetic does not apply
+        # to it.
         groups.append(("plan_", args.plan_lr))
         groups.append(("assemble.plan_proj", args.plan_proj_lr
                        if args.plan_proj_lr is not None else args.plan_lr))
@@ -1545,21 +1544,21 @@ def main() -> None:
         # M10 v2: the same split — decode/E/R heads at the starved-param lr,
         # the slot-token input path (proj + embeddings, ALL densely fed
         # through attention at every carried window) at the slower group
-        # from FIRST launch (the run20 iter-0 class, pinned guard posture)
+        # from the first launch (the consumption proj's reason; pinned guard posture)
         groups.append(("sched_", args.sched_lr))
         groups.append(("assemble.sched_", args.sched_proj_lr
                        if args.sched_proj_lr is not None else args.sched_lr))
     if args.value_head_lr is not None:
-        # ADR-0119 rung 2 attribution (10-02): the detached head alone chases
-        # outcomes at the trunk lr and sat biased (v0 ~0.60 vs rewards ~0.50
-        # through iteration 3 of the halted cell); its own group lets it catch up
+        # ADR-0119 rung 2: the detached head alone chases outcomes at the
+        # trunk lr and sits biased (measured: v0 ~0.60 vs rewards ~0.50 after
+        # three iterations); its own group lets it catch up
         groups.append(("value_head.", args.value_head_lr))
     if args.trunk_lr is not None:
-        # ADR-0119 rung 2 attribution (10-02): everything UPSTREAM of the value
-        # head's detach (cards, assemble, trunk) at its own lr — AdamW scales
-        # each parameter's step by its own gradient history, so removing the
-        # value gradients from the trunk raised the policy's effective step
-        # ~10x (kl_mu 0.007 -> 0.068 over four iterations, the kl guard halt);
+        # ADR-0119 rung 2: everything UPSTREAM of the value head's detach
+        # (cards, assemble, trunk) at its own lr — AdamW scales each
+        # parameter's step by its own gradient history, so removing the
+        # value gradients from the trunk raises the policy's effective step
+        # ~10x (measured: kl_mu 0.007 -> 0.068 over four iterations, a kl guard halt);
         # appended last so the sched / plan assembler groups keep theirs
         for prefix in ("cards.", "assemble.", "trunk."):
             if any(n_.startswith(prefix) for n_, _ in net.named_parameters()):
@@ -1764,7 +1763,7 @@ def main() -> None:
 
         # ADR-0088: comma-lists of parallel (labels, store) pairs — the mint
         # spans several source stores whose game-index ranges may collide
-        # (probe1-i000 and probe2-i000 both start at g=0), so each labels
+        # (every run's first store starts at g=0), so each labels
         # file joins ONLY its own store and the batches merge
         seed_paths = args.seed_labels.split(",")
         store_paths = args.seed_store.split(",")
@@ -1837,7 +1836,7 @@ def main() -> None:
     # ADR-0088 fixed-batch mechanics: per-step chunk subsampling + applied-
     # step warmup ramp for both fixed-batch terms; first-10-applied raws
     # dumped to labs_early.json (the impulse window the telemetry rows
-    # start too late to see — m10-probe2 forensics)
+    # start too late to see)
     from anvil.training.labbatch import ChunkSampler, warmup_scale
 
     paylab_sampler = (
@@ -1899,7 +1898,7 @@ def main() -> None:
     sched_share_raw = sched_share_pg = 0.0
     sched_share_traj = 0
     kl_aborted = False
-    # M12 Build 4½: the search-row terms + the join census + the unbiased
+    # the search-row terms + the join census + the unbiased
     # windows for the tau pass (a seeded reservoir)
     distill = AuxShare("distill", args.distill_frac, args.distill_w, args.distill_calib_steps, out_dir) if args.search else None
     alloc = AuxShare("alloc", args.alloc_frac, args.alloc_w, args.alloc_calib_steps, out_dir) if args.search else None
@@ -1944,10 +1943,9 @@ def main() -> None:
     anchor_sum: dict[str, float] = {}
     anchor_steps = 0
 
-    # Per-phase wall clock (bench 2026-07-25: the GPU sits ~90% idle through
-    # the train phase and throughput is flat in both --seg and --workers, so
-    # the bottleneck is neither device capacity nor worker count — this says
-    # which phase actually holds the clock). `load` is isolated by timing the
+    # Per-phase wall clock: says which phase holds the clock when the GPU
+    # sits idle through the train phase and throughput is flat in both --seg
+    # and --workers (neither device capacity nor worker count binds). `load` is isolated by timing the
     # loader handoff itself, so `continue` paths can't misattribute it.
     tprof: dict[str, float] = {}
 
@@ -2026,7 +2024,7 @@ def main() -> None:
                 f"{len(values)} != masked {len(logp_pi)} — loader misalignment"
             )
 
-        # M12 Build 4½: the acted windows' mu is the search's, not the
+        # the acted windows' mu is the search's, not the
         # network's — the tripwire and the KL guard read the un-acted rest
         acted = (
             torch.cat([seg["acted"] for seg in segs]) if args.search
@@ -2136,10 +2134,10 @@ def main() -> None:
             # at emission rows; targets clamped at birth (SCHED_AXIS_CLAMP);
             # ADR-0057 discipline verbatim (measured during calibration,
             # applied after). The dense decode CE on the policy's OWN
-            # realized casts was RETIRED at ADR-0086 (m10-probe1: the head
-            # is the emitter, so the term is self-referential with a
-            # degenerate fixed point at empty — one RL iteration reached
-            # it). Decode supervision now lives ONLY in the certified
+            # realized casts is RETIRED (ADR-0086: the head is the emitter,
+            # so the term is self-referential with a degenerate fixed point
+            # at empty — one RL iteration reaches it). Decode supervision
+            # lives ONLY in the certified
             # seed-label term (seedlabels.py, promoted to the primary
             # decode signal). ----
             sched_term = None
@@ -2151,7 +2149,7 @@ def main() -> None:
                     # applied (the retired ADR-0086 term's target pipeline,
                     # repurposed as telemetry). The live-gap ratio
                     # sched_live_ce / seedlab_raw is the pre-registered
-                    # staled-mint tell (probe2's terminal signature: 139x).
+                    # staled-mint tell (139x measured on a staled mint).
                     with torch.no_grad():
                         live_ce = F.cross_entropy(
                             fwd["sched_logits"][fidx].flatten(0, 1).float(),
@@ -2183,7 +2181,7 @@ def main() -> None:
                     traj_sched += float(sched_term.detach())
                     acc["sched_e"] = acc.get("sched_e", 0.0) + float(e_l.detach())
                     acc["sched_r"] = acc.get("sched_r", 0.0) + float(r_l.detach())
-            # ---- M12 Build 4½ search-row terms (ADR-0113): the pick-
+            # ---- the search-row terms (ADR-0113): the pick-
             # distillation CE on the acted windows (their label IS the
             # search's realized pick after the merge — realized through the
             # model's own CastPlan, so the ADR-0111 over-generalization
@@ -2268,7 +2266,7 @@ def main() -> None:
             calib_pg += abs(traj_pg)
             calib_traj += 1
         if seq is not None and w_seq is not None:
-            # seq-share window accumulators (d6-run14): the calibration
+            # seq-share window accumulators: the calibration
             # identity w_seq*|L_seq| ≈ seq_frac*mean|PG per traj| is the
             # design's load-bearing invariant — measure it continuously,
             # the driver guards on the iteration mean
@@ -2540,8 +2538,7 @@ def main() -> None:
                 # actual trajectories since the last flush — the modulo is on
                 # the ABSOLUTE step (monotonic across the BC->RL chain), so
                 # the first window after a non-aligned init step is short;
-                # dividing by the nominal window diluted first-row metrics
-                # (run-1 iter rows; rediscovered on the re-ask smoke)
+                # dividing by the nominal window would dilute first-row metrics
                 n = max(n_traj - last_flush_traj, 1)
                 last_flush_traj = n_traj
                 wall = time.monotonic() - t0
@@ -2578,12 +2575,12 @@ def main() -> None:
                         w_paylab * abs(paylab_share_raw / paylab_share_steps)
                         / (paylab_share_pg / paylab_share_traj), 5,
                     )
-                # ADR-0088 fix (m10-probe3 halt): the acc[] row values of the
+                # ADR-0088: the acc[] row values of the
                 # once-per-step fixed-batch raws are per-TRAJECTORY means
                 # (÷ traj_per_step); the calibration raw is per-STEP. Surface
                 # the per-step mean under its own key so the memorize guard
-                # compares like with like (the ÷4 dilution made the guard
-                # unpassable; probe1/2's banked row values carry the same
+                # compares like with like (the ÷4 dilution makes the guard
+                # unpassable; row values banked before this key carry the same
                 # dilution — ADR-0087's 0.421/0.046 are ~1.68/0.18 per step).
                 paylab_raw_step = (
                     round(paylab_share_raw / paylab_share_steps, 5)

@@ -46,12 +46,12 @@ from anvil.training.dataset import (
 
 _HOST_ID = re.compile(r"\((\d+)\)$")  # mirrors dataset._HOST_ID
 
-PAY_SET_K = 8  # evening 4: entities per payment goal's plan carried to the model
+PAY_SET_K = 8  # entities per payment goal's plan carried to the model
 
 TAG_TASK = {
     "mtg.priority": "priority",
     "mtg.mulligan_keep": "mull_keep",
-    # evening 2 (ADR-0105 leftover): the tuck served by the target decoder
+    # ADR-0105: the tuck served by the target decoder
     "mtg.mulligan_tuck": "mull_tuck",
     "mtg.trigger": "trigger",
     "mtg.binary": "binary",
@@ -63,14 +63,14 @@ TAG_TASK = {
     # the has_combat precedent) — a pre-M9 ckpt declines and the worker's
     # local echo stays AUTO (GrpcBridge pins the tag's echo to 0).
     "mtg.pay_mana_class": "pay_class",
-    # M12 Build 3 (ADR-0105): the decision surfaces, one tag per answer shape
+    # ADR-0105: the decision surfaces, one tag per answer shape
     "mtg.surface.entity_one": "surf_one",
     "mtg.surface.entity_set": "surf_set",
     "mtg.surface.mode": "surf_mode",
-    # evening 3: ordering (a permutation) and combat damage (a kill order)
+    # ordering (a permutation) and combat damage (a kill order)
     "mtg.surface.order": "surf_order",
     "mtg.surface.damage": "surf_damage",
-    "mtg.surface.target": "surf_target",  # Build 4
+    "mtg.surface.target": "surf_target",  # ADR-0109: targets chosen outside a cast
 }
 
 
@@ -103,7 +103,7 @@ def store_wire_hist(prior: list[dict], now_pos: int, k: int = HISTORY_K) -> list
         # store a card is {"e": id} and an ability {"e": host, "sa": ...}; a
         # SINGLE-entity answer is a bare dict (chooseSingleCardForZoneChange,
         # chooseSingleEntityForEffect — the served entity surfaces), which
-        # the list-only rule read as -1 (09-18: 5.9% of priority windows
+        # a list-only rule reads as -1 (measured: 5.9% of priority windows
         # rebuilt with a wrong history, 2.3% recomputing > 0.2 nats off)
         first = ret[0] if isinstance(ret, list) and ret else ret
         if (
@@ -140,11 +140,11 @@ def quiescent_main(dec: dict) -> bool:
     stack are entities with z="stack"; triggered/activated ABILITIES on the
     stack never enter the zone and appear only in the separate obs["stack"]
     list (the Java option scan keys sorcery-speed legality on MagicStack for
-    the same reason). Found 2026-09-04: the entities-only test read 9.3K of
-    79K census windows with an ability on the stack as quiescent — binding
-    rule 3 then failed sorcery-speed slots for timing (the hand-basis
-    day-zero read's "unactivatable" pile) and the loyalty/once-per-turn
-    filter below saw "absent at quiescence" where it was a trigger."""
+    the same reason). An entities-only test reads windows with an ability
+    on the stack as quiescent (measured: 9.3K of 79K census windows) —
+    binding rule 3 then fails sorcery-speed slots for timing and the
+    loyalty/once-per-turn filter below sees "absent at quiescence" where
+    it is a trigger."""
     obs = dec["obs"]
     glob = obs.get("glob", {})
     if glob.get("ph") not in MAIN_PHASES:
@@ -154,8 +154,8 @@ def quiescent_main(dec: dict) -> bool:
     return not any(e.get("z") == "stack" for e in obs.get("ents", []))
 
 
-# Board-host activation filter (m10-reset-draft §I refinement (b), session
-# two): a permanent's activation that is not offered now is a plannable
+# Board-host activation filter (m10-reset-draft §I refinement (b)):
+# a permanent's activation that is not offered now is a plannable
 # virtual candidate only if a road back exists this turn. The option scan
 # does NOT filter by payability (AnvilOptions PAYCHECK off), so an absent
 # board activation is absent for a NON-mana reason — and three of those
@@ -206,7 +206,7 @@ class Featurizer:
         self.embed = EmbeddingCache(Path(embedding_stem))
         self.methods = MethodVocab(methods)
         self.sa_vocab = SaVocab(sa_vocab or default_sa_vocab())
-        # M12 Build 3: the ability table for surface option keys (ADR-0105)
+        # the ability table for surface option keys (ADR-0105)
         from anvil.policy.surfaces import AbilityCache
 
         self.abil = AbilityCache(abilities) if abilities else None
@@ -297,9 +297,9 @@ class Featurizer:
         cand_rows = [-1]
         cand_sa = [-1]
         cand_kind = [-1]
-        ak_of_cand: dict[int, int] = {}  # Build 4: candidate index -> ability-table row
+        ak_of_cand: dict[int, int] = {}  # candidate index -> ability-table row
         cand_paykind = [-1]
-        cand_ents: list[list[int]] = [[-1] * PAY_SET_K]  # evening 4: the goal's plan as an entity set
+        cand_ents: list[list[int]] = [[-1] * PAY_SET_K]  # the goal's plan as an entity set
         cand_first_opt = [-1]  # per candidate: FIRST matching wire-option index
         cand_opts: list[list[int]] = [[]]  # ADR-0122: the wire options collapsed into each candidate
         ctx_row = -1
@@ -351,10 +351,10 @@ class Featurizer:
                 cand_kind.append(-1)
                 gk = o.get("gk") or []
                 cand_paykind.append(int(gk[0]) if gk else PAY_KINDS["spare_other"])
-                # evening 4 (ADR-0105): the plan's tapped entities as a SET — the
-                # role-copy head pools their trunk outputs (the M9 one-
-                # representative key left 56% of the pool's positives sharing a
-                # key with another goal); lowest ids first, capped at PAY_SET_K
+                # ADR-0105: the plan's tapped entities as a SET — the role-copy
+                # head pools their trunk outputs (a one-representative key
+                # leaves 56% of the pool's positives sharing a key with
+                # another goal); lowest ids first, capped at PAY_SET_K
                 rows_set = [row_of.get(e, -1) for e in sorted(ents)][:PAY_SET_K]
                 cand_ents.append(rows_set + [-1] * (PAY_SET_K - len(rows_set)))
                 cand_first_opt.append(i)

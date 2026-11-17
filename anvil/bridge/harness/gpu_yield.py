@@ -1,4 +1,4 @@
-"""GPU yield (the crude autoscaler, 2026-09-14; user pin).
+"""GPU yield: the harness stops launching chunks while a foreign job holds the card (a user pin).
 
 When a GPU compute process from OUTSIDE the run's own session takes the
 card (a training run, ComfyUI generating), the scheduler stops launching
@@ -99,8 +99,8 @@ def _sid(pid: int) -> int | None:
 
 def _is_anvil_server(pid: int) -> bool:
     """An Anvil model server is ours whatever session started it (an ad-hoc
-    launch starts the server and the harness from different shells; the
-    09-14 JFR run yielded to its own server)."""
+    launch starts the server and the harness from different shells, and a
+    session test alone would make the run yield to its own server)."""
     try:
         cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ")
     except OSError:

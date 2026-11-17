@@ -4,7 +4,7 @@ primary probe read, and the day-zero read (binding execution of the
 distilled planner before any training).
 
 Population (pinned in scripts/sched_pins.py PAIRED_*): drawn ONCE from the
-ADR-0078 ceiling census (user decision 2026-09-03: reuse over fresh
+ADR-0078 ceiling census (a user decision: reuse over fresh
 generation — apples-to-apples with the +14.1pp stratum number, replay parity
 proven on that census); eligible turn-groups per schedule_sweep.eligible_turns
 (the sweep's own rule), scored by the eval critic of record at the fork
@@ -438,8 +438,8 @@ def _start_server(port: int, log: Path, ckpt_main: str, ckpt: str, binding: str,
             except OSError:
                 time.sleep(1.0)
                 continue
-        # 09-27: the port is bound; wait for the servicer to answer a ping
-        # (the cold-start gap behind the 09-24 read's five crashes)
+        # the port is bound; wait for the servicer to answer a ping (a first
+        # request that lands in the warm-up gap dies on a cold-start deadline)
         from anvil.bridge.fleet import ping_server
 
         ping_server(port, timeout=max(5.0, 600 - (time.monotonic() - t0)))

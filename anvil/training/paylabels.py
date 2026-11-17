@@ -1,5 +1,5 @@
 """M10 R5: ADR-0075 supervised conditional payment labels as direct aux
-(m10-plan supervised-conditional wiring, adjudicated 2026-08-26; the M7
+(m10-plan supervised-conditional wiring; the M7
 seqlabels-join wire shape on the banked observe frames).
 
 **This deliberately reverses the M9 "no BC-from-heuristic" pin** (the

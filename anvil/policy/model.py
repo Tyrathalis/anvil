@@ -34,9 +34,9 @@ def masked_cross_entropy(logits, labels, ignore_index: int = -1):
     """Cross-entropy over the labelled rows; ZERO (not NaN) when a batch has none.
     `F.cross_entropy(..., ignore_index)` with reduction="mean" over zero valid
     rows returns NaN, and the target term was the one term in `losses` without
-    an `.any()` guard — a NaN there poisons the whole step (Kryptic, 09-22: NaN
-    metric rows on small-batch BC; ours never hit it at batch 256 over priority
-    windows, where a batch without a cast is essentially impossible)."""
+    an `.any()` guard — a NaN there poisons the whole step. Small-batch BC
+    hits it; at batch 256 over priority windows a batch without a cast is
+    essentially impossible."""
     valid = labels != ignore_index
     if not bool(valid.any()):
         return logits.new_zeros(())
@@ -112,7 +112,7 @@ class AnvilNet(nn.Module):
         # (old checkpoints load and serve unchanged).
         if n_sa:
             self.sa_emb = nn.Embedding(n_sa + 1, 64)  # +1 = OOV id
-            # M12 Build 4 (ADR-0111): the ability TEXT beside the string id — the
+            # ADR-0111: the ability TEXT beside the string id — the
             # pinned table's vector (keyed by the option's `ak`) projected into the
             # same 64-dim descriptor, zero-init (day-zero byte-identical; the
             # re-warm moves it). An OOV string (a card the vocab never saw) keys
@@ -127,7 +127,7 @@ class AnvilNet(nn.Module):
         self.value_head = nn.Sequential(
             nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, 1)
         )
-        # ADR-0119 ladder rung 2 (10-01): a training-time switch, not an
+        # ADR-0119 ladder rung 2: a training-time switch, not an
         # architecture parameter (checkpoints carry no trace of it; the
         # trainer sets it from --value-stopgrad-trunk). When set, the value
         # head reads a DETACHED [STATE] read-out, so every value-side term
@@ -151,7 +151,7 @@ class AnvilNet(nn.Module):
         # one-field heads (rung-1 family: mull_keep/trigger/binary as bools,
         # number as [lo,hi]-masked classes); input = [STATE] ⊕ ctx-entity ⊕ task
         self.task_emb = nn.Embedding(len(TASKS), 64)
-        # M12 Build 3 (ADR-0105): the option-set decoder for the decision
+        # ADR-0105: the option-set decoder for the decision
         # surfaces = THIS target decoder (tgt_query / tgt_key / player_key /
         # stop_key) restricted to a named option set, with the resolving
         # ability's table vector as the "source" the cast decoder gets from
@@ -176,9 +176,9 @@ class AnvilNet(nn.Module):
         self.surf_slot_emb = nn.Parameter(torch.zeros(SURF_MAX + 1, d_model))
         self.surf_task_emb = nn.Embedding(len(TASKS), d_model)
         nn.init.zeros_(self.surf_task_emb.weight)
-        # +2 = the OOV id (n_methods: a method the pinned vocab never saw — Build 4's
-        # playTriggerTargets was the first) and the pad (-1 -> 0); (n_methods + 1)
-        # rows indexed one past the end on the OOV id (the 09-16 fit crash)
+        # +2 = the OOV id (n_methods: a method the pinned vocab never saw, e.g.
+        # playTriggerTargets) and the pad (-1 -> 0); (n_methods + 1) rows would
+        # index one past the end on the OOV id
         self.surf_method_emb = nn.Embedding(n_methods + 2, d_model)
         nn.init.zeros_(self.surf_method_emb.weight)
         self.register_buffer("abil_vec", torch.zeros(1, d_abil), persistent=False)
@@ -227,7 +227,7 @@ class AnvilNet(nn.Module):
         # pay_kind_emb convention). Never dictates: follow/deviate is
         # telemetry (paymark_follow).
         self.pay_mark_emb = nn.Parameter(torch.zeros(d_model))
-        # M12 Build 3 evening 4 (ADR-0105): the payment ROLE-COPY head — a
+        # ADR-0105: the payment ROLE-COPY head — a
         # payment window scores its goal options with pay_query / pay_key
         # (initialized as copies of the priority pointer's maps by load_compat)
         # over the goal's PLAN as an entity SET (the mean trunk output of the
@@ -237,7 +237,7 @@ class AnvilNet(nn.Module):
         # server's has_pay gate and the pay-only fits' trainable set.
         self.pay_query = nn.Linear(d_model, d_model)
         self.pay_key = nn.Linear(d_model, d_model)
-        # Evening 4 close (ADR-0105 addendum 09-11): the payment DEVIATION GATE —
+        # ADR-0105: the payment DEVIATION GATE —
         # P(this payment window is a positive: some goal beats auto by the
         # leaf's bar) from the state read-out, trained with BCE on the pool's
         # free label (the pivotality pattern). The served head deviates only
@@ -249,7 +249,7 @@ class AnvilNet(nn.Module):
         nn.init.zeros_(self.pay_gate.weight)
         with torch.no_grad():
             self.pay_gate.bias.fill_(-2.05)
-        # M12 Build 4 (ADR-0109 item 2, 09-17): THE ALLOCATION HEAD — P(the
+        # ADR-0109 item 2: THE ALLOCATION HEAD — P(the
         # search would act at this priority window: its margin >= the acting
         # bar) from the [STATE] read-out, the pivotality head generalized
         # (fork D served, fork L's first output). Trained by BCE on the
@@ -344,9 +344,9 @@ class AnvilNet(nn.Module):
     _D5_PREFIXES = (
         "surf_",
         "abil_",
-        "cand_abil_proj",  # Build 4: the text descriptor (zero-init)
-        "alloc_",  # Build 4: the allocation head (base-rate init; fitted by alloc_fit)
-        "assemble.stack_",  # Build 4: the stack entries (zero-init)
+        "cand_abil_proj",  # the text descriptor (zero-init)
+        "alloc_",  # the allocation head (base-rate init; fitted by alloc_fit)
+        "assemble.stack_",  # the stack entries (zero-init)
         "atk_",
         "blk_",
         "cmb_",
@@ -381,7 +381,7 @@ class AnvilNet(nn.Module):
             merged = cur.detach().clone()
             merged[: saved.shape[0]] = saved
             state = {**state, "task_emb.weight": merged}
-        # M12 Build 3: TASKS grew 9 -> 16 (the surface shapes); the per-task
+        # TASKS grew 9 -> 16 with the surface shapes; the per-task
         # pay bias and the surface shape embedding grow the same way (saved
         # rows exact, new rows keep their init — zero for both).
         for name in ("pay_bias", "surf_task_emb.weight", "surf_method_emb.weight"):
@@ -427,7 +427,7 @@ class AnvilNet(nn.Module):
         self.abil_vec = vectors.to(self.abil_proj.weight.device, torch.float32).contiguous()
 
     def _cand_abil(self, idx: "torch.Tensor | None"):
-        """Build 4: (B, C) ability-key rows -> the 64-dim text descriptor; -1 -> 0;
+        """(B, C) ability-key rows -> the 64-dim text descriptor; -1 -> 0;
         0 (a scalar) when the batch carries no keys or the net is host-level."""
         if idx is None or self.sa_emb is None:
             return 0
@@ -435,7 +435,7 @@ class AnvilNet(nn.Module):
         return self.cand_abil_proj(v) * (idx >= 0).unsqueeze(-1)
 
     def _fill_stack(self, batch: dict) -> None:
-        """Build 4: gather the raw table rows for the stack entries once per
+        """Gather the raw table rows for the stack entries once per
         forward (the assembler adds them; zeros where the key is absent)."""
         ak = batch.get("stack_ak")
         if ak is not None and "stack_abil" not in batch:
@@ -490,7 +490,7 @@ class AnvilNet(nn.Module):
         )
         lo = batch["opt_min"]
         hi = batch["opt_max"]
-        # evening 2: a repeat-allowed window (mode allowRepeat) never masks a
+        # a repeat-allowed window (mode allowRepeat) never masks a
         # picked option; STOP's own slot is never "picked"
         rep = batch["opt_repeat"].bool() if "opt_repeat" in batch else torch.zeros(b, dtype=torch.bool, device=ent_out.device)
         pad = torch.cat([~omask, torch.zeros(b, 1, dtype=torch.bool, device=ent_out.device)], dim=1)
@@ -601,7 +601,7 @@ class AnvilNet(nn.Module):
         logits = (q * k_cand).sum(-1) / k.shape[-1] ** 0.5  # (B,C)
         task_t = batch.get("task")
         if pk is not None and task_t is not None and bool((task_t == self._pay_task).any()):
-            # evening 4 (ADR-0105): the payment role-copy head on pay windows —
+            # ADR-0105: the payment role-copy head on pay windows —
             # the goal's plan as an entity set, pooled, through pay_key; the
             # state through pay_query; the kind (and mark) embeddings as before
             ce = batch.get("cand_ents")
@@ -707,7 +707,7 @@ class AnvilNet(nn.Module):
         candidates combined — a plain argmax lets the STOP class (the
         plurality class at every slot >= 1 once the head learns the label
         marginal) beat each candidate individually and collapses emitted
-        length to ~1 (m10-probe4: 52% pure-hold / mean 1.0 against labels
+        length to ~1 (measured: 52% pure-hold / mean 1.0 against labels
         at 8% / 2.45)."""
         keys, vecs, mask = self._sched_keys(ent_out, batch)
         d = keys.shape[-1]
@@ -871,7 +871,7 @@ class AnvilNet(nn.Module):
             "alloc": self.alloc_head(state).squeeze(-1),
             **self._combat_outputs(state, ent_out, batch),
         }
-        # M12 Build 3 (ADR-0105): surface windows carry an option set; the
+        # ADR-0105: surface windows carry an option set; the
         # option-set decoder runs teacher-forced on their labels. Absent
         # keys = no surface in the batch = the decoder never runs.
         if "opt_row" in batch:
@@ -1010,7 +1010,7 @@ class AnvilNet(nn.Module):
         cmb = self._combat_outputs(state, ent_out, batch)
         sched: dict = {}
         if "opt_row" in batch:
-            # M12 Build 3: the surface answer (greedy, or sampled under the
+            # the surface answer (greedy, or sampled under the
             # serve noise's "surf" factor at the temperature)
             sd = self._surface_decode(
                 state, ent_out, batch, temperature=temperature,
@@ -1025,13 +1025,13 @@ class AnvilNet(nn.Module):
             sched["sched_lp"] = self._last_sched_lp
         return {
             "choice": choice,
-            # evening 4 (ADR-0105): the pointer logits (slot 0 = pass / auto) —
+            # ADR-0105: the pointer logits (slot 0 = pass / auto) —
             # the server's payment margin bar reads them; no other consumer
             "policy_logits": logits,
             # the payment deviation gate (P(positive window)); the server's
             # --pay-gate reads it on pay windows
             "pay_gate": torch.sigmoid(self.pay_gate(state).squeeze(-1)),
-            # Build 4: the allocation head's P(act) — the anvil.alloc ask
+            # the allocation head's P(act) — the anvil.alloc ask
             "alloc": torch.sigmoid(self.alloc_head(state).squeeze(-1)),
             "plan": out[:, 1],  # D6 serve carry: the emitted plan vector
             **sched,
@@ -1182,15 +1182,14 @@ def sched_slot_pick(masked_logits: torch.Tensor) -> torch.Tensor:
     invalid candidates at -1e9). ADR-0090: STOP is chosen only when it
     outweighs ALL candidates combined (p_stop > 0.5); otherwise the argmax
     over candidates 1..C-1. A plain argmax over the whole row lets a
-    plurality STOP class beat every candidate individually — the
-    m10-probe4 length collapse (labels mean 2.45, emissions mean 1.0).
+    plurality STOP class beat every candidate individually — a length
+    collapse (measured: labels mean 2.45, emissions mean 1.0).
     A row with no valid candidate resolves to STOP by construction — and a
     batch whose candidate axis is the PASS/STOP slot alone (a single-item
     micro-batch at a mulligan / attack / pass-only priority window) has no
-    candidate to argmax over: STOP outright (found at the ADR-0094 binding
-    smoke: the empty reduction raised, the answer fell back to the
-    heuristic — 200 fallbacks in 4 games; latent since the decode landed,
-    masked by mixed micro-batches padding the axis)."""
+    candidate to argmax over: STOP outright (ADR-0094: an empty reduction
+    raises and the answer falls back to the heuristic; mixed micro-batches
+    padding the axis mask the case)."""
     if masked_logits.shape[1] < 2:
         return torch.zeros(masked_logits.shape[0], dtype=torch.int64, device=masked_logits.device)
     p_stop = masked_logits.softmax(-1)[:, 0]

@@ -37,10 +37,9 @@ _TASK_HEADS = {
 
 def sampled_tasks() -> frozenset:
     """The tasks the behavior policy samples (a mu record per answer). Every
-    other served task — the mulligan tuck, the Build 3 surfaces — is served
+    other served task — the mulligan tuck, the decision surfaces — is served
     greedy even on a sampled server and writes no record: they are not
-    factors of the composite action (M12 Build 4½, ADR-0113: the sampled
-    server had not run since those tags landed and raised on them)."""
+    factors of the composite action (ADR-0113)."""
     return frozenset(_TASK_HEADS)
 
 

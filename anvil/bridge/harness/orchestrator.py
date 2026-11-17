@@ -47,11 +47,11 @@ POLL_S = 2.0
 
 def progress_note(n_done: int, total: int, rate: float, yield_why: str, last: "tuple | None") -> "tuple[str | None, tuple]":
     """The scheduler's once-a-minute progress line, or None when neither the
-    completed count nor the yield state has moved since the last one printed
-    (11-09, the infrastructure survey). The line lands in the launching loop's
-    log, which the launcher's stall tick watches: repeated every minute at an
-    unchanged count ("29/120 … 29/120 …") it kept that tick fresh while every
-    worker was wedged. Silence now means nothing completed; a yield is still
+    completed count nor the yield state has moved since the last one
+    printed. The line lands in the launching loop's log, which the launcher's
+    stall tick watches: repeated every minute at an unchanged count
+    ("29/120 … 29/120 …") it would keep that tick fresh while every worker
+    is wedged. Silence means nothing completed; a yield is still
     announced (the transition lines, the marked line once) and heartbeats.
     Returns (line or None, the key to pass back as `last`)."""
     key = (n_done, yield_why)
@@ -70,14 +70,14 @@ def _sha256(path: Path) -> str:
 
 
 def default_chunk(games: int, workers: int) -> int:
-    """The chunk rule (the fleet bench 09-14): four rounds of refill per worker
-    — the tail is then one game, not one chunk (every bench cell waited ~20
-    min on its last chunk at one round); a JVM start per chunk is ~20 s."""
+    """The chunk rule: four rounds of refill per worker — the tail is then
+    one game, not one chunk (at one round a run waits ~20 min on its last
+    chunk); a JVM start per chunk is ~20 s."""
     return max(1, -(-int(games) // (4 * max(int(workers), 1))))
 
 
 def bridge_addrs(m: dict) -> list[str]:
-    """The fleet week (09-14): `--bridge` is a comma list of addresses (one
+    """`--bridge` is a comma list of addresses (one
     model server each, `anvil.bridge.fleet`); a worker gets ONE of them."""
     return [b.strip() for b in str(m["bridge"]).split(",") if b.strip()]
 
@@ -95,11 +95,11 @@ def is_grpc(m: dict) -> bool:
 
 def _worker_deadline(m: dict, extra: list[str]) -> list[str]:
     """The bridge deadline for a served run: 20 s unless the caller pinned
-    one. The 5 s Java default poisoned every game under the first-window
-    burst of a surface expansion round at eight workers (09-07) and again
-    on the bar arms at 16 workers with no search at all (09-11) — a served
-    fleet at 16+ workers is the norm now, so the raise is unconditional
-    for grpc runs (a stuck server is still detected, 15 s later)."""
+    one. The 5 s Java default poisons every game under a first-window
+    burst (a surface expansion round at eight workers, or 16 workers with
+    no search at all), and a served fleet at 16+ workers is the norm, so
+    the raise is unconditional for grpc runs (a stuck server is still
+    detected, 15 s later)."""
     if not is_grpc(m):
         return []
     if any(o.startswith("-Danvil.bridge.deadline.ms=") for o in [*m["jvm_opts"], *extra]):
@@ -258,7 +258,7 @@ class Run:
         if m.get("bridge_seats") is not None:
             cmd += ["-bridgeseats", str(m["bridge_seats"])]
         if m.get("reask"):
-            # D6 run-2: re-ask-on-veto (d6-vtrace-loop §6b) — environment
+            # re-ask-on-veto (d6-vtrace-loop §6b) — environment
             # change; arms under -reask are not comparable to arms without
             cmd += ["-reask"]
         if m.get("rollout_k"):
@@ -280,8 +280,8 @@ class Run:
             # M4 D3: completions become store frames of their own
             cmd += ["-forkobs"]
         if m.get("fork_ns") is not None:
-            # M9 boundary: store-namespaced fork ids (run17 iter-2 cross-store
-            # collision) — the planner assigns ns per source store
+            # store-namespaced fork ids (unnamespaced ids collide across
+            # stores) — the planner assigns ns per source store
             cmd += ["-forkns", str(m["fork_ns"])]
         if m.get("force_branch"):
             # M7 D2: act/hold paired branches at drilled fork points
@@ -297,10 +297,10 @@ class Run:
             # window by the bridge; rate = the server's --certify-rate)
             cmd += ["-certify", str(m["certify_horizon"])]
         if m.get("labels") and not m.get("rollout_k"):
-            # M12 Build 2: the search directive's rows outside rollout mode
+            # the search directive's rows outside rollout mode
             cmd += ["-labels", str(wdir / "labels.jsonl")]
         if m.get("forge_args"):
-            # M12 Build 2: verbatim AnvilRun flags (the search directive's
+            # verbatim AnvilRun flags (the search directive's
             # budget / acting pins) — part of the arm's identity
             cmd += list(m["forge_args"])
         (wdir / "cmd.txt").write_text(" ".join(cmd) + "\n")
@@ -308,7 +308,7 @@ class Run:
         # Forge's Main inits Sentry + AWT before CLI dispatch; with no
         # DISPLAY the JVM dies exit-1 with ZERO output (Sentry swallows the
         # crash). Agent/SSH shells are tty — default the display env so
-        # headless-launched workers survive (2026-08-17).
+        # headless-launched workers survive.
         env = dict(os.environ)
         if not env.get("DISPLAY"):
             xauth = sorted(Path("/run/user/1000").glob("xauth_*"))
@@ -316,9 +316,9 @@ class Run:
                 env["DISPLAY"] = ":0"
                 env["XAUTHORITY"] = str(xauth[0])
             else:
-                # 09-21: no graphical session at all (a relaunch after a reboot,
+                # no graphical session at all (a relaunch after a reboot,
                 # before anyone logs in) — the jar plays headless with AWT told
-                # so (proven: one game, no DISPLAY, from forge-gui/). Only taken
+                # so. Only taken
                 # when no display exists, so the normal path is unchanged.
                 cmd.insert(cmd.index("-jar"), "-Djava.awt.headless=true")
                 print("[harness] no display: workers launched with -Djava.awt.headless=true", flush=True)
@@ -363,10 +363,9 @@ class Run:
         # the GPU yield (gpu_yield.py): a foreign GPU job or the YIELD file
         # gates NEW chunk launches only; active workers finish their chunks
         yielder = GpuYield() if self.manifest.get("yield_gpu") else None
-        # 09-27: the yield ledger — cumulative yielded seconds for the run
-        # (closed windows + the live one), so a loop can take them OUT of its
-        # wall budget (the 09-25 shallow arm lost ≈ 2.1 h of its 30 to a
-        # foreign job and the clock counted it)
+        # the yield ledger — cumulative yielded seconds for the run (closed
+        # windows + the live one), so a loop can take them OUT of its wall
+        # budget instead of charging an arm for a foreign job's hours
         yield_state = {"on": False, "since": 0.0, "closed_s": 0.0, "why": ""}
 
         def _yielded_s() -> float:
@@ -396,7 +395,7 @@ class Run:
                       f" (yielded {_yielded_s():.0f} s so far)", flush=True)
                 _write_yield_state(on, manual, why)
             if on:
-                # 09-21: a yield is idle on purpose — tell the launcher's stall
+                # a yield is idle on purpose — tell the launcher's stall
                 # tick so a long foreign GPU job does not raise a false stall
                 heartbeat("gpu yield")
             return on
@@ -425,10 +424,10 @@ class Run:
                 done = set(self.completed()) | self.skipped()
                 todo = [i for i in range(span[0], span[0] + span[1]) if i not in done]
                 if not todo:
-                    # 10-29: a completed span resets the systemic-failure counter too —
-                    # it reset only on a PARTIAL exit, which a one-game span (the labeler
-                    # bench's chunk) can never produce, so three crashed workers anywhere in
-                    # a 160-game run read as "3 consecutive" and aborted it at 85 games
+                    # a completed span resets the systemic-failure counter too: a
+                    # reset on a PARTIAL exit alone is one a one-game span can never
+                    # produce, so three crashed workers anywhere in a run of one-game
+                    # chunks would read as "3 consecutive" and abort it
                     zero_progress_exits = 0
                     continue
                 if self.stop_file.exists() and rc == 0:
@@ -464,7 +463,7 @@ class Run:
             n_done = len(self.completed())
             if int(time.monotonic() - t0) % 60 < POLL_S and n_done:
                 # the rate excludes yielded time; a live yield is marked on the
-                # line (the 09-25 read mistook a yielded harness for a stall)
+                # line, so a yielded harness is not mistaken for a stall
                 rate = n_done / max(time.monotonic() - t0 - _yielded_s(), 1) * 3600
                 note, last_note = progress_note(n_done, total, rate, yield_state["why"] if yielding else "", last_note)
                 if note:
@@ -580,9 +579,9 @@ def launch(a) -> Path:
         "start_index": a.start_index,
         "workers": 12 if a.colocated else a.workers,
         # ExitOnOutOfMemoryError: a batch worker must die (chunk re-issue
-        # covers it), not limp — an OOM that escaped the game-loop catch
-        # reached Forge's GUI bug-report dialog and wedged two headless
-        # workers forever (model-mirror run, 2026-07-12). The fork also
+        # covers it), not limp — an OOM that escapes the game-loop catch
+        # reaches Forge's GUI bug-report dialog and wedges a headless
+        # worker forever. The fork also
         # installs a headless uncaught handler; this is the JVM-level belt.
         "heap": getattr(a, "heap", None) or "2g",
         "jvm_opts": [
@@ -616,7 +615,7 @@ def launch(a) -> Path:
         "seq_arms": getattr(a, "seq_arms", None),
         # M10 reset Fork 3: inline certification horizon (None = off)
         "certify_horizon": getattr(a, "certify", None),
-        # M12 Build 2: verbatim AnvilRun flags + per-worker labels
+        # verbatim AnvilRun flags + per-worker labels
         "forge_args": (getattr(a, "forge_args", None) or "").split() or None,
         "labels": getattr(a, "labels", False),
     }
@@ -702,7 +701,7 @@ def replay(run_dir: Path, index: int) -> None:
         cmd += ["-tags", m["tags"]]
     if m.get("obs"):
         # The priority-option scan perturbs which trajectory a seed plays
-        # (D2 smoke, 2026-07-04: 14/20 identical without it) — a replay must
+        # (measured: 14/20 identical without it) — a replay must
         # match the original run's logging configuration to reproduce it.
         # The replay's own observation output is a throwaway.
         cmd += ["-obs", str(run_dir / f"replay-{index}-obs.zst")]

@@ -20,21 +20,21 @@ construction, what the checklist used to ask each script to remember:
               note elsewhere
   state       runs/<N>.json under the state dir: running -> done | failed
               (exit code, the log tail). A failure is a RECORDED state, never
-              an absence — the 09-15 paired read failed in 18 s, unregistered
-              cleanly and nobody knew for an hour. A supervisor that was sent
+              an absence: a job that dies in its first seconds must leave a
+              record somebody can read. A supervisor that was sent
               SIGTERM / SIGINT / SIGHUP passes it to the command and records
               `failed` with the signal's name, whatever the command returned:
               a run that was told to stop did not finish.
   stall       the supervisor (this process, alive for the run's whole life)
               ticks on the newest mtime under D: running -> stalled ->
               recovered, on transition only. The launcher's own files do not
-              count (11-09: the memory sampler's memory.jsonl, the supervisor's
+              count (the memory sampler's memory.jsonl, the supervisor's
               log — stall_ignored); heartbeat.json does. THE WRITERS' RULE the
               tick rests on: nothing under a watched dir is written on a timer
               unless it is a deliberate wait, and a deliberate wait heartbeats.
               A helper that prints "still nothing" every minute blinds the tick
-              (the model server's idle stats line and the harness's unchanged
-              progress line did, through every generation, until 11-09)
+              (a model server's idle stats line or a harness's unchanged
+              progress line would, through every generation)
   alerts      every transition appends to alerts.jsonl (id, ts, run, kind,
               msg, acked=false) — the queue the check-in drains (a scheduled
               Claude task, or anyone's poll); plus best-effort sinks:
@@ -44,7 +44,7 @@ construction, what the checklist used to ask each script to remember:
   coverage    the launcher prints ONE line naming the state file, the stall
               threshold and the sinks armed — the launch message's coverage
               list is that line
-  check-in    (ADR-0107 addendum 09-18) the supervisor itself invokes a
+  check-in    (ADR-0107) the supervisor itself invokes a
               headless Claude Code session (`claude -p`, read-only tools) on
               the events that need a human: failed, stalled, gone, orphaned,
               and done after > 1 h — it pushes to the phone, messages the supervising
@@ -55,10 +55,10 @@ construction, what the checklist used to ask each script to remember:
               expired login) shows in the coverage line, not the next morning
   watch       --watch <glob> (repeatable) adds artifact roots to the stall
               tick beside --dir: a read chain launched from its own dir writes
-              its arms under data/runs/<name>-* and raised two false stalls
-              on 09-17 — name those roots and the tick sees them
-  pause       `anvil.runs pause --name N [--now] [--wait] [--scope loop|all]` (09-21): STOP in the
-              run dir + every watched LOOP root (09-27: never a loop's live
+              its arms under data/runs/<name>-*, which the tick would read as
+              a stall — name those roots and the tick sees them
+  pause       `anvil.runs pause --name N [--now] [--wait] [--scope loop|all]`: STOP in the
+              run dir + every watched LOOP root (never a loop's live
               harness dirs — the generation finishes, the loop stops at its
               boundary; --scope all = every watched dir) + `pause_requested`
               on the state; the supervisor records PAUSED at exit (no FAILED
@@ -67,8 +67,8 @@ construction, what the checklist used to ask each script to remember:
               place (STOP files removed); `--resume-on-gone` at launch lets
               the sweep do this itself after a reboot, capped by --resume-max.
               The check-in is resolved and self-tested again on every relaunch
-              from the mode the run was launched with (11-09: one expired login
-              no longer turns it off for the run's life); --checkin overrides.
+              from the mode the run was launched with, so one expired login
+              does not turn it off for the run's life; --checkin overrides.
   sweep       `anvil.runs sweep` marks runs whose supervisor died (reboot,
               OOM, kill -9) as gone, alerts, checks in; `install-sweep` puts
               it on a systemd user timer (10 min) where systemd exists
@@ -83,10 +83,12 @@ construction, what the checklist used to ask each script to remember:
               (the self-play loop on <out>/loop.lock), so two processes cannot
               work one directory whatever started the second
 
-No registry, no timer, no per-run waiter: one supervisor per run is its own
-watchdog. Stdlib only, zero repo imports — it must keep working while the
-tree is mid-run-frozen or broken (the watchd rule). Portable: Linux / macOS
-(no systemd, no /proc needed).
+No registry and no per-run waiter: one supervisor per run is its own
+watchdog. The one thing a supervisor cannot report is its own death, so
+`anvil.runs sweep`, on a systemd user timer where `install-sweep` put it,
+finds dead supervisors and marks their runs gone or orphaned. Stdlib only,
+zero repo imports — it must keep working while the tree is mid-run-frozen or
+broken. Portable: Linux / macOS (no systemd, no /proc needed).
 
 Verbs:
   launch  --name N --dir D [--stall-min 60] [--nice 19] [--memory-max 20G]
@@ -161,11 +163,11 @@ _HEARTBEAT_LAST = [0.0]
 
 
 def heartbeat(note: str, every_s: float = 60.0) -> bool:
-    """A paused-but-alive signal for the stall tick (09-21): a job that is
+    """A paused-but-alive signal for the stall tick: a job that is
     deliberately idle (the harness yielding the GPU, the learner parked on a
     VRAM cotenant) writes <run dir>/heartbeat.json so the supervisor sees a
-    fresh artifact instead of raising the false-stall class (the 09-17 chain
-    raised two during a real 3 h yield). Resolved through $ANVIL_RUN_NAME
+    fresh artifact instead of raising a false stall during a yield that can
+    last hours. Resolved through $ANVIL_RUN_NAME
     (the supervisor exports it); a no-op outside a launched run. Throttled."""
     name = os.environ.get("ANVIL_RUN_NAME")
     if not name or time.time() - _HEARTBEAT_LAST[0] < every_s:
@@ -262,15 +264,13 @@ def ack_alerts(ids: set[str] | None) -> int:
 # ------------------------------------------------------------- supervisor
 
 
-# 11-09 (the infrastructure survey, finding 1): files the launcher's own machinery
-# writes into a run dir are not the run's artifacts. The memory sampler appends
-# <run dir>/memory.jsonl every 20 s, so the stall tick saw a fresh file forever
-# (zero `stalled` alerts for the big run in five weeks, through a 91-minute
-# training-step wait and whatever else went quiet); and the detached supervisor's
-# own stdout is <run dir>/supervisor.log, so raising STALLED refreshed the dir and
-# the next tick called it `recovered` (every stall in the queue up to 11-09 is
-# followed by a recovery exactly one tick later). heartbeat.json is NOT here: a
-# job idle on purpose is alive, that is the heartbeat's whole point.
+# Files the launcher's own machinery writes into a run dir are not the run's
+# artifacts. The memory sampler appends <run dir>/memory.jsonl every 20 s, so a
+# tick that counted it would see a fresh file forever and never raise a stall.
+# The detached supervisor's own stdout is <run dir>/supervisor.log, so raising
+# STALLED would refresh the dir and the next tick would call it `recovered`.
+# heartbeat.json is NOT here: a job idle on purpose is alive, that is the
+# heartbeat's whole point. (docs/ops/infra-survey-2026-11-09.md, finding 1)
 STALL_IGNORE_NAMES = ("memory.jsonl", "supervisor.log")
 
 
@@ -374,20 +374,18 @@ def checkin_mode(requested: str | None) -> str:
 
 
 def _relay_rule(st: dict) -> str:
-    """Step 3 of the check-in: who gets the event (10-03). The launching session
-    owns the run's close, so the relay wakes it and nobody else; the broadcast
-    to every 'anvil' session (09-18) woke the idle remote-control sessions in
-    the main checkout, which wrote their own closes on 10-01 and 10-03 while
-    the launcher — a bridge worktree session whose name has no 'anvil' — was
-    never messaged."""
+    """Step 3 of the check-in: who gets the event. The launching session
+    owns the run's close, so the relay wakes it and nobody else. A broadcast
+    to every 'anvil' session wakes idle sessions that then write a second
+    close, and misses a launcher whose name has no 'anvil' in it (ADR-0107)."""
     who = st.get("launched_by")
     fallback = ("to the most recently started interactive session whose name or title contains \"anvil\" "
                 "(case-insensitive), or, if there is none, to the most recently started interactive session")
     if who:
-        # 10-04: a session's own "This session is <name> [<ref>]" name is NOT what peers see —
+        # A session's own "This session is <name> [<ref>]" name is NOT what peers see —
         # a session with a conversation title is listed by that title; only the bracketed ref
-        # is the same from every side (the 10-03/10-04 relays reported the launcher "not
-        # listed" and fell back, while its row sat there under its title). Match the ref.
+        # is the same from every side. A match on the name reports a titled launcher as "not
+        # listed" and falls back, so match the ref.
         m = re.search(r"\[([0-9a-f]{4,})\]", who)
         key = (f"whose row carries the ref [{m.group(1)}] (the bracketed id; the row's name or title may differ)"
                if m else f"named \"{who}\" — or, if no row has that name, whose row carries that text as its ref")
@@ -617,16 +615,15 @@ MEMSAMPLER_UNIT = os.environ.get("ANVIL_MEMSAMPLER_UNIT", "anvil-memsampler")
 
 
 def arm_memsampler(name: str, run_dir: Path, run=subprocess.run) -> str:
-    """10-29 (the user's question at the segment-3 boundary): the memory
-    sampler + watchdog (scripts/memory_sampler.sh) is a TRANSIENT user unit —
-    it dies with every reboot, and every long run depends on it (two oomd kills
-    of the big run before it existed; it was re-armed by hand on 10-21 and
-    forgotten after the 10-29 reboot). So the launcher arms it, not a hand or a
-    chain: a checklist item as code (ADR-0107). Active and armed by a run that
+    """Arm the memory sampler + watchdog (scripts/memory_sampler.sh). It is a
+    TRANSIENT user unit — it dies with every reboot — and every long run
+    depends on it: without it a learner that outgrows the box is killed by
+    oomd with no record. So the launcher arms it, not a hand or a chain: a
+    checklist item as code (ADR-0107). Active and armed by a run that
     is still live (or by this run: a relaunch) → left alone — one unit, one
     box; active for a run that has finished, or inactive → (re)started with
     this run's dir as its output (<dir>/memory.jsonl; <dir>/WATCHDOG-TRIP is
-    what the big-run chain's retry reads). Returns the coverage phrase and
+    what a chain's retry reads). Returns the coverage phrase and
     never raises: a box without systemd runs unwatched, and the line says so.
     ANVIL_MEMSAMPLER=0 turns it off (tests, Macs)."""
     if os.environ.get("ANVIL_MEMSAMPLER", "1") == "0":
@@ -898,7 +895,7 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
     a.checkin_resolved = mode
     if a.foreground:
         return supervise(a, cmd)
-    # 10-29: the memory watchdog is armed by every detached launch (relaunch included)
+    # the memory watchdog is armed by every detached launch (relaunch included)
     mem_note = ("memory watchdog: off (--no-memsampler)" if getattr(a, "no_memsampler", False)
                 else arm_memsampler(a.name, run_dir))
     sup = _spawn_supervisor(a, cmd, run_dir)
@@ -991,19 +988,18 @@ WAIT_RC = {"done": 0, "failed": 1, "gone": 2, "paused": 4, "orphaned": 5}
 def wait(a: argparse.Namespace) -> int:
     t0 = time.time()
     while True:
-        # 10-03: a queue that waits inside a launched run is alive by construction —
+        # A queue that waits inside a launched run is alive by construction —
         # its own dir gets a heartbeat (a no-op outside a launched run), so the
-        # supervisor's stall tick stops raising the false-stall class on queues
-        # (after-paired STALLED at 240 min, 22:45, four hours into a benign wait).
+        # supervisor's stall tick does not read a benign wait of hours as a stall.
         heartbeat(f"waiting on {a.name}")
         r = read_run(a.name)
         state = (r or {}).get("state")
         if state in ("done", "failed"):
             print(f"{a.name}: {state} rc={r.get('rc')}")
             return WAIT_RC[state]
-        # 11-09 (survey finding 7): every terminal state ends the wait. `paused` and a `gone`
-        # the sweep had already written matched no branch, so the launching session's
-        # background wait — the belt under the check-in — hung forever on exactly those two.
+        # Every terminal state ends the wait, `paused` and a `gone` the sweep has already
+        # written included: the launching session's background wait is the belt under the
+        # check-in and must not hang on a run nobody supervises any more.
         if state in ("paused", "gone"):
             print(f"{a.name}: {state}" + (" (the sweep found the supervisor dead)" if state == "gone" else
                                          f" — `anvil.runs relaunch --name {a.name}` resumes it"))
@@ -1024,7 +1020,7 @@ def wait(a: argparse.Namespace) -> int:
 
 
 def tick(a: argparse.Namespace) -> int:
-    """What the supervisor's stall tick sees for a run RIGHT NOW, read-only (11-09): the
+    """What the supervisor's stall tick sees for a run RIGHT NOW, read-only: the
     newest file it counts and that file's age against the alarm, and the files it does
     not count with theirs. The check after a relaunch that the tick is looking at the
     run and not at the launcher's own writes — it touches nothing, signals nothing, and
@@ -1095,23 +1091,23 @@ def _is_loop_root(d: Path) -> bool:
 
 
 def _is_harness_dir(d: Path) -> bool:
-    """A harness run dir: its pinning manifest is `run.json` (orchestrator.py;
-    the 09-27 check keyed on `manifest.json`, a name the harness never writes,
-    so the 09-28 pause wrote STOP into the anchor cell's live generation half —
-    44 roots — and it drained at 25/120; the test had faked the wrong file)."""
+    """A harness run dir: its pinning manifest is `run.json` (orchestrator.py
+    writes it; `manifest.json` is accepted too but the harness never writes
+    that name), beside a `workers/` dir. A miss here lets `pause` write STOP
+    into a loop's live generation, which then drains mid-way."""
     return ((d / "run.json").exists() or (d / "manifest.json").exists()) and (d / "workers").is_dir()
 
 
 def _stop_roots(r: dict, scope: str = "loop") -> list[Path]:
-    """Where `pause` writes STOP. scope="loop" (the default since 09-27): the
+    """Where `pause` writes STOP. scope="loop" (the default): the
     run's dir, every watched selfplay loop root (loop_state.json) and, when NO
     loop root is watched, every other watched dir too (a harness-only run
     drains at game granularity). A loop's harness dirs (`_is_harness_dir`:
-    run.json + workers/) are SKIPPED whenever a loop root is present: the 09-23 pause
-    wrote STOP into the alloc arm's live generation, the harness honoured it
-    at 34/240 games and the loop trained a 57% iteration inside an intact
-    budget (the loop itself stops at its iteration boundary; the generation
-    must finish). scope="all" = the 09-21 behaviour, every root."""
+    run.json + workers/) are SKIPPED whenever a loop root is present: a STOP
+    in a live generation makes the harness drain early and the loop train a
+    short iteration inside an intact budget (the loop itself stops at its
+    iteration boundary; the generation must finish). scope="all" = every
+    root."""
     roots = [Path(r["dir"])] if r.get("dir") else []
     watched = _watch_dirs(r)
     if scope == "all":
@@ -1123,8 +1119,8 @@ def _stop_roots(r: dict, scope: str = "loop") -> list[Path]:
 
 
 def pause(a: argparse.Namespace) -> int:
-    """Stop a run on purpose (09-21): STOP in the roots `_stop_roots` names
-    (09-27: the loop roots, never a loop's live generation — --scope all for
+    """Stop a run on purpose: STOP in the roots `_stop_roots` names
+    (the loop roots, never a loop's live generation — --scope all for
     every watched dir), `pause_requested` on the state so the supervisor
     records PAUSED (no FAILED push, no check-in) when the command exits;
     --now also SIGTERMs the command's process group: every process of the
@@ -1171,14 +1167,13 @@ def pause(a: argparse.Namespace) -> int:
 
 def _relaunch_args(r: dict, no_selftest: bool = False, launched_by: str | None = None,
                    checkin: str | None = None) -> argparse.Namespace:
-    # 10-21: `launched_by` overrides the recorded session (a relaunch from a new session: the
-    # recorded ref is a dead session's and the check-in relay would fall back); None keeps it
-    # 11-09 (survey finding 2): the check-in is resolved AGAIN from the REQUESTED mode, never
-    # from the last launch's resolution. The big run's 10-16 relaunch met an expired login,
-    # recorded `checkin: none`, and every relaunch for four weeks passed that `none` back in —
-    # five failures and three segment closes with no check-in after the login was restored.
-    # `checkin` (relaunch --checkin) overrides; a state file from before this field has no
-    # request on record and resolves as auto (`relaunch --checkin none` keeps one off).
+    # `launched_by` overrides the recorded session (a relaunch from a new session: the
+    # recorded ref is a dead session's and the check-in relay would fall back); None keeps it.
+    # The check-in is resolved AGAIN from the REQUESTED mode, never from the last launch's
+    # resolution: a relaunch that meets an expired login records `checkin: none`, and passing
+    # that `none` back in would leave every later relaunch without a check-in after the login
+    # is restored. `checkin` (relaunch --checkin) overrides; a state file without the field has
+    # no request on record and resolves as auto (`relaunch --checkin none` keeps one off).
     requested = checkin or r.get("checkin_requested") or "auto"
     return argparse.Namespace(
         name=r["name"], dir=r["dir"], log=r.get("log"), cwd=r.get("cwd"),
@@ -1217,11 +1212,10 @@ def relaunch(a: argparse.Namespace) -> int:
     if r.get("checkin") == "none" and ra.checkin != "none":
         print(f"[runs] RELAUNCH {a.name}: the last launch ran with no check-in; resolving {ra.checkin!r} again",
               flush=True)
-    # 11-09 (survey finding 9): a relaunch by hand is someone looking at the run, so the
-    # sweep's resume budget starts over. The cap exists to stop a crash LOOP; carried through
-    # every manual relaunch it was a budget for the run's whole life (the big run spent 1 of
-    # its 3 on 10-10 and still carried it four weeks and a dozen relaunches later). The
-    # sweep's own resume does not come through here and keeps counting.
+    # A relaunch by hand is someone looking at the run, so the sweep's resume budget starts
+    # over. The cap exists to stop a crash LOOP; carried through every manual relaunch it
+    # would be a budget for the run's whole life. The sweep's own resume does not come
+    # through here and keeps counting.
     if ra.resume_count:
         print(f"[runs] RELAUNCH {a.name}: resume count {ra.resume_count}/{ra.resume_max} -> 0 (a manual relaunch)",
               flush=True)
@@ -1384,11 +1378,11 @@ def main(argv: list[str] | None = None) -> int:
                          "is on PATH; $ANVIL_CHECKIN overrides)")
     la.add_argument("--no-selftest", action="store_true", help="skip the launch-time claude -p self-test")
     la.add_argument("--no-memsampler", action="store_true",
-                    help="do not arm the memory sampler + watchdog user unit for this launch (10-29: every detached "
+                    help="do not arm the memory sampler + watchdog user unit for this launch (every detached "
                          "launch arms it; ANVIL_MEMSAMPLER=0 is the environment's off switch)")
     la.add_argument("--launched-by", default=os.environ.get("ANVIL_LAUNCHED_BY") or None, metavar="SESSION",
                     help="the launching Claude session as ListAgents names it to ITSELF, name and ref: "
-                         "'<name> [<ref>]' (10-03/10-04). The check-in relays the run's events to the session "
+                         "'<name> [<ref>]'. The check-in relays the run's events to the session "
                          "whose row carries that bracketed ref (peers see a titled session by its title, not its "
                          "name; the ref is the same from every side), so the launcher — who owns the close — is "
                          "woken and no peer writes a second record; unset = the relay falls back to any live "
@@ -1410,12 +1404,12 @@ def main(argv: list[str] | None = None) -> int:
     pa.add_argument("--wait", action="store_true", help="block until the run has exited")
     pa.add_argument("--scope", choices=("loop", "all"), default="loop",
                     help="loop (default): STOP in the run dir + watched loop roots, never a loop's live "
-                         "harness dirs (a harness-only run still drains); all: every watched dir (09-21)")
+                         "harness dirs (a harness-only run still drains); all: every watched dir")
     rl = sub.add_parser("relaunch", help="re-run a paused / gone / failed / done run's recorded command in place (STOP files removed)")
     rl.add_argument("--name", required=True)
     rl.add_argument("--no-selftest", action="store_true")
     rl.add_argument("--checkin", default=None, choices=["auto", "claude", "none"],
-                    help="the check-in mode for this and later relaunches (11-09); default: the mode the run was "
+                    help="the check-in mode for this and later relaunches; default: the mode the run was "
                          "launched with, resolved and self-tested again — never the last launch's resolution")
     rl.add_argument("--launched-by", default=None, metavar="SESSION",
                     help="re-point the run's launching session (its ListAgents name [ref]) before the relaunch — "

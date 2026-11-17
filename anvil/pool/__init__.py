@@ -80,10 +80,10 @@ def current_manifest_path(format: str = "dc") -> Path:
     data/pool/<fmt>/CURRENT pin (one line: the pool version; written by
     `anvil.pool <fmt> build`).
 
-    Selection was newest-mtime until 2026-08-03 (the M3 standing hazard): a
-    checkout, backup restore, or stray touch could silently repoint game
-    generation at a stale pool and stamp its version into run provenance —
-    final_read included. A dangling or missing pin fails loudly instead.
+    The pin replaces newest-mtime selection, under which a checkout, backup
+    restore, or stray touch silently repoints game generation at a stale
+    pool and stamps its version into run provenance — final_read included.
+    A dangling or missing pin fails loudly instead.
     """
     import sys
 

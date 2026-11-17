@@ -41,8 +41,8 @@ def _load_overrides() -> dict[str, str]:
 
 def build(main_size: int = decklist.MAIN_SIZE, banlist: str = "latest") -> dict:
     """banlist: "latest" = the newest snapshot under raw/ (loud when none);
-    "none" = no exclusion (09-27: the quickstart's Constructed path with your
-    own lists needed an empty-snapshot workaround before this)."""
+    "none" = no exclusion (the quickstart's Constructed path with your
+    own lists)."""
     universe = forge_db.load_names()
     overrides = _load_overrides()
     if banlist == "none":

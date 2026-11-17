@@ -1,7 +1,7 @@
 """Value-head diagnostic (M1 D5): is the at-chance BCE an averaging artifact
 or a representation gap?
 
-pilot-run1 ended with val value BCE ~0.6913 vs ln2 0.6931 — almost exactly the
+A val value BCE of ~0.6913 against ln2 0.6931 is almost exactly the
 constant base-rate floor for p~0.53, i.e. the head may have learned only the
 acting-player base rate. This script separates the hypotheses:
 

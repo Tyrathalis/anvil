@@ -194,7 +194,7 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--warmup", type=int, default=500)
     ap.add_argument("--steps", type=int, default=20000)
-    # sweep 2026-07-07 (runs 4/6/7, full epoch): 1.0->0.3 buys +7.3pp nonpass
+    # measured by a full-epoch sweep: 1.0->0.3 buys +7.3pp nonpass
     # for -0.4pp honest, 0.3->0.1 another +3.7pp for -1.3pp; targets/X/value
     # flat throughout. 0.1 = action-rich prior for M2; the honest cost is the
     # pass boundary, recalibratable post-hoc via a PASS-logit offset

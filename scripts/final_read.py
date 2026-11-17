@@ -43,8 +43,7 @@ def _seat_forge_args(a, seat: int) -> str:
 
 def main() -> None:
     # Detached stdout to a redirected log is BLOCK-buffered, so a log-tail
-    # watcher sees nothing until exit (run-8 held 36h of narration in memory).
-    # The driver fixed this for itself on 2026-07-25; reads never got it.
+    # watcher sees nothing until exit; line buffering, as in the loop driver.
     sys.stdout.reconfigure(line_buffering=True)
 
     ap = argparse.ArgumentParser(description="2,000-game corrected read")
@@ -58,13 +57,12 @@ def main() -> None:
         type=int,
         default=None,
         help="games per worker chunk; default = ceil(games / (4 * workers)) — four rounds of refill per worker so the "
-        "straggler tail is a game, not a chunk (the fleet bench 09-14: every cell waited ~20 min on its last chunk); was ceil(games / workers) "
-        "(the fixed 50 left 12 of 16 workers idle on a 200-game arm, 09-09)",
+        "straggler tail is a game, not a chunk (at one round an arm waits ~20 min on its last chunk)",
     )
     ap.add_argument("--port", type=int, default=50065)
     ap.add_argument(
         "--servers", type=int, default=0,
-        help="model servers on consecutive ports from --port (0 = ceil(workers / 12); the fleet week 09-14)",
+        help="model servers on consecutive ports from --port (0 = ceil(workers / 12))",
     )
     ap.add_argument("--pairs-file", default="data/runs/d5arm-d0-s0-20260714-143546/pairs.txt")
     ap.add_argument("--seed-base", type=int, default=20260710)
@@ -74,14 +72,14 @@ def main() -> None:
         default=None,
         help="pool manifest version to stamp on the runs. Default "
         "resolves the same manifest the harness would use "
-        "(the data/pool/CURRENT pin since 2026-08-03; the "
-        "old mtime-selection hazard is retired) — ingest "
+        "(the data/pool/CURRENT pin, never the newest "
+        "mtime) — ingest "
         "warns 'provenance is incomplete' without it.",
     )
     ap.add_argument(
         "--forge-args",
         default=None,
-        help="M12 Build 2: extra AnvilRun flags for every worker (the search "
+        help="extra AnvilRun flags for every worker (the search "
         "directive as the behavior policy, e.g. '-search -searchrate 1 "
         "-searchact 0.05 -searchtemp 0.025'); recorded in each arm's run.json",
     )
@@ -92,19 +90,19 @@ def main() -> None:
     ap.add_argument(
         "--server-tags",
         default=None,
-        help="M12 Build 3 (ADR-0105): the server's announced tag list (csv) — an arm that withholds "
+        help="ADR-0105: the server's announced tag list (csv) — an arm that withholds "
         "the surface tags reads the same ckpt with the heuristic answering the surfaces",
     )
     ap.add_argument(
         "--server-args",
         default=None,
-        help="M12 Build 3 evening 4 (ADR-0105): extra model-server flags for the arm server "
+        help="ADR-0105: extra model-server flags for the arm server "
         "(e.g. '--pay-bar 0.2'); recorded in the arm server's log line",
     )
     ap.add_argument(
         "--heuristic-control",
         action="store_true",
-        help="M12 Build 2 control arms (ADR-0104 item 5): NO seat bridged (the "
+        help="control arms (ADR-0104 item 5): NO seat bridged (the "
         "heuristic mirror; --bridge-seats 2) and '-searchseats <seat>' appended "
         "to the forge args per seat run, so the searched heuristic seat sits "
         "where the bridged seat sits in the network arms; the server still "
@@ -113,7 +111,7 @@ def main() -> None:
     ap.add_argument(
         "--seat-forge-args",
         default=None,
-        help="the 10-01 baseline reads: extra forge args per seat run, '{seat}' = the run's test "
+        help="extra forge args per seat run (the baseline reads), '{seat}' = the run's test "
         "seat and '{other}' = the opposing seat (e.g. '-randomseats {other}' for the model vs "
         "random, '-aisim full -aisimseats {seat}' under --heuristic-control)",
     )
@@ -139,8 +137,8 @@ def main() -> None:
     if a.chunk is None:
         a.chunk = max(1, -(-a.games // (4 * a.workers)))
     # Self-registration with the standing watcher: the read reports its OWN
-    # pid (the 07-31 chain waiter grabbed a pgrep'd pid that was its own
-    # wrapper shell and waited on itself forever). Crash without unregister
+    # pid (a pgrep'd pid can be the caller's own wrapper shell, and a waiter
+    # on it waits on itself forever). Crash without unregister
     # -> the watcher fires GONE.
     watch_register(f"{a.name}-read", RUNS_DIR, stall_min=45)
 

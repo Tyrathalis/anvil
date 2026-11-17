@@ -14,8 +14,8 @@ import random
 import sys
 from pathlib import Path
 
-# pinned CURRENT resolver (2026-08-03; was newest-mtime here — the M3
-# standing hazard). Re-exported: harness callers import it from this module.
+# pinned CURRENT resolver (anvil.pool; never newest-mtime).
+# Re-exported: harness callers import it from this module.
 from anvil.pool import current_manifest as latest_pool_manifest  # noqa: F401
 
 

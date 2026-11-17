@@ -1,13 +1,13 @@
-"""M12 Build 4 (ADR-0111): the re-warm as OFFLINE DISTILLATION TOWARD THE SEARCH
-(the user's option 4, 09-16). The representation completions are additive and
-zero-init, so nothing needs recovering
+"""The re-warm as OFFLINE DISTILLATION TOWARD THE SEARCH (ADR-0111).
+The representation completions are additive and
+zero-init, so nothing needs recovering;
 the re-warm's one job is to give the
 new paths (the stack-entry projections, the ability-text descriptor) a gradient
 that carries information the old inputs lacked — and the only banked signal
 that does without pulling the RL policy back toward the heuristic is the
 search's own: the per-option leaf values the search directive recorded on
 every searched priority window (`labels.jsonl` `ev: search`, rate 1) in the
-Build 2 arms and the Build 3 / 4 pools (≈ 600K windows).
+banked search arms and label pools (≈ 600K windows).
 
 Loss per searched window, over the model's candidates: KL(softmax(v / T) ||
 policy) — the policy toward the search's leaf-value softmax (the acting rule's
@@ -22,7 +22,7 @@ Join: a search row (game seed, t, ph, seat, option labels, `sw` ordinal) to
 its `chooseSpellAbilityToPlay` dec record in the run's obs frames, walked in
 order per game
 featurized on the WIRE path (Featurizer.example, the serve
-featurizer — the same tensors the server builds, incl. the Build 4 fields).
+featurizer — the same tensors the server builds, incl. the stack and ability-text fields).
 
 Reads (held-out games by hash, before and after): mean KL, top-1 agreement
 with the search's argmax, the value head's Spearman vs the windows' values.
@@ -53,7 +53,7 @@ from anvil.store.trajectories import decode_frame
 
 REPO = Path(__file__).resolve().parents[2]
 ABIL = "data/embeddings/abil-cf2ca6ba-b4s-qwen3"
-NEW_PATHS = ("assemble.stack_", "cand_abil_proj")  # Build 4's zero-init representation paths
+NEW_PATHS = ("assemble.stack_", "cand_abil_proj")  # the zero-init representation paths (ADR-0111)
 POLICY_PATHS = ("ptr_query", "ptr_key", "sa_proj", "value_head")
 PRIORITY = "chooseSpellAbilityToPlay"
 VALID_KINDS = {"leaf", "end", "eot", "h2", "next"}
@@ -167,7 +167,7 @@ def option_values(r: dict) -> dict[int, float]:
 def option_voids(r: dict) -> set[int]:
     """row option indices whose every roll voided (the copy could not realize
     the option: the heuristic would not / could not play it here) — the
-    playability negatives (09-17: the distilled policy over-generalized the
+    playability negatives (without them the distilled policy over-generalizes the
     acted windows' casts into unplayable ones
     these teach it not to)."""
     out: set[int] = set()
@@ -360,7 +360,7 @@ def losses(net, batch: dict, temp: float, bar: float = 0.0, teacher=None) -> tup
     neg = torch.finfo(logits.dtype).min
     cm = batch["cand_mask"]
     p_t = torch.softmax((v / temp).masked_fill(~mask, neg), dim=-1)
-    # the student normalized over EVERY legal option (09-17): mass the policy puts on options the
+    # the student normalized over EVERY legal option: mass the policy puts on options the
     # search never valued (the voids among them) is a cost here, not invisible
     lp_s = torch.log_softmax(logits.masked_fill(~cm, neg), dim=-1)
     kl = (p_t * (torch.log(p_t.clamp_min(1e-12)) - lp_s)).masked_fill(~mask, 0).sum(-1)
@@ -372,11 +372,11 @@ def losses(net, batch: dict, temp: float, bar: float = 0.0, teacher=None) -> tup
     vb = F.binary_cross_entropy_with_logits(out["value_logit"].float().squeeze(-1), v_t, reduction="none")
     acted = (batch["sd_margin"] >= bar) & torch.isfinite(batch["sd_margin"])
     kl = kl * acted.float()
-    # the anchor (09-16 22:45, after the first re-warm collapsed to a pass-happy policy: −46.7 pp,
-    # pass mass 0.09 → 0.55): below the bar the acting rule plays the CURRENT policy's line, so the
-    # target there is the frozen teacher's distribution — KL(teacher || student) over the legal
-    # candidates on every un-acted window; without it the shared layers generalized the acted
-    # windows' "pass" onto the 93% the policy term never touched
+    # the anchor: below the bar the acting rule plays the CURRENT policy's line, so the target
+    # there is the frozen teacher's distribution — KL(teacher || student) over the legal
+    # candidates on every un-acted window; without it the shared layers generalize the acted
+    # windows' "pass" onto the 93% the policy term never touches and the fit collapses to a
+    # pass-happy policy (measured: −46.7 pp, pass mass 0.09 → 0.55)
     anchor = torch.zeros_like(kl)
     if teacher is not None:
         with torch.no_grad():

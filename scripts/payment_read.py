@@ -18,7 +18,7 @@ Usage: payment_read.py <census.jsonl> [more.jsonl ...] [--json]
 Telemetry fields are additive kv on the standing payManaCost census record —
 files from runs without -paytelemetry parse fine and report zero coverage.
 
-Dual-era (2026-08-19 §12 revisit): goal-era records carry "goals"/"plans"
+Dual-era (the §12 revisit): goal-era records carry "goals"/"plans"
 (+ costmod/costmod_late/nodecap — the §12b scope boundary and its leak
 backstop); pre-§12 records carry "classes" and read against the retired
 K_MAX gate. The option histogram is goals-per-window in the goal era.
@@ -28,13 +28,13 @@ import json
 import sys
 from collections import Counter
 
-# The D3 scope-pin budget: in-scope (cast/activation, effect=false) traffic
-# measured 2026-08-19 on run-20260704-dcpool. The consequential rate must
+# The D3 scope-pin budget: in-scope (cast/activation, effect=false) traffic,
+# measured on a DC-pool census run. The consequential rate must
 # land well under this for the 2.6% bridge tax to survive.
 IN_SCOPE_BUDGET_PER_GAME = 61.0
 # Pinned truncation revisit gate (spec §11) — CLASS-era records only
-# (pre-§12 jars); the gate fired 2026-08-19 and the K_MAX surface was
-# replaced by goals.
+# (pre-§12 jars); the gate fired and the K_MAX surface was replaced by
+# goals.
 TRUNCATION_GATE = 0.05
 # Goal-era gates (spec §12/§11 as amended): the GOAL_MAX defensive cap
 # should ~never bind; the node budget binds rarely (probe: 0.2%).

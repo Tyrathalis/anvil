@@ -1,6 +1,6 @@
 """Standing post-run analysis battery (docs/design/run-analysis-protocol.md).
 
-Battery v1 (2026-08-12) = the ADR-0049 attribution instruments
+Battery v1 = the ADR-0049 attribution instruments
 productionized + monitor/eval diagnostics. Two protocol rules govern
 everything here: (1) DIAGNOSTIC ONLY — findings are exploratory, run
 verdicts come from pre-registered gates and nothing else; (2) MECHANIZED —
@@ -37,8 +37,8 @@ Instruments:
   zero (validated on the d3-rebaseline baseline read).
 
 - EVAL READ: headline from the arms report json + seed-half consistency
-  (the run12 lesson mechanized: game-index-parity halves disagreeing
-  beyond 2x their pooled SE is flagged), turns distribution, status
+  (game-index-parity halves disagreeing beyond 2x their pooled SE is
+  flagged: a read whose halves disagree is not one number), turns distribution, status
   census, per-model-deck winrate spread.
 
 CLI (all subcommands also importable):
@@ -129,7 +129,7 @@ MONITOR_SERIES = [
     # ADR-0088 staleness instrument: decode CE on LIVE trajectory emission
     # rows, measured grad-free (never applied). The live-gap ratio
     # sched_live_ce / seedlab_raw is the pre-registered staled-mint tell —
-    # ~1.0 at day zero, probe2's terminal signature was 139x; >3x over two
+    # ~1.0 at day zero, 139x measured on a staled mint; >3x over two
     # accepted iterations = the mint has staled (a read, never a guard)
     ("rl.mean.sched_live_ce", "sched decode CE on LIVE rows (staleness)"),
     ("sched_reliance.argmax_flip", "sched reliance flip"),
@@ -274,8 +274,7 @@ def holding_read(store_paths: list[str]) -> dict:
             games += 1
             # Seat class from the header player names ("Anvil(1)-…" vs
             # "Heur(2)-…"): eval arms serve argmax with NO mu.jsonl, so mu
-            # coverage alone mislabels every seat heuristic (found on the
-            # first baseline read). mu coverage stays as the fallback for
+            # coverage alone mislabels every seat heuristic. mu coverage stays as the fallback for
             # stores whose names don't carry the tag.
             players = traj.header.get("players") or []
             seat_cls: dict[int, str] = {}
@@ -299,8 +298,8 @@ def holding_read(store_paths: list[str]) -> dict:
                 if turn is None:
                     continue
                 # M9 §3c: payment-window options are JSON label STRINGS on the
-                # wire (the pay_class tag), not option dicts — the first
-                # training run to generate them (d6-run18) crashed this read.
+                # wire (the pay_class tag), not option dicts, and this read
+                # must not index them as dicts.
                 # Non-dict options belong to no spell window by construction.
                 spells = [
                     o
@@ -496,7 +495,7 @@ def eval_read(name: str, arm_dirs: list[str], report_json: str | None, out_dir: 
     decided = [(r, _model_won(r)) for r in allrows]
     decided = [(r, w) for r, w in decided if w is not None]
 
-    # seed-half consistency (run12 lesson): game-index-parity halves
+    # seed-half consistency: game-index-parity halves
     halves = {0: [], 1: []}
     for r, w in decided:
         halves[r["i"] % 2].append(w)

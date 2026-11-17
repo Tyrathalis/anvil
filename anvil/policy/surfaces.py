@@ -1,4 +1,4 @@
-"""M12 Build 3 (ADR-0105): the decision surfaces' option sets on the Python
+"""The decision surfaces' option sets (ADR-0105) on the Python
 side — shared by the training loader (anvil.training.dataset) and the serve
 featurizer (anvil.bridge.featurize), so a surface window is built ONE way.
 
@@ -24,7 +24,7 @@ embedding. The answer is a sequence of option indices closed by STOP:
                            the decoder's picked mask is off)
   surf_name  (name)        one pick (a face / a type), then STOP
   surf_damage(damage)      a KILL ORDER over the blockers, closed by the
-                           defender under trample (evening 3): options =
+                           defender under trample: options =
                            blockers (+ the defender last when args.trample),
                            1..n picks then STOP; the fork realizes the
                            sequence as amounts by its own lethal arithmetic
@@ -55,9 +55,9 @@ SURF_TASK = {
     "mode": "surf_mode",
     "name": "surf_name",
     "damage": "surf_damage",
-    "target": "surf_target",  # Build 4 (ADR-0109): the entity-set shape over the legal-target set
+    "target": "surf_target",  # ADR-0109: the entity-set shape over the legal-target set
 }
-# the shapes whose loader / serve path exist (grows one evening at a time)
+# the shapes whose loader / serve path exist
 SURF_BUILT = {"surf_one", "surf_set", "surf_mode", "surf_order", "surf_damage", "surf_target"}
 OPT_KINDS = {"entity": 0, "player": 1, "ability": 2, "other": 3}
 SURF_MAX = 12  # answer slots (+1 STOP); discard-to-hand-size and sacrifice-N sit under it
@@ -239,10 +239,10 @@ def surface_fields(
             elif "pi" in o:
                 opt_kind[i] = OPT_KINDS["player"]
                 pi = int(o["pi"])
-                # 10-04 (the ADR-0122 fold-in): the registered seat -> the
-                # model's self-first position (ADR-0116). The surface's player
-                # key gathers from the self-first player rows, so the raw seat
-                # keyed the OTHER player's features from seat 1. Legacy
+                # The registered seat -> the model's self-first position
+                # (ADR-0116, ADR-0122). The surface's player key gathers from
+                # the self-first player rows, so the raw seat would key the
+                # OTHER player's features from seat 1. Legacy
                 # callers without a perspective keep the raw seat.
                 if perspective is not None and n_players and 0 <= pi < n_players:
                     pi = player_target_position(pi, perspective, n_players)
