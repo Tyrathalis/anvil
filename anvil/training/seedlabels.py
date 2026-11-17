@@ -6,11 +6,11 @@ A fixed batch of emission windows whose decode target is the certified
 best ARM (the empirical-oracle schedule, select/score split so the labels
 are winner's-curse-priced), applied per optimizer step. Since ADR-0086
 this is the PRIMARY (only) decode/emission supervision: the dense
-trajectory-derived decode CE it originally enriched was retired after
-m10-probe1 — the decode head IS the emitter, so training it on the
+trajectory-derived decode CE it originally enriched is retired
+(ADR-0086) — the decode head IS the emitter, so training it on the
 policy's own realized casts is self-referential with a degenerate fixed
-point at empty (one RL iteration reached it). Labels are ERA-ASSETS
-(certified under iter-019; the sweep is the re-runnable mint — re-mint
+point at empty (one RL iteration reaches it). Labels are ERA-ASSETS
+(certified under one checkpoint's play; the sweep is the re-runnable mint — re-mint
 per era if the state distribution walks away from the label population).
 """
 

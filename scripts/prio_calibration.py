@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """prio_calibration — the PRIORITY slot's leaf-horizon calibration read
-(ADR-0106 C1; m12-plan Build 3 evening 5).
+(ADR-0106 C1).
 
-The 09-11 pay-slot instrument (pay_calibration.py) moved to the first ply:
+The pay-slot instrument (pay_calibration.py) moved to the first ply:
 the same searched windows on heuristic games under three priority leaves
 (-searchleaf next | h2 | end), each arm a final_read pair of seat runs on the
 same pairs + seed base with the search observational (no -searchact). The

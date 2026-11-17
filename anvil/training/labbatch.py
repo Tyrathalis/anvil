@@ -1,6 +1,6 @@
 """ADR-0088 fixed-batch application mechanics.
 
-The m10-probe2 read (ADR-0087) named a loop-wide defect: ADR-0057
+ADR-0087 names a loop-wide defect: ADR-0057
 calibrate-then-freeze is unsound for a fixed small batch applied every
 optimizer step — the batch is memorized in ~10 applied steps, the full
 frac-scale mass lands on the shared trunk as an impulse, and the share
@@ -8,7 +8,7 @@ guard is structurally blind (share decays WITH the fit). Both fixed-batch
 terms show the signature in the banked probe data (seedlab raw 2.73 ->
 0.42 in ~10 steps at frac 0.1; paylab raw 0.99 -> 0.23 in the same
 window), and per-invocation recalibration amplifies it across iterations
-(probe1 w_seedlab grew 12x over three iterations as raw fell on the
+(measured: w_seedlab grows 12x over three iterations as raw falls on the
 partially-fitted batch).
 
 The fix set (all mechanics here are generic to any fixed label batch):

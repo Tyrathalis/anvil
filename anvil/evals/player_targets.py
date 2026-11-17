@@ -1,6 +1,7 @@
-"""Player-target audit (09-21, ADR-0116): on priority answers with a player target,
+"""Player-target audit (ADR-0116): on priority answers with a player target,
 how often a seat targets ITSELF vs the opponent — the model's seats vs the heuristic's,
-by registered seat. The 46%/11% read on b4post found the target decoder's mixed label."""
+by registered seat. A model self-target rate far above the heuristic's (46% against 11%
+when it was built) is the signature of a mixed player label in the target decoder."""
 
 from __future__ import annotations
 

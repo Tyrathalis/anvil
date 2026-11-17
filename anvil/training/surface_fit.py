@@ -1,4 +1,4 @@
-"""M12 Build 3 — the decision surfaces' imitation warm start (ADR-0105 item 4).
+"""The decision surfaces' imitation warm start (ADR-0105 item 4).
 
 The option-set decoder (anvil.policy.model AnvilNet._surface_decode) fitted to
 the heuristic's answers on the named surface windows of sv=3 stores — the
@@ -78,11 +78,10 @@ def load_net(ckpt: str, device: str, abilities: "str | None" = None):
         cfg["embed"], cfg["pool_manifest"], len(default_methods()), n_sa=cfg.get("sa_vocab_size", 0)
     ).to(device)
     net.load_compat(ck["model"])
-    # Build 4 (ADR-0111 addendum): the net's table = the LOADERS' table (the --abilities
-    # stem), never the ckpt config's or the module default — Build 3's fits keyed the
-    # loaders on the folded table and set the net's from the day-zero ckpt's default
-    # (5,148 rows): every store-only key trained on the clamped last row and served
-    # on its real vector.
+    # ADR-0111: the net's table = the LOADERS' table (the --abilities stem), never the
+    # ckpt config's or the module default. With the loaders keyed on one table and the
+    # net set from another (a shorter one), every key past its end trains on the
+    # clamped last row and serves on its real vector.
     abil = AbilityCache(REPO / (abilities or cfg.get("abilities", ABIL)))
     net.set_ability_table(abil.vectors)
     return net, ck
@@ -229,7 +228,7 @@ def fit(a) -> None:
     loader = DataLoader(ds_tr, batch_size=a.batch, collate_fn=collate, num_workers=a.workers, persistent_workers=a.workers > 0)
     ds_te = None if a.build else make_dataset(a, "test", a.folds, a.fold)[0]
     print(f"[surface_fit {tag}] stores {len(stores)} tasks {a.tasks}", flush=True)
-    # evening 2 (ADR-0105 item 4): the sub-row distillation term — one batch
+    # ADR-0105 item 4: the sub-row distillation term — one batch
     # of whole sub-row groups per imitation step, from the label run's
     # frames; the run's games are policy-conditional labels, never folded
     distill_iter = None
@@ -375,7 +374,7 @@ def main() -> None:
     ap.add_argument("--max-games", type=int, default=None)
     ap.add_argument("--eval-batches", type=int, default=None)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--distill", default=None, help="a -searchsurf run dir with sub-row frames (evening 2)")
+    ap.add_argument("--distill", default=None, help="a -searchsurf run dir with sub-row frames")
     ap.add_argument("--distill-weight", type=float, default=1.0)
     ap.add_argument("--distill-temp", type=float, default=0.025, help="leaf-value softmax temperature (the acting rule's T)")
     ap.add_argument("--distill-batch", type=int, default=16, help="sub rows (groups) per distillation batch")

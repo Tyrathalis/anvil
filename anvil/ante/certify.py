@@ -209,7 +209,7 @@ def main() -> None:
         "--full-vis",
         action="store_true",
         help="score the ledger on full-visibility windows whatever the ckpt's fine-tune stamp "
-        "says (the 10-03 Ante re-measure: a policy checkpoint's value head read as an omniscient "
+        "says (an Ante re-measure: a policy checkpoint's value head read as an omniscient "
         "critic — a VALUE instrument only, never a policy read)",
     )
     a = ap.parse_args()

@@ -3,7 +3,7 @@
 ingest <run-dir> [--dest DIR] [--pool-version V] [--verify]
 status <store-dir>
 validate <store-dir> [--limit N]   # CastPlan label sanity gate (M1 D2)
-search-rows <run-dir> [--dest DIR]  # backfill search.jsonl into an existing store (M12 Build 4½)
+search-rows <run-dir> [--dest DIR]  # backfill search.jsonl into an existing store (ADR-0113)
 """
 
 from __future__ import annotations

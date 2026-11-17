@@ -30,7 +30,7 @@ from typing import Any
 
 import numpy as np
 
-TRANSFORM_VERSION = 5  # v5 (M12 Build 4, ADR-0111): format scalars in the globals; the stack list passed through
+TRANSFORM_VERSION = 5  # v5 (ADR-0111): format scalars in the globals; the stack list passed through
 # (v4 (M3 D1): cmd_tax entity scalar — commander recast)
 # surcharge (2 x cmdcast) on command-zone commander rows; the obs stream has
 # carried cmdcast since D1-of-M1, the featurizer just never read it
@@ -57,7 +57,7 @@ ENTITY_FEATURES = [
     "count",
     "hidden",
     "cmd_tax",
-    # v2 choice-state (boundary bundle 2026-08-21): the numeric-expressible
+    # v2 choice-state: the numeric-expressible
     # slice of the "cho" kv — appended, so pre-boundary checkpoints load
     # through load_compat's ent_proj zero-pad byte-identically. Types/named
     # cards stay text-only (in "cho", dedup-visible, not featurized —
@@ -86,17 +86,17 @@ GLOBAL_FEATURES = [
     # zero-pads state_proj), and the pre-registered transfer probe runs when
     # breadth actually opens.
     "fmt_commander",
-    # ADR-0120 (09-27): Constructed (Forge GameType.Constructed; 20 life, 60
+    # ADR-0120: Constructed (Forge GameType.Constructed; 20 life, 60
     # cards, no singleton, no command zone) — the quickstart's headline path
-    # raised VocabError here since the M9 one-hot. The column inserts at the
+    # needs the column. It inserts at the
     # one-hot's END (before the scalars); load_compat / widen_globals map a
     # saved layout through globals_layout(), so every older checkpoint and
     # bank reads byte-identically.
     "fmt_constructed",
-    # M12 Build 4 (ADR-0111, design §2 "format as features"): the explicit
+    # ADR-0111, design §2 "format as features": the explicit
     # format scalars — from the vocab's format_features table by format id;
     # appended after the one-hot (load_compat zero-pads state_proj at the
-    # end of the globals segment: pre-Build-4 checkpoints serve byte-identically)
+    # end of the globals segment: older checkpoints serve byte-identically)
     "format_start_life",
     "format_deck_size",
     "format_singleton",
@@ -112,7 +112,7 @@ def globals_layout(width: int) -> tuple[int, int, bool]:
     """(base, n_fmt, has_scalars) of a globals vector `width` wide under this
     module's layout history: the base columns (M1–M8), then the format
     one-hot (M9; one column per known format, appended per format), then the
-    five format scalars (Build 4). The scalars arrived after at least one
+    five format scalars. The scalars arrived after at least one
     one-hot column existed, so any width past base + scalars carries them.
     Loud on a width no era produced (ADR-0120)."""
     n_sc = len(FORMAT_SCALARS)
@@ -143,7 +143,7 @@ def widen_globals_columns(width: int) -> list[int]:
 # per player, self first then opponents in seat order
 PLAYER_FEATURES = ["life", "hand_count", "library_count", "lands_played", "mana_total", "lost"]
 
-# The player-position convention (09-21, Kryptic's finding; ADR-0116): every
+# The player-position convention (ADR-0116): every
 # model-side player position — the player feature rows, the target decoder's
 # player options, the combat heads' player targets — is SELF FIRST, then the
 # other seats in TURN ORDER after self (registered order rotated to start at
@@ -169,9 +169,9 @@ def player_target_position(pi: int, perspective: int, n_players: int) -> int:
 
 # v2/v3: scalar features enter the projections at O(1). Raw magnitudes
 # (library ~90, turn ~20+) dominate the linear mix and drown the small
-# decisive signals (life differences) — measured on pilot-run1 as the
-# at-chance value head (value_diag_val: AUC 0.53 flat by turns-from-end,
-# pred std ~0.015). Binary flags stay 1.
+# decisive signals (life differences) — measured as an at-chance value
+# head (value_diag_val: AUC 0.53 flat by turns-from-end, pred std ~0.015).
+# Binary flags stay 1.
 GLOBAL_SCALE = np.array(
     [1 / 20, 1 / 10, 1, 1, 1, 1, 1, 1 / 3] + [1.0] * 2 + [1 / 40, 1 / 100, 1, 1, 1],  # + fmt one-hot + format scalars
     dtype=np.float32,
@@ -215,7 +215,7 @@ class Vocab:
             raise VocabError(f"unknown format {f!r}") from None
 
     def format_scalars(self, f: str) -> list[float]:
-        """The explicit format scalars (Build 4): loud on an unknown format."""
+        """The explicit format scalars: loud on an unknown format."""
         row = self.format_features.get(f)
         if row is None:
             raise VocabError(f"no format_features row for {f!r} (vocab_mtg.json)")
@@ -316,10 +316,10 @@ def history_tokens(
                 d.get("_retpos") is not None and d["_retpos"] < now_pos
             )
             ret = d.get("ret") if ret_arrived else None
-            # Obs.retHostId, mirrored (09-18): the answer, or a list's first
+            # Obs.retHostId, mirrored: the answer, or a list's first
             # element, is a card {"e": id} or an ability {"e": host, ...};
             # a SINGLE-entity answer is a bare dict (the served entity
-            # surfaces), which the list-only rule read as -1 against the
+            # surfaces), which a list-only rule reads as -1 against the
             # engine's back-filled host
             first = ret[0] if isinstance(ret, list) and ret else ret
             if isinstance(first, dict):
@@ -483,7 +483,7 @@ def assemble(
         "globals": globals_vec,
         "players": players,  # (n_players, len(PLAYER_FEATURES)), self first
         "history": history or [],  # history_tokens() output, oldest first
-        # M12 Build 4 (ADR-0111): the stack instances, top-first, as recorded
+        # ADR-0111: the stack instances, top-first, as recorded
         # ({e: host, c: controller, ak: ability key, tgt: [{e}|{pi}]}) — public
         # information; the loader / featurizer turn them into the additive
         # stack fields (anvil.encoder.stack_fields)

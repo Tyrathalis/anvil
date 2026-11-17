@@ -31,7 +31,7 @@ class StateAssembler(nn.Module):
         d_abil: int = 2560,
     ):
         super().__init__()
-        # M12 Build 4 (ADR-0111): stack entries enter ADDITIVELY — the entry's
+        # ADR-0111: stack entries enter ADDITIVELY — the entry's
         # ability text (the table vector) + controller + position onto its HOST
         # entity token; "targeted by" (the ability + controller) onto each card
         # target's token, and onto the [STATE] token with the seat for a player
@@ -88,7 +88,7 @@ class StateAssembler(nn.Module):
             nn.init.zeros_(self.sched_proj.bias)
 
     def _stack_add(self, ent: torch.Tensor, state: torch.Tensor, batch: dict):
-        """Build 4: the stack entries onto the host / target entity tokens and the
+        """The stack entries onto the host / target entity tokens and the
         [STATE] token (player targets). Masked entries contribute exactly zero."""
         sm = batch["stack_mask"]  # (B, K) bool
         abil = batch["stack_abil"].to(ent.dtype)  # (B, K, d_abil), zeros where the key is absent

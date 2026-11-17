@@ -40,7 +40,7 @@ MODELS = {
 
 
 def _latest_manifest(format: str = "dc") -> Path:
-    # data/pool/<format>/CURRENT pin (2026-08-03 for dc; was newest-mtime)
+    # data/pool/<format>/CURRENT pin
     from anvil.pool import current_manifest_path
 
     return current_manifest_path(format)

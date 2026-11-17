@@ -1,10 +1,10 @@
-"""Model-server fleet (the throughput week, 2026-09-14; m12-plan record 09-10).
+"""Model-server fleet: N model servers on consecutive ports behind one supervisor.
 
 One model server is one Python process: the gRPC stream threads featurize
-and the batcher thread forwards, all under one GIL. The h2 relabel found the
-ceiling — 16 workers of network-played search copies pinned one server at
-110% CPU with the GPU at 52% and the workers 30% idle on the bridge. The
-lever the harness lacked is N servers: `anvil.bridge.server --servers N`
+and the batcher thread forwards, all under one GIL. That is the ceiling —
+16 workers of network-played search copies pin one server at 110% CPU with
+the GPU at 52% and the workers 30% idle on the bridge (measured). The
+lever is N servers: `anvil.bridge.server --servers N`
 runs this supervisor, which spawns N children on consecutive ports
 (port, port+1, ...), and the harness takes the matching comma list
 (`--bridge grpc:localhost:P,grpc:localhost:P+1`) and assigns chunks
@@ -33,7 +33,7 @@ import sys
 import time
 from pathlib import Path
 
-PER_SERVER_WORKERS = 12  # the fleet bench (09-14): a server at 12 workers is not binding (24:2 ≈ 24:3), at 16 it is (+14% from a second)
+PER_SERVER_WORKERS = 12  # measured: a server at 12 workers is not binding (24:2 ≈ 24:3), at 16 it is (+14% from a second)
 SPLIT_OUTPUTS = ("--mu-out", "--drill-mu-out", "--bind-trace", "--counts-out")
 
 
@@ -173,11 +173,10 @@ def _port_open(port: int) -> bool:
 
 
 def wait_ports(port: int, servers: int, timeout: float = 300.0, ping: bool = True) -> None:
-    """Block until every port of the fleet accepts a connection and (09-27)
+    """Block until every port of the fleet accepts a connection and
     answers a Ping through its Session stream — a bound port is not a
-    servicer that has finished its warm-up; the first real request of every
-    worker landed on that gap as a cold-start deadline (the 09-24 paired
-    read's five crashes)."""
+    servicer that has finished its warm-up, and the first real request of a
+    worker that lands on that gap dies on a cold-start deadline."""
     t0 = time.monotonic()
     for p in range(port, port + max(int(servers), 1)):
         while not _port_open(p):

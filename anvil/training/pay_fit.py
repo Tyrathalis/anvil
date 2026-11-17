@@ -1,4 +1,4 @@
-"""M12 Build 3 evening 4 (ADR-0105): the pay head's fit on the payment
+"""The pay head's fit (ADR-0105) on the payment
 sub-row pool — distillation only (anvil.training.pay_distill: the
 asymmetric target over the search's end-of-turn leaf values; the M9 pin
 bars imitation and imitation would be empty anyway, auto is the head's
@@ -389,7 +389,7 @@ def main() -> None:
     ap.add_argument("--temp", type=float, default=0.025, help="leaf-value softmax temperature on positives")
     ap.add_argument("--min-rolls", type=int, default=2, help="valued rolls an answer needs to count")
     ap.add_argument("--gate-weight", type=float, default=0.0,
-                    help="the deviation gate's BCE weight (0 = no gate; the 09-11 head fix: P(positive window))")
+                    help="the deviation gate's BCE weight (0 = no gate; the gate reads P(positive window))")
     ap.add_argument("--gate-pstar", type=float, default=None,
                     help="recorded in the build's pay_fit config (the cross-fit read's pooled choice)")
     ap.add_argument("--pos-weight", type=float, default=1.0, help="loss weight on positive rows (the pool is mostly ties)")

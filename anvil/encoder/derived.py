@@ -45,7 +45,7 @@ from anvil.encoder.transform import visible_to
 DERIVED_VERSION = 1
 
 TTD_CAP = 20.0  # turns-to-death clip; also the "no clock on board" value
-# Conditioning clips (the transform v2/v3 lesson, seen again at the probe:
+# Conditioning clips (the reason transform scales its scalars:
 # infinite-combo boards log six-digit power and drain kills six-digit-negative
 # life; unclipped they own the feature std and standardization crushes the
 # normal-game range to ~0). Lethality semantics saturate far below the caps.

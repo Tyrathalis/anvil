@@ -73,7 +73,7 @@ def aggregate(run_dirs: list[Path]) -> dict:
                     continue
                 m = r.get("m")
                 if m == PRIORITY and r.get("copy"):
-                    # 09-21 (ADR-0114 routed): a search copy's rows (the copies'
+                    # ADR-0114: a search copy's rows (the copies'
                     # forced asks) are marked by the census; the mainline
                     # veto rate below reads the mainline decs alone
                     if r.get("veto"):

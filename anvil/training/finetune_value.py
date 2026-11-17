@@ -1,10 +1,10 @@
 """Value-head-only fine-tune on corrected outcome labels (M2 D4).
 
-Background (2026-07-11): the obs end-record's winner field was derived from
-the post-elimination live player list in the fork — ~always 0, wrong for
-~50% of games — so every value head through d2-sa trained on seat noise
-(d2-sa value head vs TRUE outcomes: AUC 0.506 = chance). The loader now
-joins the true winner from games.jsonl (TrajectoryStore.winner_seat).
+Why it exists: the obs end-record's winner field is derived from the
+post-elimination live player list in the fork — ~always 0, wrong for
+~50% of games — so a value head trained on it learns seat noise (measured
+against TRUE outcomes: AUC 0.506 = chance). The loader joins the true
+winner from games.jsonl (TrajectoryStore.winner_seat).
 
 This script is the cheap re-baseline: load a checkpoint, freeze everything
 except the value-head MLP, train on corrected labels. Because only
@@ -60,7 +60,7 @@ def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
 def _train_batch(net, batch: dict, device: str, denom: int) -> float:
     """Forward+backward one training batch; returns the mean loss value.
 
-    VRAM elasticity (task #12): on CUDA OOM the batch is split in half
+    VRAM elasticity: on CUDA OOM the batch is split in half
     along the batch dim and gradient-ACCUMULATED — each half contributes
     its sum-loss / denom, so the accumulated gradient equals the whole
     batch's mean-BCE gradient and the effective batch size (a training
@@ -82,9 +82,9 @@ def _train_batch(net, batch: dict, device: str, denom: int) -> float:
         return float(loss.detach())
     except torch.cuda.OutOfMemoryError:
         if b < 2:
-            # scale-to-zero (2026-08-18): at b=1 the fixed footprint
+            # scale-to-zero: at b=1 the fixed footprint
             # dominates — nothing left to split. Park ONLY for genuine
-            # cotenant scarcity (the run17 iter-8 incident); a floor OOM
+            # cotenant scarcity; a floor OOM
             # with VRAM free re-raises (fragmentation/bug — not parkable)
             if park_for_cotenant("critic finetune"):
                 return _train_batch(net, batch, device, denom)
@@ -101,7 +101,7 @@ def _train_batch(net, batch: dict, device: str, denom: int) -> float:
 def _eval_batch(net, batch: dict, device: str, probs: list, wons: list) -> None:
     """One eval forward with the same OOM elasticity as _train_batch —
     eval batches carry no hyperparameter semantics, so splitting is free;
-    at b=1 park for the cotenant (scale-to-zero, 2026-08-18)."""
+    at b=1 park for the cotenant (scale-to-zero)."""
     b = next(iter(batch.values())).shape[0]
     try:
         with torch.autocast(device, dtype=torch.bfloat16):

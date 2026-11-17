@@ -1,16 +1,18 @@
-"""VRAM cotenancy elasticity helpers (task #12 + the 2026-08-18 extension).
+"""VRAM cotenancy elasticity helpers: park when a cotenant starves the card, scale back up when it leaves.
 
-Scale-to-zero (user directive, the run17 iter-8 ComfyUI incident): when
-batch/seg halving hits its floor and even a single-example forward
-cannot fit, the batch dimension has nothing left to give — the fixed
-footprint (weights + frozen embedding table + optimizer state + CUDA
-context, ~7.8 GB for the critic finetune) dominates, so the learner
-PARKS and polls free VRAM instead of crashing the driver. The watchd
-stall alert (75m) doubles as the page if a park outlives it.
+Scale-to-zero: when batch/seg halving hits its floor and even a
+single-example forward cannot fit, the batch dimension has nothing left
+to give — the fixed footprint (weights + frozen embedding table +
+optimizer state + CUDA context, ~7.8 GB for the critic finetune)
+dominates, so the learner PARKS and polls free VRAM instead of crashing
+the driver. The park pushes one "vram starved" notification on entry and
+then heartbeats (`anvil.runs.heartbeat`) on every poll, so under a
+launched run the supervisor's stall tick reads it as alive: nothing pages
+again however long the park lasts.
 
 Scale-back-up: a free-VRAM tier probe (the driver seg-autotune's
-run-3-incident thresholds) restores segment size when the cotenant
-releases — replacing rl.py's original sticks-for-the-run policy.
+thresholds) restores segment size when the cotenant releases, so a
+halving does not stick for the rest of the run.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ import torch
 
 
 def seg_tier(free_mb_now: float) -> int:
-    """The driver seg-autotune tiers (selfplay.py, run-3 thresholds)."""
+    """The driver seg-autotune tiers (the same thresholds as selfplay.py)."""
     return 256 if free_mb_now >= 16000 else 128 if free_mb_now >= 9000 else 64
 
 
@@ -35,8 +37,8 @@ def park_for_cotenant(who: str, min_free: float = 9000) -> bool:
     scarcity AND we parked until recovery — the caller retries. False =
     VRAM is free (or CUDA absent): parking cannot fix what scarcity did
     not cause, the caller re-raises — fragmentation, a stub, or a real
-    bug (the free-but-OOM spin caught by the legacy floor tests at the
-    M8-close merge gate). Preserves the original raise contract on CPU
+    bug; parking there would spin forever on a free card. Preserves the
+    raise contract on CPU
     and on healthy cards."""
     if not torch.cuda.is_available():
         return False
@@ -83,7 +85,7 @@ def wait_for_vram(
         n += 1
         torch.cuda.empty_cache()
         cur = f()
-        try:  # 09-21: parked on purpose — no false stall at the launcher
+        try:  # parked on purpose — no false stall at the launcher
             from anvil.runs import heartbeat
 
             heartbeat(f"vram park: {who}")

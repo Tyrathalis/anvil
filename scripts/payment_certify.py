@@ -2,12 +2,12 @@
 """M9 rung 3: payment-drill certification driver + reader
 (m9-rung3-draft.md, session-pinned protocol).
 
-Three subcommands around the fork-side certify front. Since the certifier
-merge (09-23, ADR-0117) the front of record is AnvilRun -replay: the job's
+Three subcommands around the fork-side certify front. Under the certifier
+merge (ADR-0117) the front of record is AnvilRun -replay: the job's
 game replayed to its window, the payment answers adjudicated on SEARCH
 COPIES (one per (arm, roll), roll 0 the true continuation), one certify row
 per copy in this same contract; CensusRun -certify (the M9 runner, census
-construction) stays as the parity witness until the big run's launch.
+construction) is the parity witness.
 `lanes --runner census|anvil` picks the runner; the rows read identically.
 
   plan   mined candidates -> jobs.jsonl (+ lane scripts). Top-N per shape;
@@ -271,7 +271,7 @@ def read(args) -> None:
             if cleared_neg:
                 # auto-correct drill: every cleared deviation consistently
                 # LOSES to auto — engine-adjudicated evidence that auto is the
-                # certified-best class here (evalset-assembly pin 2026-08-20:
+                # certified-best class here (an evalset-assembly pin:
                 # D4's failure modes are two-sided — never-deviates AND
                 # deviates-wrongly; scored as a SEPARATE metric so the
                 # auto-biased init cannot inflate the headline accuracy)

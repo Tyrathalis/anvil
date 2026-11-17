@@ -66,12 +66,12 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def _auto_seg(pinned: int) -> int:
-    """Per-phase learner seg autotune (task #12): price GPU cotenancy at
+    """Per-phase learner seg autotune: price GPU cotenancy at
     phase start instead of discovering it by OOM. Reads free VRAM via
     nvidia-smi (NOT torch — a CUDA context in the driver would hold ~300MB
     for the loop's lifetime, defeating the subprocess-per-phase design).
-    Thresholds from the run-3 incident: seg 256 OOM'd with ~13GB free
-    beside a resident ComfyUI, 128 fit. A nonzero --rl-seg pins manually;
+    The thresholds are measured: seg 256 OOMs with ~13GB free beside a
+    resident cotenant, 128 fits. A nonzero --rl-seg pins manually;
     rl.py's OOM-halving backstops mid-phase pressure changes either way."""
     if pinned:
         return pinned
@@ -98,7 +98,7 @@ def _notify(title: str, msg: str) -> None:
 
 
 def _sleep_inhibitor(name: str) -> subprocess.Popen | None:
-    """Driver-owned systemd-inhibit holder (2026-07-22 suspend lesson): the
+    """Driver-owned systemd-inhibit holder: the
     desktop must not sleep while a loop runs. The holder child gets
     PR_SET_PDEATHSIG so it dies with the driver on ANY exit path — crash,
     SIGKILL, guard halt — never orphaning a block on the user's laptop lid."""
@@ -169,7 +169,7 @@ def _start_server(
         "--pass-delta",
         "0",
     ]
-    # the fleet week (09-14): N servers on consecutive ports behind one
+    # N servers on consecutive ports behind one
     # supervisor (anvil.bridge.fleet); the launch's --bridge carries the list
     if servers > 1:
         cmd += ["--servers", str(servers)]
@@ -263,15 +263,15 @@ PAIRED_HEARTBEAT_S = 300  # progress row cadence during a paired read (inside th
 
 
 def _stamp() -> str:
-    """Wall-clock stamp for the loop log's phase lines (09-25: a yielded
-    harness read as a dead stall because nothing in the log said when)."""
+    """Wall-clock stamp for the loop log's phase lines: without it a yielded
+    harness reads as a dead stall, because nothing in the log says when."""
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _yielded_s(dirs) -> float:
     """Seconds the harness runs under `dirs` spent yielding the GPU: the sum
     of every gpu-yield.json ledger (the orchestrator's cumulative
-    `yielded_s`, 09-27) at or below each dir. Missing files count zero."""
+    `yielded_s`) at or below each dir. Missing files count zero."""
     total = 0.0
     seen: set = set()
     for d in dirs:
@@ -330,11 +330,11 @@ def _ranking_meter(args, ckpt, out_json: Path) -> "dict | None":
     eval with both splits when the anchor draws from the standing state bank;
     otherwise the standing holdout row plus a second eval on the anchor's bank
     (under `anchor_bank`, its `gap` lifted to the top). No anchor: holdout only.
-    ADR-0124 addendum (11-02): `--state-bank-run` adds the RUN-DISTRIBUTION
+    `--state-bank-run` (ADR-0124) adds the RUN-DISTRIBUTION
     holdout's row beside it — `spearman_run` / `se_boot_run` / `n_run`, a frozen
     bank of the run's own states nothing trains on (value_pretrain bank-run) —
     so the Build 1 series stays the continuity line and this one says whether
-    its movement transfers to the states the run plays. 11-07: the run row also
+    its movement transfers to the states the run plays. The run row also
     carries its CONTESTED rows (rollout winrate in (0.2, 0.8)) as
     `spearman_run_contested` / `se_boot_run_contested` / `n_run_contested` —
     the pooled row is carried by decided states and separates no head."""
@@ -437,8 +437,8 @@ def _paired_read(a, state: dict, state_path: Path, out: Path, ckpt: str, tag: st
     t0 = time.monotonic()
     # The read script narrates only at start and end; its progress lives in
     # the run dir's per-lane files under data/runs. The watcher is keyed on
-    # OUR dir, so a blocking wait read as a 75-min stall (false STALLED
-    # notice, 2026-09-04 17:50). Poll instead: every PAIRED_HEARTBEAT_S
+    # OUR dir, so a blocking wait would read as a stall (a false STALLED
+    # notice). Poll instead: every PAIRED_HEARTBEAT_S
     # append one telemetry row (per-side rolls, crashes) beside the loop —
     # the watcher's heartbeat and the read's monitor curve in one artifact.
     progress = out / f"paired-{tag}.progress.jsonl"
@@ -485,8 +485,8 @@ def _stop_server(proc) -> None:
     # SIGTERM, not SIGINT: under a detached launch (setsid/nohup) the server
     # inherits SIGINT=SIG_IGN, CPython never installs its KeyboardInterrupt
     # handler, and the stats + counts-dump exit path is skipped straight into
-    # the 30s timeout + SIGKILL (m10-probe1 lost iteration 0's serve counters
-    # this way; ADR-0085). The server's SIGTERM handler converges on the same
+    # the 30s timeout + SIGKILL, losing the iteration's serve counters
+    # (ADR-0085). The server's SIGTERM handler converges on the same
     # stats path by design.
     proc.send_signal(signal.SIGTERM)
     try:
@@ -504,11 +504,11 @@ def _note_yield(path: Path, key: str, seconds: float) -> None:
 
 
 def _wait_gpu_free(what: str, yielder=None, sleep=time.sleep, log_every_s: float = 300.0) -> float:
-    """The training step's GPU gate (11-03, big-run iteration 367): the harness
-    yields NEW chunk launches to a foreign GPU job (gpu_yield.py — the user's
-    09-14 pin), but the trainer was launched into ComfyUI's 17.5 GB job and
-    CUDA-OOMed in loss.backward(), outside the learner's forward-only seg
-    elasticity. Same rule, same hysteresis: wait while a foreign compute
+    """The training step's GPU gate: the harness yields NEW chunk launches
+    to a foreign GPU job (gpu_yield.py), and the trainer needs the same
+    courtesy: launched into a cotenant's large job it CUDA-OOMs in
+    loss.backward(), outside the learner's forward-only seg elasticity.
+    Same rule, same hysteresis: wait while a foreign compute
     process holds the card; the seconds waited come OUT of the wall budget
     like the generation's yields, and the launcher's stall tick hears a
     heartbeat. Returns the seconds waited (0 when the card is quiet or
@@ -552,12 +552,12 @@ def _mem_available_mb(meminfo: str = "/proc/meminfo") -> float | None:
 
 def _wait_host_memory(what: str, need_mb: float, reader=_mem_available_mb, sleep=time.sleep,
                       clock=time.monotonic, poll_s: float = 30.0, log_every_s: float = 300.0) -> float:
-    """The training step's host-memory gate (11-07, the segment-4 boundary): the
-    GPU gate's twin on MemAvailable. The learner holds ≈ 35 GB of host RSS at a
-    step (RL_WORKERS 4; the decode state per DataLoader worker), and the box's
-    other tenants — a ComfyUI offload of 17–23 GB, the user's games at 12–22 GB —
-    pushed the step's floor from 23 GB to 14 GB across segment 4 with no gate
-    between them and the two systemd-oomd kills of 10-10 / 10-17. Wait while
+    """The training step's host-memory gate: the GPU gate's twin on
+    MemAvailable. The learner holds ≈ 35 GB of host RSS at a step
+    (RL_WORKERS 4; the decode state per DataLoader worker), and the box's
+    other tenants — a ComfyUI offload of 17–23 GB, the user's games at
+    12–22 GB — can leave less than that free; a step launched then ends in
+    a systemd-oomd kill. Wait while
     MemAvailable is under `need_mb` (the launcher's memory watchdog still trips
     on a sustained floor during the step); the seconds come OUT of the wall like
     the GPU gate's, with a heartbeat for the stall tick. Returns the seconds
@@ -604,7 +604,7 @@ def batch_chunk(games: int, workers: int, chunk: int) -> int:
     tail is a game, not a chunk (a JVM start per chunk is ~20 s against a
     20-min tail). A batch with too few chunks per worker is tail-bound: its
     elapsed time is the slowest worker's contiguous deck-pair block (an 11x
-    finish-time spread; the 2026-08-03 bench retraction)."""
+    finish-time spread)."""
     return max(1, min(chunk, games // (4 * workers)))
 
 
@@ -643,8 +643,8 @@ def ckpt_carries(ckpt: str) -> dict:
     (its own rule: the params' presence — server.ModelBackend carry_plan /
     carry_sched). The loader must reconstruct every carry the server
     injects, or the recorded behavior log-probabilities are not the
-    network's (09-18: the M10 schedule carry on an M12 build, 2.3% of
-    priority windows off > 0.2 nats, the tripwire dropping trajectories)."""
+    network's: one carry missed puts a few percent of priority windows off by
+    more than 0.2 nats, and the tripwire drops those trajectories."""
     try:
         import torch
 
@@ -673,7 +673,7 @@ def sched_carry_flags(a, ckpt: str) -> list[str]:
 
 
 def search_forge_args(a, ckpt: "str | None" = None) -> list[str]:
-    """M12 Build 4½ (ADR-0113): the generation workers' verbatim AnvilRun
+    """The generation workers' verbatim AnvilRun (ADR-0113)
     flags — the recipe (--search-recipe) plus, under --search-alloc head,
     the allocation head's tau from the SERVING ckpt's record with the
     floor. [] = the pre-wiring loop (no search directive). One derivation
@@ -731,7 +731,7 @@ def _launch_games(
     if getattr(a, "reask", False):
         cmd.append("--reask")
     if forge_args:
-        # M12 Build 4½: the search directive on the generation workers — the
+        # the search directive on the generation workers (ADR-0113) — the
         # rows the trainer joins (--labels: per-worker labels.jsonl, the
         # store's search.jsonl at ingest)
         cmd += ["--forge-args", " ".join(forge_args), "--labels"]
@@ -1180,16 +1180,16 @@ def guard_flags(
 ) -> list[str]:
     """ADR-0017 guard triplines. Any non-empty result rejects the iteration's
     checkpoint. The loop then halts, or under --guard-action rollback
-    continues from the last accepted checkpoint (guard_decision). Run 2
-    collapsed with every signal in monitor.jsonl and nothing acting on it. kl
-    is absolute (drift per
+    continues from the last accepted checkpoint (guard_decision). The guard
+    exists because a collapse shows in monitor.jsonl long before anyone reads
+    it; something has to act on the signal. kl is absolute (drift per
     iteration); entropy/veto compare against the run's iter-0 baselines.
     casts_floor (§6c anti-passivity): halt if live casts/game (the search
     copies' rows excluded) falls below this fraction of iter-0 — the cheapest
     way to zero vetoes under the rejected-intent penalty is to stop casting."""
     flags = []
     m = rl.get("mean") or {}
-    # m10-probe1 (ADR-0085): share guards read the step MEDIAN (mean
+    # ADR-0085: share guards read the step MEDIAN (mean
     # fallback for pre-0085 rows) — the iteration mean is spike-dominated
     # under a heavy-tailed aux CE and trips on a statistic no step ever
     # showed; the spike gets its own tripline below.
@@ -1197,14 +1197,14 @@ def guard_flags(
     kl = m.get("kl_mu")
     if kl is not None and kl > kl_max:
         flags.append(f"guard: kl_mu {kl} > {kl_max}")
-    # M12 Build 4½: the search-row terms' shares (the plan-share twin)
+    # the search-row terms' shares (the plan-share twin; ADR-0113)
     for name, mx in (("distill", distill_share_max), ("alloc", alloc_share_max)):
         v = med.get(f"{name}_share", m.get(f"{name}_share"))
         if mx is not None and v is not None and v > mx:
             flags.append(f"guard: {name}_share {v} > {mx}")
     ss = med.get("seq_share", m.get("seq_share"))
     if seq_share_max is not None and ss is not None and ss > seq_share_max:
-        # d6-run14: the seq term's share of PG mass is the ADR-0054
+        # the seq term's share of PG mass is the ADR-0054
         # calibration invariant (~10%); the halt-worthy failure is the
         # term outgrowing its weight, which precedes the kl symptom
         flags.append(f"guard: seq_share {ss} > {seq_share_max}")
@@ -1224,9 +1224,9 @@ def guard_flags(
     if seedlab_share_max is not None and sls is not None and sls > seedlab_share_max:
         flags.append(f"guard: seedlab_share {sls} > {seedlab_share_max}")
     if sched_spike_mult is not None:
-        # the m10-probe1 disease itself: decode confidence sharpening makes
-        # off-mode targets exponentially surprising (max step CE 7.7 -> 46.8
-        # -> 543.5 across three iterations at a stable ~3.2 median)
+        # decode confidence sharpening makes off-mode targets exponentially
+        # surprising (measured: max step CE 7.7 -> 46.8 -> 543.5 across three
+        # iterations at a stable ~3.2 median; ADR-0085)
         ce_max = (rl.get("spike") or {}).get("sched_ce_max")
         ce_med = med.get("sched_ce")
         if ce_max is not None and ce_med and ce_max > sched_spike_mult * ce_med:
@@ -1247,10 +1247,10 @@ def guard_flags(
     if follow_share_max is not None and fs is not None and fs > follow_share_max:
         flags.append(f"guard: follow_share {fs} > {follow_share_max}")
     if lab_memorize_ratio:
-        # ADR-0088 memorization tripline (re-based at probe3 to per-step keys,
-        # at probe5/ADR-0092 to the iteration MEDIAN of windowed per-step
-        # raws): a fixed batch FITTED is the probe2 impulse — per-step 2.73
-        # -> 0.18 within one iteration; the share guard cannot see it (share
+        # ADR-0088 memorization tripline (on per-step keys, and per ADR-0092
+        # on the iteration MEDIAN of windowed per-step raws): a fixed batch
+        # FITTED is an impulse on the trunk — per-step 2.73 -> 0.18 within
+        # one iteration, measured; the share guard cannot see it (share
         # decays WITH the fit).
         lab_med = rl.get("lab_med") or {}
         for key, calib in (("seedlab_raw_step", seedlab_calib_raw),
@@ -1264,14 +1264,14 @@ def guard_flags(
                 )
     # ADR-0118: the value head's state-ranking Spearman on the frozen holdout
     # (the per-iteration row). The floor catches a head that has stopped
-    # ranking states (collapse), not the drift itself — the shakedown's
-    # drifted arms floored at 0.21–0.26; the drift's bar (within one SE of
-    # 0.374) is the anchor arm's pre-registered read, not a halt.
+    # ranking states (collapse), not the drift itself: unanchored arms that
+    # drifted still held 0.21–0.26, above the floor. The drift's bar (within
+    # one SE of 0.374) is a pre-registered read, not a halt.
     if state_spearman is not None and spearman_floor and state_spearman < spearman_floor:
         flags.append(f"guard: state_spearman {state_spearman} < floor {spearman_floor}")
-    # ADR-0124 addendum (11-02): the same collapse floor on the run-distribution
-    # holdout's row (--state-bank-run); off by default — exploratory on its first
-    # segment, the floor set at the boundary (the boundary value minus two SE)
+    # ADR-0124: the same collapse floor on the run-distribution holdout's row
+    # (--state-bank-run); off by default. A floor is set from a measured value of
+    # the row (that value minus two SE).
     if state_spearman_run is not None and spearman_run_floor and state_spearman_run < spearman_run_floor:
         flags.append(f"guard: state_spearman_run {state_spearman_run} < floor {spearman_run_floor}")
     if baseline:
@@ -1335,9 +1335,8 @@ def _rl_summary(train_dir: Path) -> dict:
         "seq_raw",
         "seq_aux",
         "seq_share",
-        # plan_share missing here made the ADR-0057 plan-share guard read
-        # None forever (found at the M10 build session, 2026-08-27 — the
-        # guard never could have fired across run20)
+        # plan_share must be listed here: without it the ADR-0057 plan-share
+        # guard reads None and can never fire
         "plan_act",
         "plan_delta",
         "plan_share",
@@ -1357,7 +1356,7 @@ def _rl_summary(train_dir: Path) -> dict:
         "follow_raw",
         "follow_share",
         "follow_raw_step",
-        # M12 Build 4½: the search-row terms + the acted-window series
+        # the search-row terms + the acted-window series (ADR-0113)
         "acted_frac",
         "acted_rho",
         "acted_kl",
@@ -1381,14 +1380,14 @@ def _rl_summary(train_dir: Path) -> dict:
         vals = [r[k] for r in rows if k in r]
         if vals:
             mean[k] = round(sum(vals) / len(vals), 5)
-    # ADR-0088 memorization tripline, re-based after the m10-probe3 false
-    # halt (per-step keys — the acc[] row values are per-trajectory ÷
-    # traj_per_step) and again after probe5 (ADR-0092): the iteration
+    # ADR-0088 memorization tripline, on per-step keys (the acc[] row
+    # values are per-trajectory ÷ traj_per_step; a guard on those halts
+    # falsely) and, per ADR-0092, on the iteration
     # MEDIAN of the windowed per-step raws, not the minimum — a mixed-class
     # batch (paylab: positives ~3.7, autos ~0.35) gives auto-heavy windows a
     # low minimum by composition, not by fitting. The median still separates
-    # probe2's memorization (2.73 → windows 1.68…0.18, median 0.58 = 0.21×)
-    # from healthy learning (probe3/5 ≥ 0.5×); the share guards already read
+    # memorization (measured: 2.73 → windows 1.68…0.18, median 0.58 = 0.21×)
+    # from healthy learning (measured ≥ 0.5×); the share guards already read
     # the median (ADR-0085).
     first = {}
     lab_med = {}
@@ -1398,9 +1397,9 @@ def _rl_summary(train_dir: Path) -> dict:
             first[k] = round(vals[0], 5)
             sv = sorted(vals)
             lab_med[k] = round(sv[len(sv) // 2], 5)
-    # m10-probe1 (ADR-0085): the aux-share iteration MEAN is spike-dominated
-    # under a heavy-tailed aux CE (iter-2 mean share 1.50 vs median 0.18, one
-    # step at sched_ce 543.5 vs median 3.2) — surface medians for the share
+    # ADR-0085: the aux-share iteration MEAN is spike-dominated under a
+    # heavy-tailed aux CE (a mean share of 1.50 beside a median of 0.18, from one
+    # step at sched_ce 543.5 against a median of 3.2) — surface medians for the share
     # guards, and the CE max for the spike tripline.
     med = {}
     for k in (
@@ -1438,11 +1437,10 @@ def _rl_summary(train_dir: Path) -> dict:
     }
 
 
-# ---- 10-21: the rolling-back guard (the segment-2 boundary review's convenience
-# item; the design note is in the m12 running record, 10-21). ADR-0118 / ADR-0123
-# register the HALT as the response to a guard breach; --guard-action rollback is
-# the unattended alternative for the one-off kl echo (Kryptic's three kl breaks on
-# the Forge Discord, our own at iterations 198-202): the breached iteration is
+# ---- The rolling-back guard. ADR-0118 / ADR-0123 register the HALT as the
+# response to a guard breach; --guard-action rollback is the unattended
+# alternative for a one-off kl break that would otherwise stop the loop until
+# someone relaunches it: the breached iteration is
 # rejected exactly as under halt (REJECTED, the ckpt and the critic not advanced)
 # and the loop continues from the last accepted ckpt with the learner's lr groups
 # multiplied by --guard-lr-mult (the base --lr floored at --guard-lr-floor). A
@@ -1500,11 +1498,11 @@ def main() -> None:
                     help="stop between iterations once the run's accumulated box time reaches this "
                          "(loop_state wall_used_s carries across pauses); 0 = off. The closing reads still run.")
     ap.add_argument("--no-gpu-wait", action="store_true",
-                    help="skip the training step's GPU gate (11-03): by default the loop waits for a foreign "
+                    help="skip the training step's GPU gate: by default the loop waits for a foreign "
                          "GPU job (the harness's yield rule) to leave the card before launching the trainer; "
                          "the wait is excluded from the wall")
     ap.add_argument("--train-mem-floor-gb", type=float, default=40.0,
-                    help="the training step's host-memory gate (11-07): wait while MemAvailable is under this "
+                    help="the training step's host-memory gate: wait while MemAvailable is under this "
                          "many GB before launching the trainer (it holds ≈ 35 GB at a step); 0 disables; the "
                          "wait is excluded from the wall like the GPU gate's")
     ap.add_argument("--games", type=int, default=480, help="games per iteration")
@@ -1517,11 +1515,11 @@ def main() -> None:
         type=int,
         default=0,
         help="model servers per fleet on consecutive ports from --port (0 = ceil(workers / 12); "
-        "the fleet bench 09-14: a server carries 12 workers of network-played search copies, binds at 16)",
+        "a server carries 12 workers of network-played search copies and binds at 16)",
     )
     # the run's torch device + autocast regime, forwarded to every server the
-    # driver starts and to the rl step (the Mac users' mps / cpu loop —
-    # community thread 09-09; the box's default is unchanged)
+    # driver starts and to the rl step (the Mac users' mps / cpu loop;
+    # the box's default is unchanged)
     ap.add_argument("--device", default=get_torch_device(), help="torch device for the servers + the rl step")
     ap.add_argument(
         "--no-autocast",
@@ -1553,7 +1551,7 @@ def main() -> None:
         help="featurize workers for the learner. Was 6 while the "
         "main process was the funnel (collate ran there, so "
         "extra workers only added shm churn and 12 measured "
-        "SLOWER than 6). Since worker-side collate (2026-07-26) "
+        "SLOWER than 6). With worker-side collate "
         "the consumer is no longer the bottleneck and workers "
         "scale again: 2.062 -> 2.979 traj/s going 6 -> 12.",
     )
@@ -1586,9 +1584,9 @@ def main() -> None:
         "--plan-proj-lr",
         type=float,
         default=1e-4,
-        help="lr for the consumption proj alone (run20 iter-0 amendment: "
-        "dense PG reaches it every carried window; at 1e-3 the kl guard "
-        "bound at iteration 0)",
+        help="lr for the consumption proj alone (dense PG reaches it "
+        "every carried window; at 1e-3 the kl guard binds at the first "
+        "iteration)",
     )
     ap.add_argument("--plan-frac", type=float, default=0.1,
                     help="target aux share of PG mass (w_plan calibration)")
@@ -1625,8 +1623,8 @@ def main() -> None:
         "--sched-proj-lr",
         type=float,
         default=1e-4,
-        help="lr for the slot-token input path (assemble.sched_*) — the "
-        "run20 iter-0 lesson applied from FIRST launch (guard posture pin)",
+        help="lr for the slot-token input path (assemble.sched_*) — low for "
+        "the same reason as the consumption proj's (guard posture pin)",
     )
     ap.add_argument("--sched-frac", type=float, default=0.05,
                     help="target aux share of PG mass (w_sched calibration). "
@@ -1694,8 +1692,8 @@ def main() -> None:
         type=float,
         default=100.0,
         help="halt if the iteration's max step sched_ce exceeds this multiple "
-        "of the median step sched_ce (ADR-0085: the m10-probe1 decode "
-        "confidence blowup — 543.5 vs median 3.2 at iteration 2, growing "
+        "of the median step sched_ce (ADR-0085: the decode "
+        "confidence blowup — 543.5 vs median 3.2 at the third iteration, growing "
         "~e^2-3x per iteration). Inert post-ADR-0086 (sched_ce retired with "
         "the own-emission decode term); kept as the named guard class — "
         "the seedlab twin below covers the surviving CE term",
@@ -1747,16 +1745,16 @@ def main() -> None:
                     help="target seed-label share of PG mass. ADR-0088: 0.05 "
                     "= the retired own-emission term's EFFECTIVE decode mass "
                     "(0.1 x its ~53% share of the day-zero bundle) — the mass "
-                    "that drove content_flip 0.0138 in probe1; ADR-0086's 0.1 "
-                    "doubled it into the probe2 impulse")
+                    "that drives content_flip 0.0138 (measured); ADR-0086's 0.1 "
+                    "doubles it into a memorization impulse")
     ap.add_argument(
         "--seedlab-carry-w",
         action="store_true",
         help="carry iteration-0's w_seedlab for the whole run (the "
         "--paylab-carry-w twin). ADR-0088: ON in the recipe for BOTH "
         "fixed-batch terms — per-invocation recalibration against a "
-        "partially-fitted batch is the cross-iteration amplifier (probe1 "
-        "w_seedlab grew 12x over three iterations)",
+        "partially-fitted batch is the cross-iteration amplifier (measured: "
+        "w_seedlab grows 12x over three iterations)",
     )
     ap.add_argument("--follow-frac", type=float, default=0.0,
                     help="ADR-0092 feed-and-follow term (CE on the priority "
@@ -1769,7 +1767,7 @@ def main() -> None:
     ap.add_argument("--guard-follow-share", type=float, default=0.15,
                     help="halt if the iteration-MEDIAN follow_share exceeds "
                     "this (3x the 0.05 target)")
-    # ---- M12 Build 4½ (ADR-0113): the loop runs the search — the recipe
+    # ---- ADR-0113: the loop runs the search — the recipe
     # on the generation workers, the trainer's search-row terms, the
     # allocation head regenerated per cycle, a with-lookahead arm ----
     ap.add_argument("--search-recipe", default="",
@@ -1809,8 +1807,8 @@ def main() -> None:
     ap.add_argument("--state-bank-fmt", default="Commander", help="the bank's format (its format scalars)")
     ap.add_argument("--guard-spearman-floor", type=float, default=0.15,
                     help="halt if the produced ckpt's state-ranking Spearman falls below this (a head "
-                         "that stopped ranking states; the shakedown's drifted floor was 0.21–0.26); 0 = off")
-    # ADR-0124 addendum (11-02): the run-distribution holdout's row beside the Build 1 one
+                         "that stopped ranking states; unanchored heads that drifted still held 0.21–0.26); 0 = off")
+    # ADR-0124: the run-distribution holdout's row beside the Build 1 one
     ap.add_argument("--state-bank-run", default=None, metavar="BANK_DIR",
                     help="a second, FROZEN state bank drawn from the run's own games (value_pretrain bank-run; "
                          "nothing trains on it): every produced ckpt is scored on it too, into the state-ranking "
@@ -1849,12 +1847,11 @@ def main() -> None:
         "--guard-lab-memorize",
         type=float,
         default=0.3,
-        help="ADR-0088 memorization tripline (re-based after the m10-probe3 "
-        "false halt): halt if a fixed-batch term's iteration-MEDIAN "
+        help="ADR-0088 memorization tripline: halt if a fixed-batch term's iteration-MEDIAN "
         "windowed per-step raw (seedlab_raw_step/paylab_raw_step/follow_raw_step) falls below this "
         "fraction of its per-step raw-at-calibration — a fitted batch is "
-        "the probe2 signature (windows 1.68..0.18, upper median 0.71 = 0.26x) "
-        "while healthy learning sits above it (probe3 0.84x, probe5 paylab 0.61x). The share guard is structurally blind to fitting "
+        "the memorization signature (windows 1.68..0.18, upper median 0.71 = 0.26x) "
+        "while healthy learning sits above it (measured 0.84x and 0.61x). The share guard is structurally blind to fitting "
         "(share decays WITH the fit). 0 disables",
     )
     ap.add_argument(
@@ -1886,8 +1883,8 @@ def main() -> None:
         default=0,
         help="learner windows per GPU pass (rl.py --seg); "
         "activation peak scales with it, semantics don't. "
-        "0 (default) = autotune per phase from free VRAM "
-        "(task #12); nonzero pins it manually",
+        "0 (default) = autotune per phase from free VRAM; "
+        "nonzero pins it manually",
     )
     ap.add_argument(
         "--guard-kl",
@@ -1895,7 +1892,7 @@ def main() -> None:
         default=0.05,
         help="halt if an iteration's mean KL(pi||mu) exceeds this",
     )
-    # 10-21: the rolling-back guard (guard_decision above)
+    # the rolling-back guard (guard_decision above)
     ap.add_argument("--guard-action", choices=("halt", "rollback"), default="halt",
                     help="on a guard breach: 'halt' (the registered response: REJECTED, exit 3, "
                          "loop_state unchanged) or 'rollback' (REJECTED, then continue from the "
@@ -1934,21 +1931,21 @@ def main() -> None:
         default=0.3,
         help="halt if the iteration-mean seq_share (w_seq*|L_seq| / "
         "mean|PG per traj|) exceeds this — 3x the ADR-0054 target "
-        "share of 0.1. The d6-run14 guard: the term outgrowing its "
+        "share of 0.1. The term outgrowing its "
         "frozen weight is the cause; kl growth is the symptom.",
     )
     ap.add_argument(
         "--seq-margin",
         type=float,
         default=6.0,
-        help="passed to rl.py --seq-margin (hinge on the L_seq contrast; "
-        "d6-run14). Recorded here so launch commands pin it.",
+        help="passed to rl.py --seq-margin (hinge on the L_seq contrast). "
+        "Recorded here so launch commands pin it.",
     )
     ap.add_argument(
         "--seq-carry-w",
         action="store_true",
         help="calibrate w_seq at run start only and carry it (the "
-        "ADR-0054 behavior; reproduces run14/run15). Default: "
+        "ADR-0054 behavior). Default: "
         "recalibrate every iteration (ADR-0057 — tracks declining PG "
         "mass so seq_share holds ~seq_frac instead of drifting).",
     )
@@ -1977,7 +1974,7 @@ def main() -> None:
         "rides the drill slice — the drill fork stores supply L_seq's "
         "windows, the forced-seq labels its targets. Recipe note: "
         "the bundle run sizes --drill-points-per-iter to the campaign "
-        "P (~100), not run13's 15.",
+        "P (~100).",
     )
     ap.add_argument(
         "--seq-k",
@@ -1989,10 +1986,10 @@ def main() -> None:
     ap.add_argument(
         "--drill-windows-only",
         action="store_true",
-        help="recipe pin 2026-08-12: drill fork stores serve ONLY as "
+        help="recipe pin: drill fork stores serve ONLY as "
         "L_seq window sources, never the training mixture — the "
-        "bundle is the sole training-signal delta (run12/13 read "
-        "supplementation TIE; ADR-0049 says it was never the "
+        "bundle is the sole training-signal delta (supplementation "
+        "reads as a tie; ADR-0049 says it was never the "
         "missing signal). Pairs with --drill-k 2.",
     )
     ap.add_argument(
@@ -2015,8 +2012,8 @@ def main() -> None:
         "--campaign-workers",
         type=int,
         default=0,
-        help="drill/campaign fleet width (default = --workers). The "
-        "2026-08-12 w-bench: single-fleet throughput peaks at w=24 "
+        help="drill/campaign fleet width (default = --workers). "
+        "Single-fleet throughput peaks at w=24 "
         "and regresses at 32 on the 32-core box — under "
         "--overlap-campaign keep gen+campaign totals near 24 "
         "(e.g. gen 8 + campaign 16, campaign = the critical path)",
@@ -2056,8 +2053,8 @@ def main() -> None:
     ap.add_argument("--value-weight", type=float, default=0.5)
     # ADR-0118 / ADR-0119 step 1: the value anchor (rl.py --value-anchor) + the gradient-norm row
     ap.add_argument("--value-anchor", default=None, metavar="BANK_DIR",
-                    help="the Build 1 bank dir for the value anchor (rl.py --value-anchor; the settings "
-                         "pass's anchor arm reads data/runs/m12-build1); off by default")
+                    help="the Build 1 bank dir for the value anchor (rl.py --value-anchor; "
+                         "e.g. data/runs/m12-build1); off by default")
     ap.add_argument("--anchor-weight", type=float, default=0.5)
     ap.add_argument("--anchor-families", default="state,leaf")
     ap.add_argument("--anchor-leaf-cap", type=int, default=96)
@@ -2176,7 +2173,7 @@ def main() -> None:
     if args.sched_basis == "hand" and not Path(args.ability_table).exists():
         ap.error(f"--sched-basis hand: no ability table at {args.ability_table}")
 
-    # GPU cotenancy insurance (2026-07-16 OOMs beside a resident ComfyUI):
+    # GPU cotenancy insurance (OOMs beside a resident ComfyUI):
     # reclaims allocator fragmentation for this process and all subprocesses
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
@@ -2198,9 +2195,9 @@ def main() -> None:
         else {"iteration": 0, "ckpt": args.ckpt, "stores": [], "start_index": 0}
     )
     # Line-buffer our own narration: under a detached launch (stdout -> log
-    # file) block buffering held EVERY driver print in memory for run-8's
-    # whole 36h — "===== iteration" markers, guard text — starving the log
-    # watcher; subprocess output interleaved fine (own fds). Found 2026-07-25.
+    # file) block buffering holds EVERY driver print in memory for the whole
+    # run — "===== iteration" markers, guard text — starving the log
+    # watcher, while subprocess output interleaves fine (own fds).
     sys.stdout.reconfigure(line_buffering=True)
     backfill = _backfill_live_baseline(state, args.name)
     if backfill:
@@ -2236,7 +2233,7 @@ def main() -> None:
 
     wall_base = float(state.get("wall_used_s", 0.0))
     session_t0 = time.time()
-    # 09-27: yielded seconds (loop_state yielded_s, cumulative over the run;
+    # yielded seconds (loop_state yielded_s, cumulative over the run;
     # the harness ledgers) come out of the budget — wall_used_s stays the
     # PRODUCTIVE time, so a resume carries the right base
     yield_base = float(state.get("yielded_s", 0.0))
@@ -2279,7 +2276,7 @@ def main() -> None:
         k = state["iteration"]
         it_dir = out / f"iter-{k:03d}"
         it_dir.mkdir(exist_ok=True)
-        # 10-21: the rolling-back guard's lr multiplier (1.0 unless a rollback
+        # the rolling-back guard's lr multiplier (1.0 unless a rollback
         # cut it; x1.0 leaves every lr string byte-identical)
         lr_mult = float(state.get("lr_mult", 1.0))
         print(f"\n[selfplay] ===== iteration {k}: ckpt={state['ckpt']} ===== {_stamp()} "
@@ -2403,7 +2400,7 @@ def main() -> None:
             _gen_track()
             drill_stores, seq_runs = _campaign_track()
         t_gen = walls["gen"]
-        # 09-27: this iteration's yielded seconds out of the wall budget; the
+        # this iteration's yielded seconds out of the wall budget; the
         # marker keeps a resumed iteration from counting its stores twice
         ymark = it_dir / "yield.json"
         if ymark.exists():
@@ -2416,7 +2413,7 @@ def main() -> None:
               + (f" (yielded {round(y_gen)} s, excluded from the wall)" if y_gen else "")
               + f"; wall used {wall_used() / 3600:.2f} h {_stamp()}")
 
-        # windows-only (recipe pin 2026-08-12): drill fork stores stay OUT
+        # windows-only (recipe pin): drill fork stores stay OUT
         # of the training mixture — the bundle is the only training-signal
         # delta vs the base recipe; fork frames exist for L_seq windows
         mixture_drill = [] if args.drill_windows_only else drill_stores
@@ -2602,7 +2599,7 @@ def main() -> None:
                         if args.seed_labels
                         else []
                     ),
-                    # M12 Build 4½ (ADR-0113): the search-row terms — only
+                    # ADR-0113: the search-row terms — only
                     # when the generation ran the search directive
                     *(
                         [
@@ -2670,8 +2667,8 @@ def main() -> None:
                     else []
                 )
                 + (["--seq-w", str(state["seq_w"])] if seq_runs and state.get("seq_w") else [])
-                # in-phase abort at 5x the iteration-mean guard (d6-run14:
-                # the runaway crossed 5x guard ~40% into the phase)
+                # in-phase abort at 5x the iteration-mean guard: a runaway
+                # crosses 5x well before the phase ends
                 + (["--kl-abort", str(5 * args.guard_kl)] if args.guard_kl > 0 else [])
             )
         t_train = time.monotonic() - t0
@@ -2709,7 +2706,7 @@ def main() -> None:
         if mean.get("reward") is not None and mean.get("v0") is not None:
             # §6 anomaly rule, two-sided per ADR-0017: reward >> critic is the
             # original bug-report direction; critic >> reward = value head
-            # chasing clipped-rho targets (run-2 iter 5 went unflagged).
+            # chasing clipped-rho targets, which a one-sided rule never flags.
             # Basis per critic (§6f): the full-vis critic trains on RAW
             # outcomes (finetune_value BCE vs won), so its v0 compares to raw
             # reward; the masked head chases SHAPED vs targets, so it compares
@@ -2889,7 +2886,7 @@ def main() -> None:
         if flags:
             print(f"[selfplay] !!! ANOMALY FLAGS iteration {k}: {flags}")
         if guards and guard_kind == "rollback":
-            # 10-21: the rolling-back guard — the iteration rejected as under
+            # the rolling-back guard — the iteration rejected as under
             # halt (REJECTED; neither ckpt nor critic advances), the loop
             # continues from the accepted ckpt at the cut lr; the rejected
             # iteration's games stay in the replay window (the accepted ckpt
@@ -2942,14 +2939,13 @@ def main() -> None:
         )
         if critic_ckpt is not None:
             state["critic"] = str(critic_ckpt)
-        # w_seq recalibrates PER ITERATION by default (ADR-0057, d6-run15:
+        # w_seq recalibrates PER ITERATION by default (ADR-0057:
         # PG mass declines as training proceeds while the hinged L_seq does
         # not, so a frozen run-start w_seq lets seq_share drift toward the
         # guard with no seq-term misbehavior; per-iteration calibration
-        # tracks PG mass by construction — safe now that the hinge bounds
-        # |L_seq|, which was the run14 precondition failure). --seq-carry-w
-        # restores the ADR-0054 run-start-only behavior (era reproduction
-        # of run14/run15). Cost of recalibrating: each iteration's first
+        # tracks PG mass by construction — safe because the hinge bounds
+        # |L_seq|). --seq-carry-w restores the ADR-0054 run-start-only
+        # behavior. Cost of recalibrating: each iteration's first
         # --seq-calib-steps optimizer steps run seq-off (~6% at run scale).
         cal_path = train_dir / "seq_calibration.json"
         if args.seq_carry_w and seq_runs and "seq_w" not in state and cal_path.exists():
@@ -3078,7 +3074,7 @@ def main() -> None:
                     if args.reask:
                         arm_cmd.append("--reask")
                     if la:
-                        # M12 Build 4½: the with-lookahead arm — the same
+                        # the with-lookahead arm (ADR-0113) — the same
                         # ckpt under the run's search recipe (the network-
                         # alone vs with-lookahead gap, read mid-run)
                         arm_cmd += ["--forge-args", " ".join(arm_fa), "--labels"]
@@ -3109,8 +3105,8 @@ def main() -> None:
         if (args.paired_read and args.paired_every and (k + 1) % args.paired_every == 0
                 and k + 1 < args.iterations):
             if wall_reached():
-                # 09-24: the alloc arm's last interim read carried it ≈ 2 h over
-                # its budget — the closing read follows at once instead
+                # an interim read here would carry the loop hours over its
+                # budget — the closing read follows at once instead
                 print(f"[selfplay] iteration {k}: wall budget reached ({wall_used() / 3600:.2f} h) — "
                       f"skipping the interim paired read; the closing read follows {_stamp()}")
             else:

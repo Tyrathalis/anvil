@@ -11,9 +11,8 @@ A draw scores one half for each side. A crashed game scores for neither and
 is reported. The driver refuses a result whose server did not see asks from
 both seats, or could not read the seat of any ask.
 
-Proposed by the mid-run design review (m12-running-record.md, 11-09,
-finding 3): until this read, strength was measured only against the
-heuristic.
+Why it exists: every other read measures strength against the heuristic
+alone; this one puts two checkpoints at the same table.
 
 Usage:
   uv run python scripts/h2h_read.py \

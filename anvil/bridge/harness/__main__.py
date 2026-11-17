@@ -80,7 +80,7 @@ def main() -> None:
         type=int,
         default=None,
         help="games per worker invocation; default = ceil(games / (4 * workers)) — four rounds of refill per "
-        "worker so the straggler tail is a game, not a chunk (the fleet bench 09-14); was a fixed 200",
+        "worker so the straggler tail is a game, not a chunk",
     )
     la.add_argument("--calibrated", action="store_true")
     la.add_argument(
@@ -187,7 +187,7 @@ def main() -> None:
     la.add_argument(
         "--forge-args",
         default=None,
-        help="M12 Build 2: extra AnvilRun flags appended verbatim to every worker "
+        help="extra AnvilRun flags appended verbatim to every worker "
         "command (space-separated, e.g. '-search -searchrate 1 -searchact 0.05 "
         "-searchtemp 0.025'); recorded in run.json as forge_args — arms under "
         "different forge_args are different behavior policies",

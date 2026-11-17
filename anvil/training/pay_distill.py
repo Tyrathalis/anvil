@@ -1,4 +1,4 @@
-"""M12 Build 3 evening 4 (ADR-0105): the payment sub-row distillation term —
+"""The payment sub-row distillation term (ADR-0105) —
 the pay head's first learning signal.
 
 The search's payment slot (-searchpay B, fork e44d83a8327) expands the first
@@ -116,7 +116,7 @@ def pay_groups(run: Path, bar: float, temp: float, min_rolls: int, counts: Count
                     "spread": float(max(vals.values()) - min(vals.values())),
                     "leaf": s.get("leaf"),
                     "n_valued": len(vals),
-                    # the pick-vs-leaf read (09-11): every slot's mean leaf value
+                    # the pick-vs-leaf read: every slot's mean leaf value
                     "vals": slot_vals,
                 }
 
@@ -249,7 +249,7 @@ def pay_distill_loss(out: dict, batch: dict, pos_weight: float = 1.0,
     if (~pos).any():
         stats["tie_ce"] = float(ce[~pos].mean())
         stats["tie_dev"] = float((pred[~pos] != 0).float().mean())
-    # the pick-vs-leaf read (09-11): where the head deviates, the leaf's value
+    # the pick-vs-leaf read: where the head deviates, the leaf's value
     # of its pick minus auto (the label's own currency; NaN = unvalued slot),
     # split positives / ties, plus the oracle (the leaf-best minus auto) on
     # positives — "are the head's picks the leaf's picks" in win-prob units

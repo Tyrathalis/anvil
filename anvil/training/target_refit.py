@@ -1,9 +1,9 @@
-"""The target decoder's player-position refit (09-21, ADR-0116).
+"""The target decoder's player-position refit (ADR-0116).
 
 The cast-target decoder was trained on a mixed label: the registered seat index
 copied into a self-first row (from seat 1 the "opponent" label pointed at the
 self row). A checkpoint trained that way never learned player identity — it
-served a 46% self-target rate against the heuristic's 11% on b4post — and the
+served a 46% self-target rate against the heuristic's 11% — and the
 corrected decode alone cannot repair it. This refit retrains ONLY the target
 decoder's parameters (tgt_query, tgt_key, player_key, stop_key, slot_emb) on
 heuristic-labeled windows under the corrected labels, the trunk and every other

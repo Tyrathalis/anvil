@@ -130,15 +130,15 @@ TASKS = {
     # heuristic is least trustworthy). The RL loader reads the task from mu
     # records; the BC loader and the Ante ledger never see payment windows.
     #
-    # M10 R5 (2026-08-27) — the pin's SCOPE, stated loudly: it bars
+    # The pin's SCOPE, stated loudly: it bars
     # HEURISTIC answers, and it stands. It does NOT bar the ADR-0075/0082
-    # ENGINE-CERTIFIED conditional labels, which now ingest as supervised
+    # ENGINE-CERTIFIED conditional labels, which ingest as supervised
     # aux through anvil/training/paylabels.py (class-CE at banked observe
     # windows — the pay head's only training signal under the M10 PG staged
     # mask). Certified-outcome provenance ≠ heuristic provenance; the
     # BC corpus loader path here remains payment-blind.
     "pay_class": 8,
-    # M12 Build 3 (ADR-0105): the decision surfaces, one task per ANSWER SHAPE
+    # ADR-0105: the decision surfaces, one task per ANSWER SHAPE
     # (anvil.policy.surfaces); the option-set decoder decodes them all. The
     # record's args.surf names the shape; the method rides as a feature.
     "surf_one": 9,
@@ -148,7 +148,7 @@ TASKS = {
     "surf_mode": 13,
     "surf_name": 14,
     "surf_damage": 15,
-    "surf_target": 16,  # Build 4 (ADR-0109): targets chosen outside a cast
+    "surf_target": 16,  # ADR-0109: targets chosen outside a cast
 }
 
 # M9 rung 3: goal-kind codes for payment options (the "gk" field the fork
@@ -163,7 +163,7 @@ PAY_KINDS = {
     "spare_artifact": 3,
     "spare_other": 4,
     "min_life": 5,
-    # cousins touch (2026-08-28): delve graveyard classes + the pool-tie
+    # delve graveyard classes + the pool-tie
     # spare_pool goal (PaymentEnumerator.GoalOption doc = the Java twin;
     # zero-init embedding rows — day-zero logits unchanged).
     "spare_graveyard": 6,
@@ -171,7 +171,7 @@ PAY_KINDS = {
 }
 
 # M10 v2 schedule surface (m10-build-spec §1): the discrete schedule
-# object's vocabularies. SCHED_CAP = 6 + mask (user pin 2026-08-27;
+# object's vocabularies. SCHED_CAP = 6 + mask (a user pin; the
 # certified-length hist tops at 4). Status: exactly one NEXT among
 # non-terminal slots; FAILED slots are consumed by the next revision.
 # Pay summary classes: amount bucket 0-4+ × colorless-only/colored (10)
@@ -284,7 +284,7 @@ def _combat_label_window(decs: list[dict], i: int, turn: int, flag: str) -> dict
     the next declareAttackers dec, not just the turn: extra-combat turns
     re-enter declare, and a turn-only bound let a no-block combat inherit a
     later combat's map (all 145 corpus block violations were this overshoot;
-    classified 2026-07-13, scripts/d5/classify_block_violations.py)."""
+    scripts/d5/classify_block_violations.py)."""
     for d in decs[i + 1 :]:
         if d.get("m") == "declareAttackers":
             return None
@@ -460,7 +460,7 @@ class PriorityWindows(IterableDataset):
         # full_vis: asymmetric-critic windows (design §4) — identities of all
         # entities visible. Critic training/eval only; never the policy input.
         self.full_vis = full_vis
-        # M12 Build 3: the ability table for surface option keys (ADR-0105);
+        # the ability table for surface option keys (ADR-0105);
         # None = surface windows key on host rows + kinds alone (counted).
         self.abil = AbilityCache(abilities_stem) if abilities_stem else None
         self.surf_counts: dict[str, int] = {}
@@ -482,8 +482,8 @@ class PriorityWindows(IterableDataset):
         traj = store.game(g)
         # TRUE winner via the store's outcome records (games.jsonl): the frame
         # end-record's "winner" was derived from the post-elimination live
-        # player list in the fork (~always 0, wrong ~50% of games — found
-        # 2026-07-11). Value labels before this fix were seat noise.
+        # player list in the fork (~always 0, wrong ~50% of games), so a
+        # value label read from it is seat noise.
         winner = store.winner_seat(g)
         has_outcome = 1 if winner is not None else 0
         winner = -1 if winner is None else winner
@@ -492,7 +492,7 @@ class PriorityWindows(IterableDataset):
         for i, dec in enumerate(decs):
             task = TASK_OF_METHOD.get(dec.get("m"))
             if task is None:
-                task = surface_task(dec)  # M12 Build 3: by args.surf
+                task = surface_task(dec)  # by args.surf
             # combat rets are null by construction (labels come from the
             # obs-side join), so the ret-None skip exempts attack/block
             if (
@@ -528,7 +528,7 @@ class PriorityWindows(IterableDataset):
             cand_sa = [-1]
             cand_kind = [-1]
             cand_opts: list[list[int]] = [[]]  # ADR-0122: wire options per candidate
-            ak_of_cand: dict[int, int] = {}  # Build 4: candidate index -> ability-table row
+            ak_of_cand: dict[int, int] = {}  # candidate index -> ability-table row
             label = 0
             label_row = -1
             tgt_kind = np.full(T_MAX + 1, -1, dtype=np.int64)
@@ -610,11 +610,10 @@ class PriorityWindows(IterableDataset):
                                 tgt_kind[slot], tgt_idx[slot] = 0, row_of[ref["e"]]
                                 slot += 1
                             elif "pi" in ref:
-                                # 09-21 (ADR-0116): the registered seat ->
-                                # the model's self-first position; the old
-                                # copy of ref["pi"] pointed at the wrong row
-                                # from seat 1 (a coin-flip label; 46% self-
-                                # targets served)
+                                # ADR-0116: the registered seat -> the
+                                # model's self-first position; a bare copy
+                                # of ref["pi"] points at the wrong row from
+                                # seat 1 (a coin-flip label)
                                 tgt_kind[slot], tgt_idx[slot] = 1, player_target_position(
                                     int(ref["pi"]), p, len(traj.header["players"]))
                                 slot += 1
@@ -817,7 +816,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             out["sched_cand_kind"][i, :ci] = x[pre + "cand_kind"]
             out["sched_cand_mask"][i, :ci] = True
     if all(all(k in x for k in STACK_FIELDS) for x in batch):
-        # Build 4: the stack entries (fixed K rows per example)
+        # the stack entries (fixed K rows per example)
         for k in STACK_FIELDS:
             out[k] = torch.stack([x[k] for x in batch])
     if any("cand_allow" in x for x in batch):
@@ -873,7 +872,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
     out["blk_label"] = torch.full((b, A), -1, dtype=torch.int64)
     out["blk_atk_rows"] = torch.full((b, M), -1, dtype=torch.int64)
     out["blk_atk_mask"] = torch.zeros(b, M, dtype=torch.bool)
-    # M12 Build 3 (ADR-0105): surface option sets (optional keys — absent
+    # ADR-0105: surface option sets (optional keys — absent
     # from every non-surface batch, so the decoder never runs). Options pad
     # to the batch width O; STOP (= each example's own option count) remaps
     # to the batch slot O (the blk none-class precedent).
@@ -949,7 +948,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         out["cand_rows"][i, :ci] = x["cand_rows"]
         out["cand_sa"][i, :ci] = x["cand_sa"]
         out["cand_kind"][i, :ci] = x["cand_kind"]
-        if "cand_ak" in x:  # Build 4 (absent from older examples)
+        if "cand_ak" in x:  # absent from older examples
             out["cand_ak"][i, :ci] = x["cand_ak"]
         if "cand_paykind" in x:  # absent from pre-M9 loader examples
             out["cand_paykind"][i, :ci] = x["cand_paykind"]
@@ -957,7 +956,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
             if "cand_paymark" not in out:
                 out["cand_paymark"] = torch.zeros(b, c)
             out["cand_paymark"][i, :ci] = x["cand_paymark"]
-        if "cand_ents" in x:  # evening 4: the payment goal's plan as an entity set (serve / pay_distill)
+        if "cand_ents" in x:  # the payment goal's plan as an entity set (serve / pay_distill)
             if "cand_ents" not in out:
                 out["cand_ents"] = torch.full((b, c, x["cand_ents"].shape[1]), -1, dtype=torch.int64)
             out["cand_ents"][i, :ci] = x["cand_ents"]

@@ -1,7 +1,7 @@
 """Generation throughput arm: does raising worker count past 8 still buy games?
 
 Generation was ~38% of a run's wall clock; since the learner's worker-side
-collate landed (2026-07-26) the train phase is ~2.5h against generation's
+collate landed the train phase is ~2.5h against generation's
 ~10h, so generation is now ~80% of a run and the next speedup, if any, is
 here. The standing number is 1,146 g/h at w=8 both-seats under GPU
 micro-batching (`d6-fleet-throughput-20260714-184530`) — measured on the
@@ -18,7 +18,7 @@ Caveat when reading the result: chunk size CAPS parallelism. With the
 driver's default chunk 30 and 480 games/iteration there are only 16 chunks,
 so a worker count above 16 cannot help no matter what the GPU can serve.
 
-CHUNK-TAIL HAZARD (learned 2026-08-03 the expensive way): if an arm gets
+CHUNK-TAIL HAZARD: if an arm gets
 fewer than 2 chunks per worker there is no refill — elapsed time equals the
 SLOWEST worker's chunk, and chunks are contiguous deck-pair blocks with
 heavily correlated game lengths. A single-arm `--workers 8` invocation used
@@ -136,8 +136,8 @@ def main() -> None:
         "--calibrated",
         action="store_true",
         help="pass --calibrated to the harness: workers NOT "
-        "reniced (nice differential measured ~1%% — the "
-        "2026-08-03 '37%% slow' was the chunk-tail artifact, "
+        "reniced (nice differential measured ~1%% — a "
+        "'37%% slow' reading is the chunk-tail artifact, "
         "not nice)",
     )
     a = ap.parse_args()

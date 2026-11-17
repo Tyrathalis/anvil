@@ -1,10 +1,8 @@
 """Best-effort push for unattended runs.
 
-Lifted out of the selfplay driver (2026-07-26) so every long-running entry
-point can report its own end. The driver had this from 2026-07-23; the
-2,000-game reads did not, so two ~2h reads finished with nothing telling
-anyone — the user had to ask whether notifications were broken. A run that
-cannot announce its own completion is a run someone has to babysit.
+One module so every long-running entry point (the selfplay driver, the
+reads) can report its own end. A run that cannot announce its own
+completion is a run someone has to babysit.
 """
 
 from __future__ import annotations
@@ -18,18 +16,17 @@ import sys
 def watch_register(name: str, watch_dir, stall_min: int = 75) -> None:
     """Best-effort self-registration with the standing watcher
     (scripts/anvil_watchd.py + anvil-watch.timer). The process reports its
-    OWN pid — the 2026-07-31 post-mortem retired every pattern-derived pid
-    acquisition after `pgrep -f` self-matches claimed three babysitters.
-    Clean exits must call watch_unregister; dying without it is the point:
+    OWN pid — a pattern-derived pid (`pgrep -f`) can match the watcher
+    itself. Clean exits must call watch_unregister; dying without it is the point:
     the watcher then notifies GONE. Never raises.
 
-    Under a launched run this is a no-op (11-09): the `anvil.runs` supervisor
+    Under a launched run this is a no-op: the `anvil.runs` supervisor
     is that run's one stall watcher — it holds the pid, ticks on the run dir
     and every --watch root, and hears `anvil.runs.heartbeat` during a
-    deliberate wait. The standing watcher saw only `watch_dir` and none of
-    the heartbeats, so the big run's 91-minute training-step GPU wait raised
-    a false STALLED beside a quiet supervisor. watch_unregister still runs,
-    so a registration left by an older process is cleared."""
+    deliberate wait. The standing watcher sees only `watch_dir` and none of
+    the heartbeats, so it would raise a false STALLED on a long deliberate
+    wait beside a quiet supervisor. watch_unregister still runs, so a
+    registration left by an older process is cleared."""
     if os.environ.get("ANVIL_RUN_NAME"):
         print(
             f"[notify] watch_register skipped for {name}: the anvil.runs supervisor of "

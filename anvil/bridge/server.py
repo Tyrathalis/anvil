@@ -53,7 +53,7 @@ from anvil.bridge.pb import anvil_bridge_pb2_grpc as pb_grpc
 from anvil.encoder.target_mask import apply_target_mask
 from anvil.torch.utils import get_torch_device
 
-# M12 Build 0 (ADR-0101 §1): the search-leaf value ask. The worker sends the
+# The search-leaf value ask (ADR-0101 §1). The worker sends the
 # leaf window's peek record (obs + opts + the copy session's hist) under this
 # tag with INT_IN_RANGE [0, 1e6]; the answer is the MASKED value head's win
 # probability for the peek's seat in micro-units (information-set principle:
@@ -62,12 +62,12 @@ from anvil.torch.utils import get_torch_device
 # served GREEDY (argmax, no noise, no mu) whatever the server's sampling mode
 # — fork A's "intermediate decisions played greedily by both seats".
 VALUE_TAG = "anvil.value"
-# Build 4 (ADR-0109 item 2): the allocation ask — the worker's search directive
+# The allocation ask (ADR-0109 item 2) — the worker's search directive
 # asks P(the search acts here) at every candidate window; served only from a
 # checkpoint carrying an alloc_fit record (else declined: the worker searches
 # at its uniform rate, by=unserved)
 ALLOC_TAG = "anvil.alloc"
-# a parity diagnostic (09-18): ANVIL_WIRE_DUMP=<path> appends every ask's raw
+# a parity diagnostic: ANVIL_WIRE_DUMP=<path> appends every ask's raw
 # wire observation + header as one JSON line (off unless set)
 _WIRE_DUMP = open(os.environ["ANVIL_WIRE_DUMP"], "a", buffering=1) if os.environ.get("ANVIL_WIRE_DUMP") else None
 
@@ -77,7 +77,7 @@ def is_search_session(game_id: str) -> bool:
 
 PROTOCOL_VERSION = 0
 DEFAULT_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
-# evening 2 (ADR-0105): mtg.mulligan_tuck served by the target decoder (the D8 leftover)
+# mtg.mulligan_tuck is served by the target decoder (ADR-0105)
 MODEL_TAGS = "mtg.priority,mtg.mulligan_keep,mtg.mulligan_tuck,mtg.trigger,mtg.binary,mtg.number"
 # advertised only when the checkpoint carries TRAINED combat heads —
 # load_compat fresh-inits them for pre-D5 checkpoints, which must never serve
@@ -85,7 +85,7 @@ COMBAT_TAGS = "mtg.attack,mtg.block"
 # advertised only when the checkpoint carries the pay_ params (M9 rung 3) —
 # pre-M9 checkpoints must decline so the worker's echo answers AUTO
 PAY_TAGS = "mtg.pay_mana_class"
-# M12 Build 3 (ADR-0105): served only by a checkpoint whose surface decoder
+# ADR-0105: served only by a checkpoint whose surface decoder
 # was fitted (surf_ params present; the has_pay never-serve-fresh-init rule)
 SURFACE_TAGS = "mtg.surface.entity_one,mtg.surface.entity_set,mtg.surface.mode,mtg.surface.order,mtg.surface.damage,mtg.surface.target"
 _HOST_ID = re.compile(r"\((\d+)\)$")  # "Name (id)" labels (mirrors featurize._HOST_ID)
@@ -190,8 +190,7 @@ class _Batcher:
         self.torch = torch_mod
         self.device = device
         # bf16 autocast around the forward (off: --no-autocast — a device
-        # without a bf16 path, e.g. the Mac users' mps/cpu serve; community
-        # thread 09-09)
+        # without a bf16 path, e.g. the Mac users' mps/cpu serve)
         self.autocast = autocast
         self.counts = counts
         self.max_batch = max_batch
@@ -203,10 +202,9 @@ class _Batcher:
         # backend when the ckpt carries sched params; per-window use is the
         # SchedServe's decision — the decode itself is cheap pointer steps)
         self.sched_decode = False
-        # the fleet week (09-14): occupancy telemetry — queue wait per item
-        # (put -> drained), items per batch, queue depth at each drain — and
-        # a periodic `[server] stats` line so a driver can see saturation
-        # (the h2 relabel's 110%-CPU ceiling was read off top, not the log)
+        # occupancy telemetry — queue wait per item (put -> drained), items
+        # per batch, queue depth at each drain — and a periodic
+        # `[server] stats` line so a driver can see saturation in the log
         self._stat_lock = threading.Lock()
         self._waits: list[float] = []
         self._items = 0
@@ -219,11 +217,11 @@ class _Batcher:
             threading.Thread(target=self._stats_loop, daemon=True, name="gpu-stats").start()
 
     def _stats_loop(self) -> None:
-        # 11-09 (the infrastructure survey): ONE `stats: idle` line when the server goes
-        # idle, then silence until work resumes. This log sits under the launcher's stall
-        # tick (the loop's iter-K/server.log, a read's <name>-arm-server.log), and an idle
-        # line every minute kept the newest-file tick fresh through any generation hang —
-        # a wedged worker fleet read as a live run for as long as its servers were up.
+        # ONE `stats: idle` line when the server goes idle, then silence until work
+        # resumes. This log sits under the launcher's stall tick (the loop's
+        # iter-K/server.log, a read's <name>-arm-server.log), and an idle line every
+        # minute would keep the newest-file tick fresh through any generation hang —
+        # a wedged worker fleet would read as a live run for as long as its servers were up.
         # A busy window always prints: asks served are work, and the line says how much.
         idle = False
         while True:
@@ -346,13 +344,12 @@ class _Batcher:
                 self._depth_max = max(self._depth_max, self.q.qsize())
             self._phase = (0.0, 0.0)
             try:
-                # M12 Build 4½ (ADR-0113): a sampled server's queue MIXES
-                # sampled mainline asks with greedy ones (the search copies,
-                # the value / allocation wire, the tuck and surface tags), so
-                # noise is per group, not per batch — one forward per group
-                # (the old all-or-none rule ran a whole batch greedy off its
-                # first slot, or padded over a None, and every sampled answer
-                # in it declined: the loop-wiring smoke's act_void class)
+                # ADR-0113: a sampled server's queue MIXES sampled mainline
+                # asks with greedy ones (the search copies, the value /
+                # allocation wire, the tuck and surface tags), so noise is per
+                # group, not per batch — one forward per group. An all-or-none
+                # rule would run a whole batch greedy off its first slot, or
+                # pad over a None, and every sampled answer in it would decline
                 groups = [
                     [s for s in slots if s["nz"] is not None],
                     [s for s in slots if s["nz"] is None],
@@ -428,16 +425,16 @@ class ModelBackend:
         # pay_ params present? (M9 rung 3; same never-serve-fresh-init rule —
         # except pay_bias's +2.0 init is BY DESIGN safe, so the gate is about
         # the untrained pointer keys, not the bias)
-        # evening 4 (ADR-0104 addendum 09-09): the never-serve-fresh-init rule
-        # covers the pay head — serving the +2.0-init head cost 2.56 ± 1.88pp
-        # (its pointer residuals deviated on 2.7% of windows, inside every
+        # ADR-0104: the never-serve-fresh-init rule covers the pay head —
+        # serving the +2.0-init head costs strength (measured 2.56 ± 1.88pp:
+        # its pointer residuals deviate on 2.7% of windows, inside every
         # search copy too); the tag is advertised only for a FITTED head (the
         # checkpoint's pay_fit record, written by anvil.training.pay_fit
         # --build), or under --serve-init-pay for an explicit ablation arm
         self.has_pay = any(k.startswith("pay_") for k in ckpt["model"]) and (
             "pay_fit" in ckpt.get("config", {}) or serve_init_pay
         )
-        # M12 Build 3: a fitted surface decoder (surface_fit --build records
+        # a fitted surface decoder (surface_fit --build records
         # the tasks + the ability table stem in the config)
         # the tags advertised = the shapes the checkpoint was fitted on
         # (surface_fit --build records them): a shape never fitted is never served
@@ -508,13 +505,13 @@ class ModelBackend:
 
         self.sampled_tasks = sampled_tasks()
         self.temperature = temperature
-        # evening 4 (ADR-0105): the payment margin bar (log-prob units; None = off)
+        # ADR-0105: the payment margin bar (log-prob units; None = off)
         self.pay_bar = pay_bar
-        # the deviation gate (ADR-0105 addendum 09-11): a served goal stands
+        # the deviation gate (ADR-0105): a served goal stands
         # only where the fitted gate's P(positive window) clears p*; requires a
         # checkpoint whose pay_fit record fitted the gate (an unfitted gate
         # sits at the base rate and would silence every deviation)
-        # Build 4: the allocation head serves only with its fit record
+        # the allocation head serves only with its fit record
         self.alloc_fit = ckpt.get("config", {}).get("alloc_fit")
         if self.alloc_fit:
             print(f"[server] alloc head: fitted ({self.alloc_fit.get('n')} windows, "
@@ -652,7 +649,7 @@ class ModelBackend:
         return resp
 
     def alloc(self, req: pb.DecisionRequest, header: dict | None) -> pb.DecisionResponse | None:
-        """anvil.alloc (Build 4): the allocation head's P(the search acts at
+        """anvil.alloc: the allocation head's P(the search acts at
         this window) for the peek's seat, micro-units on the INT_IN_RANGE
         answer. None = decline (no fit record / no observation): the worker
         searches at its uniform rate and tags the window unserved."""
@@ -721,7 +718,7 @@ class ModelBackend:
         noise = None
         if greedy:
             self.counts["greedy"] += 1
-        # M12 Build 4½ (ADR-0113): a task without a sampled head (the tuck,
+        # ADR-0113: a task without a sampled head (the tuck,
         # the surfaces) is served greedy on a sampled server and writes no
         # mu record — it is not a factor of the composite action
         sampled = self.sample and not greedy and task in self.sampled_tasks
@@ -816,7 +813,7 @@ class ModelBackend:
                 else:
                     self.counts["pay_gate_goal"] += 1
             if self.pay_bar is not None and c != 0:
-                # evening 4 (ADR-0105): the serve-side margin bar — a goal
+                # ADR-0105: the serve-side margin bar — a goal
                 # stands only where its log-prob clears auto's by the bar
                 # (the head was distilled on an asymmetric target: auto on
                 # ties); below it the natural line (auto) plays
@@ -830,7 +827,7 @@ class ModelBackend:
         elif task in ("mull_keep", "trigger", "binary"):
             resp.flag = bool(out["bool"][0])
         elif task == "mull_tuck":
-            # SELECT_K over the hand (evening 2, the D8 leftover): the target
+            # SELECT_K over the hand: the target
             # decoder's entity picks -> ids -> hand indices (the dec's opts are
             # the hand labels "Name (id)"; the wire sends no labels); exactly
             # k, the decoder's order first, then hand order
@@ -974,15 +971,15 @@ class ModelBackend:
                 if eid in aux["stack_ids"]:
                     ref.ns = 1
             else:
-                # 09-21 (ADR-0116): the pick is a model position (self first,
-                # then turn order) -> the registered seat through the aux
-                # seat list. The old `pick - n_ent` handed the engine a
+                # ADR-0116: the pick is a model position (self first, then
+                # turn order) -> the registered seat through the aux seat
+                # list. A bare `pick - n_ent` would hand the engine a
                 # registered index from a self-first row: from seat 1 the
-                # model's "opponent" became itself.
+                # model's "opponent" would be itself.
                 ref.player = decode_player_ref(pick - n_ent, aux["seats"])
         x = int(out["x_cls"][0])
         cp.has_x = True
-        # class 17 = ">16" overflow bucket; clamp + count (decision 2026-07-10)
+        # class 17 = ">16" overflow bucket; clamp + count
         cp.x_value = min(x, 16)
         if x >= 17:
             self.counts["x_overflow_clamped"] += 1
@@ -1217,9 +1214,9 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
 
     def _value_answer(self, req: pb.DecisionRequest, header: dict | None,
                       kind: str = "value", backend: "ModelBackend | None" = None) -> pb.DecisionResponse:
-        """anvil.value (M12 Build 0): the masked head at a search leaf; any
+        """anvil.value: the masked head at a search leaf; any
         error is a loud decline (the worker counts the leaf unserved).
-        kind="alloc" (Build 4): the allocation head on the same wire.
+        kind="alloc": the allocation head on the same wire.
         `backend` is the --seat-ckpt route (default: the server's own)."""
         if backend is None:
             backend = self.backend
@@ -1256,9 +1253,8 @@ class DecisionServicer(pb_grpc.DecisionBridgeServicer):
             print(f"[server] MODEL ERROR on {req.decision_tag} seq={req.decision_seq}: {e!r}")
             n_tr = self._err_traces.get(req.decision_tag, 0)
             if n_tr < 3:
-                # the first few per tag carry their traceback (09-18: the
-                # loop-wiring smoke's declines were undiagnosable from the
-                # one-line record)
+                # the first few per tag carry their traceback: a decline is
+                # undiagnosable from the one-line record alone
                 import traceback
 
                 self._err_traces[req.decision_tag] = n_tr + 1
@@ -1321,7 +1317,7 @@ def main() -> None:
         help="M10 reset Fork 3 inline certification: answer the worker's "
         "fork-point anvil.certify ask with schedule arms at this rate "
         "(deterministic in game seed/turn/seat; 0 = off = the tag is not "
-        "served). Rate 0.02 for probe7 (draft §D.3).",
+        "served). 0.02 is the pinned rate (draft §D.3).",
     )
     ap.add_argument("--certify-arm-cap", type=int, default=None,
                     help="arms per certified point (default sched_pins.ARM_CAP)")
@@ -1342,7 +1338,7 @@ def main() -> None:
     ap.add_argument("--device", default=get_torch_device())
     ap.add_argument(
         "--servers", type=int, default=1,
-        help="the fleet week (09-14): run N servers on ports --port..--port+N-1 behind one "
+        help="run N servers on ports --port..--port+N-1 behind one "
         "supervisor (anvil.bridge.fleet); the harness takes the matching --bridge comma list. "
         "Per-child outputs (--mu-out/--drill-mu-out/--bind-trace/--counts-out) are merged at shutdown.",
     )
@@ -1379,11 +1375,11 @@ def main() -> None:
     )
     ap.add_argument(
         "--pay-bar", type=float, default=None,
-        help="evening 4: a served payment goal stands only where its log-prob clears auto's by this margin",
+        help="a served payment goal stands only where its log-prob clears auto's by this margin",
     )
     ap.add_argument(
         "--pay-gate", type=float, default=None,
-        help="the deviation gate (09-11): a served payment goal stands only where the fitted gate's "
+        help="the deviation gate: a served payment goal stands only where the fitted gate's "
         "P(positive window) clears this threshold (needs a gate-fitted checkpoint)",
     )
     ap.add_argument(
@@ -1610,8 +1606,8 @@ def main() -> None:
         )
     )
     if args.mode == "model":
-        tags = tags + "," + VALUE_TAG  # M12 Build 0: the search-leaf value ask
-        tags = tags + "," + ALLOC_TAG  # Build 4: the allocation ask (declined without a fit record)
+        tags = tags + "," + VALUE_TAG  # the search-leaf value ask
+        tags = tags + "," + ALLOC_TAG  # the allocation ask (declined without a fit record)
     certifier = None
     if args.certify_rate > 0:
         certifier = Certifier(args.certify_rate, arm_cap=args.certify_arm_cap, salt=args.certify_salt)

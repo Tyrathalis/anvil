@@ -1,10 +1,10 @@
-"""The run-distribution holdout bank (ADR-0124 addendum 2026-11-02): a second,
-FROZEN state-ranking holdout drawn from the big run's own games, read by the
-loop beside the Build 1 holdout (`selfplay.py --state-bank-run`).
+"""The run-distribution holdout bank (ADR-0124): a second, FROZEN
+state-ranking holdout drawn from a run's own games, read by the loop beside
+the Build 1 holdout (`selfplay.py --state-bank-run`).
 
 Why a second holdout: the Build 1 bank's holdout is drawn from the bank the
 value anchor trains on, so its Spearman reads generalization inside that
-bank's distribution (August states, iter-019-era play), not to the states the
+bank's distribution (states from an earlier checkpoint's play), not to the states the
 run plays. This bank's rows are fork points of games the checkpoint of record
 played under the loop's own game mix, labelled by the fork's rollout labeler.
 Nothing trains on it: every row is `holdout`; the anchor must never name it.
@@ -18,7 +18,7 @@ reproducible under another checkpoint's serving). So "the run's own games"
 are the LABELLING RUN's mainlines: the labelling checkpoint, argmax,
 network-alone, census off (the labeler's standing configuration, ADR-0015 /
 ADR-0124 §2), playing the loop's mix (mirror + the two heuristic-seat
-batches, --heur-frac 0.5 as the big run), recorded with --obs and ingested
+batches, --heur-frac 0.5 as the run of record), recorded with --obs and ingested
 with their labels. The states are then drawn from those stores, stratified by
 turn x phase (the Build 1 bank's turn-stratified fork points; phase = MAIN1 by
 the fork's construction, recorded) — `value_pretrain bank-run`.
@@ -29,8 +29,8 @@ Three steps, each a subcommand (the boundary session runs them in order;
   label   start a server on the labelling checkpoint, launch the three
           batches in rollout-label mode, ingest each (labels ride along),
           write <out>/label.json (the run dirs, the stores, the pins).
-          Price (ADR-0124 addendum 10-29): ≈ 650 labels per box-hour at K=8
-          on iter-301 with 24 workers x 2 servers — 500 games x 4 points
+          Price (ADR-0124; measured on a 7950X + 4090): ≈ 650 labels per
+          box-hour at K=8 with 24 workers x 2 servers — 500 games x 4 points
           ≈ 2,000 labels ≈ 3 box-hours, on a QUIET box (the loop paused).
   sample  the stratified draw -> <out>/bank-state.pt + manifest.json
           (value_pretrain.bank_run_holdout; CPU).
@@ -68,7 +68,7 @@ from anvil.training.selfplay import RUNS_DIR, _start_server, _stop_server, batch
 from anvil.training.value_pretrain import CKPT as FEATURIZE_CKPT  # noqa: E402
 from anvil.training.value_pretrain import bank_run_holdout  # noqa: E402
 
-LAUNCH_JAR = "data/runs/tgtmask/forge-tgtmask3.jar"  # fork 5bd040351f, the big run's jar (ADR-0123)
+LAUNCH_JAR = "data/runs/tgtmask/forge-tgtmask3.jar"  # fork 5bd040351f, the jar of the run of record (ADR-0123)
 
 
 def batches(tag: str, games: int, heur_frac: float) -> list[tuple[str, int, int, "int | None"]]:
@@ -207,7 +207,7 @@ def main() -> None:
     p = sub.add_parser("label", help="the labelling run: server + three rollout-label batches + ingest")
     p.add_argument("--out", required=True, help="the bank dir (label.json lands here)")
     p.add_argument("--ckpt", required=True, help="the labelling checkpoint (the segment's close ckpt)")
-    p.add_argument("--jar", default=LAUNCH_JAR, help="the harness --jar (default: the big run's launch jar)")
+    p.add_argument("--jar", default=LAUNCH_JAR, help="the harness --jar (default: the launch jar of the run of record)")
     p.add_argument("--games", type=int, default=500, help="mainlines (x --rollout-points = labels)")
     p.add_argument("--games-per-pair", type=int, default=2, help="the loop's value")
     p.add_argument("--heur-frac", type=float, default=0.5, help="the loop's mix: half vs the heuristic")

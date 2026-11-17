@@ -28,13 +28,12 @@ import zstandard
 
 _SEAT = re.compile(r"\((\d+)\)")  # "Anvil(2)-dc-864160" / "Heur(1)-..." -> seat
 
-# v2 at the M9 boundary bundle (2026-08-21): entity choice-state kv ("cho")
-# + the payment-window kv blessed. v3 at the M12 Build 0 boundary
-# (2026-09-06, ADR-0102): explicit provenance on the game header ("pool",
+# v2 adds the entity choice-state kv ("cho") and the payment-window kv.
+# v3 (ADR-0102) adds explicit provenance on the game header ("pool",
 # "fork_commit"), "cap" on the end record, and the mask basis = payable by
 # the executor's own predicate. The version check IS the era gate: ingest
 # accepts only the current version; a reader takes the version from the
-# store's manifest (Build 1 opens sv=2 stores explicitly) and MultiStore
+# store's manifest (a caller may open sv=2 stores explicitly) and MultiStore
 # refuses to join stores of different versions or pools.
 OBS_SCHEMA_VERSION = 3
 TRAJECTORIES_DIR = Path(__file__).parents[2] / "data/trajectories"
@@ -108,7 +107,7 @@ def decode_frame(
             if r["s"] in by_seq:  # ret without dec = stale-thread record; drop
                 by_seq[r["s"]]["ret"] = r["v"]
                 by_seq[r["s"]]["_retpos"] = pos
-                if "oi" in r:  # exact SA-level option index (logged since 2026-07-10)
+                if "oi" in r:  # exact SA-level option index (absent from the oldest stores)
                     by_seq[r["s"]]["oi"] = r["oi"]
         elif kind == "end":
             end = r
@@ -128,7 +127,7 @@ class TrajectoryStore:
         # Per-game outcome records (harness progress logs, merged at ingest).
         # These carry the TRUE winner: the frame end-record's "winner" field
         # is broken pre-fork-fix (derived from the post-elimination live
-        # player list -> ~always 0; found 2026-07-11, D4). Never read
+        # player list -> ~always 0). Never read
         # end["winner"] for outcomes — use winner_seat().
         self.outcomes: dict[int, dict] = {}
         games_path = self.root / "games.jsonl"
@@ -143,7 +142,7 @@ class TrajectoryStore:
     def winner_seat(self, g: int) -> int | None:
         """True winning seat from the outcome record; None for non-decisive
         games, missing records, or unparseable winner names. Verified against
-        final life totals/lost flags 492/492 on the D3 pilot (2026-07-11)."""
+        final life totals/lost flags on 492/492 games."""
         r = self.outcomes.get(g)
         if not r or r.get("status") != "won" or not r.get("winner"):
             return None
@@ -169,8 +168,8 @@ class TrajectoryStore:
         return None if self._mu is None else self._mu.get(g, {})
 
     def search_rows_for_game(self, g: int) -> list[dict]:
-        """The search directive's rows for game g (M12 Build 4½, the loop
-        wiring): `ev: search` rows in `sw` order plus the `ev: alloc` skip
+        """The search directive's rows for game g (the loop wiring,
+        ADR-0113): `ev: search` rows in `sw` order plus the `ev: alloc` skip
         rows, keyed by the game's seed (the harness's game index `i` is
         chunk-relative on re-issue; the seed is the game). Empty when the
         store carries no search.jsonl (a run without the search directive
@@ -394,15 +393,15 @@ def ingest(
             for e in entries:
                 try:
                     if e["clen"] == 0 or e["rlen"] > (1 << 30):
-                        # phantom rows (zero bytes reached the file — the
-                        # fd-death class, 2026-07-30) and RAW_CAP runaways
+                        # phantom rows (zero bytes reached the file: the
+                        # writer's fd died) and RAW_CAP runaways
                         # (undecodable under the reader's 1 GiB output cap)
                         raise ValueError("phantom or runaway frame")
                     header, _, end, _ = decode_frame(data[e["off"] : e["off"] + e["clen"]])
                 except Exception as ex:  # noqa: BLE001
                     # One bad completion frame must cost one frame, not the
-                    # ingest (a failed drill ingest killed the d6-run10
-                    # driver). Quarantine loudly: no outcome row -> the game
+                    # ingest, and not the driver that called it.
+                    # Quarantine loudly: no outcome row -> the game
                     # never trains; dropped from the index below.
                     quarantined.append(e["g"])
                     print(
@@ -525,8 +524,8 @@ def ingest(
     # mid-game, e.g. worker OOM) answers AGAIN from s=0 — identical records
     # are fine (same seeded noise), but any CONFLICTING duplicate means the
     # attempts diverged and a (g, s) join against the kept frame would build
-    # a chimeric action stream (found live: d6-run1 game 237, out-of-bounds
-    # candidate label). Conflicted games lose ALL their mu records — the RL
+    # a chimeric action stream (it shows as an out-of-bounds candidate
+    # label). Conflicted games lose ALL their mu records — the RL
     # loader then skips them as no_mu.
     mu_src = run_dir / "mu.jsonl"
     if mu_src.exists():
@@ -637,7 +636,7 @@ def ingest(
 
 
 def ingest_search_rows(run_dir: Path | str, dest: Path | str) -> int:
-    """M12 Build 4½ (the loop wiring): the search directive's per-window rows
+    """The loop wiring (ADR-0113): the search directive's per-window rows
     (`ev: search`, and the allocation head's `ev: alloc` skip rows) from the
     run's workers/*/labels.jsonl into the store's search.jsonl, keyed
     (seed, seat, sw, ev), first record wins on chunk re-issue (the frame

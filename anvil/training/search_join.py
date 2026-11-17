@@ -1,8 +1,8 @@
-"""M12 Build 4½ pre-work — the loop wiring (ADR-0113): the search directive's
+"""The loop wiring (ADR-0113): the search directive's
 rows joined to a trajectory store's priority decs, and the ACTED-WINDOW
 RECORD the RL loader trains on.
 
-The facts this encodes (read at the 09-18 review of the b4post act arm):
+The facts this encodes (read off a searched arm's records):
 
 - On a searched mainline window the engine writes TWO dec records and two
   behavior (mu) records when the acting rule fires: the NATURAL ask over the
@@ -17,7 +17,7 @@ The facts this encodes (read at the 09-18 review of the b4post act arm):
   forced ask was vetoed / voided — the natural line played), `natural` (below
   the bar, or the sample equalled the natural).
 
-The MERGE (the user's decision, 09-18): one training window per decision —
+The MERGE: one training window per decision —
 the natural dec's full option set with the choice rewritten to the acted
 candidate, the choice's behavior probability = the search's mass on that
 candidate (the row's `p` summed over the wire options the featurizer
@@ -49,13 +49,12 @@ def candidate_window(dec: dict, seat: int) -> bool:
     seat's QUIESCENT MAIN1 / MAIN2 windows), read from the dec's own obs:
     the phase, an empty stack, the seat is the active player. Windows that
     fail it carry no search row, and an earlier such window with the same
-    option list would otherwise take a later row (09-18: the second pairing
-    class on the tgtlab pool)."""
+    option list would otherwise take a later row."""
     if dec.get("ph") not in SEARCH_PHASES:
         return False
     obs = dec.get("obs") or {}
     if obs.get("stack"):
-        # the obs's stack entries (Build 4's stack fields; present only on a
+        # the obs's stack entries (the stack fields; present only on a
         # non-empty stack) — an entity's z == "stack" lingers after resolution
         return False
     ap = (obs.get("glob") or {}).get("ap")
@@ -124,15 +123,15 @@ def match_rows(decs: list[dict], rows: list[dict]) -> tuple[list[tuple[int, dict
                 # included) = the natural ask's; an earlier window of the
                 # same phase (a superset, before a cast) or a re-ask chain
                 # dec (a subset, after a veto) aligns by prefix but is not
-                # this window (09-18: 71/452 acted rows paired wrong without it)
+                # this window (measured: 71/452 acted rows pair wrong without it)
                 return None
             return align(labels, d.get("opts") or [])
 
         if r.get("applied") in ("act", "act_void") and r.get("act"):
             # an acted row anchors on its forced re-ask (the single-option
             # `by: search` dec rendering the acted label): the natural ask
-            # is the nearest fitting dec before it (09-18: the walk alone
-            # landed 12/1,511 acted rows one candidate window early)
+            # is the nearest fitting dec before it (the walk alone lands
+            # 12/1,511 acted rows one candidate window early)
             f = -1
             k = j
             while k < len(decs):
@@ -378,7 +377,7 @@ def alloc_fields(row: dict, bar: float, floor: float = 0.1) -> tuple[int, float]
     head window for itself; the uniform rate (no head, unserved) weights 1.
     The tau derivation and its recall are weighted — the floor sample alone
     is NOT an unbiased sample of all candidate windows (it never contains a
-    p >= tau window; 09-18 smoke: the previous tau's recall read 0 on it)."""
+    p >= tau window, so the previous tau's recall reads 0 on it)."""
     margin = row.get("margin")
     label = 1 if (margin is not None and float(margin) >= bar) else 0
     by = (row.get("alloc") or {}).get("by")
