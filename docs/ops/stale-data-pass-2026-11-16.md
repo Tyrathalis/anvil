@@ -58,3 +58,10 @@ The Build 2 to 4 arm and label stores. `b3-surflab*` and `b4-tgtlab` (about 13 G
 - **The fork lineage names no snapshot jar path.** CLAUDE.md's state table now names the three serving jars itself.
 - **An earlier pass over-deleted once** (ADR-0063; restored from the kopia snapshot). Any `workers/` deletion in this pass is preceded by a kopia snapshot check.
 - **State outside `data/`:** 41 run state files and 326 alert rows (95 unacked) under `~/.local/state/anvil`; `anvil.runs prune` is not scheduled.
+
+## Executed 2026-11-16 (the user ran `scripts/big_run_thin.py --go`)
+
+- The raw `workers/` output of the 408 in-loop arm reads: 47.7 GiB. Each directory keeps `games.jsonl`, `summary.json`, `run.json` and `pairs.txt`.
+- 483 per-iteration weight files of the big run: 136.9 GiB. Kept: iterations 0 to 500 in steps of 25, the segment closes 99, 202, 301, 405 and 513, the cited 238, 259, 289 and 291, and 510 to 512. `data/training/big-run` is now 32 GiB.
+- Verified after: the script's dry run finds nothing left to delete, the kept checkpoints are present, and the volume reads 1.8 T free.
+- Not executed: everything else on this list, including the 275 GiB of raw generation output, which waits on a completeness check and the crash-trace extraction.
