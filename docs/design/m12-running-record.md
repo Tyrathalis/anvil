@@ -1,6 +1,6 @@
 # M12 running record — search as the behavior policy
 
-**Doc status:** living · the open milestone's session-by-session record (split from m12-plan.md 2026-09-23)
+**Doc status:** historical · M12's session-by-session record (closed 2026-11-16, ADR-0126; split from m12-plan.md 2026-09-23)
 
 *Appended per session, newest last: what moved, what broke, what the next session picks up. The
 charter, build order, forks and kill conditions live in [m12-plan.md](m12-plan.md); the CLAUDE.md
@@ -4231,3 +4231,11 @@ record.*
   - **Carried to the scoping.** The measurement is the bottleneck: a week-long arm moves about 1.5pp at this slope and a 5,000-game paired read resolves 0.7pp. The arms are sized before they are ordered.
   - **Operations.** The run reads `done` since 11-15 18:28 and nothing was running at the close. The loop's state stays at `data/training/big-run/`. The scripted close did not run. The `IgnorePkg` line still pins the kernel, the driver and the JDK; lifting it and updating is the user's step and is owed. `"resume": true` stays in the run's state file; a `done` run is not relaunched by the sweep.
   - **Still owed at the milestone's close, not done here:** the closeout ADR, the documentation pass, the stale-data pass, the README's milestone row.
+
+- **11-16 21:30, M12 IS CLOSED ([ADR-0126](../decisions/ADR-0126-m12-closeout.md)); M13 is not chartered yet.** The verdict is the user's: training scale works, the recipe is not pinned, and whether search teaches and whether the ratio of data to training is right are not known.
+  - **The order agreed.** Close M12. Then the documentation pass and the stale-data kill list, with the offline gate and the ladder of own checkpoints on the box beside them. Then the search's wall cost on a quiet box. Then the user re-reads the routing table against the three results, and the M13 charter is drafted and opened.
+  - **The ladder moved out of the close.** The 11-09 order had it inside the closeout. It needs box time and is M13's scoreboard, so the ADR stands on the reads already on file.
+  - **Routing.** Every deferred item is in ADR-0126's table with a first-pass disposition: M13 candidates, the next boundary, the documentation pass, or re-deferred with a reason.
+  - **Found stale at the review.** The `IgnorePkg` line was already lifted and the box updated and rebooted at 20:05 (kernel 7.3.4). Upstream #11285 merged on 11-11. Three worktrees under `.claude/worktrees/` are fully merged and wait on the user's prune.
+  - **Done at the close.** The ADR; the README's milestone row and Status paragraph; the old Now block moved to the archive and the new one written (708 words); the plan and this record marked historical; the map's pills, Now panel, M12 block and ADR index; the design doc's record line. `scripts/docs_index.py` now names the last closed plan when no milestone is open; before, it would have printed a broken link.
+  - **This record is closed.** M13's record opens with its plan. Until then the Now block is the live plan and the devlogs carry the sessions.

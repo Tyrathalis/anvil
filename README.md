@@ -46,10 +46,11 @@ the `forkcheck` fidelity-regression harness, and a
 
 ## Status
 
-Twelve milestones in: M0–M11 closed, M12 (search as the behavior policy)
-open. Its big run trained from 2026-10-05 and closed on 2026-11-16 after
-five weekly segments; the milestone's closeout is next. The RL checkpoint of record plays at
-62.1% ± 1.1pp against Forge's heuristic AI on the current engine, network
+Thirteen milestones closed, M0–M12. M12 (search as the behavior policy)
+closed on 2026-11-16: its big run trained for five weeks and raised the
+network 9.5pp over its starting reference. M13 is not chartered yet; three
+measurements and a documentation pass come first. The RL checkpoint of record plays at
+62.1% ± 0.7pp against Forge's heuristic AI on the current engine, network
 alone. The live state is the Status section of [CLAUDE.md](CLAUDE.md); the
 [project map](docs/project-map.html) is the dashboard, the
 [decision records](docs/decisions/) are the record, and
@@ -76,6 +77,7 @@ never compare winrates across eras.
 | M9 | 08-25 | [0077](docs/decisions/ADR-0077-m9-closeout.md) | veto-collapse FALSIFIED (0072); perfect-payment headroom real, +2.96pp/g (0075); no promotion | payment surface as infrastructure, D6 plan machinery, boundary bundle (0068); run14–20 stores banned from mixtures |
 | M10 | 09-05 | [0096](docs/decisions/ADR-0096-m10-closeout.md) | generative planner route NEGATIVE; pivotality learnable (AUC 0.69) | inline certifier, paired strength read + fixed population, harvest pool + mint |
 | M11 | 09-06 | [0100](docs/decisions/ADR-0100-m11-closeout.md) | option scorer NEGATIVE as a mechanism (0098/0099); the engine + value head one step ahead is the asset | `score_options` head (inert), `option_scorer_fit.py`, `critic_lookahead_read.py`, 3,655-window spread corpus |
+| M12 | 11-16 | [0126](docs/decisions/ADR-0126-m12-closeout.md) | training scale WORKS: the big run moved the network +9.46 ± 0.77pp over its era reference, network alone (0123); whether search teaches is unattributed; the value head did not improve under the loop (0124) | the search directive + seven served surfaces, the supervised loop and its guards, the union target mask, `h2h_read.py`, two frozen holdouts, the big run's stores and segment checkpoints; fixed truth sets are memorized |
 
 ## License
 

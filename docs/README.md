@@ -6,7 +6,7 @@
 
 1. [CLAUDE.md](../CLAUDE.md) — the constitution: invariants, conventions, the live Status (Now / state of record; the milestone table is in the root README) and the session wrap-up checklist.
 2. [design/anvil-design-v2.md](design/anvil-design-v2.md) — **the canonical design doc.** Why and what; section numbers (§1–§15) are referenced everywhere.
-3. [design/m12-plan.md](design/m12-plan.md) — the open milestone plan; its session-by-session record in [design/m12-running-record.md](design/m12-running-record.md).
+3. [design/m12-plan.md](design/m12-plan.md) — the last closed milestone plan (no milestone is open); its session-by-session record in [design/m12-running-record.md](design/m12-running-record.md).
 4. [standing-rules.md](standing-rules.md) — every measured rule the milestones have birthed, one line each with its ADR ([standing-rules-retired.md](standing-rules-retired.md) holds the rules whose mechanism left the recipe). Read the relevant section before designing any run, gate, instrument, or curation cycle.
 5. [project-map.html](project-map.html) — the dashboard: Now panel, state-of-record table, run ledger, ADR index.
 6. [forge-ai-field-guide.md](forge-ai-field-guide.md) — the traps we measured, with detection and fix. Written for other Forge-AI builders.
@@ -15,7 +15,7 @@
 
 ## Directories
 
-- **`decisions/`** — ADRs, numbered sequentially (0001–0125 so far; `TEMPLATE.md` at the root). Authoritative for every resolved design question. The project map carries a one-line-per-ADR index. Numbering hazard: parallel sessions collide — `ls` for max+1 at write time.
+- **`decisions/`** — ADRs, numbered sequentially (0001–0126 so far; `TEMPLATE.md` at the root). Authoritative for every resolved design question. The project map carries a one-line-per-ADR index. Numbering hazard: parallel sessions collide — `ls` for max+1 at write time.
 - **`design/`** — design docs, plans, specs, drafts and surveys (breakdown below, grouped by the status line each file carries).
 - **`devlog/`** — one dated file per working session (`YYYY-MM-DD[-sessionN].md`, from `TEMPLATE.md`). The session-by-session narrative; nothing else duplicates it.
 
@@ -28,8 +28,6 @@
 - [chronicle-mvp-plan.md](design/chronicle-mvp-plan.md) — Chronicle side-stream implementation plan (D5 dogfood open)
 - [fork-lineage.md](design/fork-lineage.md) — the research fork's commit chain with each tip's ADR-0025 proof (the current pin lives in CLAUDE.md)
 - [format-onboarding.md](design/format-onboarding.md) — what a "format" is in Anvil, which ones run today, and the checklist for adding one
-- [m12-plan.md](design/m12-plan.md) — the open milestone plan — charter, build order, forks, kill conditions (the record: m12-running-record.md)
-- [m12-running-record.md](design/m12-running-record.md) — the open milestone's session-by-session record (split from m12-plan.md 2026-09-23)
 - [playable-fork-worklist.md](design/playable-fork-worklist.md) — playable-track doc of record
 - [run-analysis-protocol.md](design/run-analysis-protocol.md) — the standing post-run analysis battery (anvil/evals/battery.py)
 - [upstream-worklist.md](design/upstream-worklist.md) — the submission plan (2026-09-27, first section; first PR day 10-06) + queued upstream contributions + diagnosed engine classes
@@ -75,6 +73,8 @@
 - [m10-v2-target-probe-spec.md](design/m10-v2-target-probe-spec.md) — resolved at ADR-0079
 - [m11-plan.md](design/m11-plan.md) — M11 plan (closed 2026-09-06, ADR-0100)
 - [m11-routing-probes-spec.md](design/m11-routing-probes-spec.md) — resolved at ADR-0080 (both re-deferred)
+- [m12-plan.md](design/m12-plan.md) — M12 plan (closed 2026-11-16, ADR-0126; the record: m12-running-record.md)
+- [m12-running-record.md](design/m12-running-record.md) — M12's session-by-session record (closed 2026-11-16, ADR-0126; split from m12-plan.md 2026-09-23)
 - [m2-rl-plan.md](design/m2-rl-plan.md) — M2 plan (closed 2026-07-17, ADR-0020)
 - [m3-candidates.md](design/m3-candidates.md) — M3 pre-planning menu (2026-07-17)
 - [m3-plan.md](design/m3-plan.md) — M3 plan (closed 2026-07-28, ADR-0026)
