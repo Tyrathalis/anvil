@@ -72,11 +72,11 @@ The four reads, all exploratory:
 - **Order.** The ratings rise in training order, as the heuristic reads do. The two scoreboards disagree only on `iter-405` against `iter-513`, where neither separates them.
 - **Transitivity holds.** No residual passes 1.35 SE, and the squared residuals sum to 5.8 on 6 degrees of freedom. A one-dimensional ladder is a fair scoreboard for this lineage.
 - **`iter-513` and `iter-405` are level.** 0.5019 ± 0.0055 head to head, +1.8 Elo in the fit against a combined error of about 4. The heuristic read was −0.78 ± 0.73pp. Segment 5 moved the network by nothing either scoreboard can see.
-- **Seat.** Seat 0 won between 0.468 and 0.495 of decisive games in all nine pairs. The second seat has a small, consistent edge.
+- **Seat.** Seat 0 won between 0.468 and 0.495 of decisive games in all nine pairs. This is not a seat effect: seat 0 always holds the first deck of the pairing, and the nine pairs share pairings. Over the 200 pairings the first deck wins 0.490 ± 0.018.
 
 **What it says about the scoreboard.** A head-to-head read is somewhat tighter than a heuristic read at the same size: 0.55pp against 0.73pp on 5,000 games. Its margins are not uniformly larger. From `iter-301` to `iter-405` the heuristic reads moved 3.1pp and the head-to-head score 1.3pp; from the warm start to `iter-099` it is the other way round. So the ladder is a second scoreboard that agrees with the first, not a sharper replacement for it.
 
-**What it says about the run.** The gain per segment shrank on this scale too: 31 Elo over the first 100 iterations, 18 over the next 202, 11 over the next 104, 2 over the last 108. Crashes were 3 to 17 games per pair.
+**What it says about the run.** The gain per segment shrank on this scale too: 31 Elo over the first 100 iterations, 18 over the next 202, 11 over the next 104, 2 over the last 108. Segment 5 is labelled as having failed to improve the network (the user, 11-17; ADR-0123's addendum of that date). Crashes were 3 to 17 games per pair.
 
 ## 2. The search-ranking gate
 
