@@ -26,7 +26,6 @@
 - [anvil-design-v2.md](design/anvil-design-v2.md) — the canonical design doc; §1–§15 are referenced everywhere
 - [canonical-register.md](design/canonical-register.md) — staged-vs-canonical forms, each priced with its promotion instrument; reviewed at scoping sessions
 - [chronicle-mvp-plan.md](design/chronicle-mvp-plan.md) — Chronicle side-stream implementation plan (D5 dogfood open)
-- [flat-mc-count-budget-brief.md](design/flat-mc-count-budget-brief.md) — the brief for the separate session that builds upstream-worklist Tier 0.10; written 11-17, not yet started (the starting session could not open one over Remote Control)
 - [fork-lineage.md](design/fork-lineage.md) — the research fork's commit chain with each tip's ADR-0025 proof (the current pin lives in CLAUDE.md)
 - [format-onboarding.md](design/format-onboarding.md) — what a "format" is in Anvil, which ones run today, and the checklist for adding one
 - [m13-prescoping-measurements.md](design/m13-prescoping-measurements.md) — draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the precon cost measurement is done (§4); the gate and the wall cost are not launched
@@ -64,6 +63,7 @@
 
 - [card-addition-pipeline-sketch.md](design/card-addition-pipeline-sketch.md) — 2026-07-23 upstream-track sketch; nothing scheduled
 - [d5-combat-executor-notes.md](design/d5-combat-executor-notes.md) — M2 D5 fork archaeology for the combat executor
+- [flat-mc-count-budget-brief.md](design/flat-mc-count-budget-brief.md) — the brief for the separate session that builds upstream-worklist Tier 0.10; written 11-17 and carried out the same day by a background agent; the result is in upstream-worklist.md, Tier 0.10
 - [m1-bc-plan.md](design/m1-bc-plan.md) — M1 plan (closed 2026-07-10, ADR-0009)
 - [m10-build-spec.md](design/m10-build-spec.md) — M10 as-built graft mechanics (milestone closed 2026-09-05, ADR-0096)
 - [m10-ceiling-exploratory-reads.md](design/m10-ceiling-exploratory-reads.md) — M10 ceiling secondary reads (2026-08-26)

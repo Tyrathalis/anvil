@@ -92,7 +92,20 @@ All after the merged jar builds and the bridge's hooks are confirmed on it.
 
 - Does the merge bundle the routed next-boundary items (ADR-0126's table) and forced-decision replay, or land alone first? One boundary is cheaper to prove; a bare merge is easier to debug.
 - Do `Hard.ai` and `Hardest.ai` join the profile draw? They change the opponent mix even with the mode off.
-- What the desktop allowance is in counts. The desktop mode raises more than the two time budgets; the patch's read of the picker settles it.
+- ~~What the desktop allowance is in counts.~~ Answered 11-17, below.
+
+## The count budget, as built (2026-11-17)
+
+The patch exists locally: `FLAT_MC_COUNT_BUDGET` on branch `flat-mc-count-budget` in `../forge-upstream` ([upstream-worklist.md](upstream-worklist.md), Tier 0.10). What it settled:
+
+- **The desktop mode's counts are the same for Default, Hard and Hardest.** At most 17 candidates per decision and 14 rounds, so at most 238 rollouts per decision, plus up to 84 for the attack search and 42 for land choice. The plain mode allows 66 (Default), 96 (Hard) and 130 (Hardest).
+- **Unstarved, the desktop allowance is far more than the clock grants.** One four-player game under the count budget averaged 12.1 rollouts per decision after pruning, with a median decision of 1.6 s and a 95th percentile of 14.8 s. The clock grants 1.5 s. The pinned announcement opponent ("the desktop allowance, never starved") is therefore stronger and several times slower than the opponent a player meets.
+- **The AI timeout acts in harness-built games.** `Game.AI_TIMEOUT` defaults to 5 s and every heuristic session arms it, with or without the mode. The property lifts it only for a seat that has the property; a strict read also raises the game's timeout and gives every seat the profile.
+- **Three rollout errors switch the mode off for that player for the rest of the game.** With the copier failures of the cost measurement (a quarter of four-player rollouts on the 11-10 jar) that breaker matters. The patch's own four-player checks on 11-17 master saw no such failure in about 8,500 rollouts, so the failures are either fixed upstream since 11-10 or specific to some precons. Not resolved.
+- **Heaps of 768 MB or less silently turn the desktop mode into the mobile one.**
+- **Stock upstream replayed a two-player game identically on an idle box.** The clock breaks replay only when it binds.
+
+Still open: whether the announcement uses the unstarved allowance as pinned, given its cost, or a count budget set to what an idle desktop actually achieves.
 
 ## Not yet looked at
 

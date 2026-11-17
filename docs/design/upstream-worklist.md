@@ -1085,3 +1085,11 @@ Consequences:
   per candidate × board object; the mana-source memo (fork `1dd36f7342`: the grouping built once
   per scan, identity-gated 32,306 windows) is a behavior-identical patch for it — the second
   candidate in the post-launch series, after talor's cache.
+
+**Built 11-17, local only.** Branch `flat-mc-count-budget` in `../forge-upstream`, commit `d0e50c61c7` on upstream master `2f9dfd90fe`. Not pushed; no PR (the engine slot is held by #12180).
+
+- **The property is `FLAT_MC_COUNT_BUDGET`**, a boolean in `AiProps`, default false, with a `=false` line in the six shipped profiles (upstream's profile test requires every `FLAT_MC_*` key). When true the picker has no deadlines and plays every round its counts allow; the turn budget and the slow-streak back-off are skipped; that player's AI sessions and its rollout copies run without the AI timeout; the storm solver runs to its node cap.
+- **Size:** 11 files, 177 insertions, 11 deletions; 45 and 11 without the test.
+- **Test:** `FlatMonteCarloCountBudgetTest.sameSeedGivesTheSameGame` plays one seed twice at max strength with both time budgets at 0 ms and compares the full game log. It passes. The Flat Monte Carlo suites pass with it (945 tests, 1 skipped).
+- **Two caveats for the PR text.** The test was not run against unpatched code. Stock upstream also replayed the same two-player game identically on an idle box, so the patch's case is "the clock breaks replay when it binds", not "replay is broken today".
+- **Left for the user:** a leftover `stash@{0}` in that worktree, identical to the commit.

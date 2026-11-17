@@ -1,6 +1,6 @@
 # Brief — the Flat Monte Carlo rollout-count budget patch
 
-**Doc status:** living · the brief for the separate session that builds upstream-worklist Tier 0.10; written 11-17, not yet started (the starting session could not open one over Remote Control)
+**Doc status:** historical · the brief for the separate session that builds upstream-worklist Tier 0.10; written 11-17 and carried out the same day by a background agent; the result is in upstream-worklist.md, Tier 0.10
 
 Paste everything under the line into a new session opened on this project. The design it implements is in [upstream-worklist.md](upstream-worklist.md) (Tier 0.10) and [m13-upstream-merge-scoping.md](m13-upstream-merge-scoping.md).
 
