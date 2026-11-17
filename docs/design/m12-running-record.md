@@ -4248,3 +4248,8 @@ record.*
   alone (the match preference off) or the new default; either way the merge is a boundary. Also recorded (survey §5):
   LordOfThePigs's per-card win-rate file, dama's Star Trek draft-value table, and LordOfThePigs's rule-detector
   corpus with three Forge capture points.
+- **2026-11-16 (upstream) — #11285 merged on 11-11, and #12180 is approved.** tool4ever merged the determinism hooks
+  (Card-Forge#11285, `cb1d81c269`) the day after approving them. The PR first opened in July and was stale-closed once,
+  on 09-14. The research fork carries its own copy and meets the upstream one at the next engine merge. tool4ever
+  approved the AI decision log (#12180) on 11-11 after the re-port; it is mergeable with CI green and waits on a
+  merge. Tier 0.2 still waits behind it. #11457 stays parked.
