@@ -4239,3 +4239,12 @@ record.*
   - **Found stale at the review.** The `IgnorePkg` line was already lifted and the box updated and rebooted at 20:05 (kernel 7.3.4). Upstream #11285 merged on 11-11. Three worktrees under `.claude/worktrees/` are fully merged and wait on the user's prune.
   - **Done at the close.** The ADR; the README's milestone row and Status paragraph; the old Now block moved to the archive and the new one written (708 words); the plan and this record marked historical; the map's pills, Now panel, M12 block and ADR index; the design doc's record line. `scripts/docs_index.py` now names the last closed plan when no milestone is open; before, it would have printed a broken link.
   - **This record is closed.** M13's record opens with its plan. Until then the Now block is the live plan and the devlogs carry the sessions.
+- **2026-11-16 (community watch) — Forge's stock AI now runs flat Monte Carlo on upstream master, and our next engine
+  merge changes the opponent.** kevlahnota added rollouts on top of the heuristic AI on 10-24 (Card-Forge#12308). On
+  master it is on by default. The rollouts re-deal the cards the AI cannot see (`HiddenInfoShuffler`), so they do not
+  read the library. That answers Senji's Chaos Warp suspicion in the thread. It also corrects the 10-31 survey note
+  that only the opt-in simulation modes fork the game. Every winrate on record is against the 09-16 heuristic with no
+  Monte Carlo. **Routed by name to the next upstream merge:** choose the reads' opponent there, either the heuristic
+  alone (the match preference off) or the new default; either way the merge is a boundary. Also recorded (survey §5):
+  LordOfThePigs's per-card win-rate file, dama's Star Trek draft-value table, and LordOfThePigs's rule-detector
+  corpus with three Forge capture points.

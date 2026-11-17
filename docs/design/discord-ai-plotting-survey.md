@@ -2141,3 +2141,50 @@ LLM as an opponent. That is presumably why the developers have mostly let the th
     has to learn not to do. Self-play outcomes punish them directly. **The Phyrexian Tower half is not ground truth:**
     the user recalls a recent upstream patch that flipped the heuristic from sacrificing anything to the Tower to never
     sacrificing (unverified here; check at the next upstream merge before citing either behaviour).
+
+### 11-01 → 11-15 follow-up: the Chaos Warp suspicion, flat Monte Carlo in Forge's AI, LordOfThePigs's rule corpus (read 11-16 from the user's paste and two images; nothing posted from here)
+
+- **Correction to the 10-31 and 11-01 entries.** They said Forge's AI forks the game only in the opt-in Hybrid and
+  Simulation modes. That was true of our 09-16 engine, but not of upstream master. kevlahnota added flat Monte Carlo
+  on top of the heuristic AI on 10-24 ([Card-Forge/forge#12308](https://github.com/Card-Forge/forge/pull/12308)).
+  On master it is on by default: `FLAT_MC_ENABLED=true` in `Default.ai`, and the match preference
+  `MATCH_AI_FLAT_MONTE_CARLO` defaults to true. The user's posted 11-01 reply to TBSTeun carries the older picture.
+- **Senji (11-01):** the AI cast Chaos Warp on Senji's only attacker, which had vigilance. It flipped into Sunblast
+  Angel, which destroyed Senji's other attackers. Senji suspects the AI sees the library: 43 creatures in the deck,
+  Senji has never seen the AI cast the card, and the same thing seemed to happen in Duels of the Planeswalkers.
+  LordOfThePigs pointed Senji to `#ai-dumb-not-cheating`; Senji answered that the AI was too smart this time.
+  dama: Forge's AI is straight heuristics with no clairvoyant mode. **kevlahnota (11-02):** it was plain heuristics
+  until he added flat Monte Carlo on top.
+- *Our record, read on upstream master `0f82b4f469`:* the rollouts do not see hidden cards. Each sample copies the
+  game with `GameCopier`, and `HiddenInfoShuffler` then pools and re-deals every hand and library card the AI cannot
+  see, keeping zone sizes. Cards it may see (its own hand, revealed cards) stay where they are. Chaos Warp's reveal is
+  random in every rollout, so the Sunblast Angel flip was luck, not a read library.
+- *Routed by name to the next upstream merge (the research fork's engine bump):* the stock opponent changes there.
+  Every winrate we quote is against Forge's AI on the 09-16 engine, with no Monte Carlo. On a merged engine the
+  default AI rolls out plays, so it is presumably stronger and certainly slower per decision. The merge must decide
+  which opponent our reads use: the heuristic alone (the match preference off) to stay comparable within the era, or
+  the new default as the baseline players actually meet. It is a boundary either way.
+- **LordOfThePigs (11-02):** offered TBSTeun a file of per-card win rates from his Forge-vs-Forge games
+  (`cards-win-rates.7z` on his Google Drive; not downloaded). He suggests it as a proxy for which cards Forge's AI
+  understands: cards it never plays, and cards it tends to lose with. TBSTeun will look over the next couple of weeks.
+- **dama (11-04), "draft targets!" (image):** a card-value table for a Star Trek set, ranking 291 cards with a 95%
+  interval on each value. At the top are Sheoldred, the Apocalypse at 0.700 and Georgiou, Terran Emperor at 0.659; at
+  the bottom are Kobayashi Maru Scenario at 0.375 and Isolinear Processor at 0.401. The method is not stated. dama is
+  not sure how Sheoldred got into the set.
+- **Hardware (11-05 → 11-07):** Fuzz plans to try local models on a laptop with an NVIDIA RTX Spark N1X (a 6,144-core
+  Blackwell GPU; photo posted). TRT found the touchpad too large.
+- **LordOfThePigs (11-15): building the corpus is the hard part, not training.** No base rule of Magic is without
+  exceptions. He has gone through the bullets of the comprehensive rules and written a detector for each one: does
+  this board state show the rule in action? That yields positive and counter-examples, such as a deathtouch blocker
+  killing an attacker and doing nothing to an indestructible one. His Forge instrumentation captures full board
+  states at three moments:
+  - right after a play is chosen, before it is cast: the costs paid, and which targets are legal and which are not;
+  - right before it resolves, plus every event Forge fires until it has: damage, life changes, counters, destructions;
+  - at each combat step: legal attackers, legal targets per attacker, legal blockers per attacker, who damages whom,
+    and who survives.
+
+  He keeps finding bugs in his data but feels close.
+- *Our record:* his capture points are the same three our fork records: the decision window, resolution, and
+  combat. We record them as decision labels and store frames for the policy, not as per-rule examples. A rule-tagged
+  corpus like his would make a sharp probe set for our encoder (does the trunk separate the deathtouch case from the
+  indestructible one?). Noted, not routed.
