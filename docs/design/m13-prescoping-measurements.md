@@ -124,7 +124,7 @@ The four reads, all exploratory:
 
 **Step 1 is unchanged as a data collection.** The same flags and the same games serve the slope. At about 2,900 un-acted windows its error would be about ± 0.035 (*estimate*, scaled from step 0).
 
-**The bar, redrafted on the slope (to pin before the read closes).** The soft-target arm is not run if the un-acted slope is within two standard errors of zero. It runs with a note on its dose if the slope is under 0.10. Otherwise it runs. The acted slope is the reference beside it.
+**The bar, on the slope (pinned by the user 11-17, before any live row was read).** The soft-target arm is not run if the un-acted slope is within two standard errors of zero. It runs with a note on its dose if the slope is under 0.10. Otherwise it runs. The acted slope is the reference beside it.
 
 ## 3. The search's wall cost on the current recipe
 
