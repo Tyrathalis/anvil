@@ -502,6 +502,10 @@ def test_a_detached_stall_does_not_recover_on_the_supervisors_own_log(state):
     )
     assert out.returncode == 0, out.stderr
     _wait_done("dst")
+    # the supervisor writes the state file before it queues the terminal alert
+    deadline = time.time() + 10
+    while time.time() < deadline and not any(a["kind"] == "done" for a in runs.read_alerts()):
+        time.sleep(0.1)
     kinds = [a["kind"] for a in runs.read_alerts()]
     assert "STALLED" in (d / "supervisor.log").read_text()  # the supervisor did write into the watched dir
     assert kinds == ["stalled", "done"], kinds
