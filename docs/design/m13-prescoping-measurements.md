@@ -1,6 +1,6 @@
 # The three measurements before the M13 scoping — design draft
 
-**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder is pinned and launched; the gate and the wall cost are not launched
+**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the gate and the wall cost are not launched
 
 Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured prices, not measurements. Each design ends with what the user has to pin before launch.
 
@@ -8,7 +8,7 @@ Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured pri
 
 | Measurement | What it decides | Box time | Fork work |
 |---|---|---|---|
-| The ladder | M13's scoreboard; whether `iter-513` and `iter-405` separate head to head | about 11 h (*estimate*) | none |
+| The ladder | M13's scoreboard; whether `iter-513` and `iter-405` separate head to head | 12.0 h (closed 11-17) | none |
 | The search-ranking gate | whether the soft-target arm is run at all | about 10 h (*estimate*), after a 4-game pricing smoke | none expected |
 | The search's wall cost | how many more games a search-off arm plays at equal box time | about 2 h, quiet box | none |
 
@@ -41,6 +41,42 @@ Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured pri
 - Seat effect per pair. The one read on file shows seat 0 winning 0.483 of decisive games.
 
 **Pinned and launched 2026-11-16 (the user).** Seed base 20261116; 5,000 games on the adjacent pairs and 2,000 on the other five. The run is `ladder` ([`scripts/ladder_chain.sh`](../../scripts/ladder_chain.sh)); its reports are `data/runs/lad-<A>-<B>-h2h.json`. The Bradley-Terry fit is written while it runs.
+
+### Result (closed 2026-11-17)
+
+**One rating per checkpoint describes all ten pairs, and the order matches the order against the heuristic.** The run closed with exit 0 after 12.0 box-hours. The fit is [`scripts/ladder_fit.py`](../../scripts/ladder_fit.py) over the nine reports and the 11-15 pair; its output is `data/runs/ladder/fit.md`.
+
+| Checkpoint | Elo over the warm start | ± | Paired over the era reference against the heuristic (5,000 games) |
+|---|---|---|---|
+| `shakedown-alloc/iter-019` (warm start) | 0 | | not read at 5,000 |
+| `big-run/iter-099` | +31.0 | 2.9 | +4.22 ± 0.79pp |
+| `big-run/iter-301` | +49.4 | 3.0 | +6.32 ± 0.79pp |
+| `big-run/iter-405` | +60.5 | 2.8 | +9.46 ± 0.77pp |
+| `big-run/iter-513` | +62.3 | 3.2 | +8.61 ± 0.79pp |
+
+| Pair (A against B) | Games | A's score | ± | Fitted | Residual (SE) |
+|---|---|---|---|---|---|
+| 099 – start | 5,000 | 0.5385 | 0.0056 | 0.5444 | −1.05 |
+| 301 – 099 | 5,000 | 0.5241 | 0.0055 | 0.5265 | −0.44 |
+| 405 – 301 | 5,000 | 0.5133 | 0.0054 | 0.5159 | −0.48 |
+| 513 – 405 | 5,000 | 0.5019 | 0.0055 | 0.5027 | −0.14 |
+| 301 – start | 2,000 | 0.5787 | 0.0085 | 0.5706 | +0.96 |
+| 405 – start (11-15) | 5,000 | 0.5865 | 0.0057 | 0.5861 | +0.07 |
+| 513 – start | 2,000 | 0.5940 | 0.0090 | 0.5887 | +0.59 |
+| 405 – 099 | 2,000 | 0.5463 | 0.0087 | 0.5423 | +0.45 |
+| 513 – 099 | 2,000 | 0.5335 | 0.0085 | 0.5450 | −1.35 |
+| 513 – 301 | 2,000 | 0.5270 | 0.0084 | 0.5186 | +1.00 |
+
+The four reads, all exploratory:
+
+- **Order.** The ratings rise in training order, as the heuristic reads do. The two scoreboards disagree only on `iter-405` against `iter-513`, where neither separates them.
+- **Transitivity holds.** No residual passes 1.35 SE, and the squared residuals sum to 5.8 on 6 degrees of freedom. A one-dimensional ladder is a fair scoreboard for this lineage.
+- **`iter-513` and `iter-405` are level.** 0.5019 ± 0.0055 head to head, +1.8 Elo in the fit against a combined error of about 4. The heuristic read was −0.78 ± 0.73pp. Segment 5 moved the network by nothing either scoreboard can see.
+- **Seat.** Seat 0 won between 0.468 and 0.495 of decisive games in all nine pairs. The second seat has a small, consistent edge.
+
+**What it says about the scoreboard.** A head-to-head read is somewhat tighter than a heuristic read at the same size: 0.55pp against 0.73pp on 5,000 games. Its margins are not uniformly larger. From `iter-301` to `iter-405` the heuristic reads moved 3.1pp and the head-to-head score 1.3pp; from the warm start to `iter-099` it is the other way round. So the ladder is a second scoreboard that agrees with the first, not a sharper replacement for it.
+
+**What it says about the run.** The gain per segment shrank on this scale too: 31 Elo over the first 100 iterations, 18 over the next 202, 11 over the next 104, 2 over the last 108. Crashes were 3 to 17 games per pair.
 
 ## 2. The search-ranking gate
 
