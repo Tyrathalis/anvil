@@ -142,3 +142,11 @@ Not decided. Recorded so the scoping starts from it.
 - **My recommendation, not adopted.** Four-player precon Commander as the declared target, reached one change at a time: the held-out read on precon decks one-on-one first, then the pool grown by release year one-on-one, then the pod. Before any commitment, a no-GPU cost measurement of four-player all-heuristic precon games on stock Forge. A benchmark with two tracks on the same decklists and years: one-on-one (cheap to enter) and the pod (one entrant seat against three reference bots).
 - **Open.** Whether one-on-one on precon decks counts as a format played in practice. Whether the harness and the schema take four seats, which nobody has checked. The four-player game's length and cost, which nobody has measured.
 - **Also pinned tonight (the user):** the Monte Carlo count-budget patch waits for the ladder to finish, then a separate session fetches upstream, investigates and builds it.
+
+## Addendum (2026-11-16, late night): the benchmark format is chosen
+
+- **Decided (the user): Commander precons are the project's legible benchmark.** Canonical decklists are what make quality readable to a casual viewer, and precons are legible enough that a leaderboard on them means something.
+- **Two tracks, two-player and four-player, on the same decklists.**
+- **Declared release eras,** so an entrant can start with a small card set and stay comparable with everyone else.
+- **This supersedes the "not decided" line of the addendum above.** Its staged path stands as the route: the held-out read on precon decks one-on-one, the pool grown by era one-on-one, then the pod. The four-player cost measurement runs after the ladder.
+- **For the M13 scoping to pin:** the era boundaries (by release year or by product), the bans and rule set each track plays under, the reference opponents, and where this sits against the training-setup work that the user expects to be M13's centre.
