@@ -6,7 +6,7 @@
 
 1. [CLAUDE.md](../CLAUDE.md) — the constitution: invariants, conventions, the live Status (Now / state of record; the milestone table is in the root README) and the session wrap-up checklist.
 2. [design/anvil-design-v2.md](design/anvil-design-v2.md) — **the canonical design doc.** Why and what; section numbers (§1–§15) are referenced everywhere.
-3. [design/m12-plan.md](design/m12-plan.md) — the last closed milestone plan (no milestone is open); its session-by-session record in [design/m12-running-record.md](design/m12-running-record.md).
+3. [design/m13-plan.md](design/m13-plan.md) — the open milestone plan; its session-by-session record in [design/m13-running-record.md](design/m13-running-record.md).
 4. [standing-rules.md](standing-rules.md) — every measured rule the milestones have birthed, one line each with its ADR ([standing-rules-retired.md](standing-rules-retired.md) holds the rules whose mechanism left the recipe). Read the relevant section before designing any run, gate, instrument, or curation cycle.
 5. [project-map.html](project-map.html) — the dashboard: Now panel, state-of-record table, run ledger, ADR index.
 6. [forge-ai-field-guide.md](forge-ai-field-guide.md) — the traps we measured, with detection and fix. Written for other Forge-AI builders.
@@ -15,7 +15,7 @@
 
 ## Directories
 
-- **`decisions/`** — ADRs, numbered sequentially (0001–0126 so far; `TEMPLATE.md` at the root). Authoritative for every resolved design question. The project map carries a one-line-per-ADR index. Numbering hazard: parallel sessions collide — `ls` for max+1 at write time.
+- **`decisions/`** — ADRs, numbered sequentially (0001–0127 so far; `TEMPLATE.md` at the root). Authoritative for every resolved design question. The project map carries a one-line-per-ADR index. Numbering hazard: parallel sessions collide — `ls` for max+1 at write time.
 - **`design/`** — design docs, plans, specs, drafts and surveys (breakdown below, grouped by the status line each file carries).
 - **`devlog/`** — one dated file per working session (`YYYY-MM-DD[-sessionN].md`, from `TEMPLATE.md`). The session-by-session narrative; nothing else duplicates it.
 
@@ -28,8 +28,9 @@
 - [chronicle-mvp-plan.md](design/chronicle-mvp-plan.md) — Chronicle side-stream implementation plan (D5 dogfood open)
 - [fork-lineage.md](design/fork-lineage.md) — the research fork's commit chain with each tip's ADR-0025 proof (the current pin lives in CLAUDE.md)
 - [format-onboarding.md](design/format-onboarding.md) — what a "format" is in Anvil, which ones run today, and the checklist for adding one
-- [m13-charter-draft.md](design/m13-charter-draft.md) — M13 charter draft (2026-11-18): three arms at equal box time after an upstream merge; not opened, the forks below wait on the user
+- [m13-plan.md](design/m13-plan.md) — M13 plan (opened 2026-11-18, ADR-0127): three arms at equal box time after an upstream merge; the record: m13-running-record.md
 - [m13-prescoping-measurements.md](design/m13-prescoping-measurements.md) — draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the precon cost measurement is done (§4); the gate closed 11-18 (§2: the soft-target arm runs); the wall cost closed 11-18 (§3: the search costs 5.2 times the worker time of a game)
+- [m13-running-record.md](design/m13-running-record.md) — M13's session-by-session record (opened 2026-11-18, ADR-0127)
 - [m13-upstream-merge-scoping.md](design/m13-upstream-merge-scoping.md) — scoping of the upstream merge that opens M13: its size, the Flat Monte Carlo heuristic mode, and the opponent question; three points pinned by the user 11-16, one revised 11-17; the count budget is built locally, nothing merged
 - [playable-fork-worklist.md](design/playable-fork-worklist.md) — playable-track doc of record
 - [run-analysis-protocol.md](design/run-analysis-protocol.md) — the standing post-run analysis battery (anvil/evals/battery.py)

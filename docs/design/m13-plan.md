@@ -1,8 +1,8 @@
-# M13 charter draft — WHAT IN THE RECIPE PRODUCES THE GAIN (2026-11-18; not opened)
+# M13 plan — WHAT IN THE RECIPE PRODUCES THE GAIN (OPENED 2026-11-18, ADR-0127)
 
-**Doc status:** living · M13 charter draft (2026-11-18): three arms at equal box time after an upstream merge; not opened, the forks below wait on the user
+**Doc status:** living · M13 plan (opened 2026-11-18, ADR-0127): three arms at equal box time after an upstream merge; the record: m13-running-record.md
 
-*Status: DRAFT. Written 2026-11-18 from [ADR-0126](../decisions/ADR-0126-m12-closeout.md)'s routing table, re-read against the pre-scoping measurements ([m13-prescoping-measurements.md](m13-prescoping-measurements.md)). The order and two calls are the user's (11-18): the search-off arm keeps the control's games per iteration, and forced-decision replay is an M13 item. Nothing here is pinned until the milestone opens. Opening it renames this file to `m13-plan.md` and runs the milestone checklist (the README row, the status archive, the running record).*
+*Status: OPEN. Chartered 2026-11-18 ([ADR-0127](../decisions/ADR-0127-m13-charter.md)) from [ADR-0126](../decisions/ADR-0126-m12-closeout.md)'s routing table, re-read against the pre-scoping measurements ([m13-prescoping-measurements.md](m13-prescoping-measurements.md)). The user agreed the order and pinned the seven forks the same day. The session-by-session record is [m13-running-record.md](m13-running-record.md). Build 0, the upstream merge, is next.*
 
 ## Charter
 
@@ -73,19 +73,21 @@ All three start from `iter-405` on the merged jar, run for equal box time under 
 
 ### After the arms
 
-- **Straggler carry-over.** With one queue, an iteration still drains once: about 15 of generation's 83 minutes per iteration in the big run (*estimate from the cells' idle totals*). Carry-over removes that, and it is what makes a cap raise safe. It changes which checkpoint finishes a game, so it gets its own paired comparison against the winning recipe. It is designed at the desk while the arms run.
+- **Straggler carry-over** (pin 3). With one queue, an iteration still drains once: about 15 of generation's 83 minutes per iteration in the big run (*estimate from the cells' idle totals*). Carry-over removes that, and it is what makes a cap raise safe. It changes which checkpoint finishes a game, so it gets its own paired comparison against the winning recipe. It is designed at the desk while the arms run.
 - **The cap raise**, priced after carry-over.
 - **The recipe of record is rewritten** from the arms' reads, and the pool grows by precon era on it.
 
-## Forks to pin before opening
+## Pins (the user, 2026-11-18)
 
-1. **Arm length.** A week each is three weeks of box time. Proposed: a week, with the search-off arm's in-loop reads watched for an early, clear separation.
-2. **The arms' bar.** Proposed: an arm differs from the control at 2 standard errors head to head on 5,000 games (1.1pp). An arm inside that band is reported as level, with the power statement beside it.
-3. **Whether carry-over waits.** Proposed above: after the arms. The alternative is before them, so that every arm gets about 15% more games; it delays the first arm by the build and its comparison.
-4. **The play-or-draw surface.** It is a served surface and a real boundary. Proposed: after the arms, with the first pool-growth boundary, so the arms run on one engine.
-5. **`Hard.ai` and `Hardest.ai` in the profile draw.** Proposed: not in the arms; read once in Build 0 against the four current profiles.
-6. **The benchmark's pins** that ADR-0126 leaves to the scoping: era boundaries (by release year or by product), the rule set and bans per track, the reference opponents. Proposed: pinned when the held-out precon read is in, not at opening.
-7. **Monte Carlo as a training opponent.** Decided by Build 0's read 4. If it enters, it enters every arm.
+1. **Arm length:** a week each. The search-off arm's in-loop reads are watched for an early, clear separation.
+2. **The arms' bar:** an arm differs from the control at 2 standard errors head to head on 5,000 games (1.1pp). An arm inside that band is reported as level, with the power statement beside it.
+3. **Straggler carry-over runs after the arms.** Every arm goes without it, so the comparison is fair; each arm gives up about 15% of its games (*estimate*).
+4. **The play-or-draw surface lands after the arms**, with the first pool-growth boundary, so the arms run on one engine.
+5. **`Hard.ai` and `Hardest.ai` stay out of the arms' profile draw.** They are read once in Build 0 against the four current profiles.
+6. **The benchmark's pins** (era boundaries, the rule set and bans per track, the reference opponents) are set when the held-out precon read is in.
+7. **Monte Carlo as a training opponent** is decided by Build 0's read 4. If it enters, it enters every arm.
+8. **The search-off arm keeps 480 games per iteration.** An equal-updates arm follows if it wins.
+9. **Forced-decision replay is an M13 item** (Build 1).
 
 ## Done-when
 

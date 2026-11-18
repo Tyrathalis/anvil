@@ -48,7 +48,8 @@ the `forkcheck` fidelity-regression harness, and a
 
 Thirteen milestones closed, M0–M12. M12 (search as the behavior policy)
 closed on 2026-11-16: its five-week training run raised the network 9.5pp
-over its starting reference. M13 is not chartered yet. The RL checkpoint of
+over its starting reference. M13 opened on 2026-11-18 to find what in
+that recipe produces the gain ([plan](docs/design/m13-plan.md)). The RL checkpoint of
 record plays at 62.1% ± 0.7pp against Forge's heuristic AI, network alone
 (as of 2026-11-16). The live state is the Status section of
 [CLAUDE.md](CLAUDE.md); the [project map](docs/project-map.html) is the
