@@ -1,6 +1,6 @@
 # The measurements before the M13 scoping — designs and results
 
-**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the precon cost measurement is done (§4); the gate and the wall cost are not launched
+**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the precon cost measurement is done (§4); the gate closed 11-18 (§2: the soft-target arm runs); the wall cost is not launched
 
 Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured prices, not measurements. Each design ends with what the user has to pin before launch.
 
@@ -9,7 +9,7 @@ Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured pri
 | Measurement | What it decides | Box time | Fork work |
 |---|---|---|---|
 | The ladder | M13's scoreboard; whether `iter-513` and `iter-405` separate head to head | 12.0 h (closed 11-17) | none |
-| The search-ranking gate | whether the soft-target arm is run at all | about 10 h (*estimate*), after a 4-game pricing smoke | none expected |
+| The search-ranking gate | whether the soft-target arm is run at all | 14.6 h (closed 11-18: the arm runs) | none expected |
 | The search's wall cost | how many more games a search-off arm plays at equal box time | about 2 h, quiet box | none |
 
 **One finding changes ADR-0126's wording.** The gate cannot be run offline on the big run's stored windows. A stored window of a model-served game cannot be reached again: seed, checkpoint and flags do not pin a search line across serving setups, and no tool forks from a stored coordinate of such a game. The stores hold the search's side in full (per-option, per-roll leaf values, the margin, the acted flag). The rollout truth has to be generated live. The gate is therefore a live read, and its name here is "the search-ranking gate".
@@ -133,6 +133,24 @@ The four reads, all exploratory:
 - **Record-only, a departure from the draft.** `-searchdeepbar 9` keeps the deep round from acting; otherwise the games would act on four-rollout end values. No window acted in the smoke. The states are therefore the network's own play, not the search-acted games' states.
 - **Two more departures, from the harness.** `final_read.py` serves greedy and plays every game against the heuristic; the loop samples and plays half mirrors. The allocation threshold is `iter-405`'s own fit, 0.01855.
 - **The live read** (`rank-gate`, launched 11-17 16:40): 160 games, 80 per seat on 80 pairings, seed base 20261119, 24 workers and 2 servers, `forge-tgtmask3.jar`. Read with `scripts/search_rank_split.py --live`. About 4,500 windows (*estimate*).
+
+### Result (closed 2026-11-18): the soft-target arm runs, with no dose note
+
+`rank-gate` exited 0 at 07:10 on 11-18 after 14.6 hours. Output: `data/runs/search-rank-gate/live/split.{json,txt}`. The slope is of four-rollout end means on shallow means, centred per window; errors are a bootstrap over games.
+
+| Group | Windows | Slope | Top-pick gain over the natural pick |
+|---|---|---|---|
+| un-acted (shallow margin under 0.10) | 2,264 | **+0.351 ± 0.073** | +0.005 ± 0.004 |
+| un-acted, margin 0 | 1,077 | +0.364 ± 0.090 | −0.001 ± 0.001 |
+| un-acted, margin 0 to the bar | 1,187 | +0.314 ± 0.135 | +0.010 ± 0.007 |
+| acted (margin 0.10 or more; the reference) | 163 | −0.061 ± 0.110 | −0.017 ± 0.018 |
+| all | 2,427 | +0.225 ± 0.066 | +0.003 ± 0.004 |
+
+- **Against the pinned bar.** The un-acted slope is 4.8 standard errors from zero and over 0.10. The soft-target arm runs and carries no dose note. The two seat arms agree: 0.359 ± 0.091 and 0.344 ± 0.109.
+- **What the slope says.** Where the search does not act, about a third of a shallow value difference between two options shows up in the end outcome. The shallow values order the options the search leaves alone; that is the information soft targets would train on.
+- **Flagged, exploratory: the acted windows show no slope.** At the windows the search would act on, the shallow preference is not realized (−0.06 ± 0.11), and the option it would switch to does no better than the natural pick. The 09-15 rows read 0.24 ± 0.11 and +0.061 ± 0.030 at such windows. The two seat arms agree (−0.09 and −0.04) and the figure holds without the five heaviest games (−0.11). The gap to the old rows is 1.9 standard errors, so this is a flag and not a finding. Two things could produce it without the search being wrong: a margin over the bar selects windows where the two-rollout shallow values are noisiest, which pulls a slope toward zero; and these are record-only states from greedy play against the heuristic. It bears on M13's search-off arm and is routed to the scoping.
+- **Power came in under the plan.** 159 games and 2,427 usable windows against an estimate of 4,500. Rows per game were about 18. The truth is flat in 51% of windows, as in the old rows.
+- **Run notes.** One game was skipped after exhausting a 2 GB heap twice (seat 0, game 43; `skips.json`). One game ran 8.0 hours and held the first arm's other 23 slots idle for about four of them. The games read 0.579 ± 0.039 against the heuristic, which is not a strength read: the sample is 159 games.
 
 ## 3. The search's wall cost on the current recipe
 
