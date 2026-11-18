@@ -1,0 +1,131 @@
+# M13 charter draft — WHAT IN THE RECIPE PRODUCES THE GAIN (2026-11-18; not opened)
+
+**Doc status:** living · M13 charter draft (2026-11-18): three arms at equal box time after an upstream merge; not opened, the forks below wait on the user
+
+*Status: DRAFT. Written 2026-11-18 from [ADR-0126](../decisions/ADR-0126-m12-closeout.md)'s routing table, re-read against the pre-scoping measurements ([m13-prescoping-measurements.md](m13-prescoping-measurements.md)). The order and two calls are the user's (11-18): the search-off arm keeps the control's games per iteration, and forced-decision replay is an M13 item. Nothing here is pinned until the milestone opens. Opening it renames this file to `m13-plan.md` and runs the milestone checklist (the README row, the status archive, the running record).*
+
+## Charter
+
+**M13 finds what in the recipe of record produces its gain, by training three arms from one checkpoint at equal box time and reading each head to head against the control.** The big run showed that training scale works (+9.46pp over its era reference, network alone). It did not show whether the search teaches, and its last segment did not improve the network. The milestone's product is a recipe of record with a measured reason for each part it keeps.
+
+The deployable asset is still the network alone. The benchmark it is building toward is Commander precons, two-player first.
+
+## The facts it starts from
+
+- **Segment 5 failed to improve the network.** `iter-405` and `iter-513` are level head to head (0.5019 ± 0.0055), under a halved anchor draw. A control arm is expected to move little, so a real gain in another arm is easy to see.
+- **The search's ranking carries signal where it does not act.** The un-acted slope is +0.351 ± 0.073 on 2,264 windows. The soft-target arm cleared its gate with no dose note.
+- **Where the search acts, its preference was not realized.** The acted slope is −0.061 ± 0.110 on 163 windows, 1.9 standard errors from the 09-15 figure. It is a flag, not a finding. The search-off arm tests it.
+- **The search costs 5.2 times the worker time of a game.** A search-off arm plays about 3.5 times the games at equal box time (*estimate*). With the search off, serving is the bottleneck (servers 89% busy).
+- **Generation waits on its tails.** The big run's slots were idle 32% and 47% of its generation cells' wall time. Each iteration drained three cells.
+- **The head-to-head read resolves 0.55pp at 5,000 games**, against 0.73pp through the heuristic. A week-long arm moved about 1.5pp at the big run's slope.
+- **Four-player costs 13 times two-player**, and 15% of rollouts through the game copier fail on upstream master. The cause is not identified.
+- **Upstream is 1,340 commits ahead.** Its heuristic has a Monte Carlo mode; the count-budget patch that makes it reproducible is built and unpushed ([m13-upstream-merge-scoping.md](m13-upstream-merge-scoping.md)).
+
+## Build order
+
+### Build 0 — the upstream merge and its reads
+
+The merge is the opening boundary. It lands alone, as one commit after a tag, so that a changed number has one cause.
+
+1. The merge, the forkcheck on the merged jar (for crashes and the copy-fidelity rate, not identity), and the count budget on the jar.
+2. **The era bridge:** `iter-405` and `d6-run11/iter-019` against the plain heuristic, paired on the 11-07 confirm's seeds. This is M13's day-zero.
+3. Monte Carlo on against off, heuristic seats only, and the count budget's calibration to an idle desktop.
+4. `iter-405` against the Monte Carlo opponent. This read decides whether Monte Carlo becomes a training opponent (ADR-0126, 11-17 addendum).
+5. **The held-out precon read:** `iter-405` on precon decks, two-player, with the share of unseen cards per deck on file.
+6. The copier's cause, on the merged engine. No four-player search or Monte Carlo read runs before it.
+
+### Build 1 — the second fork commit: replay and the routed boundary items
+
+One commit after the merge is proven. Each part is inert on the game path, so the commit is offered under ADR-0025's exemption and proven by trace hashes. A mismatch makes it a boundary.
+
+- **Forced-decision replay** (the user, 11-18). A replay mode feeds a stored game's recorded answers back in place of a server. Its fidelity read: about 20 stored model-served games replayed, winners and final states compared with `games.jsonl`. If it holds, every stored window is reachable again: the gate on stored games, ADR-0125's truth stream on stored states, and crash reproduction.
+- **The starting player in every game record.**
+- **The next-boundary items of ADR-0126:** the `CensusRun -certify` and `PayDirective` deletion with the `payment-evalset-v2` re-certification, the NullPointerException crash, the oversize game's source, a heap flag for reads with deep rollouts.
+- A crash fix never qualifies for the exemption. If the NullPointerException fix changes a game, it moves into the merge's boundary and Build 0's reads run after it.
+
+### Build 2 — throughput that changes no game
+
+- **One queue per iteration** in place of three cells, in the loop. It leaves one drain per iteration where there were three.
+- **One queue across seat arms** in `final_read.py` and the head-to-head read.
+- **The learner's memory work and the loop config prune** (ADR-0126's next-boundary rows), since the loop is open anyway.
+- A third server, tried with the search off, where serving binds.
+
+Proven by a paired cell: the same seeds through the old cells and the new queue give the same games.
+
+### Build 3 — the three arms
+
+All three start from `iter-405` on the merged jar, run for equal box time under `--wall-hours`, and keep 480 games per iteration.
+
+| Arm | What changes | What it answers |
+|---|---|---|
+| **Control** | Nothing: the recipe of record | The reference. Whether the recipe still improves the network on the new engine |
+| **Search off** | No search in generation, so no acting by it and no labels from it | Whether the search teaches at all. It gets about 3.5 times the iterations and training steps |
+| **Soft targets** | The search's ranking becomes a training target at windows where it does not act | Whether the ranking teaches more than the acted line does |
+
+- **Order:** control, then search off, then soft targets. The control runs first because both reads need it.
+- **The search-off arm confounds "no search" with "more updates"** (the user, 11-18: same game count first). If it wins, a follow-up arm holds the updates equal and gives each more games.
+- **The reads.** Each arm's final checkpoint against the control's, head to head on 5,000 fresh-seed games. The read against the plain heuristic is the continuity number. The in-loop arm reads continue.
+- **The soft-target arm's known risk** is ADR-0111: offline distillation toward the search lost up to 47pp with the dose. Its target weight is pinned from a short dose ladder before the arm launches.
+
+### Build 4 — the value-head track, beside the arms
+
+[ADR-0125](../decisions/ADR-0125-value-head-track.md) in a worktree: the truth stream, the critic, the student. It opens with the recompute of the Build 1 holdout figure with ties averaged, since the guard floors are in the old unit. Its bars are pinned at its own scoping. It does not enter an arm.
+
+### After the arms
+
+- **Straggler carry-over.** With one queue, an iteration still drains once: about 15 of generation's 83 minutes per iteration in the big run (*estimate from the cells' idle totals*). Carry-over removes that, and it is what makes a cap raise safe. It changes which checkpoint finishes a game, so it gets its own paired comparison against the winning recipe. It is designed at the desk while the arms run.
+- **The cap raise**, priced after carry-over.
+- **The recipe of record is rewritten** from the arms' reads, and the pool grows by precon era on it.
+
+## Forks to pin before opening
+
+1. **Arm length.** A week each is three weeks of box time. Proposed: a week, with the search-off arm's in-loop reads watched for an early, clear separation.
+2. **The arms' bar.** Proposed: an arm differs from the control at 2 standard errors head to head on 5,000 games (1.1pp). An arm inside that band is reported as level, with the power statement beside it.
+3. **Whether carry-over waits.** Proposed above: after the arms. The alternative is before them, so that every arm gets about 15% more games; it delays the first arm by the build and its comparison.
+4. **The play-or-draw surface.** It is a served surface and a real boundary. Proposed: after the arms, with the first pool-growth boundary, so the arms run on one engine.
+5. **`Hard.ai` and `Hardest.ai` in the profile draw.** Proposed: not in the arms; read once in Build 0 against the four current profiles.
+6. **The benchmark's pins** that ADR-0126 leaves to the scoping: era boundaries (by release year or by product), the rule set and bans per track, the reference opponents. Proposed: pinned when the held-out precon read is in, not at opening.
+7. **Monte Carlo as a training opponent.** Decided by Build 0's read 4. If it enters, it enters every arm.
+
+## Done-when
+
+1. The merge is landed and the era bridge is on file.
+2. Forced-decision replay has its fidelity read on file, pass or fail.
+3. The single queue runs in the loop and its paired cell matches.
+4. Each of the three arms is read head to head against the control on its bar.
+5. A recipe of record is named with the reason for each part, or the ADR says which parts the arms could not separate.
+6. The held-out precon read and the copier's cause are on file.
+7. The value-head track's first layer is read on its bar.
+8. The closeout routes the deferred items by name.
+
+## Kill conditions (pre-registered)
+
+- **The era bridge.** `iter-405` reads more than 3pp below its paired old-jar figure against the plain heuristic. The arms do not start; the difference is attributed first (the heuristic's change against a broken hook).
+- **An arm trips a run guard twice** on the same row. The arm stops and is read where it stands.
+- **The control arm falls.** Its in-loop read drops more than 2 standard errors below day-zero at the mid-point. The recipe does not hold on the new engine; the arms pause and the value anchor's draw is read first.
+- **The soft-target dose ladder loses at every dose.** The arm is not run, with the ladder as the reason.
+
+## Inherited obligations and hazards
+
+- Power statement before every launch. Arms are sized against the read's resolution before they are ordered.
+- Numbers are not compared across the merge. The era bridge is the only link.
+- A fixed truth set is memorized inside a run and goes stale as the policy moves (ADR-0124).
+- No tree edits while an arm runs; desk work is in worktrees.
+- Calibrated timings launch with `--quiet-box`.
+- The upstream stream is unchanged: one engine PR and one GUI PR at a time, from `../forge-upstream`.
+
+## Out of scope / routed by name
+
+| Item | Disposition |
+|---|---|
+| More learning per game | Folded into the search-off arm and its follow-up; a separate arm only if those leave it open |
+| The engine benchmark and port | Deferred behind the search-off read: search off (about 5 times) and the queue are cheaper throughput |
+| The short format, the Pauper testbed, a second format | Deferred: the benchmark is precons |
+| The belief sampler, ponder-time search | After the arms' decision on search |
+| The four-player track | After the copier's cause and the two-player held-out read; a held-out pod read before any pod training |
+| Pool growth by precon era, the trunk-capacity probe | After the recipe is rewritten; the probe before any capacity change |
+| Learnable stops | Re-deferred: a new surface, after the arms |
+| The generic target choosers, the untraced callbacks, the late-payability scan | With the play-or-draw boundary |
+| Shipping the network | The user's call on timing; independent of this order |
+| The infrastructure survey's open findings (ADR-0126, first addendum) | With Build 2, as the loop is open |
+| A Spellbench entry, an LLM opponent seat, the learned ability encoding, learned dynamics, the skill token, match play, Tutor and Mentor, Trackio | Re-deferred with ADR-0126's reasons |
