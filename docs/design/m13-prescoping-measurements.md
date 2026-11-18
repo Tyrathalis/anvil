@@ -206,6 +206,20 @@ What the cells say:
 
 What they do not say: anything about a model-served seat. The 27 s median game of the recipe of record is a different measurement (model-served, the Duel Commander pool, the bridge in the loop). The small Monte Carlo cells (24 games) carry wide errors on every figure.
 
+### The copier check (2026-11-18): the four-player rollout failures are not fixed on upstream master
+
+The same eight four-player pods, three games each, Flat Monte Carlo at the desktop setting in every seat, on a jar built from the patch branch (`d0e50c61c7`, upstream master of 11-17 plus the count budget, the budget left off). Outputs: `data/runs/precon-cost/p4-max-patch/`; both jars are kept in `data/runs/precon-cost/jars/`.
+
+| Jar | Rollouts | Failed | Decisions that fell back as unsimulatable |
+|---|---|---|---|
+| upstream 11-10 | 19,718 | 4,939 (25.0%) | 1,189 of 3,613 (32.9%) |
+| patch branch (master 11-17) | 18,731 | 2,862 (15.3%) | 711 of 3,349 (21.2%) |
+
+- **A deck effect it is not.** The decks and seeds are the same and the failures persist, on fewer distinct cards (11 against 20). Upstream's fixes of the week reduced them by about four tenths. The two cells are not the same games: the mode's budget is a wall clock, so play diverges.
+- **Where it fails.** The unmapped objects are commanders and the Monarch's effect card, and the trace runs through `Player.copyCommandersToSnapshot` in the copier's player step. The cause is not identified. One untested guess is a player who has left the game, which would explain why two-player games fail at 1%.
+- **What it means for us.** Our search copies through the same class. The first forty two-player search games of `rank-gate` printed the copier's "Couldn't map" line 8 times, so the two-player track is not affected. The four-player track is, on any jar up to 11-17 master, for upstream's Monte Carlo opponent and for our own search alike.
+- **Routed to the M13 scoping (four-player):** find the cause on the merged engine before any four-player search or Monte Carlo read; it is a candidate upstream fix.
+
 ## Order
 
 1. Step 0 of the gate (desk).
