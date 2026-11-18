@@ -1,6 +1,6 @@
 # The measurements before the M13 scoping — designs and results
 
-**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the precon cost measurement is done (§4); the gate closed 11-18 (§2: the soft-target arm runs); the wall cost is not launched
+**Doc status:** living · draft designs for the ladder of own checkpoints, the search-ranking gate and the search's wall cost ([ADR-0126](../decisions/ADR-0126-m12-closeout.md) decision 3); the ladder closed 11-17 (its result is in §1); the precon cost measurement is done (§4); the gate closed 11-18 (§2: the soft-target arm runs); the wall cost closed 11-18 (§3: the search costs 5.2 times the worker time of a game)
 
 Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured prices, not measurements. Each design ends with what the user has to pin before launch.
 
@@ -10,7 +10,7 @@ Drafted 2026-11-16. The numbers marked *estimate* are arithmetic on measured pri
 |---|---|---|---|
 | The ladder | M13's scoreboard; whether `iter-513` and `iter-405` separate head to head | 12.0 h (closed 11-17) | none |
 | The search-ranking gate | whether the soft-target arm is run at all | 14.6 h (closed 11-18: the arm runs) | none expected |
-| The search's wall cost | how many more games a search-off arm plays at equal box time | about 2 h, quiet box | none |
+| The search's wall cost | how many more games a search-off arm plays at equal box time | 1.1 h (closed 11-18: 5.2 times the worker time) | none |
 
 **One finding changes ADR-0126's wording.** The gate cannot be run offline on the big run's stored windows. A stored window of a model-served game cannot be reached again: seed, checkpoint and flags do not pin a search line across serving setups, and no tool forks from a stored coordinate of such a game. The stores hold the search's side in full (per-option, per-roll leaf values, the margin, the acted flag). The rollout truth has to be generated live. The gate is therefore a live read, and its name here is "the search-ranking gate".
 
@@ -165,6 +165,24 @@ The four reads, all exploratory:
 **Also read from the same cells, at no cost.** The training step's share of an iteration is already on file (422 s of about 4,600 s). With the search-off games-per-hour beside it, the two numbers size the "more learning per game" arm as well.
 
 **To pin.** Nothing but the go; this one has no judgement in it.
+
+### Result (closed 2026-11-18): the search costs 5.2 times the worker time of a game
+
+`search-wall-cost` exited 0 after 69 minutes (`scripts/search_wall_cost.py`; output `data/runs/search-wall-cost/report.json`). Two 240-game self-play cells from `iter-405` on the same seeds, 24 workers and 2 sampled servers, the launch jar.
+
+| | Search on | Search off | Ratio |
+|---|---|---|---|
+| Worker-seconds per game | 190.0 | 36.5 | **5.2** |
+| Games per hour, the cell as run | 243 | 1,672 | 6.9 |
+| Games per hour with no tail (busy worker time over 24 slots) | 447 | 2,147 | 4.8 |
+| Windows per game | 485 | 484 | 1.0 |
+| Wall, minutes (of which the drain after the last launch) | 59.3 (30.7) | 8.5 (2.2) | |
+
+- **A search-off arm plays about five times the games at equal generation time.** Worker-seconds per game is the figure to size with: it does not depend on how a cell's tail drains. Build 2's 2.1 on file was a different search shape.
+- **The as-run ratio is inflated by one cell's tail.** The search-on cell spent half its wall draining, behind one game that ran to the 900-second clock; its slots were idle 46% of the time. This is the tail measured on 11-17, seen again.
+- **The bottleneck moves with the search off.** The servers ran 89% busy at a mean batch of 4.9; with the search on they ran about 42% busy at a batch of 1. A search-off arm is bound by serving, so more workers would not help it and a third server might.
+- **Training's share changes.** A 480-game iteration with the search off generates in about 12 minutes with no tail (*estimate*, from the worker time), against a training step of 422 s. Training would be about a third of the iteration, so an equal-box-time search-off arm gets about three and a half times the games and the iterations, not five. That ratio is one of the things M13 has to choose, not a given.
+- **The games.** Search on: 237 won, 2 draws (one on the clock), 1 NullPointerException crash. Search off: 239 won, 1 draw.
 
 ## 4. The cost of a precon game, two-player and four-player (measured 2026-11-17)
 
