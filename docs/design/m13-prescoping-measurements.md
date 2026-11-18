@@ -126,6 +126,14 @@ The four reads, all exploratory:
 
 **The bar, on the slope (pinned by the user 11-17, before any live row was read).** The soft-target arm is not run if the un-acted slope is within two standard errors of zero. It runs with a note on its dose if the slope is under 0.10. Otherwise it runs. The acted slope is the reference beside it.
 
+### The pricing smoke (2026-11-17, `rank-gate-smoke`) and the live read's launch
+
+- **Price.** Four games took 3.1 game-hours and gave 114 searched windows, 107 of them with a deep round: about 100 game-seconds per window on an unloaded box, a third of the estimate above. One game ran 2.5 hours (43 turns); the other three ran 10 to 17 minutes. The read's wall time is set by its longest games.
+- **The three checks.** The floor at 1.0 ran the deep round on every window with two or more valued options, the 14 over the bar included. The natural pick was in every deep set, which held two to four options. The recorded shallow margin equals the margin of the plain option values in all 114 rows.
+- **Record-only, a departure from the draft.** `-searchdeepbar 9` keeps the deep round from acting; otherwise the games would act on four-rollout end values. No window acted in the smoke. The states are therefore the network's own play, not the search-acted games' states.
+- **Two more departures, from the harness.** `final_read.py` serves greedy and plays every game against the heuristic; the loop samples and plays half mirrors. The allocation threshold is `iter-405`'s own fit, 0.01855.
+- **The live read** (`rank-gate`, launched 11-17 16:40): 160 games, 80 per seat on 80 pairings, seed base 20261119, 24 workers and 2 servers, `forge-tgtmask3.jar`. Read with `scripts/search_rank_split.py --live`. About 4,500 windows (*estimate*).
+
 ## 3. The search's wall cost on the current recipe
 
 **Question.** How many games per box-hour does generation produce with the search off, against the recipe of record?

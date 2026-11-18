@@ -15,8 +15,16 @@ or tied in most windows, so the Spearman has almost no power and is not a gate s
 (ADR-0106's 11-17 addendum).
 
     uv run python scripts/search_rank_split.py --shallow next=<s0>,<s1> --truth end=<s0>,<s1> --out split.json
+
+`--live <dir>[,<dir>...]` reads one run instead, whose search rows carry both sides: the shallow
+option values and a deep round of end rollouts on the natural pick plus the top options
+(`-searchdeep B -searchdeepleaf end -searchdeepfloor 1.0`, `-searchdeeplo` at the bar and
+`-searchdeepbar` over 1 so nothing acts). The candidates are the deep set.
+
+    uv run python scripts/search_rank_split.py --live <s0>,<s1> --out live.json
 """
 import argparse
+import glob
 import json
 import sys
 from collections import Counter
@@ -78,22 +86,34 @@ def slope(rows, rng, n=2000):
             "shallow_sumsq": float(arr[:, 1].sum()), "windows": len(rows), "games": len(arr)}
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--shallow", required=True, help="leaf=dir[,dir...]")
-    ap.add_argument("--truth", required=True, help="leaf=dir[,dir...]")
-    ap.add_argument("--bar", type=float, default=0.10)
-    ap.add_argument("--min-cands", type=int, default=3)
-    ap.add_argument("--out", default=None)
-    a = ap.parse_args()
+def live_windows(dirs):
+    """Yield (seed, shallow means, truth means, natural's position, truth half-means) per deep-round window."""
+    for d in dirs:
+        for f in sorted(glob.glob(str(Path(d) / "workers" / "*" / "labels.jsonl"))):
+            for ln in open(f):
+                if not ln.startswith('{"ev":"search"'):
+                    continue
+                r = json.loads(ln)
+                deep = r.get("deep") or {}
+                if deep.get("by") not in ("floor", "band") or not deep.get("copies"):
+                    continue
+                labels = [o["label"] for o in r["opts"]]
+                nat = labels.index(r["nat"]) if r["nat"] in labels else -1
+                s, t, halves, nat_pos = [], [], [], -1
+                for cp in deep["copies"]:
+                    o = cp["o"]
+                    sm, tm = mean_value(r["opts"][o]), mean_value(cp)
+                    if sm is None or tm is None:
+                        continue
+                    if o == nat:
+                        nat_pos = len(s)
+                    s.append(sm)
+                    t.append(tm)
+                    halves.append(half_means(cp))
+                yield int(r["seed"]), s, t, nat_pos, halves
 
-    arms = {}
-    for spec in (a.shallow, a.truth):
-        leaf, _, dirs = spec.partition("=")
-        arms[leaf] = load_arm([Path(d) for d in dirs.split(",") if d], Counter())
-    (sh, sw), (tr, tw) = arms.items()
 
-    rows = []
+def pair_windows(sw, tw):
     for k in sorted(set(sw) & set(tw)):
         so, to = sw[k]["opts"], tw[k]["opts"]
         if [o["label"] for o in so] != [o["label"] for o in to] or sw[k]["nat"] != tw[k]["nat"]:
@@ -101,24 +121,48 @@ def main() -> None:
         cands = [i for i in range(len(so)) if mean_value(so[i]) is not None and mean_value(to[i]) is not None]
         labels = [o["label"] for o in so]
         nat = labels.index(sw[k]["nat"]) if sw[k]["nat"] in labels else -1
-        if len(cands) < 2 or nat not in cands:
+        yield (k[0], [mean_value(so[i]) for i in cands], [mean_value(to[i]) for i in cands],
+               cands.index(nat) if nat in cands else -1, [half_means(to[i]) for i in cands])
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--shallow", help="leaf=dir[,dir...]")
+    ap.add_argument("--truth", help="leaf=dir[,dir...]")
+    ap.add_argument("--live", help="dir[,dir...]: one run whose rows carry a deep end round")
+    ap.add_argument("--bar", type=float, default=0.10)
+    ap.add_argument("--min-cands", type=int, default=3)
+    ap.add_argument("--out", default=None)
+    a = ap.parse_args()
+
+    if a.live:
+        sh, tr = "next", "end (deep round)"
+        windows = live_windows([d for d in a.live.split(",") if d])
+    else:
+        arms = {}
+        for spec in (a.shallow, a.truth):
+            leaf, _, dirs = spec.partition("=")
+            arms[leaf] = load_arm([Path(d) for d in dirs.split(",") if d], Counter())
+        (sh, sw), (tr, tw) = arms.items()
+        windows = pair_windows(sw, tw)
+
+    rows = []
+    for seed, s, t, nat_pos, halves in windows:
+        if len(s) < 2 or nat_pos < 0:
             continue
-        s = [mean_value(so[i]) for i in cands]
-        t = [mean_value(to[i]) for i in cands]
-        margin = max(s) - s[cands.index(nat)]
+        margin = max(s) - s[nat_pos]
         sc, tc = np.array(s) - np.mean(s), np.array(t) - np.mean(t)
-        ranked = len(cands) >= a.min_cands
+        ranked = len(s) >= a.min_cands
         r = rho(s, t) if ranked else None
-        halves = [half_means(to[i]) for i in cands]
         ceil = rho([h[0] for h in halves], [h[1] for h in halves]) if ranked and all(halves) else None
         am = int(np.argmax(s))
         rows.append({
-            "seed": k[0], "margin": margin, "acted": margin >= a.bar, "n": len(cands),
+            "seed": seed, "margin": margin, "acted": margin >= a.bar, "n": len(s),
             "sxy": float(sc @ tc), "sxx": float(sc @ sc),
             "rho": r, "truth_flat": 1.0 if np.std(t) == 0 else 0.0, "ceil": ceil,
             "top_hit": 1.0 if t[am] >= max(t) else 0.0,
             "chance_hit": float(np.mean([x >= max(t) for x in t])),
-            "gain": t[am] - t[cands.index(nat)],
+            "gain": t[am] - t[nat_pos],
         })
 
     rng = np.random.default_rng(0)
