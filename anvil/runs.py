@@ -671,7 +671,38 @@ def _base_state(a: argparse.Namespace, cmd: list[str], run_dir: Path, log: Path)
         "nice": a.nice, "memory_max": a.memory_max, "cwd": a.cwd,
         "resume": bool(getattr(a, "resume_on_gone", False)), "resume_max": getattr(a, "resume_max", 3),
         "resume_count": getattr(a, "resume_count", 0),
+        "quiet_box": bool(getattr(a, "quiet_box", False)),
     }
+
+
+# --quiet-box refuses a launch at or over this 1-minute load average
+QUIET_LOAD_MAX = 2.0
+
+
+def live_runs(quiet_only: bool = False, but: str | None = None) -> list[str]:
+    """Names of the launched runs still live (supervised or orphaned), other than `but`."""
+    out = []
+    for p in sorted((state_dir() / "runs").glob("*.json")):
+        try:
+            r = json.loads(p.read_text())
+        except json.JSONDecodeError:
+            continue
+        if r.get("name") == but or r.get("state") not in LIVE_STATES or liveness(r) == "dead":
+            continue
+        if quiet_only and not r.get("quiet_box"):
+            continue
+        out.append(r.get("name", p.stem))
+    return out
+
+
+def quiet(a: argparse.Namespace) -> int:
+    """Exit 1 while a --quiet-box run is live (the pre-push hook's question), else 0."""
+    names = live_runs(quiet_only=True)
+    if names:
+        print(f"quiet box: {', '.join(names)} is a calibrated timing and is still running; "
+              f"hold anything heavy until it closes (`anvil.runs wait --name {names[0]}`)")
+        return 1
+    return 0
 
 
 def supervise(a: argparse.Namespace, cmd: list[str]) -> int:
@@ -877,6 +908,21 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
         print(f"launch: run {a.name} is orphaned — its supervisor is dead and its command is still alive "
               f"({command_alive(prev)}); {_orphan_advice(prev)}", file=sys.stderr)
         return 3
+    # a calibrated timing runs alone: nothing starts beside one, and one starts only on an idle box
+    held = live_runs(quiet_only=True, but=a.name)
+    if held:
+        print(f"launch: {', '.join(held)} holds the box quiet (a calibrated timing); launch after it closes",
+              file=sys.stderr)
+        return 3
+    quiet_note = ""
+    if getattr(a, "quiet_box", False):
+        others, load = live_runs(but=a.name), os.getloadavg()[0]
+        if others or load >= QUIET_LOAD_MAX:
+            why = (f"{', '.join(others)} is running" if others
+                   else f"the 1-minute load is {load:.1f} (the limit is {QUIET_LOAD_MAX:.1f})")
+            print(f"launch: --quiet-box refused: {why}; a calibrated timing needs an idle box", file=sys.stderr)
+            return 3
+        quiet_note = f", quiet box: HELD (load {load:.1f} at launch; launches and pushes wait)"
     run_dir = Path(a.dir).resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
     # the check-in consumer, resolved + self-tested BEFORE the fork so the
@@ -938,7 +984,7 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
         + (f" + {' '.join(a.watch)}" if a.watch else "") + f", sinks {'+'.join(sinks)}, "
         f"check-in {checkin_note}, relay to "
         + (f"{st['launched_by']}" if st.get("launched_by") else "UNSET (any live anvil session; pass --launched-by)")
-        + f", {mem_note}"
+        + f", {mem_note}{quiet_note}"
         + (f"; note: {st['note']}" if st.get("note") else ""),
         flush=True,
     )
@@ -1182,6 +1228,7 @@ def _relaunch_args(r: dict, no_selftest: bool = False, launched_by: str | None =
         foreground=False, checkin=requested, no_selftest=no_selftest, watch=r.get("watch") or [],
         resume_on_gone=bool(r.get("resume")), resume_max=r.get("resume_max", 3),
         resume_count=r.get("resume_count", 0), launched_by=launched_by or r.get("launched_by"),
+        quiet_box=bool(r.get("quiet_box")),
     )
 
 
@@ -1398,6 +1445,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="the relaunch cap under --resume-on-gone (a crash loop stops); the count starts over at "
                          "every manual `relaunch`")
     la.add_argument("--resume-count", type=int, default=0, help=argparse.SUPPRESS)
+    la.add_argument("--quiet-box", action="store_true",
+                    help="a calibrated timing: refused unless the box is idle (no other launched run, 1-minute "
+                         "load under 2); while it runs, other launches are refused and the pre-push hook waits")
     pa = sub.add_parser("pause", help="write STOP for the run's command, mark it paused when it exits (no FAILED push)")
     pa.add_argument("--name", required=True)
     pa.add_argument("--now", action="store_true", help="also SIGTERM the command's process group: every process of the run's tree gets it itself")
@@ -1434,11 +1484,12 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--days", type=int, default=30)
     sub.add_parser("sweep")
     sub.add_parser("install-sweep")
+    sub.add_parser("quiet", help="exit 1 while a --quiet-box run is live, else 0 (the pre-push hook asks)")
     a = ap.parse_args(argv)
     return {"launch": lambda: launch(a, cmd), "status": lambda: status(a), "wait": lambda: wait(a),
             "alerts": lambda: alerts(a), "ack": lambda: ack(a), "prune": lambda: prune(a),
             "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a), "tick": lambda: tick(a),
-            "pause": lambda: pause(a), "relaunch": lambda: relaunch(a)}[a.verb]()
+            "pause": lambda: pause(a), "relaunch": lambda: relaunch(a), "quiet": lambda: quiet(a)}[a.verb]()
 
 
 if __name__ == "__main__":

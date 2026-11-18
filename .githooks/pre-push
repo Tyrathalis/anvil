@@ -9,6 +9,11 @@ if [[ "${SKIP_HOOK:-0}" == "1" ]]; then
   exit 0
 fi
 cd "$(git rev-parse --show-toplevel)"
+# A calibrated timing (anvil.runs launch --quiet-box) is running: the test suite would load the box.
+if ! uv run python -m anvil.runs quiet; then
+  echo "[pre-push] held: wait for the run, or SKIP_HOOK=1 git push to push without the checks"
+  exit 1
+fi
 echo "[pre-push] ruff check..."
 uv run ruff check anvil scripts tests
 echo "[pre-push] pytest (CPU, as CI runs it — a GPU cotenant must never park the gate)..."

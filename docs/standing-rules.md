@@ -117,6 +117,7 @@ the story stay in its ADR.
 ## Search, budgets, and run sizing
 
 - **An arm's box time is the driver's accumulated wall (`selfplay.py --wall-hours`), never its game count.** A paused arm resumes its budget ([ADR-0115](decisions/ADR-0115-m12-shakedown-scoping.md)).
+- **A calibrated timing launches with `--quiet-box`.** It starts only on an idle box, and other launches and the pre-push hook wait for it ([ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md), 11-18 addendum).
 - **A deliberate stop is `anvil.runs pause`, a return `relaunch`, and a long run launches with `--resume-on-gone`.** A job idle on purpose heartbeats the run dir, so the stall alarm and the failed push stay for what went wrong ([ADR-0107](decisions/ADR-0107-run-launcher-and-checkin.md) addendum).
 - **A long run is segmented by its wall budget, never by chained loops**: one loop, one state file, one replay window, one drift series. The loop's wall stop is the review point, and the next segment is the same command relaunched with the budget raised ([ADR-0123](decisions/ADR-0123-big-run-launch.md)).
 - **Size every run to its effect.** A power statement (games to detect the target, games to produce it) precedes every launch; a gate that cannot resolve its effect is a null generator ([ADR-0101](decisions/ADR-0101-architecture-review-m12-recharter.md)).

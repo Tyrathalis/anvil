@@ -1093,3 +1093,37 @@ def test_set_nice_is_absolute():
         pytest.skip("the test process is already nicer than the values it sets")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "10"
+
+
+# ---------------------------------------------------------------- --quiet-box (a calibrated timing runs alone)
+
+
+def test_quiet_box_holds_other_launches_and_the_quiet_verb(state, monkeypatch):
+    monkeypatch.setattr(os, "getloadavg", lambda: (0.1, 0.1, 0.1))
+    env = dict(os.environ, ANVIL_STATE_DIR=str(state / "state"), ANVIL_NOTIFY_SILENT="1")
+    out = subprocess.run(
+        [sys.executable, "-m", "anvil.runs", "launch", "--name", "qb", "--dir", str(state / "qb"), "--tick-sec", "0.2",
+         "--quiet-box", "--", "sh", "-c", "sleep 3; exit 0"],
+        capture_output=True, text=True, env=env, timeout=30,
+    )
+    if out.returncode == 3 and "load is" in out.stderr:
+        pytest.skip("the box is loaded; the launch was refused as designed")
+    assert out.returncode == 0, out.stderr
+    assert "quiet box: HELD" in out.stdout
+    assert runs.read_run("qb")["quiet_box"] is True
+    assert runs.main(["quiet"]) == 1  # the pre-push hook's answer while it runs
+    assert _launch(state, "beside", ["true"]) == 3  # nothing starts beside a calibrated timing
+    assert runs.read_run("beside") is None
+    assert runs._relaunch_args(runs.read_run("qb")).quiet_box is True
+    assert runs.main(["wait", "--name", "qb", "--timeout", "20"]) == 0
+    assert runs.main(["quiet"]) == 0
+    assert _launch(state, "after", ["true"]) == 0
+
+
+def test_quiet_box_is_refused_on_a_loaded_box(state, monkeypatch):
+    monkeypatch.setattr(os, "getloadavg", lambda: (9.0, 9.0, 9.0))
+    assert _launch(state, "ql", ["true"], quiet_box=True) == 3
+    assert runs.read_run("ql") is None
+    monkeypatch.setattr(os, "getloadavg", lambda: (0.1, 0.1, 0.1))
+    assert _launch(state, "ql", ["true"], quiet_box=True) == 0
+    assert runs.main(["quiet"]) == 0  # a finished run holds nothing

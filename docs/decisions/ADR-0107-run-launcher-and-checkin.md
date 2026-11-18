@@ -204,3 +204,10 @@ What changes in the launcher's contract:
 Routed by name to the big run's closeout: whether a shutdown without `pause` should read as `gone` and be
 resumed; an identity check for the supervisor's pid; `pause` on an orphaned run, with the `anvil.runs stop`
 verb that is still open from 09-18.
+
+## Addendum (2026-11-18): `--quiet-box`, a calibrated timing runs alone
+
+- **What changed.** `launch --quiet-box` marks a run as a calibrated timing. It is refused unless no other launched run is live and the 1-minute load is under 2. While it is live, every other `launch` is refused, and `anvil.runs quiet` exits 1; the pre-push hook asks that verb and waits.
+- **Why.** Nothing protected a timing from the rest of the tooling. During `search-wall-cost` (11-18) the launching session held its pushes by hand, because a push runs the test suite for over a minute on every core.
+- **What it does not cover.** Load from outside the launcher: a desktop application, a GPU job, a hand-started process. The load check is taken once, at launch.
+- **Escape.** `SKIP_HOOK=1 git push` pushes without the checks, as before.

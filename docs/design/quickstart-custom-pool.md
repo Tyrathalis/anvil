@@ -407,6 +407,10 @@ uv run python -m anvil.runs pause --name mydecks-loop --wait   # STOP for the lo
 uv run python -m anvil.runs relaunch --name mydecks-loop       # the same command again, in place; the loop resumes its state
 ```
 
+A timing you mean to compare against another is launched with `--quiet-box`. The launch is refused
+unless the box is idle (no other launched run, 1-minute load under 2). While it runs, other launches
+are refused and the pre-push hook waits, so a test run cannot land on the measurement.
+
 For a maintenance reboot: `pause --wait`, update, reboot, `relaunch`. A run launched with
 `--resume-on-gone` is relaunched by the sweep timer itself when it finds the supervisor dead and
 nothing of the run alive (a power loss, a hard reset, an OOM kill of the run), up to `--resume-max`
