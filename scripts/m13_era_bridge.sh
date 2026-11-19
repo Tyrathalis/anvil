@@ -10,7 +10,7 @@
 #   uv run python -m anvil.runs launch --name era-bridge --dir data/runs/era-bridge \
 #     --launched-by '<ListAgents name> [<ref>]' --watch 'data/runs/eb-*' --stall-min 120 -- bash scripts/m13_era_bridge.sh
 #   env: CKPT, REF, JAR (merged), OLD_JAR, ABIL (table stem for the merged jar), SEED_BASE, GAMES (per seat),
-#        REP_GAMES (per seat, 0 = skip), OLD_A / OLD_B (the old-jar arms of CKPT / REF), WORKERS
+#        REP_GAMES (per seat, 0 = skip), OLD_FORGE_DIR, OLD_A / OLD_B (the old-jar arms of CKPT / REF), WORKERS
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
 CKPT=${CKPT:-data/training/big-run/iter-405/train/last.pt}
@@ -36,7 +36,9 @@ read_na() { # <tag> <ckpt> <jar> <games> [server args] -> $OUT/<tag>.done (the t
 winrate() { uv run python scripts/arms_report.py --arm "$1=$2" --out "$OUT/$1.json" 2>/dev/null | grep -o "winrate [0-9.]* ± [0-9.]*" | head -1; }
 paired() { uv run python scripts/paired_arms.py --a "$1" --b "$2" 2>&1 | tee "$OUT/$3.paired.txt" | grep -o 'A - B: [^)]*)' | head -1; }
 log "era bridge: ckpt=$CKPT ref=$REF jar=$JAR old_jar=$OLD_JAR abil=$ABIL seed_base=$SEED_BASE games=$GAMES/seat rep=$REP_GAMES/seat"
-if (( REP_GAMES > 0 )); then read_na "oldrep" "$CKPT" "$OLD_JAR" "$REP_GAMES" || exit 1; fi
+# The old jar cannot load the merged checkout's card scripts: its re-run reads the old era's resources from
+# OLD_FORGE_DIR, a worktree whose forge-gui/res equals the old pin's (5bd040351f; checked by git diff).
+if (( REP_GAMES > 0 )); then FORGE_DIR=${OLD_FORGE_DIR:-/home/tyrathalis/Everything/Projects/forge-baselines} read_na "oldrep" "$CKPT" "$OLD_JAR" "$REP_GAMES" || exit 1; fi
 read_na "new" "$CKPT" "$JAR" "$GAMES" "--abilities $ABIL" || exit 1
 read_na "ref-new" "$REF" "$JAR" "$GAMES" "--abilities $ABIL" || exit 1
 NEW_A=$(cat "$OUT/new.done"); NEW_B=$(cat "$OUT/ref-new.done")
