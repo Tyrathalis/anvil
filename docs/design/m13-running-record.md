@@ -44,3 +44,13 @@
   - **The `pay` ask mix could not be read here.** A network-alone read serves no payment window in either era. The item stays open for the first read that serves one.
   - **Merged-jar games are shorter with the loop fixed:** median 15.0 s against 18.1 s on 11-07. The old jar played about 27% slower today than on 11-07; not investigated.
   - **Next:** Build 0 step 3, Monte Carlo on against off.
+- **2026-11-19 — Build 0 step 3 closes: the Monte Carlo opponent is calibrated and read** ([ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md); `data/runs/m13-mc/read/read.md`).
+  - **Monte Carlo at the calibrated budget beats the plain heuristic by +9.32 ± 0.77pp,** paired on seed (4,991 pairs). It wins 0.5903 ± 0.0070 of its games.
+  - **The count budget is 8 rounds.** The desktop mode on its clock, one JVM on the idle box, achieved 8.95 rollouts per decision; the 8-round rung gave 9.00 on 40 games and 8.91 on the read's 197,117 decisions.
+  - **The harness has a per-seat switch** (`-mc`, `-mcseats`, `-mcprops`, `-mcdecisions`, `-mcclock`). The fork pin is `e40ba17c9c`, pushed. Its forkcheck matched the era's baseline 500 of 500, so it is not a boundary.
+  - **The clock starves under our load.** At 24 workers the desktop mode got 5.26 rollouts per decision and read +7.80 ± 1.74pp on 1,000 games.
+  - **The count budget costs about ten times a plain game:** 740 games per hour against 7,400, mean game 100 s against 10 s. The tail drives it; the 95th-percentile decision took 8.4 s. The read took 8 hours against an estimate of 3.
+  - **The AI deadline binds rarely under load:** 44 firings in the plain mirror's 2,500 games.
+  - **What broke.** 18 workers ran out of memory on 2 GB heaps in the count arms (9 games of 5,000 lost). The report crashed on a line cut by a dead worker and the run still read `done`; the report is fixed and was re-run by hand.
+  - **Routed:** the copier's "Couldn't map" on tokens, a `getDividedValue` `NullPointerException` and a `StackOverflowError` game to Build 1; the driver's unpropagated report failure to Build 2.
+  - **Next:** Build 0 step 4, `iter-405` against the 8-round opponent, on 4 GB heaps. About 7 box hours for 5,000 games; sized for the user first.

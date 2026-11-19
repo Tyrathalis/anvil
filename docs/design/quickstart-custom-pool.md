@@ -323,6 +323,7 @@ many windows were searched and acted on.
 |---|---|---|
 | `-search` | off | turn the search on for every model-played seat (`-searchseats <csv>` names seats; a heuristic seat named there is searched too, a control) |
 | `-profiles <csv>` | `Cautious,Default,Experimental,Reckless` | not a search flag: the AI profiles each seat's profile is drawn from (seeded), passed through `--forge-args`; a named profile that is missing is fatal |
+| `-mc on\|max` | off | not a search flag: upstream's Flat Monte Carlo for heuristic seats, passed through `--forge-args` ([ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md)). `max` is the desktop mode on its wall clock. `-mcseats <csv>` names the seats (default: those outside `-bridgeseats`); `-mcprops K=V,...` overrides profile properties for them (the count budget of record is `count_props 8` in `scripts/m13_mc.sh`); `-mcdecisions [<jsonl>]` writes one row per decision; `-mcclock <s>` (1800) extends the wall crash guard. Count-budget games need a 4 GB heap |
 | `-searchrate p` | 1.0 | search each candidate window with probability p (seeded) |
 | `-searchrolls R` | 1 | copies per option, with shared random draws across options (2 in the recipe) |
 | `-searchopts N` | 0 = all | cap on the options tried |

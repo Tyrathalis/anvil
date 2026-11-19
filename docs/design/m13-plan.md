@@ -1,8 +1,8 @@
 # M13 plan — WHAT IN THE RECIPE PRODUCES THE GAIN (OPENED 2026-11-18, ADR-0127)
 
-**Doc status:** living · M13 plan (opened 2026-11-18, ADR-0127): three arms at equal box time after an upstream merge; the merge and the era bridge closed 11-18 (ADR-0128; the kill condition not tripped), Build 0 step 3 is next; the record: m13-running-record.md
+**Doc status:** living · M13 plan (opened 2026-11-18, ADR-0127): three arms at equal box time after an upstream merge; the merge and the era bridge closed 11-18 (ADR-0128; the kill condition not tripped), Build 0 step 3 closed 11-19 (ADR-0129: Monte Carlo at 8 rounds, +9.32 ± 0.77pp over the plain heuristic), step 4 is next; the record: m13-running-record.md
 
-*Status: OPEN. Chartered 2026-11-18 ([ADR-0127](../decisions/ADR-0127-m13-charter.md)) from [ADR-0126](../decisions/ADR-0126-m12-closeout.md)'s routing table, re-read against the pre-scoping measurements ([m13-prescoping-measurements.md](m13-prescoping-measurements.md)). The user agreed the order and pinned the seven forks the same day. The session-by-session record is [m13-running-record.md](m13-running-record.md). Build 0 step 1, the merge, landed 11-18 ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md)); step 2, the era bridge, closed 11-18 with its kill condition not tripped (`iter-405` 0.6064 ± 0.0069 on the merged jar, −1.53 ± 0.75pp paired against the old jar); step 3 is next.*
+*Status: OPEN. Chartered 2026-11-18 ([ADR-0127](../decisions/ADR-0127-m13-charter.md)) from [ADR-0126](../decisions/ADR-0126-m12-closeout.md)'s routing table, re-read against the pre-scoping measurements ([m13-prescoping-measurements.md](m13-prescoping-measurements.md)). The user agreed the order and pinned the seven forks the same day. The session-by-session record is [m13-running-record.md](m13-running-record.md). Build 0 step 1, the merge, landed 11-18 ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md)); step 2, the era bridge, closed 11-18 with its kill condition not tripped (`iter-405` 0.6064 ± 0.0069 on the merged jar, −1.53 ± 0.75pp paired against the old jar); step 3 closed 11-19 ([ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md): the count budget calibrated at 8 rounds, the Monte Carlo seat +9.32 ± 0.77pp over the plain heuristic at about ten times the cost per game); step 4 is next.*
 
 ## Charter
 
@@ -124,6 +124,7 @@ All three start from `iter-405` on the merged jar, run for equal box time under 
 | The engine benchmark and port | Deferred behind the search-off read: search off (about 5 times) and the queue are cheaper throughput |
 | The short format, the Pauper testbed, a second format | Deferred: the benchmark is precons |
 | The belief sampler, ponder-time search | After the arms' decision on search |
+| A hidden-card prediction target (the opponent's deck contents from the commander and the cards seen, labelled by full-visibility states) | With Tutor: it shares the deck representation. Raised 11-18; read as intermediate data whether or not it moves the winrate. Distinct from the belief sampler above, which it could later feed |
 | The four-player track | After the copier's cause and the two-player held-out read; a held-out pod read before any pod training |
 | Pool growth by precon era, the trunk-capacity probe | After the recipe is rewritten; the probe before any capacity change |
 | Learnable stops | Re-deferred: a new surface, after the arms |
