@@ -54,3 +54,10 @@
   - **What broke.** 18 workers ran out of memory on 2 GB heaps in the count arms (9 games of 5,000 lost). The report crashed on a line cut by a dead worker and the run still read `done`; the report is fixed and was re-run by hand.
   - **Routed:** the copier's "Couldn't map" on tokens, a `getDividedValue` `NullPointerException` and a `StackOverflowError` game to Build 1; the driver's unpropagated report failure to Build 2.
   - **Next:** Build 0 step 4, `iter-405` against the 8-round opponent, on 4 GB heaps. About 7 box hours for 5,000 games; sized for the user first.
+- **2026-11-19, afternoon — Build 0 step 4 closes: `iter-405` is level with the Monte Carlo opponent** ([ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md), addendum; `data/runs/m13-mc/ckpt/mcck.md`).
+  - **`iter-405` reads 0.5099 ± 0.0071 against the 8-round Monte Carlo heuristic,** network alone, 4,995 games on the era bridge's seeds. Paired against its plain-heuristic arm that is −9.12 ± 0.78pp (4,882 seeds).
+  - **The two reads agree on the opponent's strength:** +9.32pp over the plain heuristic in step 3, −9.12pp for the network here.
+  - **A game costs 4.2 times a plain one** (mean 70.5 s against 16.8 s). The read took 5.2 hours.
+  - **11 workers ran out of memory at a 3 GB cap;** five games are missing. The battery reports no anomaly.
+  - **Pin 7 is the user's call and is open.** The opponent is strong enough to teach and costs four times a plain game.
+  - **Next:** the user's decision on pin 7, then Build 0 step 5, the held-out precon read.

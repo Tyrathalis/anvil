@@ -64,3 +64,19 @@ Upstream's heuristic has a Flat Monte Carlo mode that the GUI turns on for playe
 - **Routed to Build 1,** with the crashes already there: the copier's "Couldn't map" on tokens, the `getDividedValue` `NullPointerException`, the `StackOverflowError` game. **Routed to Build 2:** the driver's report step failing without failing the run.
 - **Upstream:** the decision listener and the per-decision counts on `Result` are small and general; they queue behind the count budget (Tier 0.10) and are not expedited.
 - No standing rule is born.
+
+## Addendum, 2026-11-19: step 4, `iter-405` against the Monte Carlo opponent
+
+**`iter-405` is level with the Monte Carlo opponent: 0.5099 ± 0.0071 on 4,995 games, network alone.** Against the plain heuristic on the same seeds it reads 0.6064 ± 0.0069 (the era bridge's arms). The paired difference is −9.12 ± 0.78pp on 4,882 seeds. The opponent's own margin over the plain heuristic was +9.32 ± 0.77pp, so the two reads agree on its strength.
+
+The read (`data/runs/m13-mc/ckpt/mcck.md`; `scripts/m13_mc.sh ckpt`): the era bridge's seeds (20261107), 2,500 games per seat, masked, raw, the heuristic seat on the 8-round count budget, the Monte Carlo jar, 24 workers with heaps capped at 3 GB.
+
+- **A win is a win over all games.** 73 games were drawn (1.5%) and 10 crashed; both count against `iter-405`. The opponent won about 47.3% of the games.
+- **The budget held:** 9.07 rollouts per decision on 172,452 decisions, 3.50 main-phase rounds.
+- **A game costs 4.2 times a plain one:** mean 70.5 s against 16.8 s in the era bridge's arms (median 37.1 s against 14.9 s). The read ran at about 950 games per hour over its 5.2 hours.
+- **11 workers ran out of memory at the 3 GB cap** (18 at 2 GB in step 3, in a comparable number of games). Five games of 5,000 are missing. The fleet held about 50 GB with 12 GB in compressed swap.
+- **Crashes:** three `StackOverflowError` games, three `NullPointerException`, three `SacrificeEffect`, one wall-guard timeout. The battery reports no anomaly.
+
+**What it means for pin 7.** The opponent is strong enough to teach: the network does not beat it. A game against it costs about four times a plain heuristic game. The decision is the user's and is not taken here. The scoping's fifth read, one short generation cell with the Monte Carlo opponent in the heuristic seat for games per box-hour, is the remaining measurement if the choice is still open.
+
+The announcement's second number is on file: `iter-405`, network alone, 0.5099 ± 0.0071 against the desktop Monte Carlo heuristic at an idle desktop's budget.

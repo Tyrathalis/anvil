@@ -8,13 +8,15 @@
 #           counts through the max flag and through profile properties must give the same games.
 #   read    Monte Carlo on against off at the calibrated counts (ROUNDS), both seat assignments, plus the
 #           plain mirror on the same seeds and the desktop mode on its clock under the fleet's load.
+#   ckpt    step 4: a checkpoint, network alone, against the Monte Carlo heuristic at ROUNDS, on the era
+#           bridge's seeds, paired with the same checkpoint's plain-heuristic arms (PLAIN_ARMS, on file).
 # Report: uv run python scripts/m13_mc_report.py <stage> ...
 # Launch:
 #   uv run python -m anvil.runs launch --name m13-mc-<stage> --dir data/runs/m13-mc/<stage> \
 #     --launched-by '<ListAgents name> [<ref>]' [--quiet-box] [--watch 'data/runs/mc-*'] -- bash scripts/m13_mc.sh <stage>
 #   env: JAR, PAIRS, SEED_CAL, CAL_GAMES, RUNGS, ROUNDS, SEED_READ, GAMES (per seat), CLOCK_GAMES (per seat), WORKERS
 set -u
-STAGE=${1:?stage: clock | ladder | read}
+STAGE=${1:?stage: clock | ladder | read | ckpt}
 REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
 FORGE_DIR=${FORGE_DIR:-/home/tyrathalis/Everything/Projects/forge}
 JAR=${JAR:-$REPO/data/runs/m13-mc/forge-m13-mc-switch.jar}
@@ -22,7 +24,7 @@ COMMIT=$(cat "${JAR%.jar}.commit")
 PAIRS=${PAIRS:-$REPO/data/runs/eb-newarm-s0-20261118-184910/pairs.txt}
 SEED_CAL=${SEED_CAL:-20261119}; CAL_GAMES=${CAL_GAMES:-40}; RUNGS=${RUNGS:-"2 3 4 5 6 8 10"}
 SEED_READ=${SEED_READ:-20261120}; GAMES=${GAMES:-2500}; CLOCK_GAMES=${CLOCK_GAMES:-500}; WORKERS=${WORKERS:-24}
-OUT=$REPO/data/runs/m13-mc/$STAGE; mkdir -p "$OUT"
+OUT=${OUT_DIR:-$REPO/data/runs/m13-mc/$STAGE}; mkdir -p "$OUT"
 log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 
 # What the max flag sets beyond the four drawn profiles, as profile properties, so the counts can go BELOW
@@ -91,6 +93,34 @@ case "$STAGE" in
     arm mc-clock-s0 "$CLOCK_GAMES" "-mc max -mcseats 0 -mcdecisions" || exit 1
     arm mc-clock-s1 "$CLOCK_GAMES" "-mc max -mcseats 1 -mcdecisions" || exit 1
     uv run python scripts/m13_mc_report.py read --out "$OUT" 2>&1 | tee "$OUT/read.md" | tee -a "$OUT/queue.log"
+    ;;
+  ckpt)
+    ROUNDS=${ROUNDS:?the calibrated round count}
+    CKPT=${CKPT:-data/training/big-run/iter-405/train/last.pt}; ABIL=${ABIL:-data/embeddings/abil-cf2ca6ba-m13-qwen3}
+    SEED_CKPT=${SEED_CKPT:-20261107}; TAG=${TAG:-mcck}
+    PLAIN_ARMS=${PLAIN_ARMS:-data/runs/eb-newarm-s0-20261118-184910,data/runs/eb-newarm-s1-20261118-192149}
+    # the heuristic seat is the Monte Carlo seat (-mcseats defaults to the seats outside -bridgeseats);
+    # a count-budget rollout can outgrow the fleet's 2g heap, so the cap is raised (the last -Xmx wins)
+    export ANVIL_EXTRA_JVM_OPTS="${ANVIL_EXTRA_JVM_OPTS:--Danvil.crash.trace=true -Xmx${HEAP:-3g}}"
+    if [[ ! -f "$OUT/$TAG.done" ]]; then
+      log "ckpt: $CKPT against Monte Carlo at $ROUNDS rounds, $GAMES / seat, seeds $SEED_CKPT, $WORKERS workers, jvm '$ANVIL_EXTRA_JVM_OPTS'"
+      nice -n 19 uv run python scripts/final_read.py --ckpt "$CKPT" --name "$TAG" --games "$GAMES" --games-per-pair 5 \
+        --seed-base "$SEED_CKPT" --workers "$WORKERS" --port 50086 --servers 0 --jar "$JAR" --skip-ante \
+        --server-args "--abilities $ABIL" --forge-args "-mc on -mcdecisions -mcprops $(count_props "$ROUNDS")" \
+        >> "$OUT/$TAG.log" 2>&1 || { log "ckpt read FAILED"; exit 1; }
+      echo "$(ls -dt "data/runs/${TAG}arm-s0-"* | head -1),$(ls -dt "data/runs/${TAG}arm-s1-"* | head -1)" > "$OUT/$TAG.done"
+    fi
+    A=$(cat "$OUT/$TAG.done")
+    {
+      echo "# $CKPT against the Monte Carlo heuristic ($ROUNDS rounds): seeds $SEED_CKPT, $GAMES / seat, network alone"
+      echo
+      echo "- against Monte Carlo: $(uv run python scripts/arms_report.py --arm "mc=$A" --out "$OUT/$TAG.json" 2>/dev/null | grep -o "winrate [0-9.]* ± [0-9.]*" | head -1)"
+      echo "- against the plain heuristic (on file): $(uv run python scripts/arms_report.py --arm "plain=$PLAIN_ARMS" --out "$OUT/$TAG-plain.json" 2>/dev/null | grep -o "winrate [0-9.]* ± [0-9.]*" | head -1)"
+      echo "- paired on seed, Monte Carlo minus plain: $(uv run python scripts/paired_arms.py --a "$A" --b "$PLAIN_ARMS" 2>&1 | tee "$OUT/$TAG.paired.txt" | grep -o 'A - B: [^)]*)' | head -1)"
+      echo
+      uv run python scripts/m13_mc_report.py arms --runs "$A" --rounds "$ROUNDS"
+    } > "$OUT/$TAG.md" 2>&1 || { log "ckpt report FAILED"; exit 1; }
+    cat "$OUT/$TAG.md" | tee -a "$OUT/queue.log"
     ;;
   *) echo "unknown stage $STAGE" >&2; exit 2 ;;
 esac

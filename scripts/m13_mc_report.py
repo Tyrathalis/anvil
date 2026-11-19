@@ -169,6 +169,22 @@ def read(a) -> None:
             print(dec_line(kind, dec, games, 14 if kind == "clock" else a.rounds))
 
 
+def arms(a) -> None:
+    """Per-arm statuses, cost and decisions for arbitrary run dirs (the checkpoint read)."""
+    print("| arm | games | statuses | game s, median / mean | AI deadline firings | workers out of memory | rollouts per decision |")
+    print("|---|---|---|---|---|---|---|")
+    dec, games = [], []
+    for d in a.runs.split(","):
+        s = arm_stats(d)
+        rp = f"{st.fmean(r['rollouts'] for r in s['dec']):.2f}" if s["dec"] else "-"
+        print(f"| {os.path.basename(d)} | {s['n']} | {s['statuses']} | {s['s_median']:.1f} / {s['s_mean']:.1f} | {s['timeouts']} | {s['oom']} | {rp} |")
+        dec += s["dec"]
+        games += list(s["games"].values())
+    if dec:
+        print(f"\nDecisions:\n{HEAD}")
+        print(dec_line("Monte Carlo seat", dec, games, a.rounds))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -178,8 +194,11 @@ def main() -> None:
     r = sub.add_parser("read")
     r.add_argument("--out", default="data/runs/m13-mc/read")
     r.add_argument("--rounds", type=int, default=None)
+    m = sub.add_parser("arms")
+    m.add_argument("--runs", required=True, help="comma-separated run dirs")
+    m.add_argument("--rounds", type=int, default=None)
     a = ap.parse_args()
-    cal(a) if a.cmd == "cal" else read(a)
+    {"cal": cal, "read": read, "arms": arms}[a.cmd](a)
 
 
 if __name__ == "__main__":
