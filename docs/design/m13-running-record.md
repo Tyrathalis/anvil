@@ -27,3 +27,9 @@
   - **Three hook-side findings, none fixed.** Key texts that carry an entity id are 0.89% of mentions (0.20% on the old jar). The harness draws from six AI profiles, `Hard` and `Hardest` included, against plan pin 5. A bridged cast that fails once is re-asked 999 times, because the bridge does not read upstream's new failed-cast memory: 39 loop-guard firings in 600 games against 20 in 7,500.
   - **The era bridge's driver is `scripts/m13_era_bridge.sh`.** The old-jar side is the 11-07 confirm's arms, on file. Sized at about 4.5 to 5 box hours for 10,000 merged-jar games and a 1,000-game old-jar re-run; merged-jar games take about 1.5 times as long (32 s against 22 s).
   - **Next:** the user's call on fixing the three before the bridge (one fork commit and its forkcheck), then the launch.
+- **2026-11-18, late night — the three bridge-side fixes land; the era bridge launches** ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md), third addendum).
+  - **The user ruled the fixes in before the bridge,** and asked whether Hard and Hardest cheat. They do not: they are `Default` with a higher in-danger threshold and a larger Monte Carlo allowance, inert with the flag off. Pin 5 stands.
+  - **The fork pin is `26e81c65f1`,** pushed. The draw is the old four profiles by name, a cast the engine refuses for the turn is not offered, and a source id before a cost note is stripped from key text. Its forkcheck matched the era's baseline 500 of 500, fidelity 467 / 33 / 0.
+  - **The fixed jar's smoke:** no loop-guard firing in 200 games (19 before), four profiles, id-bearing keys gone, games 27 s (32 s before). One crash, the same `NullPointerException` game as the smoke before; it stays routed to Build 1.
+  - **The table is rebuilt:** `abil-cf2ca6ba-m13-qwen3`, 17,798 keys.
+  - **The era bridge is launched** on `forge-merge-20261118-bridgefix.jar` (`era-bridge`, `data/runs/era-bridge/`). **Next:** its close against the 3pp kill condition.

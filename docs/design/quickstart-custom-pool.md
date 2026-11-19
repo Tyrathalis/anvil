@@ -322,6 +322,7 @@ many windows were searched and acted on.
 | Flag | Default | What it does |
 |---|---|---|
 | `-search` | off | turn the search on for every model-played seat (`-searchseats <csv>` names seats; a heuristic seat named there is searched too, a control) |
+| `-profiles <csv>` | `Cautious,Default,Experimental,Reckless` | not a search flag: the AI profiles each seat's profile is drawn from (seeded), passed through `--forge-args`; a named profile that is missing is fatal |
 | `-searchrate p` | 1.0 | search each candidate window with probability p (seeded) |
 | `-searchrolls R` | 1 | copies per option, with shared random draws across options (2 in the recipe) |
 | `-searchopts N` | 0 = all | cap on the options tried |

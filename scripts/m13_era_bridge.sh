@@ -15,7 +15,7 @@ set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
 CKPT=${CKPT:-data/training/big-run/iter-405/train/last.pt}
 REF=${REF:-data/training/d6-run11/iter-019/train/last.pt}
-JAR=${JAR:-$REPO/data/runs/merge-20261118/forge-merge-20261118-copier.jar}
+JAR=${JAR:-$REPO/data/runs/merge-20261118/forge-merge-20261118-bridgefix.jar}
 OLD_JAR=${OLD_JAR:-$REPO/data/runs/tgtmask/forge-tgtmask3.jar}
 ABIL=${ABIL:-data/embeddings/abil-cf2ca6ba-m13-qwen3}
 SEED_BASE=${SEED_BASE:-20261107}; GAMES=${GAMES:-2500}; REP_GAMES=${REP_GAMES:-500}; WORKERS=${WORKERS:-24}
