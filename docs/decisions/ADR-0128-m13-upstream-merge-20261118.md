@@ -112,3 +112,17 @@ Identity with the old jar was not expected. It was read for crashes, for the cop
 - **The proof.** `run-20261118-bridgefix-baseline`: 500 of 500 mainline hashes identical to the era's baseline and to the copier jar's pass, fidelity 467 / 33 / 0. The fork's anvil, simulation and view test classes pass with a test for each fix. A heuristic-only game is unchanged; a served game changes, and none had been read.
 - **The smoke on the fixed jar** (`m13-bridgefix-smoke`, 200 games, the seeds of `m13-abil-smoke`): no loop-guard firing (19 before), the four profiles only, id-bearing keys 0.02% of mentions (0.89% before), mean game 27 s (32 s before). The first-attempt veto rate is 2.3% against the old era's 1.5%. One game crashed in both smokes with the same `NullPointerException` (`SpellAbilityStackInstance`, a charm with `ChoiceRestriction` and no chosen mode); it stays with the crash routed to Build 1.
 - **The table is rebuilt on the fixed jar's keys:** `abil-cf2ca6ba-m13-qwen3` is now 17,798 keys, the `b4s` rows plus the 162 changed pool keys and 205 in-play keys new to the merged engine. It replaces the 17,745-key build of the addendum above, which served only its smoke.
+
+## Addendum 11-18, night: the era bridge closes inside its bar
+
+- **The kill condition is not tripped.** `big-run/iter-405` reads 0.6064 ± 0.0069 on the merged jar against the plain heuristic (5,000 games, the 11-07 confirm's seeds, network alone, masked, raw, table `abil-cf2ca6ba-m13-qwen3`). Paired on seed against its old-jar arm (0.6214) that is −1.53 ± 0.75pp on 4,909 pairs. The bar was −3pp.
+- **The reference `d6-run11/iter-019` reads 0.5208 ± 0.0071,** paired −0.69 ± 0.78pp against its old-jar arm (0.5280).
+- **The trained checkpoint keeps its lead:** +8.54 ± 0.79pp over the reference on the merged jar, against +9.46 ± 0.77pp on the old one.
+- **The drop is not attributed.** It is 2.0 standard errors for `iter-405` and 0.9 for the reference. The plan requires attribution only past the bar.
+- **The old-jar side stands as filed.** A 1,000-game re-run of `iter-405` on the old jar reads +0.00 ± 0.41pp against the filed arm; 872 of 1,000 games are identical in winner, turns and windows. It ran against `../forge-baselines`, whose `forge-gui/res` equals the old pin's; its `run.json` records that worktree's commit, not `5bd040351f`.
+- **The routed census items.**
+  - *The key-miss rate:* 1.64% of mentions on the 5,000 `iter-405` games, against the old era's 1.67%. Closed.
+  - *The loop guard:* no firing in 10,000 games. Closed.
+  - *The `pay` ask mix:* not readable from this run. A network-alone read serves no payment window, on either jar. `payManaCost` calls on the model's seat fell from 98.9 to 87.7 per game. The `pay` head's retrain is decided at the first read that serves the surface; routed by name to the first run that serves it.
+- **A new engine crash, not fixed.** `SacrificeEffect.resolve` (line 124) indexes a one-part message array by a multi-part `SacValid`: 28 games in 10,000, all in deck `dc-864561`; the card is not identified. The old era's arms had 19 crashes in 10,000 of other kinds; the bridge had 35. A crash fix is a boundary, so it is routed to Build 1 with the `NullPointerException`.
+- **The day-zero figures are the state table's merged-engine entry.** Numbers are still not compared across the merge except through these pairs.

@@ -33,3 +33,14 @@
   - **The fixed jar's smoke:** no loop-guard firing in 200 games (19 before), four profiles, id-bearing keys gone, games 27 s (32 s before). One crash, the same `NullPointerException` game as the smoke before; it stays routed to Build 1.
   - **The table is rebuilt:** `abil-cf2ca6ba-m13-qwen3`, 17,798 keys.
   - **The era bridge is launched** on `forge-merge-20261118-bridgefix.jar` (`era-bridge`, `data/runs/era-bridge/`). **Next:** its close against the 3pp kill condition.
+- **2026-11-18, night — the era bridge closes: the kill condition is not tripped** ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md), fourth addendum; `data/runs/era-bridge/bridge.md`).
+  - **`iter-405` reads 0.6064 ± 0.0069 on the merged jar,** 5,000 games on the 11-07 confirm's seeds. Paired against its old-jar arm that is −1.53 ± 0.75pp (4,909 pairs), inside the 3pp bar. The arms may start from it.
+  - **The reference reads 0.5208 ± 0.0071,** paired −0.69 ± 0.78pp. `iter-405` leads it by +8.54 ± 0.79pp on the merged jar, against +9.46 ± 0.77pp on the old one.
+  - **The drop is about 2 standard errors and is not attributed.** The plan asks for attribution only past 3pp. Both checkpoints moved down, the trained one more.
+  - **The old jar still reproduces its filed arm:** a 1,000-game re-run reads +0.00 ± 0.41pp against it, 972 of 1,000 with the same winner. The first launch failed in 20 seconds, because the old jar cannot load the merged checkout's card scripts; the re-run reads them from `../forge-baselines`.
+  - **The batteries are clean.** No anomaly on `iter-405`. The reference's self-target flag (0.444) is its old-era figure (0.452), a checkpoint older than ADR-0116.
+  - **One new engine crash:** an `ArrayIndexOutOfBoundsException` in `SacrificeEffect.resolve` (line 124), 28 times in 10,000 games, every one in deck `dc-864561`. It is routed to Build 1 with the `NullPointerException`. No loop-guard firing in 10,000 games.
+  - **The table holds:** 1.64% of key mentions miss it on the bridge's 5,000 `iter-405` games, against the old era's 1.67%.
+  - **The `pay` ask mix could not be read here.** A network-alone read serves no payment window in either era. The item stays open for the first read that serves one.
+  - **Merged-jar games are shorter with the loop fixed:** median 15.0 s against 18.1 s on 11-07. The old jar played about 27% slower today than on 11-07; not investigated.
+  - **Next:** Build 0 step 3, Monte Carlo on against off.
