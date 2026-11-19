@@ -436,7 +436,9 @@ new line count and base; it still names #9038 as related, not closed.
 - **For our own reads** the counts are set to the desktop allowance (the user, 11-16): what a desktop player's opponent gets when its clock is never starved.
 - **Not yet read:** every place the picker consults the clock (the first-rollout timing that trims the candidate list, the adaptive playout length, `AITimeoutTracker`). The patch's size is unknown until that read. Scoping: [m13-upstream-merge-scoping.md](m13-upstream-merge-scoping.md).
 
-### 11-18 — Tier 0.11: a cast payoff's `ValidCard` read as one restriction (a crash) — OPENED as [#12949](https://github.com/Card-Forge/forge/pull/12949)
+### 11-18 — Tier 0.11: a cast payoff's `ValidCard` read as one restriction (a crash) — MERGED 11-18 as [#12949](https://github.com/Card-Forge/forge/pull/12949)
+
+**Merged upstream 11-18 (`5a778af014`), the day it was opened.** The fork carries the same line as `1d4048fa2f`; the next upstream merge meets it as an identical change.
 
 **Verdict: opened 11-18 on the user's go, beside #12180, as the one changed line with no test (the user: a one-line fix to a six-day-old change; the maintainers can decide whether that code wants a test). The description offers the test.** The entry below is as queued; the branch is now `8254971ca1`, pushed to `Tyrathalis/forge`.
 
