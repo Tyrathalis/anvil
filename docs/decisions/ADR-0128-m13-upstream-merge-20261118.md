@@ -75,3 +75,18 @@ Identity with the old jar was not expected. It was read for crashes, for the cop
   - *The stale `2.0.15` jars in `../forge/forge-gui-desktop/target/`.* The harness picks the newest jar, so they are harmless today; they go at the next stale-data pass.
 - **The playable fork's merge and the copier's four-player failures are untouched** (the scoping's "not yet looked at"; Build 0, step 6).
 - No standing rule is born here. ADR-0110's rule (a merge after a tag) and the plan's rule (a crash fix that changes a game belongs in the merge's boundary) were applied.
+
+## Addendum 11-18, evening: three copier fixes, the copy-target hook ruled in, the crash fix opened upstream
+
+- **The copy-target hook stays** (the user, 11-18). Decision item 5 is ruled on.
+- **The copier's divergence is halved: 467 clean and 33 divergent of 500, against 439 / 60 / 1.** The user asked for a quick look at the divergence classes for fixes worth taking at this boundary. Every mainline hash is unchanged (`run-20261118-copier-baseline`, 500 of 500 against the era's baseline), 28 games became clean and none became divergent. The pin moves to `09133a7ad4`; the serving jar is `data/runs/merge-20261118/forge-merge-20261118-copier.jar`.
+- **The instrument** (`1faef2f33c`): a divergent game's forkcheck notes now carry the first game-log entry after the fork point where the copy and the mainline differ. The turn digests say where a divergence shows; this says which play made it. The 61 divergent seeds rerun with it gave identical hashes.
+- **The three fixes** (`09133a7ad4`, `GameCopier` only, one test each in `CopierStateTest`):
+  - *An effect card's replacement effects and triggers.* A copy kept only the static abilities, so the commander effect lost "put it into the command zone instead" (CR 903.9b). A commander bounced or shuffled away inside a copy went to the hand or library. This was the first difference in 17 of the 61 games. It applies to every search copy and rollout in Commander, and to emblems and spell-made effects.
+  - *The turn a card entered its zone.* `Zone.add` stamps the current turn, so in a copy every card had entered this turn (Oran-Rief, the Vastwood; any `ThisTurnEntered` check).
+  - *What exiled a card, and the cards a permanent has exiled* (upstream's `TODO ExiledWith`). Hideaway had nothing to play in a copy (Mosswort Bridge).
+- **They change copies only.** A game that makes no copy is unchanged, which the forkcheck's mainline hashes show. A searched game does change, since its copies are now more faithful. No searched read has run on this engine, so nothing is invalidated.
+- **What is left in the 33**, by first differing play: block declarations (11, not traced), mana and land choices (11), and singles. Known and not taken, because none is a few lines: spells cast this turn are not copied (upstream's `TODO update thisTurnCast`; Kalamax's "first instant each turn", storm), and upstream lists creatures attacked this turn, counters added this turn and the controller timestamps as TODOs. The AI's memory is not copied either (the field guide's standing explanation).
+- **The crash fix is open upstream as [#12949](https://github.com/Card-Forge/forge/pull/12949)** (the user, 11-18: submit it directly, without the test). It is the one changed line; the description offers the test. The three copier fixes go on the upstream queue and are not expedited ([upstream-worklist.md](../design/upstream-worklist.md), Tier 0.12).
+- **The fork's tests:** 26 classes plus upstream's two simulation suites, 377 tests, all pass on `09133a7ad4`.
+

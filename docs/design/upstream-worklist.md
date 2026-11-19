@@ -436,15 +436,24 @@ new line count and base; it still names #9038 as related, not closed.
 - **For our own reads** the counts are set to the desktop allowance (the user, 11-16): what a desktop player's opponent gets when its clock is never starved.
 - **Not yet read:** every place the picker consults the clock (the first-rollout timing that trims the candidate list, the adaptive playout length, `AITimeoutTracker`). The patch's size is unknown until that read. Scoping: [m13-upstream-merge-scoping.md](m13-upstream-merge-scoping.md).
 
-### 11-18 — Tier 0.11 queued: a cast payoff's `ValidCard` read as one restriction (a crash)
+### 11-18 — Tier 0.11: a cast payoff's `ValidCard` read as one restriction (a crash) — OPENED as [#12949](https://github.com/Card-Forge/forge/pull/12949)
 
-**Verdict: a one-line crash fix, built and unpushed; no upstream issue or PR exists for it. The user's call on opening it beside #12180.**
+**Verdict: opened 11-18 on the user's go, beside #12180, as the one changed line with no test (the user: a one-line fix to a six-day-old change; the maintainers can decide whether that code wants a test). The description offers the test.** The entry below is as queued; the branch is now `8254971ca1`, pushed to `Tyrathalis/forge`.
 
 - **The bug.** `ComputerUtilAbility.paysOffFor` (new in #12809, 11-12) passes a `SpellCast` trigger's whole `ValidCard` text to the single-restriction `isValid`. `ValidCard` is a comma-separated list. A list whose entries carry properties throws from the property parser: with Melek, Izzet Paragon in hand, `Instant.wasCastFromYourLibrary,Sorcery.wasCastFromYourLibrary` raises `IllegalArgumentException: No element named Library,Sorcery.wasCastFromYourLibrary in enum Zone` inside the AI's candidate evaluation. A plain list (`Aura,Equipment,Vehicle`) never matches, so the payoff is never ordered first.
 - **Its size in play.** It runs in the plain heuristic with Monte Carlo off. On our merge's forkcheck (500 games, Abzan Armor against Arcane Maelstrom) it ended 19 games and aborted about 280 AI decisions. 37 card scripts have the throwing shape.
 - **The fix.** `t.getParam("ValidCard").split(",")` and the array form of `isValid`. `CastPayoffValidCardListTest` covers both shapes and fails without it.
 - **Where it is.** Branch `cast-payoff-validcard-list` in `../forge-upstream` (`b9abe24ad1`, one commit on `2d8fef80a0`), not pushed. The fork carries the same change as `1d4048fa2f` ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md)).
 - **Searched 11-18:** `paysOffFor`, `putCastPayoffsFirst`, `wasCastFromYourLibrary`, the exception text. Nothing open or closed. The one open PR that touches the file (#12677) does not touch this method.
+
+### 11-18 — Tier 0.12 queued: three pieces of state a `GameCopier` copy drops
+
+**Verdict: queued, not expedited (the user, 11-18). One forge-ai PR, after #12180 and #12949 close.**
+
+- **The gaps.** A copy of an effect card keeps its static abilities and loses its replacement effects and triggers, so the commander effect loses CR 903.9b's "put it into the command zone instead". Every card in a copy has "entered this turn", because `Zone.add` stamps the current turn. The exile links are dropped (upstream's own `TODO ExiledWith`), so hideaway has nothing to play.
+- **The evidence.** On our 500-game copy-against-original check the divergent games fell from 60 to 33 and no original game changed.
+- **Where it is.** The fork carries it as `09133a7ad4` with `CopierStateTest` (three cases). No upstream branch is cut yet; cut it on a fresh `upstream/master` when the slot frees, and re-check that upstream has not closed the TODOs meanwhile.
+- **It sits beside the Copier → Snapshot consolidation** below: `CardCopyService` already copies `turnInZone` and the exile links on the snapshot path.
 
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 

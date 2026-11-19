@@ -14,3 +14,10 @@
   - **What the new heuristic changes for us.** It pays Signet chains and filter lands, so the payment surface's forced window has largely gone. 162 of the pool's 5,149 ability keys changed, across 150 cards. The phantom back-face cast from the command zone is fixed upstream.
   - **Not done, by design.** No checkpoint was read on the new engine; the smoke's win rate is not a read. The state table's checkpoint rows are still the old era's.
   - **Next:** Build 0 step 2, the era bridge, sized for the user first. Before it: extend the ability table with the 162 new keys. The routed items (the AI deadline under load, the payment surface's ask mix, the upstream PR for the fix) are in the ADR's consequences.
+- **2026-11-18, late evening — the boundary gains three copier fixes; the crash fix is open upstream** ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md), addendum). The pin is `09133a7ad4`, pushed; the serving jar is `forge-merge-20261118-copier.jar`.
+  - **The user kept the copy-target hook** and asked for a quick look at the copier's divergence classes.
+  - **The forkcheck now names the play where a copy diverges** (the first differing game-log entry). Read over the 61 divergent games, it gave three causes that were a few lines each: effect cards lost their replacement effects and triggers in a copy (so the commander replacement did not exist in any copy), every copied card had "entered this turn", and exile links were dropped.
+  - **With the three fixed: 467 clean and 33 divergent of 500, from 439 / 60 / 1.** Every mainline hash is unchanged, so no unsearched game changes. Searched games do change, toward more faithful copies; none has been read on this engine.
+  - **Not taken:** spells cast this turn (about 30 lines, some risk), and the 11 games whose first difference is a block declaration (not traced).
+  - **Upstream:** the crash fix is [#12949](https://github.com/Card-Forge/forge/pull/12949), one line, no test, opened on the user's go. The copier fixes are queued as Tier 0.12, not expedited.
+  - **Next is unchanged:** the ability table's 162 keys, then the era bridge, sized for the user first.

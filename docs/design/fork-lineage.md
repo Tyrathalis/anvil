@@ -17,7 +17,8 @@ known, not regressions:
   tip on match it.
 
 Era 3 has none of these so far: its baseline reproduced 500 of 500 on a second pass, and seed
-20260969 plays clean. Its fidelity is 439/60/1 (`run-20261118-mergefix-baseline`).
+20260969 plays clean. Its fidelity was 439/60/1 at the baseline (`run-20261118-mergefix-baseline`)
+and is 467/33/0 from the copier tip on; the mainline hashes are the baseline's.
 
 "Scope" says where the change can act: *off* = flag-gated and byte-identical when off;
 *recording* / *search-copy* / *serve* / *replay* = only on that path.
@@ -26,14 +27,16 @@ Era 3 has none of these so far: its baseline reproduced 500 of 500 on a second p
 
 | Tip | What | Scope | Forkcheck | PASS | ADR |
 |---|---|---|---|---|---|
-| **`9074a909c1` ← THE PIN** | the target surface on a spell copy's new targets: `PlayerControllerAi.preparedCopy` (a no-op hook after upstream's `chooseNewTargetsForCopy`), served by `CensusPlayerController` under the `chooseTargetsFor` name | serve / recording | `run-20261118-copytgt-baseline` 500/500 vs the era's baseline, fidelity 439/60/1 | 11-18 16:28 | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
+| **`09133a7ad4` ← THE PIN** | three pieces of state a `GameCopier` copy dropped: an effect card's replacement effects and triggers (the commander effect's CR 903.9b replacement), the turn a card entered its zone, the exile links (`ExiledWith`) | copies only | `run-20261118-copier-baseline` 500/500 vs the era's baseline; **fidelity 467/33/0** (from 439/60/1) | 11-18 17:10 | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) addendum |
+| `1faef2f33c` | forkcheck: a divergent game's notes name the first game-log entry where the copy and the mainline differ | the instrument | the 61 divergent seeds rerun, 61/61 identical | 11-18 | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) addendum |
+| `9074a909c1` | the target surface on a spell copy's new targets: `PlayerControllerAi.preparedCopy` (a no-op hook after upstream's `chooseNewTargetsForCopy`), served by `CensusPlayerController` under the `chooseTargetsFor` name | serve / recording | `run-20261118-copytgt-baseline` 500/500 vs the era's baseline, fidelity 439/60/1 | 11-18 16:28 | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
 | `1d4048fa2f` | the crash fix inside the boundary: `ComputerUtilAbility.paysOffFor` reads a cast trigger's `ValidCard` as a list (upstream #12809's bug; 19 mainline crashes in 500 unfixed). **The era's baseline: `run-20261118-mergefix-baseline` 439/60/1**, reproduced 500/500 by `run-20261118-mergefix-repeat` | boundary | — | — | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
 | `9159271002` | a test-only commit: five assertions that pinned heuristic blind spots upstream closed (#12149, #12283) | tests only | — | — | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
 | `f3d0048edb` | the Monte Carlo count budget, `FLAT_MC_COUNT_BUDGET` (a cherry-pick of `d0e50c61c7` from `../forge-upstream`) | off (a profile property, default false) | `run-20261118-merge-baseline` 424/56/1 + 19 crashes, reproduced 500/500 by `run-20261118-merge-repeat` (the unfixed merge) | — | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
 | `c3fa2fae0b` | **the merge** onto upstream 11-18 (1,361 commits) — a dataset boundary | boundary | — | — | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
 
 Tag `pre-merge-20261118` = era 2's tip `94229a0c8a`. Snapshot jars: `data/runs/merge-20261118/`
-(`forge-merge-20261118-copytgt.jar` serves runs; `-fix` is the baseline's; the bare name is the unfixed merge).
+(`forge-merge-20261118-copier.jar` serves runs; `-copytgt` is the tip before the copier fixes; `-fix` is the baseline's; the bare name is the unfixed merge).
 
 ## Era 2 — engine `97535e047f` (upstream 09-16, [ADR-0110](../decisions/ADR-0110-m12-upstream-merge-20260916.md))
 
