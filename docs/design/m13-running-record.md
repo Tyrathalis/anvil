@@ -21,3 +21,9 @@
   - **Not taken:** spells cast this turn (about 30 lines, some risk), and the 11 games whose first difference is a block declaration (not traced).
   - **Upstream:** the crash fix is [#12949](https://github.com/Card-Forge/forge/pull/12949), one line, no test, opened on the user's go. The copier fixes are queued as Tier 0.12, not expedited.
   - **Next is unchanged:** the ability table's 162 keys, then the era bridge, sized for the user first.
+- **2026-11-18, night — Build 0 step 2, first half: the ability table is extended; the era bridge is sized and waits on the user** ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md), second addendum).
+  - **The merged engine's table is `abil-cf2ca6ba-m13-qwen3`** (17,745 keys: the `b4s` rows byte-identical, plus the 162 changed pool keys and 152 new in-play keys). Servers on the merged jar take it through `--abilities`; checkpoint configs still name `b4s`.
+  - **A missing key is silent.** The option is keyed on its host row and kind, and nothing counts it. The old era ran with 1.67% of key mentions missing. A fresh 200-game smoke on the merged jar reads 1.93% with the new table and 2.69% without.
+  - **Three hook-side findings, none fixed.** Key texts that carry an entity id are 0.89% of mentions (0.20% on the old jar). The harness draws from six AI profiles, `Hard` and `Hardest` included, against plan pin 5. A bridged cast that fails once is re-asked 999 times, because the bridge does not read upstream's new failed-cast memory: 39 loop-guard firings in 600 games against 20 in 7,500.
+  - **The era bridge's driver is `scripts/m13_era_bridge.sh`.** The old-jar side is the 11-07 confirm's arms, on file. Sized at about 4.5 to 5 box hours for 10,000 merged-jar games and a 1,000-game old-jar re-run; merged-jar games take about 1.5 times as long (32 s against 22 s).
+  - **Next:** the user's call on fixing the three before the bridge (one fork commit and its forkcheck), then the launch.
