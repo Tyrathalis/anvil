@@ -16,15 +16,31 @@ known, not regressions:
 - **Fidelity 451/48/1** — the merge baseline's (`run-20260916-merge-baseline`); tips from the alloc
   tip on match it.
 
+Era 3 has none of these so far: its baseline reproduced 500 of 500 on a second pass, and seed
+20260969 plays clean. Its fidelity is 439/60/1 (`run-20261118-mergefix-baseline`).
+
 "Scope" says where the change can act: *off* = flag-gated and byte-identical when off;
 *recording* / *search-copy* / *serve* / *replay* = only on that path.
+
+## Era 3 — engine `2d8fef80a0` (upstream 11-18, [ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md))
+
+| Tip | What | Scope | Forkcheck | PASS | ADR |
+|---|---|---|---|---|---|
+| **`9074a909c1` ← THE PIN** | the target surface on a spell copy's new targets: `PlayerControllerAi.preparedCopy` (a no-op hook after upstream's `chooseNewTargetsForCopy`), served by `CensusPlayerController` under the `chooseTargetsFor` name | serve / recording | `run-20261118-copytgt-baseline` 500/500 vs the era's baseline, fidelity 439/60/1 | 11-18 16:28 | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
+| `1d4048fa2f` | the crash fix inside the boundary: `ComputerUtilAbility.paysOffFor` reads a cast trigger's `ValidCard` as a list (upstream #12809's bug; 19 mainline crashes in 500 unfixed). **The era's baseline: `run-20261118-mergefix-baseline` 439/60/1**, reproduced 500/500 by `run-20261118-mergefix-repeat` | boundary | — | — | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
+| `9159271002` | a test-only commit: five assertions that pinned heuristic blind spots upstream closed (#12149, #12283) | tests only | — | — | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
+| `f3d0048edb` | the Monte Carlo count budget, `FLAT_MC_COUNT_BUDGET` (a cherry-pick of `d0e50c61c7` from `../forge-upstream`) | off (a profile property, default false) | `run-20261118-merge-baseline` 424/56/1 + 19 crashes, reproduced 500/500 by `run-20261118-merge-repeat` (the unfixed merge) | — | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
+| `c3fa2fae0b` | **the merge** onto upstream 11-18 (1,361 commits) — a dataset boundary | boundary | — | — | [0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md) |
+
+Tag `pre-merge-20261118` = era 2's tip `94229a0c8a`. Snapshot jars: `data/runs/merge-20261118/`
+(`forge-merge-20261118-copytgt.jar` serves runs; `-fix` is the baseline's; the bare name is the unfixed merge).
 
 ## Era 2 — engine `97535e047f` (upstream 09-16, [ADR-0110](../decisions/ADR-0110-m12-upstream-merge-20260916.md))
 
 | Tip | What | Scope | Forkcheck | PASS | ADR |
 |---|---|---|---|---|---|
 | `94229a0c8a` | a test-only commit: `OptionMaskCommandZoneTest` — the option-mask class of the ADR-0122 agreement corpus attributed per shape (King T'Challa's back face from the command zone: the heuristic's phantom cast under the commander tax, upstream forge-ai; Dargo: ADR-0005's late payability; Kozilek's Command offered on X = 0) | tests only | — | — | [0122](../decisions/ADR-0122-union-target-mask.md) addendum 10-05 |
-| **`5bd040351f` ← THE PIN** | the unfit flag: every targeting node below a Charm node is a mode node (the AI's last chosen mode stays bound as the Charm's sub; Cryptic Command's stale Counter read as unfit while castable) — refs only, no minimum | recording / serve (the option record's `tz`) | `run-20261004-tgtmask3` 499/500, 20260969 the standing seed, fidelity 451/48/1 | 10-05 00:15 | [ADR-0122](../decisions/ADR-0122-union-target-mask.md) addendum |
+| `5bd040351f` (era 2's pin) | the unfit flag: every targeting node below a Charm node is a mode node (the AI's last chosen mode stays bound as the Charm's sub; Cryptic Command's stale Counter read as unfit while castable) — refs only, no minimum | recording / serve (the option record's `tz`) | `run-20261004-tgtmask3` 499/500, 20260969 the standing seed, fidelity 451/48/1 | 10-05 00:15 | [ADR-0122](../decisions/ADR-0122-union-target-mask.md) addendum |
 | `e412dbb24d` | the agreement read's classes: the union walks every Charm node's modes (refs only), X in any cost part (`hasXInAnyCostPart`), the ParentTarget / Targeted text test, stack-zone cards listed; `Obs.targets` marks a label the engine refuses (`ill`) | recording / serve (the option record, the label) | `run-20261004-tgtmask2` 499/500, 20260969 the standing seed, fidelity 451/48/1 | 10-04 22:03 | [ADR-0122](../decisions/ADR-0122-union-target-mask.md) addendum |
 | `5b54fbe6ef` | the union target mask: `TargetUnion` lists each priority option's legal-target union on the opts entry (`tg`/`tn`/`tz`; `tg:null`+`tu` where the scan cannot enumerate faithfully), the stack loop beside `getAllCandidates`, targets cleared/restored, scratch RNG; `Obs.decPriority` only; `-Danvil.tgtmask=off` withholds it | recording / serve (the option record) | `run-20261004-tgtmask` 499/500, 20260969 the standing seed, fidelity 451/48/1 | 10-04 20:22 | [ADR-0122](../decisions/ADR-0122-union-target-mask.md) |
 | `9c589c1ced` | the option scan runs the realizer's cast-restrictions clause (`CastPlanRealizer.passesRestrictions`: the LKI stack-zone dance + `checkRestrictions`, shared with `legality()`); `Spell.canPlay()` skips the CantBeCast statics, so Spider-Man 2099 was offered on the model's third turn and vetoed (28% of all vetoes); census `optmask/restricted` | serve / recording (the option list) | `run-20261003-castmask` 499/500, 20260969 the standing seed, fidelity 451/48/1 | 10-03 17:29 | running record 10-03 15:50 (item 1 of the 10-02 mask routing; the union mask carries the ADR) |

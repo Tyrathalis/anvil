@@ -436,6 +436,16 @@ new line count and base; it still names #9038 as related, not closed.
 - **For our own reads** the counts are set to the desktop allowance (the user, 11-16): what a desktop player's opponent gets when its clock is never starved.
 - **Not yet read:** every place the picker consults the clock (the first-rollout timing that trims the candidate list, the adaptive playout length, `AITimeoutTracker`). The patch's size is unknown until that read. Scoping: [m13-upstream-merge-scoping.md](m13-upstream-merge-scoping.md).
 
+### 11-18 — Tier 0.11 queued: a cast payoff's `ValidCard` read as one restriction (a crash)
+
+**Verdict: a one-line crash fix, built and unpushed; no upstream issue or PR exists for it. The user's call on opening it beside #12180.**
+
+- **The bug.** `ComputerUtilAbility.paysOffFor` (new in #12809, 11-12) passes a `SpellCast` trigger's whole `ValidCard` text to the single-restriction `isValid`. `ValidCard` is a comma-separated list. A list whose entries carry properties throws from the property parser: with Melek, Izzet Paragon in hand, `Instant.wasCastFromYourLibrary,Sorcery.wasCastFromYourLibrary` raises `IllegalArgumentException: No element named Library,Sorcery.wasCastFromYourLibrary in enum Zone` inside the AI's candidate evaluation. A plain list (`Aura,Equipment,Vehicle`) never matches, so the payoff is never ordered first.
+- **Its size in play.** It runs in the plain heuristic with Monte Carlo off. On our merge's forkcheck (500 games, Abzan Armor against Arcane Maelstrom) it ended 19 games and aborted about 280 AI decisions. 37 card scripts have the throwing shape.
+- **The fix.** `t.getParam("ValidCard").split(",")` and the array form of `isValid`. `CastPayoffValidCardListTest` covers both shapes and fails without it.
+- **Where it is.** Branch `cast-payoff-validcard-list` in `../forge-upstream` (`b9abe24ad1`, one commit on `2d8fef80a0`), not pushed. The fork carries the same change as `1d4048fa2f` ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md)).
+- **Searched 11-18:** `paysOffFor`, `putCastPayoffsFirst`, `wasCastFromYourLibrary`, the exception text. Nothing open or closed. The one open PR that touches the file (#12677) does not touch this method.
+
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 
 7 crashes in 50,000 games. All games' obs frames are readable; policy labels

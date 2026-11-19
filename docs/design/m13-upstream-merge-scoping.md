@@ -1,6 +1,6 @@
 # The M13 upstream merge — scoping draft
 
-**Doc status:** living · scoping of the upstream merge that opens M13: its size, the Flat Monte Carlo heuristic mode, and the opponent question; three points pinned by the user 11-16, one revised 11-17; the count budget is built locally, nothing merged
+**Doc status:** living · scoping of the upstream merge that opens M13: its size, the Flat Monte Carlo heuristic mode, and the opponent question; three points pinned by the user 11-16, one revised 11-17; the merge landed 11-18 with the count budget (ADR-0128)
 
 Drafted 2026-11-16 from a read of `upstream/master` at `0f82b4f469` (2026-11-17 UTC). Nothing was merged or checked out; the trial merge ran in memory. The facts about Flat Monte Carlo come from reading its code, not from running it.
 

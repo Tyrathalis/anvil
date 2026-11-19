@@ -1,7 +1,7 @@
 """forkcheck compare — the ADR-0025 exemption proof read: per-seed mainTraceHash
 equality between a candidate forkcheck run and the baseline (default: the
-upstream-merge baseline on the merged jar 1db054ade4 — ADR-0110; the standing
-seed set 20260703+500).
+upstream-merge baseline on the merged, fixed jar 1d4048fa2f — ADR-0128; the
+standing seed set 20260703+500).
 
 Usage: uv run python scripts/forkcheck/compare.py <candidate_dir> [--baseline <dir>]
 Prints identical / differing counts, the differing seeds, and the fork-fidelity
@@ -15,7 +15,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-BASE = Path("data/forkcheck/run-20260916-merge-baseline")  # ADR-0110; was run-20260821-m9boundary
+BASE = Path("data/forkcheck/run-20261118-mergefix-baseline")  # ADR-0128
 
 
 def load(d: Path) -> dict[int, dict]:
