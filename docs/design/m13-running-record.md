@@ -61,3 +61,8 @@
   - **11 workers ran out of memory at a 3 GB cap;** five games are missing. The battery reports no anomaly.
   - **Pin 7 is the user's call and is open.** The opponent is strong enough to teach and costs four times a plain game.
   - **Next:** the user's decision on pin 7, then Build 0 step 5, the held-out precon read.
+- **2026-11-19, late afternoon — pin 7 is set: Monte Carlo at 10% of games in every arm** (the user; [ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md), second addendum).
+  - The mix is about 50% self-play, 40% plain heuristic, 10% Monte Carlo at 8 rounds. The cost is about 3% on searched generation and 15 to 20% with the search off (*estimates*).
+  - Every iteration carries its share, as worker slices with the larger heap, queued early and interleaved. It is built with Build 2's queue.
+  - Other ratios (the user raised 60 / 30 / 10) are routed after the arms as their own arm.
+  - **Next:** Build 0 step 5, the held-out precon read.

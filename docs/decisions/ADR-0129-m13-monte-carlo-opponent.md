@@ -80,3 +80,13 @@ The read (`data/runs/m13-mc/ckpt/mcck.md`; `scripts/m13_mc.sh ckpt`): the era br
 **What it means for pin 7.** The opponent is strong enough to teach: the network does not beat it. A game against it costs about four times a plain heuristic game. The decision is the user's and is not taken here. The scoping's fifth read, one short generation cell with the Monte Carlo opponent in the heuristic seat for games per box-hour, is the remaining measurement if the choice is still open.
 
 The announcement's second number is on file: `iter-405`, network alone, 0.5099 ± 0.0071 against the desktop Monte Carlo heuristic at an idle desktop's budget.
+
+## Second addendum, 2026-11-19: pin 7 is set at 10% Monte Carlo in every arm
+
+**The user's decision: the Monte Carlo opponent enters training at 10% of games, in every arm.** The reason given: the extra strength is valuable and the cost is high, so it is titrated. The share comes out of the heuristic-seat games, which leaves about 50% self-play, 40% plain heuristic and 10% Monte Carlo at the 8-round count budget.
+
+- **The cost is small beside the search.** A Monte Carlo seat adds about 54 s to a game. At 10% that is about 5 s per average game: about 3% on the recipe of record's searched games (190 worker-seconds) and 15 to 20% on the search-off arm (*estimates from the step 4 read and the 11-17 cost cells*).
+- **The control is no longer exactly the recipe that produced `iter-405`.** Every arm carries the same change, so the arms' comparison holds. Each arm's final checkpoint is also read against the Monte Carlo opponent.
+- **The schedule.** Every iteration carries its 10%, so each training window has the same mix. The games run as whole worker slices with the larger heap cap, queued early in the iteration and interleaved a few at a time. Queued late, a slow Monte Carlo game would hold the iteration's drain; queued all at once, the fleet would repeat step 4's memory level (50 GB) beside the servers and the learner. It is built with Build 2's single queue.
+- **Other ratios are not tested now.** No instrument short of an arm resolves the mix. It is routed after the three arms as an arm of its own.
+- **The memory read of step 4 was not thrashing.** The kernel's pressure counter showed 57 s of stall in 18 hours of uptime; the swap was compressed RAM holding idle heap.

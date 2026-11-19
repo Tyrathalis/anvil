@@ -1,8 +1,8 @@
 # M13 plan — WHAT IN THE RECIPE PRODUCES THE GAIN (OPENED 2026-11-18, ADR-0127)
 
-**Doc status:** living · M13 plan (opened 2026-11-18, ADR-0127): three arms at equal box time after an upstream merge; the merge and the era bridge closed 11-18 (ADR-0128; the kill condition not tripped), Build 0 steps 3 and 4 closed 11-19 (ADR-0129: Monte Carlo at 8 rounds, +9.32 ± 0.77pp over the plain heuristic; iter-405 level with it at 0.5099 ± 0.0071), pin 7 waits on the user, step 5 is next; the record: m13-running-record.md
+**Doc status:** living · M13 plan (opened 2026-11-18, ADR-0127): three arms at equal box time after an upstream merge; the merge and the era bridge closed 11-18 (ADR-0128; the kill condition not tripped), Build 0 steps 3 and 4 closed 11-19 (ADR-0129: Monte Carlo at 8 rounds, +9.32 ± 0.77pp over the plain heuristic; iter-405 level with it at 0.5099 ± 0.0071), pin 7 set at 10% Monte Carlo in every arm, step 5 is next; the record: m13-running-record.md
 
-*Status: OPEN. Chartered 2026-11-18 ([ADR-0127](../decisions/ADR-0127-m13-charter.md)) from [ADR-0126](../decisions/ADR-0126-m12-closeout.md)'s routing table, re-read against the pre-scoping measurements ([m13-prescoping-measurements.md](m13-prescoping-measurements.md)). The user agreed the order and pinned the seven forks the same day. The session-by-session record is [m13-running-record.md](m13-running-record.md). Build 0 step 1, the merge, landed 11-18 ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md)); step 2, the era bridge, closed 11-18 with its kill condition not tripped (`iter-405` 0.6064 ± 0.0069 on the merged jar, −1.53 ± 0.75pp paired against the old jar); step 3 closed 11-19 ([ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md): the count budget calibrated at 8 rounds, the Monte Carlo seat +9.32 ± 0.77pp over the plain heuristic at about ten times the cost per game); step 4 closed 11-19 (`iter-405` reads 0.5099 ± 0.0071 against it, −9.12 ± 0.78pp paired against its plain-heuristic arm; a game costs 4.2 times a plain one); pin 7 waits on the user; step 5 is next.*
+*Status: OPEN. Chartered 2026-11-18 ([ADR-0127](../decisions/ADR-0127-m13-charter.md)) from [ADR-0126](../decisions/ADR-0126-m12-closeout.md)'s routing table, re-read against the pre-scoping measurements ([m13-prescoping-measurements.md](m13-prescoping-measurements.md)). The user agreed the order and pinned the seven forks the same day. The session-by-session record is [m13-running-record.md](m13-running-record.md). Build 0 step 1, the merge, landed 11-18 ([ADR-0128](../decisions/ADR-0128-m13-upstream-merge-20261118.md)); step 2, the era bridge, closed 11-18 with its kill condition not tripped (`iter-405` 0.6064 ± 0.0069 on the merged jar, −1.53 ± 0.75pp paired against the old jar); step 3 closed 11-19 ([ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md): the count budget calibrated at 8 rounds, the Monte Carlo seat +9.32 ± 0.77pp over the plain heuristic at about ten times the cost per game); step 4 closed 11-19 (`iter-405` reads 0.5099 ± 0.0071 against it, −9.12 ± 0.78pp paired against its plain-heuristic arm; a game costs 4.2 times a plain one); pin 7 is set (11-19: Monte Carlo at 10% of games in every arm); step 5 is next.*
 
 ## Charter
 
@@ -49,6 +49,7 @@ One commit after the merge is proven. Each part is inert on the game path, so th
 - **One queue across seat arms** in `final_read.py` and the head-to-head read.
 - **The learner's memory work and the loop config prune** (ADR-0126's next-boundary rows), since the loop is open anyway.
 - A third server, tried with the search off, where serving binds.
+- **The Monte Carlo share in the queue** (pin 7). Every iteration carries its 10%, as whole worker slices with the larger heap cap. Within an iteration those slices are queued early and interleaved, a few at a time, so their long games overlap the rest of the queue and no more than a quarter of the fleet holds one at once.
 
 Proven by a paired cell: the same seeds through the old cells and the new queue give the same games.
 
@@ -85,7 +86,7 @@ All three start from `iter-405` on the merged jar, run for equal box time under 
 4. **The play-or-draw surface lands after the arms**, with the first pool-growth boundary, so the arms run on one engine.
 5. **`Hard.ai` and `Hardest.ai` stay out of the arms' profile draw.** They are read once in Build 0 against the four current profiles.
 6. **The benchmark's pins** (era boundaries, the rule set and bans per track, the reference opponents) are set when the held-out precon read is in.
-7. **Monte Carlo as a training opponent** is decided by Build 0's read 4. If it enters, it enters every arm.
+7. **Monte Carlo is a training opponent at 10% of games, in every arm** (the user, 11-19, on Build 0's read 4; [ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md), second addendum). The share comes out of the heuristic-seat games: about 50% self-play, 40% plain heuristic, 10% Monte Carlo at the 8-round count budget. Other ratios are an arm of their own after the three.
 8. **The search-off arm keeps 480 games per iteration.** An equal-updates arm follows if it wins.
 9. **Forced-decision replay is an M13 item** (Build 1).
 
@@ -120,6 +121,7 @@ All three start from `iter-405` on the merged jar, run for equal box time under 
 
 | Item | Disposition |
 |---|---|
+| The opponent mix (for example 60 / 30 / 10 against the arms' 50 / 40 / 10) | After the arms, as its own arm against the winning recipe: the search decision changes what each kind of game costs |
 | More learning per game | Folded into the search-off arm and its follow-up; a separate arm only if those leave it open |
 | The engine benchmark and port | Deferred behind the search-off read: search off (about 5 times) and the queue are cheaper throughput |
 | The short format, the Pauper testbed, a second format | Deferred: the benchmark is precons |
