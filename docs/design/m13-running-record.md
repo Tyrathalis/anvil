@@ -137,3 +137,7 @@
   - **Not built:** the loop config prune. It removes parameters the checkpoint is served with, so it is a boundary; it goes to the recipe rewrite after the arms (the user agreed). The survey's remaining findings go to M13's closing documentation pass.
   - **What broke.** The queue's spec files matched a run-dir prefix and the paired cell's driver failed at its last step with a false alert. I edited loop code while that cell ran.
   - **Next:** Build 3. The user's call on the guard commit as the pin.
+- **2026-11-20, afternoon — the user makes the guard the pin: `68168fb214`** ([ADR-0134](../decisions/ADR-0134-m13-build2-one-queue.md), addendum).
+  - Not a boundary. Pushed; the serving jar is `data/runs/m13-build2/forge-b2-mcguard.jar`. Build 2's branch is merged to `main`.
+  - The watchdog question is closed with no change: the loader workers are counted in its `rl` class, and I had misread the `rl_worker` figure.
+  - **Next:** Build 3.

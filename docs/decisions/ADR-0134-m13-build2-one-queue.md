@@ -71,3 +71,9 @@ Four items were routed here by name: the learner's memory work, the loop config 
 - **The arms' launch settings change in two places.** The queue is the default. `--rl-workers 12` fits the 64 GB box by section 4's figure, where the recipe of record ran 4; the arms launch with it unless Build 3 finds a reason not to. The learner's load phase was 34% of that pass's wall, so the workers are worth having.
 - **What broke.** The queue's spec and record files first sat beside the run dirs and matched a purpose's prefix; the paired cell's driver refused the result at its last step, and the launcher recorded a false failure. They now live under `data/runs/queues/`. I also edited `anvil/runs.py` and the orchestrator while the paired cell was running, against the standing rule; the cell's result was 480 of 480 and it was not rerun.
 - **No standing rule is born.** The port check turns the one-server-per-port rule into code.
+
+## Addendum (2026-11-20, afternoon): the guard is the pin; the watchdog's classes are right
+
+- **The fork pin is `68168fb214`,** on the user's word, pushed to the fork's `master`. It is not a boundary (section 3). The serving jar is `data/runs/m13-build2/forge-b2-mcguard.jar`, the same file as the fork's built jar.
+- **The devlog's note that the memory watchdog misses the learner's loader workers was a misreading.** The workers carry the learner's command line and are counted in the `rl` class: 14 processes and 21 GB at the full-window pass's peak. The `rl_worker` class holds the forkserver alone. The watchdog's kill set takes both classes and their descendants, so its coverage is whole. Nothing is changed.
+- Build 2's branch is merged to `main`.

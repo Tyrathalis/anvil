@@ -55,7 +55,7 @@ One commit after the merge is proven. Each part is inert on the game path, so th
 
 Proven by a paired cell: the same seeds through the old cells and the new queue give the same games.
 
-**Built 11-20 ([ADR-0134](../decisions/ADR-0134-m13-build2-one-queue.md)).** The harness's `launch-group` runs several launches through one set of worker slots; the loop, its arm reads, `final_read.py` and `h2h_read.py` use it. The paired cell: 480 of 480 games identical. The Monte Carlo share is `--mc-frac 0.1`, two capped batches at the head of the queue. The store holds an iteration's mu and search rows as raw lines of its own games, and a 12-store window falls from 5,958 MB to 425 MB per loader process. A third server with the search off does not help (2,053 and 2,017 games an hour on two, 1,955 on three). The Monte Carlo leak guard is fork commit `68168fb214`, proven not a boundary and not yet the pin. **Not built:** the loop config prune, which removes served parameters and so is a boundary; it goes to the recipe rewrite after the arms.
+**Built 11-20 ([ADR-0134](../decisions/ADR-0134-m13-build2-one-queue.md)).** The harness's `launch-group` runs several launches through one set of worker slots; the loop, its arm reads, `final_read.py` and `h2h_read.py` use it. The paired cell: 480 of 480 games identical. The Monte Carlo share is `--mc-frac 0.1`, two capped batches at the head of the queue. The store holds an iteration's mu and search rows as raw lines of its own games, and a 12-store window falls from 5,958 MB to 425 MB per loader process. A third server with the search off does not help (2,053 and 2,017 games an hour on two, 1,955 on three). The Monte Carlo leak guard is fork commit `68168fb214`, proven not a boundary; the user made it the pin 11-20. **Not built:** the loop config prune, which removes served parameters and so is a boundary; it goes to the recipe rewrite after the arms.
 
 ### Build 3 — the three arms
 
@@ -141,6 +141,5 @@ All three start from `iter-405` on the merged jar, run for equal box time under 
 | The loop config prune (the plan and schedule heads' parameters in the checkpoint) | With the recipe rewrite after the arms: it changes what is served (ADR-0134) |
 | The replay's fork point (stop at a tape entry, then the existing copy runners) | With its first consumer, Build 4's truth stream |
 | The record of a one-candidate `chooseSingleStaticAbility` ask (the oversize game's size) | With the play-or-draw boundary: it changes the history the server is shown |
-| The Monte Carlo leak guard as the fork pin (commit `68168fb214`, not a boundary) | The user's call; until then runs pass its snapshot jar |
 | The single-occurrence crashes (`getDividedValue`, `AttachAi.affectsAttached`, `checkRemoveCounterCost`, the `StackOverflowError`), the copier's mana copy, the `OptionalDecider` ordering, the `SacrificeEffect` index, the charm null check | The upstream worklist, as candidates |
 | A Spellbench entry, an LLM opponent seat, the learned ability encoding, learned dynamics, the skill token, match play, Tutor and Mentor, Trackio | Re-deferred with ADR-0126's reasons |
