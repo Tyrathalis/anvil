@@ -88,6 +88,12 @@ def main() -> None:
     )
     ap.add_argument("--jar", default=None, help="run this jar (a snapshot copy) instead of target/'s newest")
     ap.add_argument(
+        "--heap",
+        default=None,
+        help="worker JVM heap, e.g. 4g (the harness's --heap, default 2g): a read whose copies roll out deep "
+        "(a rollout leaf, a Monte Carlo seat) can exhaust 2g; size workers x heap against the box's memory",
+    )
+    ap.add_argument(
         "--server-tags",
         default=None,
         help="ADR-0105: the server's announced tag list (csv) — an arm that withholds "
@@ -203,6 +209,7 @@ def main() -> None:
                     ),
                     *(["--labels"] if a.labels else []),
                     *(["--jar", a.jar] if a.jar else []),
+                    *(["--heap", a.heap] if a.heap else []),
                 ]
             )
             new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before

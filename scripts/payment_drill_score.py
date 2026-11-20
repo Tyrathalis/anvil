@@ -8,8 +8,8 @@ kind (positive vs auto_correct; evalset-assembly pin 2: the +2.0
 auto-bias init scores ~100% on auto-correct at day zero, so blending
 would inflate the headline).
 
-Three subcommands around the fork's certify OBSERVE mode (CensusRun
--certify with "mode":"observe" jobs + -obsout):
+Three subcommands around the fork's certify OBSERVE mode (AnvilRun
+-replay with "mode":"observe" jobs; the census runner was deleted at M13 Build 1):
 
   plan   evalset of record -> observe-jobs.jsonl. One job per drill
          (positive + auto-correct), renumbered sequentially (the obs
@@ -261,7 +261,7 @@ def main() -> None:
     n.add_argument("--jobs", required=True)
     n.add_argument("--jar", required=True)
     n.add_argument("-n", type=int, default=4)
-    n.add_argument("--runner", choices=("anvil", "census"), default="anvil")
+    n.add_argument("--runner", choices=("anvil",), default="anvil")
     n.add_argument("--forge-flags", default="-paytelemetry")
     n.set_defaults(fn=lanes)
     s = sub.add_parser("score")

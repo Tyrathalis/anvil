@@ -84,6 +84,12 @@ def main() -> None:
     )
     la.add_argument("--calibrated", action="store_true")
     la.add_argument(
+        "--no-tape",
+        action="store_true",
+        help="do not record the answer tape (on by default for a served run with "
+        "--obs; scripts/tape_replay.py replays a game from it without a server)",
+    )
+    la.add_argument(
         "--obs",
         action="store_true",
         help="write observation logs (obs.zst per worker; observation-schema-v1)",

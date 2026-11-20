@@ -342,6 +342,7 @@ many windows were searched and acted on.
 | `-searchclock s` | 900 | wall-clock allowance per searched game (raise it for `h<N>` / `end` leaves) |
 | `-searchvoidskip 0\|1` | 1 | do not retry an option whose first copy voided |
 | `-searchvoidrescue` | off | record-only: re-try a voided option with the heuristic's plan and record its value |
+| `-Danvil.search.leakcheck=window\|copy\|off` (a JVM property, through `ANVIL_EXTRA_JVM_OPTS`) | `window` | the copy-leak guard: the game's observed state is compared before and after each window's copies; a difference is one `[search] LEAK` line in the worker's log, a `searchLeak` census row and a count in the worker's tally (`search_leaks`). `copy` also checks after every copy and names it ([ADR-0133](../decisions/ADR-0133-m13-search-copies-leak.md)) |
 
 `uv run python -m anvil.store search-rows <run-dir>` backfills search rows into a store ingested
 before that command existed. The design and the measurements behind all of this are the design doc
@@ -588,9 +589,25 @@ in a pairs file.
 The Commander precon benchmark's own decks come from `scripts/precon_benchmark_decks.py` (178 decks,
 written as `pc-NNN.dck` with a map that names each). `scripts/precon_strength_report.py` turns a
 heuristic mirror on them into a rating per deck, so a read can be set beside what the heuristic
-would win with the same decks. To learn who played first in a finished run, replay its seeds with
-`--census "--forge-args=-turncap 1"`: each game ends after one turn and the census log names the
-starting player.
+would win with the same decks. Each row of a run's `games.jsonl` names the seat that played first
+(`first`).
+
+**Replaying a stored game.** A served game does not reproduce from its seed and checkpoint: the
+server's batch numerics move an answer now and then. A served run with `--obs` therefore records an
+answer tape in each game's frame: every answer the game took from the server, and every search
+verdict that changed it. `scripts/tape_replay.py` replays games from their tapes with no server and
+no GPU, and compares each replay with the stored game record by record:
+
+```bash
+uv run python scripts/tape_replay.py data/runs/<run> --games 20 --out data/runs/<run>-replay
+```
+
+It draws 20 taped games, runs the run's own jar under each worker's own flags with
+`-b tape:<file>`, and writes `replay-report.json`. A replayed game takes about two seconds. Pass
+`--indices <i> <j>` for particular games and `--jar <jar>` for a later fork build that is
+behavior-identical on the game path. `--no-tape` on the harness turns recording off. A replay
+keeps the run's search flags: the search does on the replayed game what it did on the live one and
+plays no copy ([ADR-0132](../decisions/ADR-0132-m13-build1-forced-decision-replay.md)).
 
 ## 9. What it costs
 

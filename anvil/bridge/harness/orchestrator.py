@@ -248,6 +248,8 @@ class Run:
             cmd += ["-tags", m["tags"]]
         if m.get("obs"):
             cmd += ["-obs", str(wdir / "obs.zst")]
+        if m.get("tape"):
+            cmd += ["-tape"]
         if m.get("census"):
             # D8: veto reasons + disambiguation rungs live in the census log
             cmd += ["-census", str(wdir / "census.jsonl")]
@@ -618,6 +620,9 @@ def launch(a) -> Path:
         # verbatim AnvilRun flags + per-worker labels
         "forge_args": (getattr(a, "forge_args", None) or "").split() or None,
         "labels": getattr(a, "labels", False),
+        # The answer tape (forced-decision replay, scripts/tape_replay.py): a
+        # served run with obs writes it into its frames. Recording only.
+        "tape": bool(a.obs and "grpc:" in str(a.bridge) and not getattr(a, "no_tape", False)),
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(

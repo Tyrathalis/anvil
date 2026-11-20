@@ -6,9 +6,8 @@ Three subcommands around the fork-side certify front. Under the certifier
 merge (ADR-0117) the front of record is AnvilRun -replay: the job's
 game replayed to its window, the payment answers adjudicated on SEARCH
 COPIES (one per (arm, roll), roll 0 the true continuation), one certify row
-per copy in this same contract; CensusRun -certify (the M9 runner, census
-construction) is the parity witness.
-`lanes --runner census|anvil` picks the runner; the rows read identically.
+per copy in this same contract. The M9 runner (CensusRun -certify, census
+construction) was the parity witness and was deleted at M13 Build 1.
 
   plan   mined candidates -> jobs.jsonl (+ lane scripts). Top-N per shape;
          deck pair + base seed joined from the census run's lane-*.sh (the
@@ -323,18 +322,15 @@ REPLAY_JOB_FIELDS = JAVA_JOB_FIELDS + ("seat", "profile1", "profile2", "ph", "mo
 
 def lane_command(runner: str, jar: str, jobs_file: str, out_file: str, forge_flags: str = "",
                  obs_file: str | None = None) -> str:
-    """The one lane's java line for either runner. The anvil runner: every
+    """The one lane's java line. Every
     seat heuristic (-bridgeseats 2, the harness's heuristic-control idiom),
     no model server (the outcome leaf makes no head call), the rows in the
     labels file (ev:"certify"); pass -paytelemetry in forge_flags when the
     coordinates were mined under it (the prefix must replay under the same
     flags)."""
     java = f"nice -n 19 java -Xms1g -Xmx3g -XX:ActiveProcessorCount=2 -Danvil.nogui=on -jar '{jar}' "
-    if runner == "census":
-        cmd = java + f"census -f Commander -paytelemetry -certify '{jobs_file}' -certout '{out_file}'"
-        if obs_file:
-            cmd += f" -obsout '{obs_file}'"
-        return cmd + "\n"
+    if runner != "anvil":
+        raise SystemExit("the census runner (CensusRun -certify) was deleted at M13 Build 1; use the anvil runner")
     cmd = java + (f"anvil -f Commander -b local-random -bridgeseats 2 -replay '{jobs_file}' "
                   f"-labels '{out_file}' -results '{out_file}.results.jsonl'")
     if obs_file:
@@ -509,9 +505,8 @@ def main() -> None:
     n.add_argument("--jobs", required=True)
     n.add_argument("--jar", required=True)
     n.add_argument("-n", type=int, default=4)
-    n.add_argument("--runner", choices=("anvil", "census"), default="anvil",
-                   help="anvil = AnvilRun -replay (the front of record, ADR-0117); "
-                        "census = CensusRun -certify (the M9 witness)")
+    n.add_argument("--runner", choices=("anvil",), default="anvil",
+                   help="anvil = AnvilRun -replay (ADR-0117), the only runner")
     n.add_argument("--forge-flags", default="-paytelemetry",
                    help="extra AnvilRun flags for the anvil runner (the prefix replays under "
                         "the flags the coordinates were mined under)")
