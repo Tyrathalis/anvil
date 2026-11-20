@@ -99,3 +99,7 @@
   - `ArrayIndexOutOfBoundsException` crashed 37 heuristic-only games; it is the engine's.
   - ADR-0131 gained an addendum with its first cell's final totals (21 games, 12.2% of 11,749 rollouts failed).
   - **Next:** Builds 1 and 2.
+- **2026-11-19, late night — going first is worth about 2 points on precons** ([ADR-0130](../decisions/ADR-0130-m13-held-out-precon-read.md), fourth addendum).
+  - The first player wins 0.5225 ± 0.0035 in the heuristic mirror. No per-deck difference is resolved.
+  - Read by replaying the mirror's seeds with a one-turn cap and the census log, eleven minutes in place of two hours (the user's suggestion). The full replay `pc-first` was paused at about 700 games and is not needed.
+  - **Next:** Builds 1 and 2.

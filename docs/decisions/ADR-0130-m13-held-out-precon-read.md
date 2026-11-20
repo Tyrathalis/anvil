@@ -140,3 +140,14 @@ Preparing the read turned up how the model sees a card outside its pool. A check
 **What it changes.** Later precon reads report the model's winrate beside the heuristic's expectation for the same decks, from `strength.json`. The benchmark's pairs can also be balanced on rating. Neither is pinned here.
 
 **A crash to route:** `ArrayIndexOutOfBoundsException` in 37 of 20,024 heuristic-only games, so it is the engine's and not the bridge's. It is already Build 1's (eight games in the read above).
+
+## Fourth addendum, 2026-11-19: going first is worth about 2 points, and the decks do not differ in it
+
+**The first player wins 0.5225 ± 0.0035 of decided games in the heuristic mirror,** against 0.5004 expected from the decks alone. A deck's winrate on the play is about 4.5pp above its winrate on the draw.
+
+- **How it was read.** The mirror's records do not name the starting player. The same 20,025 seeds were replayed with `-turncap 1` and the census log (`pc-firstcap`, eleven minutes; the user's suggestion). The log names the coin-flip winner, and the heuristic always chooses to play. A 96-game check gave the same starter as full-length games in 96 of 96.
+- **By the first player's era:** +1.5pp over the decks' expectation for 2011 to 2020, +2.7pp for 2021 to 2023, +2.1pp for 2024 to 2026.
+- **No deck-level difference is resolved.** The play-minus-draw gap varies across decks with a standard deviation of 0.068; sampling alone gives 0.064. Each deck has about 112 games on each side.
+- **The seat is not the starter:** seat 0 started 49.4% of games.
+- Exploratory figures from the same mirror, not filed in detail: strength rises about 16 rating points (2pp of winrate) per release year; no color is clearly best; decks of one or two colors do better than three or four; the decks furthest above their year's trend are creature decks and those furthest below are group-hug, goad, spell and alternate-win decks. All of it is strength in the plain heuristic's hands.
+- This bounds what the play-or-draw surface can be worth on these decks against this opponent: the whole choice is worth about 4.5pp to the side that makes it, if playing first is always right.
