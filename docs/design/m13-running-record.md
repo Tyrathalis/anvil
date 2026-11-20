@@ -141,3 +141,13 @@
   - Not a boundary. Pushed; the serving jar is `data/runs/m13-build2/forge-b2-mcguard.jar`. Build 2's branch is merged to `main`.
   - The watchdog question is closed with no change: the loader workers are counted in its `rl` class, and I had misread the `rl_worker` figure.
   - **Next:** Build 3.
+- **2026-11-20, afternoon — Build 3 is open: the arms' settings are recorded, the soft-target term is built, and the control arm is running** ([ADR-0135](../decisions/ADR-0135-m13-build3-arms.md); `scripts/m13_arms.sh`).
+  - **One script holds the three arms.** They differ in one block: the control passes the search recipe, search off passes none, soft targets adds `--soft-frac`. Every other flag is the big run's segment-5 string with `--mc-frac 0.1`, the merged jar's ability table, `--rl-workers 12` and a 24 GB memory floor.
+  - **Search off needed nothing built.** An empty recipe is the loop's pre-wiring path.
+  - **The soft-target term is built** (`rl.py --soft-frac`, off by default). On a searched priority window where the natural line was played and the margin is under the bar, the target is the policy's own distribution tilted by the search's values, and the loss is the KL to it, capped at 2 nats. Its weight is a share of policy-gradient mass. A softmax of the values was built first and sat at the cap, pulling a sharp policy toward uniform; the tilt reads 0.05 per trajectory on the same iteration.
+  - **The reads are pre-registered:** head to head on 5,000 games, seed bases 20261211 and 20261212, the bar 1.1pp; the continuity read on the 11-07 confirm's seeds; "control falls" read at the in-loop read nearest 84 loop hours against a day-zero read on the in-loop seeds.
+  - **The smokes.** Soft targets: two iterations, no anomaly, about 16 soft windows per trajectory. Search off: iteration 0 complete, halted at iteration 1 by the veto guard (124 vetoes against 76). The leak guards found nothing in 7,767 comparisons.
+  - **The control arm launched at 14:07** (`m13-control`, 168 loop hours, seed base 20261201, ports 50140 to 50143). Its first step is the day-zero read.
+  - **Open for the user:** the soft-target temperature (0.1 proposed) and dose ladder (0.02, 0.05, 0.15; a day each); the search-off arm's veto line (2.5 times proposed) and anchor cadence (32 proposed, taking the pauses); Build 4's box jobs between arms; the generation servers' "nothing to decide" asks (about 0.2% of asks, every arm, not attributed).
+  - **What broke.** The first smoke driver ran the two smokes in one launch, so the search-off halt cancelled the soft smoke and it was relaunched alone.
+  - **Next:** the control's first iterations and day-zero read; the search-off arm at the control's stop.
