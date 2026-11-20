@@ -172,6 +172,20 @@ def _port_open(port: int) -> bool:
         return False
 
 
+def check_ports_free(port: int, servers: int = 1) -> None:
+    """Refuse to start a server on a port something already answers on. gRPC
+    binds with SO_REUSEPORT, so a second server on a live port starts
+    without error and the kernel splits the workers' connections between
+    the two: a read then plays partly under another run's checkpoint and
+    sampling, and its games die when that run stops (11-19: six games of a
+    fidelity cell). Raises RuntimeError naming the ports."""
+    busy = [p for p in range(port, port + max(int(servers), 1)) if _port_open(p)]
+    if busy:
+        raise RuntimeError(
+            f"port{'s' if len(busy) > 1 else ''} {', '.join(map(str, busy))} already in use: a model server "
+            "(or anything else) is listening there. Pick a free --port; two servers on one port share its workers.")
+
+
 def wait_ports(port: int, servers: int, timeout: float = 300.0, ping: bool = True) -> None:
     """Block until every port of the fleet accepts a connection and
     answers a Ping through its Session stream — a bound port is not a

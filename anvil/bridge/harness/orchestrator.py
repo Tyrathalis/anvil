@@ -61,6 +61,35 @@ def progress_note(n_done: int, total: int, rate: float, yield_why: str, last: "t
     return f"[harness] {n_done}/{total} ({rate:.0f} g/h this session){mark}", key
 
 
+def mem_available_mb(meminfo: str = "/proc/meminfo") -> "float | None":
+    """MemAvailable in MB; None where /proc/meminfo is absent (macOS)."""
+    try:
+        for line in open(meminfo):
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) / 1024
+    except OSError:
+        pass
+    return None
+
+
+def mem_floor_mb() -> float:
+    """The generation phase's host-memory floor: no NEW worker starts while
+    MemAvailable is under it ($ANVIL_GEN_MEM_FLOOR_GB, default 4; 0 = off)."""
+    try:
+        return float(os.environ.get("ANVIL_GEN_MEM_FLOOR_GB", "4")) * 1024
+    except ValueError:
+        return 4096.0
+
+
+def mem_hold(avail_mb: "float | None", floor_mb: float, holding: bool, margin_mb: float = 1024.0) -> bool:
+    """Whether new workers are held for host memory. Entered under the
+    floor, left a margin above it, so a level that sits at the floor does
+    not flap. Unknown memory or a zero floor never holds."""
+    if avail_mb is None or floor_mb <= 0:
+        return False
+    return avail_mb < (floor_mb + margin_mb if holding else floor_mb)
+
+
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -347,123 +376,191 @@ class Run:
     # ---------- scheduler ----------
 
     def schedule(self) -> None:
-        pending = self.remaining_chunks()
-        total = self.manifest["games"]
-        crash_counts: dict[int, int] = {}
-        zero_progress_exits = 0  # systemic-failure guard (vs per-game skip rule)
-        inv = max([int(p.name[4:]) for p in self.workers_dir.glob("inv-*")] or [-1]) + 1
-        active: list[tuple[subprocess.Popen, tuple[int, int]]] = []
-        slots = self.manifest["workers"]
-        t0 = time.monotonic()
-        last_note: "tuple | None" = None
-        addrs = bridge_addrs(self.manifest)
+        schedule_group([self])
+
+
+# ---------- the queue ----------
+
+
+def schedule_group(runs: "list[Run]", slots: "int | None" = None, caps: "list[int | None] | None" = None) -> None:
+    """One queue over one or more runs (M13 Build 2). Every run keeps its own
+    dir, manifest, invocation numbers, skips and store; the runs share the
+    worker slots, so a run's last games overlap the next run's first and the
+    fleet drains once per group where it drained once per run. A game is its
+    run's seed base and index and nothing else, so which slot or neighbour
+    it gets does not enter it.
+
+    Chunks are issued in list order: the first run with work pending and
+    room under its cap takes the free slot. `caps[j]` bounds run j's live
+    workers (None = no bound): a run of long, heavy games listed first with
+    a small cap starts early and overlaps the rest without holding the
+    fleet. A STOP or YIELD file in any member dir applies to the group.
+    The systemic-failure count is the group's; the two-crash skip is per
+    game, as before. One run alone is the pre-queue scheduler."""
+    n = len(runs)
+    slots = slots or runs[0].manifest["workers"]
+    caps = list(caps) if caps else [None] * n
+    solo = n == 1
+    pending = [r.remaining_chunks() for r in runs]
+    totals = [r.manifest["games"] for r in runs]
+    total = sum(totals)
+    crash_counts: list[dict[int, int]] = [{} for _ in runs]
+    zero_progress_exits = 0  # systemic-failure guard (vs per-game skip rule)
+    invs = [max([int(p.name[4:]) for p in r.workers_dir.glob("inv-*")] or [-1]) + 1 for r in runs]
+    active: list[tuple[subprocess.Popen, tuple[int, int], int]] = []
+    t0 = time.monotonic()
+    last_note: "tuple | None" = None
+
+    def _tag(j: int) -> str:
+        return "" if solo else f" {runs[j].manifest['purpose']}"
+
+    def _n_done() -> int:
+        return sum(len(r.completed()) for r in runs)
+
+    def _stopped() -> bool:
+        return any(r.stop_file.exists() for r in runs)
+
+    if solo:
+        addrs = bridge_addrs(runs[0].manifest)
         print(
-            f"[harness] {len(self.completed())}/{total} done, "
-            f"{len(pending)} spans pending, {slots} slots, "
+            f"[harness] {_n_done()}/{total} done, "
+            f"{len(pending[0])} spans pending, {slots} slots, "
             f"{len(addrs)} bridge address{'es' if len(addrs) != 1 else ''}"
         )
-        # the GPU yield (gpu_yield.py): a foreign GPU job or the YIELD file
-        # gates NEW chunk launches only; active workers finish their chunks
-        yielder = GpuYield() if self.manifest.get("yield_gpu") else None
-        # the yield ledger — cumulative yielded seconds for the run (closed
-        # windows + the live one), so a loop can take them OUT of its wall
-        # budget instead of charging an arm for a foreign job's hours
-        yield_state = {"on": False, "since": 0.0, "closed_s": 0.0, "why": ""}
+    else:
+        print(f"[harness] queue of {n} runs: {_n_done()}/{total} done, "
+              f"{sum(len(p) for p in pending)} spans pending, {slots} slots")
+        for j, r in enumerate(runs):
+            print(f"[harness]   {r.manifest['run_id']}: {totals[j]} games, {len(pending[j])} spans, "
+                  f"heap {r.manifest['heap']}" + (f", at most {caps[j]} workers at once" if caps[j] else ""))
+    # the GPU yield (gpu_yield.py): a foreign GPU job or the YIELD file
+    # gates NEW chunk launches only; active workers finish their chunks
+    yielder = GpuYield() if any(r.manifest.get("yield_gpu") for r in runs) else None
+    # the yield ledger — cumulative yielded seconds (closed windows + the
+    # live one), so a loop can take them OUT of its wall budget instead of
+    # charging an arm for a foreign job's hours. A group writes it to its
+    # FIRST run's dir only: the loop sums every member's ledger.
+    yield_state = {"on": False, "since": 0.0, "closed_s": 0.0, "why": ""}
+    ledger = runs[0].yield_state_file
 
-        def _yielded_s() -> float:
-            live = (time.monotonic() - yield_state["since"]) if yield_state["on"] else 0.0
-            return yield_state["closed_s"] + live
+    def _yielded_s() -> float:
+        live = (time.monotonic() - yield_state["since"]) if yield_state["on"] else 0.0
+        return yield_state["closed_s"] + live
 
-        def _write_yield_state(on: bool, manual: bool, why: str) -> None:
-            self.yield_state_file.write_text(
-                json.dumps({"yielding": on, "manual": manual, "foreign": why,
-                            "at": _dt.datetime.now().isoformat(timespec='seconds'),
-                            "yielded_s": round(_yielded_s(), 1)}) + "\n"
-            )
+    def _manual() -> bool:
+        return any(r.yield_file.exists() for r in runs)
 
-        def _yielding() -> bool:
-            manual = self.yield_file.exists()
-            auto = bool(yielder and yielder.poll())
-            on = manual or auto
-            if on != yield_state["on"]:
-                why = "YIELD file" if manual else (yielder.describe() if yielder else "")
-                if on:
-                    yield_state["since"] = time.monotonic()
-                else:
-                    yield_state["closed_s"] += time.monotonic() - yield_state["since"]
-                yield_state["on"] = on
-                yield_state["why"] = why or "gpu quiet"
-                print(f"[harness] {'YIELDING' if on else 'resumed'}: {why or 'gpu quiet'}"
-                      f" (yielded {_yielded_s():.0f} s so far)", flush=True)
-                _write_yield_state(on, manual, why)
+    def _write_yield_state(on: bool, manual: bool, why: str) -> None:
+        ledger.write_text(
+            json.dumps({"yielding": on, "manual": manual, "foreign": why,
+                        "at": _dt.datetime.now().isoformat(timespec='seconds'),
+                        "yielded_s": round(_yielded_s(), 1)}) + "\n"
+        )
+
+    floor_mb = mem_floor_mb()
+    mem_state = {"hold": False}
+
+    def _yielding() -> bool:
+        manual = _manual()
+        auto = bool(yielder and yielder.poll())
+        # the generation phase's memory guard (M13 Build 2): under the floor no
+        # new worker starts; live workers finish and give their heaps back. A
+        # hold is a yield in every respect (logged, heartbeated, off the wall).
+        avail = mem_available_mb()
+        mem = mem_state["hold"] = mem_hold(avail, floor_mb, mem_state["hold"])
+        on = manual or auto or mem
+        if on != yield_state["on"]:
+            why = ("YIELD file" if manual
+                   else f"host memory ({avail:.0f} MB available, floor {floor_mb:.0f} MB)" if mem and not auto
+                   else (yielder.describe() if yielder else ""))
             if on:
-                # a yield is idle on purpose — tell the launcher's stall
-                # tick so a long foreign GPU job does not raise a false stall
-                heartbeat("gpu yield")
-            return on
+                yield_state["since"] = time.monotonic()
+            else:
+                yield_state["closed_s"] += time.monotonic() - yield_state["since"]
+            yield_state["on"] = on
+            yield_state["why"] = why or "gpu quiet"
+            print(f"[harness] {'YIELDING' if on else 'resumed'}: {why or 'gpu quiet'}"
+                  f" (yielded {_yielded_s():.0f} s so far)", flush=True)
+            _write_yield_state(on, manual, why)
+        if on:
+            # a yield is idle on purpose — tell the launcher's stall
+            # tick so a long foreign GPU job does not raise a false stall
+            heartbeat("gpu yield")
+        return on
 
-        while pending or active:
-            # evaluated once per tick (not only while chunks are pending) so
-            # the YIELDING / resumed transitions land in the log and
-            # gpu-yield.json even when every chunk is already out
-            yielding = _yielding()
-            while (
-                pending and len(active) < slots and not self.stop_file.exists() and not yielding
-            ):
-                span = pending.pop(0)
-                active.append((self.launch_worker(span, inv), span))
-                print(
-                    f"[harness] inv-{inv:04d} <- games [{span[0]},{span[0] + span[1]})"
-                    + (f" @ {bridge_for(self.manifest, inv)}" if len(addrs) > 1 else "")
-                )
-                inv += 1
-            still = []
-            for proc, span in active:
-                rc = proc.poll()
-                if rc is None:
-                    still.append((proc, span))
-                    continue
-                done = set(self.completed()) | self.skipped()
-                todo = [i for i in range(span[0], span[0] + span[1]) if i not in done]
-                if not todo:
-                    # a completed span resets the systemic-failure counter too: a
-                    # reset on a PARTIAL exit alone is one a one-game span can never
-                    # produce, so three crashed workers anywhere in a run of one-game
-                    # chunks would read as "3 consecutive" and abort it
-                    zero_progress_exits = 0
-                    continue
-                if self.stop_file.exists() and rc == 0:
-                    continue  # graceful partial exit; remainder re-issued on resume
-                if todo[0] == span[0] and len(todo) == span[1]:
-                    zero_progress_exits += 1
-                    if zero_progress_exits >= 3:
-                        sys.exit(
-                            "[harness] 3 consecutive workers exited with ZERO games "
-                            "completed — systemic failure (bad paths? server down? "
-                            "see workers/inv-*/out.log), aborting instead of skipping"
-                        )
-                else:
-                    zero_progress_exits = 0
-                first = todo[0]
-                crash_counts[first] = crash_counts.get(first, 0) + 1
-                if crash_counts[first] >= 2:
-                    skips = self.skipped() | {first}
-                    self.skips_file.write_text(json.dumps({"indices": sorted(skips)}))
-                    print(
-                        f"[harness] !! game {first} (seed "
-                        f"{game_seed(self.manifest['seed_base'], first)}) killed its worker "
-                        f"twice -> SKIPPED (free engine-bug repro; see skips.json)"
+    def _next() -> "int | None":
+        live = [0] * n
+        for _, _, j in active:
+            live[j] += 1
+        return next_run([len(p) for p in pending], live, caps)
+
+    while any(pending) or active:
+        # evaluated once per tick (not only while chunks are pending) so
+        # the YIELDING / resumed transitions land in the log and
+        # gpu-yield.json even when every chunk is already out
+        yielding = _yielding()
+        while len(active) < slots and not yielding and not _stopped():
+            j = _next()
+            if j is None:
+                break
+            span = pending[j].pop(0)
+            r = runs[j]
+            active.append((r.launch_worker(span, invs[j]), span, j))
+            n_addr = len(bridge_addrs(r.manifest))
+            print(
+                f"[harness]{_tag(j)} inv-{invs[j]:04d} <- games [{span[0]},{span[0] + span[1]})"
+                + (f" @ {bridge_for(r.manifest, invs[j])}" if n_addr > 1 else "")
+            )
+            invs[j] += 1
+        still = []
+        for proc, span, j in active:
+            rc = proc.poll()
+            if rc is None:
+                still.append((proc, span, j))
+                continue
+            r = runs[j]
+            done = set(r.completed()) | r.skipped()
+            todo = [i for i in range(span[0], span[0] + span[1]) if i not in done]
+            if not todo:
+                # a completed span resets the systemic-failure counter too: a
+                # reset on a PARTIAL exit alone is one a one-game span can never
+                # produce, so three crashed workers anywhere in a run of one-game
+                # chunks would read as "3 consecutive" and abort it
+                zero_progress_exits = 0
+                continue
+            if _stopped() and rc == 0:
+                continue  # graceful partial exit; remainder re-issued on resume
+            if todo[0] == span[0] and len(todo) == span[1]:
+                zero_progress_exits += 1
+                if zero_progress_exits >= 3:
+                    sys.exit(
+                        "[harness] 3 consecutive workers exited with ZERO games "
+                        "completed — systemic failure (bad paths? server down? "
+                        "see workers/inv-*/out.log), aborting instead of skipping"
                     )
-                    todo = todo[1:]
-                if todo:
-                    pending.insert(0, (todo[0], todo[-1] - todo[0] + 1))
-                    print(f"[harness] inv rc={rc}; re-queueing [{todo[0]},{todo[-1] + 1})")
-            active = still
-            if self.stop_file.exists() and not active:
-                print("[harness] paused (STOP present); `resume` to continue")
-                return
-            n_done = len(self.completed())
-            if int(time.monotonic() - t0) % 60 < POLL_S and n_done:
+            else:
+                zero_progress_exits = 0
+            first = todo[0]
+            crash_counts[j][first] = crash_counts[j].get(first, 0) + 1
+            if crash_counts[j][first] >= 2:
+                skips = r.skipped() | {first}
+                r.skips_file.write_text(json.dumps({"indices": sorted(skips)}))
+                print(
+                    f"[harness]{_tag(j)} !! game {first} (seed "
+                    f"{game_seed(r.manifest['seed_base'], first)}) killed its worker "
+                    f"twice -> SKIPPED (free engine-bug repro; see skips.json)"
+                )
+                todo = todo[1:]
+            if todo:
+                pending[j].insert(0, (todo[0], todo[-1] - todo[0] + 1))
+                print(f"[harness]{_tag(j)} inv rc={rc}; re-queueing [{todo[0]},{todo[-1] + 1})")
+        active = still
+        if _stopped() and not active:
+            print("[harness] paused (STOP present); `resume` to continue")
+            return
+        if int(time.monotonic() - t0) % 60 < POLL_S:
+            n_done = _n_done()
+            if n_done:
                 # the rate excludes yielded time; a live yield is marked on the
                 # line, so a yielded harness is not mistaken for a stall
                 rate = n_done / max(time.monotonic() - t0 - _yielded_s(), 1) * 3600
@@ -471,24 +568,38 @@ class Run:
                 if note:
                     print(note, flush=True)
                 if yielding:  # the ledger keeps its minute cadence: yielded_s stays current for `status`
-                    _write_yield_state(True, self.yield_file.exists(), yield_state["why"])
-            time.sleep(POLL_S)
-        if yield_state["on"] or yield_state["closed_s"]:
-            if yield_state["on"]:  # close the live window at the run's end
-                yield_state["closed_s"] += time.monotonic() - yield_state["since"]
-                yield_state["on"] = False
-            _write_yield_state(False, self.yield_file.exists(), yield_state["why"])
+                    _write_yield_state(True, _manual(), yield_state["why"])
+        time.sleep(POLL_S)
+    if yield_state["on"] or yield_state["closed_s"]:
+        if yield_state["on"]:  # close the live window at the run's end
+            yield_state["closed_s"] += time.monotonic() - yield_state["since"]
+            yield_state["on"] = False
+        _write_yield_state(False, _manual(), yield_state["why"])
+    for r in runs:
         print(
-            f"[harness] run complete: {len(self.completed())}/{total} "
-            f"(+{len(self.skipped())} skipped)"
+            f"[harness] run complete{'' if solo else ' ' + r.manifest['run_id']}: "
+            f"{len(r.completed())}/{r.manifest['games']} (+{len(r.skipped())} skipped)"
         )
-        summarize(self.dir)
+        summarize(r.dir, quiet=not solo)
+
+
+def next_run(pending: "list[int]", live: "list[int]", caps: "list[int | None]") -> "int | None":
+    """The run the next free slot goes to: the first, in list order, with
+    chunks pending and fewer live workers than its cap. None = nothing can
+    start (all issued, or every run with work is at its cap)."""
+    for j, n_pending in enumerate(pending):
+        if n_pending and (caps[j] is None or live[j] < caps[j]):
+            return j
+    return None
 
 
 # ---------- verbs ----------
 
 
-def launch(a) -> Path:
+def create(a, queue: "dict | None" = None) -> Path:
+    """Write a run's dir and pinning manifest without starting it. `queue`
+    (a group member) is recorded in the manifest: the group's id, its
+    slots, this run's cap."""
     jar = Path(a.jar).resolve() if getattr(a, "jar", None) else _find_jar()
     if not jar.exists():
         sys.exit(f"--jar {jar}: no such file")
@@ -624,6 +735,8 @@ def launch(a) -> Path:
         # served run with obs writes it into its frames. Recording only.
         "tape": bool(a.obs and "grpc:" in str(a.bridge) and not getattr(a, "no_tape", False)),
     }
+    if queue:
+        manifest["queue"] = queue
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(
         f"[harness] run {run_id}: {a.games} games, w={manifest['workers']}, "
@@ -631,15 +744,45 @@ def launch(a) -> Path:
     )
     if a.calibrated:
         print("[harness] CALIBRATED run: workers at normal priority — keep the box quiet")
+    return run_dir
+
+
+def launch(a) -> Path:
+    run_dir = create(a)
     Run(run_dir).schedule()
     return run_dir
 
 
+def launch_group(members: "list[tuple[object, int | None]]", slots: int, group_id: str) -> "list[Path]":
+    """Create every member run, then play them through one queue.
+    `members` = (parsed launch args, cap or None) in queue order."""
+    purposes = [a.purpose for a, _ in members]
+    if len(set(purposes)) != len(purposes):
+        sys.exit(f"launch-group: purposes must differ, got {purposes}")
+    dirs = [create(a, queue={"group": group_id, "slots": slots, "max_active": cap, "position": j})
+            for j, (a, cap) in enumerate(members)]
+    (RUNS_DIR / f"{group_id}.queue.json").write_text(
+        json.dumps({"group": group_id, "slots": slots, "runs": [d.name for d in dirs]}, indent=1) + "\n")
+    schedule_group([Run(d) for d in dirs], slots, [cap for _, cap in members])
+    return dirs
+
+
 def resume(run_dir: Path) -> None:
+    """Resume a run; a group member resumes its whole group, on the
+    group's slots and caps."""
     r = Run(run_dir)
-    if r.stop_file.exists():
-        r.stop_file.unlink()
-    r.schedule()
+    q = r.manifest.get("queue")
+    runs = [r]
+    if q:
+        rec = json.loads((RUNS_DIR / f"{q['group']}.queue.json").read_text())
+        runs = [Run(RUNS_DIR / name) for name in rec["runs"]]
+    for m in runs:
+        if m.stop_file.exists():
+            m.stop_file.unlink()
+    if q:
+        schedule_group(runs, q["slots"], [m.manifest["queue"]["max_active"] for m in runs])
+    else:
+        r.schedule()
 
 
 def pause(run_dir: Path) -> None:
@@ -713,7 +856,7 @@ def replay(run_dir: Path, index: int) -> None:
     subprocess.run(cmd, cwd=FORGE_GUI_DIR, check=False)
 
 
-def summarize(run_dir: Path) -> None:
+def summarize(run_dir: Path, quiet: bool = False) -> None:
     r = Run(run_dir)
     done = r.completed()
     merged = r.dir / "games.jsonl"
@@ -746,4 +889,5 @@ def summarize(run_dir: Path) -> None:
         ],
     }
     (r.dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
-    print(json.dumps(summary, indent=2))
+    if not quiet:
+        print(json.dumps(summary, indent=2))

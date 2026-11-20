@@ -53,7 +53,7 @@ import sys
 import time
 from pathlib import Path
 
-from anvil.bridge.fleet import bridge_addrs, servers_for, wait_ports
+from anvil.bridge.fleet import bridge_addrs, check_ports_free, servers_for, wait_ports
 from anvil.runs import DirLocked, hold_dir_lock
 from anvil.torch.utils import get_torch_device
 from anvil.training.notify import notify as _shared_notify
@@ -195,6 +195,7 @@ def _start_server(
             # mainline replay argmax on the pinned ckpt
             cmd += ["--drill-sample", "--drill-mu-out", str(drill_mu_out)]
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    check_ports_free(port, servers)
     proc = subprocess.Popen(cmd, stdout=open(log, "w"), stderr=subprocess.STDOUT, env=env)
     try:
         wait_ports(port, servers)
@@ -216,13 +217,15 @@ def fleet_bridge(a, port: int | None = None, workers: int | None = None) -> str:
 
 
 def sched_flags(a) -> list[str]:
-    """The server's schedule-surface flags from the driver's args — ONE
-    derivation for every server the driver starts (generation, arms), so the
-    candidate always plays under the run's serve regime. Advisory (binding
-    off) = no flags: the pre-reset surface."""
+    """The server flags from the driver's args — ONE derivation for every
+    server the driver starts (generation, arms), so the candidate always
+    plays under the run's serve regime: the schedule surface's flags
+    (advisory = none: the pre-reset surface), then --server-args verbatim
+    (e.g. the merged engine's ability table, `--abilities <stem>`)."""
+    extra = (getattr(a, "server_args", None) or "").split()
     binding = getattr(a, "sched_binding", "off")
     if binding == "off":
-        return []
+        return extra
     flags = ["--sched-binding", binding]
     if getattr(a, "sched_basis", "legal") != "legal":
         flags += ["--sched-basis", a.sched_basis]
@@ -232,7 +235,7 @@ def sched_flags(a) -> list[str]:
         flags += ["--sched-empty-rev", a.sched_empty_rev]
     if getattr(a, "sched_empty_emit", "hold") != "hold":
         flags += ["--sched-empty-emit", a.sched_empty_emit]
-    return flags
+    return flags + extra
 
 
 PAIRED_CKPT_MAIN = "data/training/d6-run11/iter-019/train/last.pt"  # the census's generating ckpt
@@ -690,16 +693,15 @@ def search_forge_args(a, ckpt: "str | None" = None) -> list[str]:
     return out
 
 
-def _launch_games(
+def games_cmd(
     purpose: str, games: int, start_index: int, a, bridge_seats: "int | None" = None,
-    forge_args: "list[str] | None" = None,
-) -> Path:
-    before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
+    forge_args: "list[str] | None" = None, heap: "str | None" = None, labels: "bool | None" = None,
+) -> list[str]:
+    """The harness `launch` flags for one generation batch (no interpreter,
+    no verb): what `_launch_games` runs alone and what `launch_queue` puts
+    in a group spec. The chunk is the batch's own (`batch_chunk`), so a
+    batch is cut into the same worker invocations either way."""
     cmd = [
-        sys.executable,
-        "-m",
-        "anvil.bridge.harness",
-        "launch",
         "--pool",
         "--pool-format",
         getattr(a, "pool_format", "dc"),
@@ -733,33 +735,110 @@ def _launch_games(
     if forge_args:
         # the search directive on the generation workers (ADR-0113) — the
         # rows the trainer joins (--labels: per-worker labels.jsonl, the
-        # store's search.jsonl at ingest)
-        cmd += ["--forge-args", " ".join(forge_args), "--labels"]
+        # store's search.jsonl at ingest). The = form: the value starts with '-'.
+        cmd += [f"--forge-args={' '.join(forge_args)}"]
+    if bool(forge_args) if labels is None else labels:
+        cmd += ["--labels"]
     if getattr(a, "jar", None):
         cmd += ["--jar", str(a.jar)]
-    _run(cmd)
+    if heap:
+        cmd += ["--heap", heap]
+    return cmd
+
+
+def _new_run_dir(purpose: str, before: set) -> Path:
     new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
     if len(new) != 1:
         raise RuntimeError(f"expected one new run dir for {purpose}, got {new}")
     return Path(new.pop())
 
 
+def _launch_games(
+    purpose: str, games: int, start_index: int, a, bridge_seats: "int | None" = None,
+    forge_args: "list[str] | None" = None, heap: "str | None" = None,
+) -> Path:
+    before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
+    _run([sys.executable, "-m", "anvil.bridge.harness", "launch",
+          *games_cmd(purpose, games, start_index, a, bridge_seats, forge_args, heap)])
+    return _new_run_dir(purpose, before)
+
+
+def launch_queue(group: str, slots: int, members: "list[tuple[str, list[str], int | None]]") -> list[Path]:
+    """Play several harness runs through one queue (M13 Build 2; the
+    harness's `launch-group`). `members` = (purpose, launch flags, cap on
+    live workers or None), in queue order. Returns each member's new run
+    dir, in the same order."""
+    before = {p: set(glob.glob(str(RUNS_DIR / f"{p}-*"))) for p, _, _ in members}
+    gid = f"{group}-{time.strftime('%Y%m%d-%H%M%S')}"
+    spec = RUNS_DIR / f"{gid}.spec.json"
+    spec.write_text(json.dumps(
+        {"group": gid, "slots": slots,
+         "members": [{"argv": argv, "max_active": cap} for _, argv, cap in members]}, indent=1) + "\n")
+    _run([sys.executable, "-m", "anvil.bridge.harness", "launch-group", str(spec)])
+    return [_new_run_dir(p, before[p]) for p, _, _ in members]
+
+
+# The Monte Carlo opponent of record (ADR-0129): the desktop mode's counts
+# with the count budget at 8 rounds (5 base + 3 extra). `scripts/m13_mc.sh`
+# `count_props 8` builds the same string; a test holds the two equal.
+MC_PROPS = (
+    "FLAT_MC_MAX_CANDIDATES=8,FLAT_MC_EXTRA_CANDIDATES=5,FLAT_MC_TARGET_VARIANTS=3,FLAT_MC_MAX_PLAYOUT_PLAYS=10"
+    ",FLAT_MC_COMBO_PLAYOUT_PLAYS=20,FLAT_MC_OPPONENT_LOOKAHEAD=50,FLAT_MC_ATTACK=true,FLAT_MC_BROAD_DISCOVERY=true"
+    ",FLAT_MC_PRUNING=true,FLAT_MC_CATEGORY_HOLD=true,FLAT_MC_ADAPTIVE_PLAYOUT=true,FLAT_MC_CONSIDER_HOLDING=true"
+    ",FLAT_MC_MULLIGAN=true,FLAT_MC_COUNT_BUDGET=true,FLAT_MC_ROLLOUTS_PER_CANDIDATE=5,FLAT_MC_EXTRA_ROUNDS=3"
+)
+
+
 def iteration_batches(
-    name: str, k: int, games: int, heur_frac: float
+    name: str, k: int, games: int, heur_frac: float, mc_frac: float = 0.0
 ) -> list[tuple[str, int, int, "int | None"]]:
     """§6d generation plan for one iteration: (purpose, n_games,
     start_index_offset, bridge_seats). Mirror batch first; heuristic-opponent
-    games split evenly across seat assignments for symmetry."""
+    games split evenly across seat assignments for symmetry. `mc_frac` of
+    the iteration's games (M13 pin 7) come OUT of the heuristic-seat share
+    and are played against the Monte Carlo heuristic: batches `m0` / `m1`
+    after the plain ones, so the plain batches keep the offsets they had
+    (`is_mc_batch` tells them apart)."""
     n_heur = int(round(games * heur_frac))
-    h0 = n_heur // 2
-    h1 = n_heur - h0
+    n_mc = int(round(games * mc_frac))
+    if n_mc > n_heur:
+        raise ValueError(f"mc_frac {mc_frac} exceeds heur_frac {heur_frac}: the Monte Carlo share is taken "
+                         "from the heuristic-seat games")
+    n_plain = n_heur - n_mc
+    h0 = n_plain // 2
+    h1 = n_plain - h0
+    m0 = n_mc // 2
+    m1 = n_mc - m0
     n_mirror = games - n_heur
     out = [(f"{name}-i{k:03d}", n_mirror, 0, None)]
-    if h0:
-        out.append((f"{name}-i{k:03d}h0", h0, n_mirror, 0))
-    if h1:
-        out.append((f"{name}-i{k:03d}h1", h1, n_mirror + h0, 1))
+    off = n_mirror
+    for sfx, n, seat in (("h0", h0, 0), ("h1", h1, 1), ("m0", m0, 0), ("m1", m1, 1)):
+        if n:
+            out.append((f"{name}-i{k:03d}{sfx}", n, off, seat))
+        off += n
     return out
+
+
+def mc_cap(a) -> int:
+    """Live workers one Monte Carlo batch may hold: --mc-max-active, else an
+    eighth of the fleet, so the two seat batches together hold a quarter."""
+    return int(getattr(a, "mc_max_active", 0) or 0) or max(1, a.workers // 8)
+
+
+def is_mc_batch(purpose: str) -> bool:
+    """A Monte Carlo batch of `iteration_batches` (purpose `<name>-iNNNm<seat>`)."""
+    return purpose[-2:] in ("m0", "m1") and purpose[-6:-2].startswith("i") and purpose[-5:-2].isdigit()
+
+
+def queue_order(batches: list, mc_cap: int) -> "list[tuple[int, int | None]]":
+    """The iteration's queue: (batch index, cap on live workers). Monte
+    Carlo batches go first, each capped, so their long games start at the
+    iteration's opening and overlap everything else; the rest follow in
+    plan order, uncapped. With two Monte Carlo batches at `mc_cap` each, at
+    most 2 x mc_cap workers hold a Monte Carlo game at once."""
+    mc = [j for j, b in enumerate(batches) if is_mc_batch(b[0])]
+    rest = [j for j, b in enumerate(batches) if not is_mc_batch(b[0])]
+    return [(j, mc_cap) for j in mc] + [(j, None) for j in rest]
 
 
 def drill_slice(rows: list[dict], k: int, ppi: int) -> list[dict]:
@@ -1136,7 +1215,7 @@ def _backfill_live_baseline(state: dict, name: str, runs_dir: Path | None = None
     if not base or base.get("live_casts_per_game") is not None:
         return None
     root = runs_dir or RUNS_DIR
-    dirs = sorted(d for sfx in ("", "h0", "h1") for d in glob.glob(str(root / f"{name}-i000{sfx}-*")))
+    dirs = sorted(d for sfx in ("", "h0", "h1", "m0", "m1") for d in glob.glob(str(root / f"{name}-i000{sfx}-*")))
     games = _game_stats(dirs).get("games") if dirs else 0
     if not games:
         return (f"[selfplay] live casts baseline not backfilled: no games under {root}/{name}-i000*; "
@@ -2019,6 +2098,31 @@ def main() -> None:
         "(e.g. gen 8 + campaign 16, campaign = the critical path)",
     )
     ap.add_argument(
+        "--server-args", default=None,
+        help="extra model-server flags for every server the loop starts (generation and arms), verbatim: on the "
+        "merged engine '--abilities data/embeddings/abil-cf2ca6ba-m13-qwen3' (a checkpoint's config names the "
+        "old table; ADR-0128)",
+    )
+    ap.add_argument(
+        "--mc-frac", type=float, default=0.0,
+        help="M13 pin 7 (ADR-0129): fraction of each iteration's games played against the Monte Carlo "
+        "heuristic, taken out of --heur-frac's share and split across seat assignments (0.1 with "
+        "--heur-frac 0.5 = 50%% self-play, 40%% plain heuristic, 10%% Monte Carlo); 0 = none",
+    )
+    ap.add_argument("--mc-props", default=MC_PROPS,
+                    help="the Monte Carlo seat's profile properties (-mcprops); default = the 8-round count budget")
+    ap.add_argument("--mc-heap", default="3g",
+                    help="worker heap for the Monte Carlo batches (a count-budget rollout exhausts the fleet's 2g)")
+    ap.add_argument("--mc-max-active", type=int, default=0,
+                    help="live workers one Monte Carlo seat batch may hold in the queue (0 = workers // 8, so the "
+                    "two seat batches hold a quarter of the fleet); ignored under --gen-queue cells")
+    ap.add_argument(
+        "--gen-queue", choices=["one", "cells"], default="one",
+        help="one (default, M13 Build 2): an iteration's batches share one queue of worker slots and the fleet "
+        "drains once; cells: one harness launch per batch, a drain each (the pre-Build-2 loop; the paired cell's "
+        "reference). The games are the same either way: a game is its seed base and index",
+    )
+    ap.add_argument(
         "--heur-frac",
         type=float,
         default=0.0,
@@ -2286,7 +2390,7 @@ def main() -> None:
         # iteration must not cost a ~25-min regeneration on resume.
         # §6d: an iteration is 1-3 batches (mirror + heur s0/s1) with disjoint
         # start-index slices; each batch keeps its own run dir + store ----
-        batches = iteration_batches(args.name, k, args.games, args.heur_frac)
+        batches = iteration_batches(args.name, k, args.games, args.heur_frac, args.mc_frac)
         run_dirs: list = []
         for bp, _, _, _ in batches:
             found = None
@@ -2324,12 +2428,32 @@ def main() -> None:
                     fa = search_forge_args(args, state["ckpt"])
                     if fa:
                         print(f"[selfplay] iteration {k}: search forge args {' '.join(fa)}")
-                    for j, (bp, n, off, seats) in enumerate(batches):
-                        if run_dirs[j] is None:
-                            run_dirs[j] = _launch_games(
-                                bp, n, state["start_index"] + off, args, bridge_seats=seats,
-                                forge_args=fa,
-                            )
+                    mc_fa = [*fa, "-mc", "on", "-mcprops", args.mc_props]
+
+                    def _flags(j: int) -> list[str]:
+                        bp, n, off, seats = batches[j]
+                        mc = is_mc_batch(bp)
+                        return games_cmd(
+                            bp, n, state["start_index"] + off, args, bridge_seats=seats,
+                            forge_args=mc_fa if mc else fa, heap=args.mc_heap if mc else None,
+                            labels=bool(fa),
+                        )
+
+                    todo = [(j, cap) for j, cap in queue_order(batches, mc_cap(args)) if run_dirs[j] is None]
+                    if args.gen_queue == "one" and len(todo) > 1:
+                        # one queue (M13 Build 2): the batches share the worker
+                        # slots and the fleet drains once for the iteration
+                        got = launch_queue(
+                            f"{args.name}-i{k:03d}-q", args.workers,
+                            [(batches[j][0], _flags(j), cap) for j, cap in todo],
+                        )
+                        for (j, _), rd in zip(todo, got):
+                            run_dirs[j] = rd
+                    else:
+                        for j, _ in sorted(todo):  # cells: plan order, one drain per batch
+                            before = set(glob.glob(str(RUNS_DIR / f"{batches[j][0]}-*")))
+                            _run([sys.executable, "-m", "anvil.bridge.harness", "launch", *_flags(j)])
+                            run_dirs[j] = _new_run_dir(batches[j][0], before)
                 finally:
                     _stop_server(server)
             # ---- ingest (mu joined on (g, s); disjoint start-index slices
@@ -3042,16 +3166,12 @@ def main() -> None:
             la_dirs = []
             arm_fa = search_forge_args(args, state["ckpt"]) if args.arms_lookahead == "on" else []
             try:
+                arm_members = []
                 for seat, la in ((0, False), (1, False), (0, True), (1, True)):
                     if la and not arm_fa:
                         continue
                     ap_purpose = f"{args.name}-arm{'la' if la else ''}-i{k:03d}-s{seat}"
-                    before = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*")))
                     arm_cmd = [
-                        sys.executable,
-                        "-m",
-                        "anvil.bridge.harness",
-                        "launch",
                         "--pairs-file",
                         args.arms_pairs,
                         "--format",
@@ -3077,12 +3197,25 @@ def main() -> None:
                         # the with-lookahead arm (ADR-0113) — the same
                         # ckpt under the run's search recipe (the network-
                         # alone vs with-lookahead gap, read mid-run)
-                        arm_cmd += ["--forge-args", " ".join(arm_fa), "--labels"]
+                        arm_cmd += [f"--forge-args={' '.join(arm_fa)}", "--labels"]
                     if args.jar:
                         arm_cmd += ["--jar", str(args.jar)]
-                    _run(arm_cmd)
-                    new = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*"))) - before
-                    (la_dirs if la else arm_dirs).append(new.pop())
+                    arm_members.append((ap_purpose, arm_cmd, None, la))
+                if args.gen_queue == "one" and len(arm_members) > 1:
+                    # one queue across the seat arms (M13 Build 2); the
+                    # with-lookahead arms go first: their games are the long ones
+                    arm_members.sort(key=lambda m: not m[3])
+                    got = launch_queue(f"{args.name}-arms-i{k:03d}-q", args.workers,
+                                       [m[:3] for m in arm_members])
+                else:
+                    got = []
+                    for ap_purpose, arm_cmd, _, _ in arm_members:
+                        before = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*")))
+                        _run([sys.executable, "-m", "anvil.bridge.harness", "launch", *arm_cmd])
+                        got.append(_new_run_dir(ap_purpose, before))
+                # arms_report reads the dirs in seat order
+                for (ap_purpose, _, _, la), rd in sorted(zip(arm_members, got), key=lambda t: t[0][0]):
+                    (la_dirs if la else arm_dirs).append(str(rd))
             finally:
                 _stop_server(server)
             _run(

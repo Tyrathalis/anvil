@@ -564,3 +564,27 @@ def test_forks_ingest_quarantines_bad_frames(tmp_path, capsys):
     assert sorted(store.manifest["drill"]["quarantined"]) == [50001, 50002]
     assert store.winner_seat(50000) == 1
     assert 50001 not in store.outcomes and 50002 not in store.outcomes
+
+
+def test_mu_and_search_rows_keep_only_this_stores_games(tmp_path):
+    """The loop copies an iteration's whole mu file into each batch store;
+    a store holds its own games' rows (raw, parsed per game) and answers as
+    the whole-file parse did."""
+    root = tmp_path / "s"
+    root.mkdir()
+    (root / "manifest.json").write_text("{}")
+    (root / "index.jsonl").write_text(
+        json.dumps({"g": 5, "seed": 77}) + "\n" + json.dumps({"g": 6, "seed": 78}) + "\n")
+    mu = [{"k": "meta", "step": 3, "temperature": 0.9}, {"g": 5, "s": 1, "logp": -0.5}, {"g": 9, "s": 0, "logp": -9.0},
+          {"g": 5, "s": 0, "logp": -1.5}, {"g": 6, "s": 0, "logp": -0.1}]
+    (root / "mu.jsonl").write_text("".join(json.dumps(r) + "\n" for r in mu))
+    srch = [{"seed": 77, "sw": 2, "seat": 0, "ev": "search"}, {"seed": 99, "sw": 0, "seat": 0, "ev": "search"},
+            {"seed": 77, "sw": 1, "seat": 1, "ev": "alloc"}, {"seed": 77, "sw": 1, "seat": 0, "ev": "search"}]
+    (root / "search.jsonl").write_text("".join(json.dumps(r) + "\n" for r in srch))
+    st = TrajectoryStore(root)
+    assert st.mu_for_game(5) == {1: mu[1], 0: mu[3]}
+    assert st.mu_for_game(6) == {0: mu[4]}
+    assert st.mu_for_game(9) == {} and 9 not in st._mu  # another batch's game: not held
+    assert st.mu_meta == mu[0]
+    assert st.search_rows_for_game(5) == [srch[3], srch[2], srch[0]]
+    assert st.search_rows_for_game(6) == []

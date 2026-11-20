@@ -19,11 +19,13 @@ from pathlib import Path
 from anvil.training.notify import notify, watch_register, watch_unregister
 from anvil.training.selfplay import (
     RUNS_DIR,
+    _new_run_dir,
     _run,
     _start_server,
     _stop_server,
     fleet_bridge,
     fleet_size,
+    launch_queue,
 )
 
 CRITIC = "data/training/d4-critic-fullvis/last.pt"
@@ -139,6 +141,18 @@ def main() -> None:
         help="generation + arms report only (no ingest / Ante certify) — the "
         "day-zero paired diffs need the raw arms, not the corrected number",
     )
+    ap.add_argument(
+        "--cells",
+        action="store_true",
+        help="one harness launch per seat arm, a drain each (the pre-Build-2 read; the paired cell's "
+        "reference). Default: both seat arms through one queue (the harness's launch-group); the games "
+        "are the same either way",
+    )
+    ap.add_argument(
+        "--quiet",
+        action="store_true",
+        help="no completion notification (a smoke); a FAILED read still notifies",
+    )
     a = ap.parse_args()
     if a.chunk is None:
         a.chunk = max(1, -(-a.games // (4 * a.workers)))
@@ -166,56 +180,54 @@ def main() -> None:
     )
     print(f"[final_read] {fleet_size(a)} server(s) for {a.workers} workers: {fleet_bridge(a)}")
     try:
+        members = []
         for seat in (0, 1):
             purpose = f"{a.name}arm-s{seat}"
-            before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-            _run(
-                [
-                    sys.executable,
-                    "-m",
-                    "anvil.bridge.harness",
-                    "launch",
-                    "--pairs-file",
-                    a.pairs_file,
-                    "--format",
-                    a.format,
-                    "--games",
-                    str(a.games),
-                    "--games-per-pair",
-                    str(a.games_per_pair),
-                    "--workers",
-                    str(a.workers),
-                    "--chunk",
-                    str(a.chunk),
-                    "--bridge",
-                    fleet_bridge(a),
-                    "--census",
-                    "--obs",
-                    "--purpose",
-                    purpose,
-                    "--seed-base",
-                    str(a.seed_base),
-                    "--pool-version",
-                    a.pool_version,
-                    "--bridge-seats",
-                    "2" if a.heuristic_control else str(seat),
-                    "--reask",
-                    *(
-                        # the = form: a value starting with '-' (e.g. -payrescue) is
-                        # otherwise read by the harness's parser as a flag
-                        [f"--forge-args={fargs}"]
-                        if (fargs := _seat_forge_args(a, seat))
-                        else []
-                    ),
-                    *(["--labels"] if a.labels else []),
-                    *(["--jar", a.jar] if a.jar else []),
-                    *(["--heap", a.heap] if a.heap else []),
-                ]
-            )
-            new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
-            if len(new) != 1:
-                raise RuntimeError(f"expected one new run dir, got {new}")
-            arm_dirs.append(Path(new.pop()))
+            members.append((purpose, [
+                "--pairs-file",
+                a.pairs_file,
+                "--format",
+                a.format,
+                "--games",
+                str(a.games),
+                "--games-per-pair",
+                str(a.games_per_pair),
+                "--workers",
+                str(a.workers),
+                "--chunk",
+                str(a.chunk),
+                "--bridge",
+                fleet_bridge(a),
+                "--census",
+                "--obs",
+                "--purpose",
+                purpose,
+                "--seed-base",
+                str(a.seed_base),
+                "--pool-version",
+                a.pool_version,
+                "--bridge-seats",
+                "2" if a.heuristic_control else str(seat),
+                "--reask",
+                *(
+                    # the = form: a value starting with '-' (e.g. -payrescue) is
+                    # otherwise read by the harness's parser as a flag
+                    [f"--forge-args={fargs}"]
+                    if (fargs := _seat_forge_args(a, seat))
+                    else []
+                ),
+                *(["--labels"] if a.labels else []),
+                *(["--jar", a.jar] if a.jar else []),
+                *(["--heap", a.heap] if a.heap else []),
+            ], None))
+        if a.cells:
+            for purpose, argv, _ in members:
+                before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
+                _run([sys.executable, "-m", "anvil.bridge.harness", "launch", *argv])
+                arm_dirs.append(_new_run_dir(purpose, before))
+        else:
+            # one queue across the seat arms (M13 Build 2): one drain for the read
+            arm_dirs = launch_queue(f"{a.name}-q", a.workers, members)
     finally:
         _stop_server(server)
 
@@ -274,11 +286,14 @@ def main() -> None:
         or []
     )
     an_txt = "; ".join(an) if an else "none"
-    notify(
-        f"anvil {a.name}: read complete",
-        f"{out}; battery anomalies: {an_txt}",
-        tag="final_read",
-    )
+    if a.quiet:
+        print(f"[final_read] read complete (quiet); battery anomalies: {an_txt}")
+    else:
+        notify(
+            f"anvil {a.name}: read complete",
+            f"{out}; battery anomalies: {an_txt}",
+            tag="final_read",
+        )
     watch_unregister(f"{a.name}-read")
 
 

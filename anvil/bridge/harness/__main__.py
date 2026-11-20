@@ -222,6 +222,18 @@ def main() -> None:
         "--force-seq",
     )
 
+    lg = sub.add_parser(
+        "launch-group",
+        help="several runs through one queue of worker slots (M13 Build 2): each keeps its own dir, "
+        "manifest and store; the fleet drains once for the group",
+    )
+    lg.add_argument(
+        "spec",
+        type=Path,
+        help='JSON: {"group": id, "slots": N, "members": [{"argv": [<launch flags>], "max_active": K or null}]}; '
+        "members are issued in list order, each bounded by its max_active live workers",
+    )
+
     for name in ("resume", "pause", "status", "summarize"):
         p = sub.add_parser(name)
         p.add_argument("run_dir", type=Path)
@@ -235,6 +247,17 @@ def main() -> None:
         if a.seed_base is None:
             a.seed_base = secrets.randbelow(1 << 62)
         orc.launch(a)
+    elif a.cmd == "launch-group":
+        import json
+
+        spec = json.loads(a.spec.read_text())
+        members = []
+        for m in spec["members"]:
+            ma = ap.parse_args(["launch", *m["argv"]])
+            if ma.seed_base is None:
+                ap.error("launch-group: every member names its --seed-base")
+            members.append((ma, m.get("max_active")))
+        orc.launch_group(members, int(spec["slots"]), spec["group"])
     elif a.cmd == "resume":
         orc.resume(a.run_dir)
     elif a.cmd == "pause":

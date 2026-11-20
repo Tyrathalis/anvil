@@ -63,6 +63,10 @@ construction, what the checklist used to ask each script to remember:
               boundary; --scope all = every watched dir) + `pause_requested`
               on the state; the supervisor records PAUSED at exit (no FAILED
               push, no check-in).
+  stop        `anvil.runs stop --name N`: the run's whole scope goes down now
+              (command, servers, workers, loader workers, supervisor); the
+              state reads `paused` (no FAILED push) and `relaunch` resumes.
+              Also the way out of an orphaned run.
   relaunch    `anvil.runs relaunch --name N`: the recorded command again, in
               place (STOP files removed); `--resume-on-gone` at launch lets
               the sweep do this itself after a reboot, capped by --resume-max.
@@ -1211,6 +1215,43 @@ def pause(a: argparse.Namespace) -> int:
     return 0
 
 
+def stop(a: argparse.Namespace) -> int:
+    """Stop a run now, all of it: the run's scope goes down (the command,
+    its servers, its Forge workers, the learner's loader workers and the
+    supervisor), and the state reads `paused`, so nothing is pushed as
+    FAILED and `relaunch` resumes it. `pause` is the graceful stop at a
+    boundary; this is the kill that leaves nothing behind. Works on an
+    orphaned run too (a dead supervisor over a live command): the scope is
+    what is stopped. No STOP file is written."""
+    r = read_run(a.name)
+    if not r:
+        print(f"stop: no run {a.name}", file=sys.stderr)
+        return 2
+    live = liveness(r)
+    unit = run_scope(r)
+    if live == "dead":
+        print(f"stop: run {a.name} is {r.get('state')}, nothing to stop", file=sys.stderr)
+        return 3
+    if not unit or not _scope_active(unit):
+        print(f"stop: run {a.name} has no live scope to stop (pid {r.get('pid')}); "
+              f"`pause --name {a.name} --now` signals its process group", file=sys.stderr)
+        return 3
+    # before the scope goes: a supervisor that outlives the command by a moment records `paused`, not FAILED
+    r.update(pause_requested=_now(), stopped_by="anvil.runs stop")
+    _write_json(_run_file(a.name), r)
+    rc = subprocess.run(["systemctl", "--user", "stop", unit], capture_output=True, text=True)
+    if rc.returncode != 0 or _scope_active(unit):
+        print(f"stop: `systemctl --user stop {unit}` did not stop the scope: {rc.stderr.strip()}", file=sys.stderr)
+        return 1
+    cur = read_run(a.name) or r
+    if cur.get("state") != "paused":  # the supervisor went down with the scope before it could record
+        cur.update(state="paused", ended=_now(), stopped_by="anvil.runs stop")
+        _write_json(_run_file(a.name), cur)
+    print(f"[runs] STOPPED {a.name}: scope {unit} is down; the run reads `paused` "
+          f"(`anvil.runs relaunch --name {a.name}` resumes it)", flush=True)
+    return 0
+
+
 def _relaunch_args(r: dict, no_selftest: bool = False, launched_by: str | None = None,
                    checkin: str | None = None) -> argparse.Namespace:
     # `launched_by` overrides the recorded session (a relaunch from a new session: the
@@ -1455,6 +1496,9 @@ def main(argv: list[str] | None = None) -> int:
     pa.add_argument("--scope", choices=("loop", "all"), default="loop",
                     help="loop (default): STOP in the run dir + watched loop roots, never a loop's live "
                          "harness dirs (a harness-only run still drains); all: every watched dir")
+    sp = sub.add_parser("stop", help="stop the whole run now by its scope (command, servers, workers, supervisor); "
+                                     "it reads paused, no FAILED push")
+    sp.add_argument("--name", required=True)
     rl = sub.add_parser("relaunch", help="re-run a paused / gone / failed / done run's recorded command in place (STOP files removed)")
     rl.add_argument("--name", required=True)
     rl.add_argument("--no-selftest", action="store_true")
@@ -1489,7 +1533,7 @@ def main(argv: list[str] | None = None) -> int:
     return {"launch": lambda: launch(a, cmd), "status": lambda: status(a), "wait": lambda: wait(a),
             "alerts": lambda: alerts(a), "ack": lambda: ack(a), "prune": lambda: prune(a),
             "sweep": lambda: sweep(a), "install-sweep": lambda: install_sweep(a), "tick": lambda: tick(a),
-            "pause": lambda: pause(a), "relaunch": lambda: relaunch(a), "quiet": lambda: quiet(a)}[a.verb]()
+            "pause": lambda: pause(a), "stop": lambda: stop(a), "relaunch": lambda: relaunch(a), "quiet": lambda: quiet(a)}[a.verb]()
 
 
 if __name__ == "__main__":

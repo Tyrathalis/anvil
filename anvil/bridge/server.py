@@ -1513,6 +1513,13 @@ def main() -> None:
     )
     args = ap.parse_args()
 
+    # before any model loads: a second server on a live port would share its workers
+    from anvil.bridge.fleet import check_ports_free
+
+    try:
+        check_ports_free(args.port, max(args.servers, 1))
+    except RuntimeError as e:
+        raise SystemExit(f"[server] {e}")
     if args.servers > 1:
         from anvil.bridge.fleet import supervise
 

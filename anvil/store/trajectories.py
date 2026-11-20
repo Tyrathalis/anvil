@@ -152,20 +152,36 @@ class TrajectoryStore:
     def mu_for_game(self, g: int) -> dict[int, dict] | None:
         """Behavior-policy records for game g, keyed by dec seq (M2 D6
         sampled-actor stores); None when the store carries no mu.jsonl.
-        Lazy whole-file load — RL iteration stores are small (~10^5 recs)."""
+
+        The file is read once and held as RAW LINES of this store's own
+        games; a game's rows are parsed when it is asked for. The loop copies
+        an iteration's whole mu file into each of its batch stores, so a
+        store's file holds every batch's rows; parsed whole it cost 430 MB
+        a store, in every learner worker (M13 Build 2: the learner's
+        memory was the window's mu files times the workers)."""
         if not hasattr(self, "_mu"):
-            self._mu: dict[int, dict[int, dict]] | None = None
+            self._mu: dict[int, list[str]] | None = None
             self.mu_meta: dict | None = None
             path = self.root / "mu.jsonl"
             if path.exists():
                 self._mu = {}
-                for line in path.read_text().splitlines():
-                    r = json.loads(line)
-                    if r.get("k") == "meta":
-                        self.mu_meta = r
-                        continue
-                    self._mu.setdefault(r["g"], {})[r["s"]] = r
-        return None if self._mu is None else self._mu.get(g, {})
+                with open(path) as fh:
+                    for line in fh:
+                        if not line.strip():
+                            continue
+                        r = json.loads(line)
+                        if r.get("k") == "meta":
+                            self.mu_meta = r
+                            continue
+                        if r["g"] in self._by_game:
+                            self._mu.setdefault(r["g"], []).append(line)
+        if self._mu is None:
+            return None
+        out: dict[int, dict] = {}
+        for line in self._mu.get(g, ()):
+            r = json.loads(line)
+            out[r["s"]] = r
+        return out
 
     def search_rows_for_game(self, g: int) -> list[dict]:
         """The search directive's rows for game g (the loop wiring,
@@ -174,9 +190,9 @@ class TrajectoryStore:
         chunk-relative on re-issue; the seed is the game). Empty when the
         store carries no search.jsonl (a run without the search directive
         or one ingested before the loop wiring — `anvil.store search-rows`
-        backfills). Lazy whole-file load, like mu."""
+        backfills). Read once and held as raw lines, like mu."""
         if not hasattr(self, "_search"):
-            self._search: dict[int, list[dict]] | None = None
+            self._search: dict[int, list[str]] | None = None
             path = self.root / "search.jsonl"
             if path.exists():
                 self._search = {}
@@ -184,14 +200,15 @@ class TrajectoryStore:
                     for line in fh:
                         if not line.strip():
                             continue
-                        r = json.loads(line)
-                        self._search.setdefault(int(r["seed"]), []).append(r)
-                for rows in self._search.values():
-                    rows.sort(key=lambda r: (int(r.get("sw", 0)), int(r.get("seat", 0))))
+                        self._search.setdefault(int(json.loads(line)["seed"]), []).append(line)
         if not self._search:
             return []
         seed = self._by_game.get(g, {}).get("seed")
-        return list(self._search.get(int(seed), [])) if seed is not None else []
+        if seed is None:
+            return []
+        rows = [json.loads(line) for line in self._search.get(int(seed), ())]
+        rows.sort(key=lambda r: (int(r.get("sw", 0)), int(r.get("seat", 0))))
+        return rows
 
     def __len__(self) -> int:
         return len(self.index)

@@ -32,11 +32,13 @@ from pathlib import Path
 
 from anvil.training.selfplay import (
     RUNS_DIR,
+    _new_run_dir,
     _run,
     _start_server,
     _stop_server,
     fleet_bridge,
     fleet_size,
+    launch_queue,
 )
 
 
@@ -125,6 +127,12 @@ def main() -> None:
     ap.add_argument("--format", default="Commander")
     ap.add_argument("--jar", default=None, help="run this jar (a snapshot copy) instead of target/'s newest")
     ap.add_argument("--server-args", default=None, help="extra model-server flags for both checkpoints")
+    ap.add_argument(
+        "--cells", action="store_true",
+        help="one seat arm at a time, each under its own server fleet on --port (the pre-Build-2 read). "
+        "Default: both arms through one queue, each arm's fleet on its own ports (--port and the block "
+        "after it), so twice the servers are up at once",
+    )
     a = ap.parse_args()
     if a.chunk is None:
         a.chunk = max(1, -(-a.games // (4 * a.workers)))
@@ -135,41 +143,70 @@ def main() -> None:
 
     arms: dict[int, list[dict]] = {}
     arm_dirs: dict[int, str] = {}
-    for a_seat in (0, 1):
+    n_srv = fleet_size(a)
+
+    def _arm(a_seat: int, port: int):
+        """(purpose, counts file, server start thunk, launch flags) for the arm with A at `a_seat`."""
         b_seat = 1 - a_seat
         counts = RUNS_DIR / f"{a.name}-s{a_seat}-server.counts.json"
         counts.unlink(missing_ok=True)
-        server = _start_server(
-            a.a, a.port, RUNS_DIR / f"{a.name}-s{a_seat}-server.log", sample=False,
-            sched_flags=["--seat-ckpt", f"{b_seat}={a.b}", "--counts-out", str(counts)]
-            + (a.server_args.split() if a.server_args else []),
-            servers=fleet_size(a),
-        )
         purpose = f"{a.name}arm-s{a_seat}"
-        before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-        try:
-            _run(
-                [
-                    sys.executable, "-m", "anvil.bridge.harness", "launch",
-                    "--pairs-file", a.pairs_file, "--format", a.format,
-                    "--games", str(a.games), "--games-per-pair", str(a.games_per_pair),
-                    "--workers", str(a.workers), "--chunk", str(a.chunk),
-                    "--bridge", fleet_bridge(a), "--census", "--obs",
-                    "--purpose", purpose, "--seed-base", str(a.seed_base),
-                    "--pool-version", a.pool_version, "--reask",
-                    *(["--jar", a.jar] if a.jar else []),
-                ]
+
+        def start():
+            return _start_server(
+                a.a, port, RUNS_DIR / f"{a.name}-s{a_seat}-server.log", sample=False,
+                sched_flags=["--seat-ckpt", f"{b_seat}={a.b}", "--counts-out", str(counts)]
+                + (a.server_args.split() if a.server_args else []),
+                servers=n_srv,
             )
+
+        argv = [
+            "--pairs-file", a.pairs_file, "--format", a.format,
+            "--games", str(a.games), "--games-per-pair", str(a.games_per_pair),
+            "--workers", str(a.workers), "--chunk", str(a.chunk),
+            "--bridge", fleet_bridge(a, port=port), "--census", "--obs",
+            "--purpose", purpose, "--seed-base", str(a.seed_base),
+            "--pool-version", a.pool_version, "--reask",
+            *(["--jar", a.jar] if a.jar else []),
+        ]
+        return purpose, counts, start, argv
+
+    got: dict[int, Path] = {}
+    all_counts: dict[int, Path] = {}
+    if a.cells:
+        for a_seat in (0, 1):
+            purpose, counts, start, argv = _arm(a_seat, a.port)
+            all_counts[a_seat] = counts
+            before = set(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
+            server = start()
+            try:
+                _run([sys.executable, "-m", "anvil.bridge.harness", "launch", *argv])
+            finally:
+                _stop_server(server)
+            got[a_seat] = _new_run_dir(purpose, before)
+    else:
+        # one queue across the seat arms (M13 Build 2). The seat routing is the
+        # server's, so each arm keeps its own fleet, on its own block of ports.
+        plan = [_arm(a_seat, a.port + a_seat * n_srv) for a_seat in (0, 1)]
+        servers = []
+        try:
+            for _, _, start, _ in plan:
+                servers.append(start())
+            dirs = launch_queue(f"{a.name}-q", a.workers, [(p, argv, None) for p, _, _, argv in plan])
         finally:
-            _stop_server(server)
-        new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
-        if len(new) != 1:
-            raise RuntimeError(f"expected one new run dir, got {new}")
-        rd = Path(new.pop())
+            for srv in servers:
+                _stop_server(srv)
+        for a_seat, rd in zip((0, 1), dirs):
+            got[a_seat] = rd
+            all_counts[a_seat] = plan[a_seat][1]
+
+    for a_seat in (0, 1):
+        b_seat = 1 - a_seat
+        rd = got[a_seat]
         manifest = json.loads((rd / "run.json").read_text())
         if manifest.get("bridge_seats") is not None:
             raise RuntimeError(f"{rd.name}: bridge_seats={manifest['bridge_seats']}; every seat must be bridged")
-        check_routing(json.loads(counts.read_text()), b_seat)
+        check_routing(json.loads(all_counts[a_seat].read_text()), b_seat)
         # which checkpoint sat where: the run manifest cannot say
         (rd / "h2h-seats.json").write_text(json.dumps({str(a_seat): a.a, str(b_seat): a.b}, indent=1) + "\n")
         arms[a_seat] = [json.loads(line) for line in (rd / "games.jsonl").read_text().splitlines()]
