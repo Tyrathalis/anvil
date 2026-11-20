@@ -761,7 +761,8 @@ def launch_group(members: "list[tuple[object, int | None]]", slots: int, group_i
         sys.exit(f"launch-group: purposes must differ, got {purposes}")
     dirs = [create(a, queue={"group": group_id, "slots": slots, "max_active": cap, "position": j})
             for j, (a, cap) in enumerate(members)]
-    (RUNS_DIR / f"{group_id}.queue.json").write_text(
+    (RUNS_DIR / "queues").mkdir(parents=True, exist_ok=True)
+    (RUNS_DIR / "queues" / f"{group_id}.queue.json").write_text(
         json.dumps({"group": group_id, "slots": slots, "runs": [d.name for d in dirs]}, indent=1) + "\n")
     schedule_group([Run(d) for d in dirs], slots, [cap for _, cap in members])
     return dirs
@@ -774,7 +775,7 @@ def resume(run_dir: Path) -> None:
     q = r.manifest.get("queue")
     runs = [r]
     if q:
-        rec = json.loads((RUNS_DIR / f"{q['group']}.queue.json").read_text())
+        rec = json.loads((RUNS_DIR / "queues" / f"{q['group']}.queue.json").read_text())
         runs = [Run(RUNS_DIR / name) for name in rec["runs"]]
     for m in runs:
         if m.stop_file.exists():

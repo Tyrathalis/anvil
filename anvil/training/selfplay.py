@@ -747,7 +747,8 @@ def games_cmd(
 
 
 def _new_run_dir(purpose: str, before: set) -> Path:
-    new = set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before
+    # run dirs only: a queue's spec and record files share the purpose's prefix
+    new = {d for d in set(glob.glob(str(RUNS_DIR / f"{purpose}-*"))) - before if (Path(d) / "run.json").exists()}
     if len(new) != 1:
         raise RuntimeError(f"expected one new run dir for {purpose}, got {new}")
     return Path(new.pop())
@@ -770,7 +771,8 @@ def launch_queue(group: str, slots: int, members: "list[tuple[str, list[str], in
     dir, in the same order."""
     before = {p: set(glob.glob(str(RUNS_DIR / f"{p}-*"))) for p, _, _ in members}
     gid = f"{group}-{time.strftime('%Y%m%d-%H%M%S')}"
-    spec = RUNS_DIR / f"{gid}.spec.json"
+    (RUNS_DIR / "queues").mkdir(parents=True, exist_ok=True)
+    spec = RUNS_DIR / "queues" / f"{gid}.spec.json"
     spec.write_text(json.dumps(
         {"group": gid, "slots": slots,
          "members": [{"argv": argv, "max_active": cap} for _, argv, cap in members]}, indent=1) + "\n")

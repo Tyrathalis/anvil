@@ -87,9 +87,13 @@ def main() -> None:
     ap.add_argument("--jar", default=str(ROOT / "data/runs/tgtmask/forge-tgtmask3.jar"))
     ap.add_argument("--cells", default="on,off")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--server-args", default=None,
+                    help="extra model-server flags (the loop's --server-args), e.g. the merged engine's --abilities")
     a = ap.parse_args()
     Path(a.out).mkdir(parents=True, exist_ok=True)
     loop_cfg = argparse.Namespace(**json.load(open(a.loop_config)))
+    if a.server_args:
+        loop_cfg.server_args = a.server_args
     args = {"on": SEARCH.format(tau=a.tau), "off": ""}
     recs = [cell(a, c, args[c], loop_cfg) for c in a.cells.split(",")]
     if all(r["rc"] == 0 for r in recs) and len(recs) == 2:
