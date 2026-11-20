@@ -208,6 +208,15 @@ What the flags mean, in the order you would change them:
 - **`--iterations 25 --games 480`**: 480 games per iteration, half mirror, half vs the heuristic
   (`--heur-frac 0.5`). On a 4090 one iteration is ~25 minutes (generation ~1,400 s, training
   ~300 s), so 25 iterations is a night.
+  The iteration's batches (mirror, each heuristic seat, the Monte Carlo share) run through one queue
+  of worker slots, so the fleet drains once per iteration (`--gen-queue cells` is the older one
+  launch per batch; the games are the same either way,
+  [ADR-0134](../decisions/ADR-0134-m13-build2-one-queue.md)).
+- **`--mc-frac 0.1`** (default 0): this share of each iteration's games is played against the Monte
+  Carlo heuristic of §7a's table in place of the plain one, half per seat. Those workers run on a
+  3 GB heap (`--mc-heap`), go first in the queue, and at most a quarter of the fleet holds one at a
+  time (`--mc-max-active`). `--mc-props` sets the opponent's budget; the default is the 8-round one.
+- **`--server-args '<flags>'`**: extra model-server flags for the loop's generation and arm servers.
 - **`--reask`**: when the engine vetoes a chosen spell (unpayable, no legal target) the seat is
   re-asked with that option removed instead of passing. Keep it on.
 - **`--penalty 0.01 --penalty-grouping first`**: the small cost on vetoed attempts that keeps the
@@ -228,11 +237,11 @@ What the flags mean, in the order you would change them:
   trend instrument (±2.5pp); do not quote it.
 - **`--rl-seg 64`** bounds learner memory; raise it on a bigger card.
 - **`--rl-workers 4 --train-mem-floor-gb 8`**: the two host-memory settings, sized here for a
-  32–64 GB box. Their defaults (12 workers, a 40 GB floor) do not fit a small box: 12 workers
-  need about 90 GB by the §7¾ rule, and our own 64 GB box runs 4 workers. The floor is a
+  32 GB box. Each loader worker holds a little over 1 GB at a 12-store window, so the default of 12
+  workers fits a 64 GB box (about 21 GB with the learner). The floor is a
   gate: the training step waits, with no timeout, while free memory is under it, so a floor above
-  what your box ever has free stalls the loop at its first training step without an alarm. §7¾
-  has the sizing rule.
+  what your box ever has free (the default is 40 GB) stalls the loop at its first training step
+  without an alarm. §7¾ has the sizing rule.
 
 Checkpoints land in `data/training/<name>-loop/iter-NNN/train/last.pt`; the monitor is
 `monitor.jsonl` in the loop dir (reward, entropy, KL, veto rate per iteration). `STOP` in the loop
@@ -353,7 +362,10 @@ Run `uv run python -m anvil.bridge.server --servers N ...` to start N servers on
 and give the harness the matching list, `--bridge grpc:localhost:P,grpc:localhost:P+1,...`; chunks
 are assigned round-robin. Pin N = ceil(workers / 12) and keep workers under your core count (24 on a
 32-core box; 32 runs games 2.5× slower). The recipe of record on a 7950X + 4090 is 24 workers × 2
-servers ≈ 300–350 games/hour searched; `selfplay.py` derives N from `--workers`. The servers print a
+servers ≈ 300–350 games/hour searched; `selfplay.py` derives N from `--workers`. A third
+server does not help with the search off either (about 2,000 games/hour on two or on three,
+[ADR-0134](../decisions/ADR-0134-m13-build2-one-queue.md)). A server refuses to start on a port that is already
+listening: gRPC would let two servers share it, and each would answer part of the run. The servers print a
 per-minute `[server] stats` occupancy line while they are being asked, one `stats: idle` line when
 they go idle, and nothing until work resumes; the harness prints its `n/N` progress line only when
 the count moves. Both logs sit under the launcher's stall check, so a line there means something
@@ -533,14 +545,18 @@ Two things the launcher does for you, one you size yourself, and the watchdog ru
   Both outlive the terminal or desktop session that launched them, and both outlive the sweep timer's
   service when the sweep is what relaunched the run. `systemd-oomd` prefers other things when it acts on
   memory pressure, and a kill of the scope takes supervisor and command together, which is what lets the
-  sweep resume the run. `systemctl --user stop <that scope>` is the way to stop a run outright; it records
-  `failed` with `SIGTERM`. The mark does not
+  sweep resume the run. `uv run python -m anvil.runs stop --name <run>` stops a run outright: it stops
+  the scope and the run reads `paused`, so `relaunch` resumes it and no alert fires. A bare
+  `systemctl --user stop <that scope>` also stops it and records `failed` with `SIGTERM`. The mark does not
   count for a swap-limit kill (oomd honours it there only on root-owned cgroups, and a user scope is not
   one): on that path the memory watchdog below is the defence, and only while a learner is up.
-- **Size `--rl-workers` by memory, not cores.** Each DataLoader worker of the learner holds several GB
-  of decoded-game state (≈ 7 GB at the self-play loop's 12-store replay window) regardless of how the
-  games are sharded, so the training step needs about `rl_workers × 7 GB` on top of the learner's own
-  ≈ 7 GB. On a 64 GB box run 4 (ours does); 12, the default, needs about 90 GB. A step that swaps is slower than a step with fewer workers.
+- **Generation holds new workers when the box is short.** The harness starts no new worker while
+  available memory is under 4 GB (`ANVIL_GEN_MEM_FLOOR_GB`; 0 turns it off) and resumes a gigabyte
+  above it. Live workers finish; the held time is in the run's yield ledger.
+- **Size `--rl-workers` by memory, not cores.** At the self-play loop's 12-store replay window the
+  learner holds about 7 GB and each DataLoader worker a little over 1 GB, so 12 workers, the default,
+  peak near 21 GB ([ADR-0134](../decisions/ADR-0134-m13-build2-one-queue.md); before it a worker held about 7 GB
+  and 12 needed 90). A step that swaps is slower than a step with fewer workers.
 - **A memory watchdog beside the loop.** `scripts/memory_sampler.sh <out.jsonl> 20` (run it as a user
   unit; the header shows how) samples the box and the run's process classes every 20 s and, when
   available memory stays under 2 GB for two samples while a learner is up, terminates the learner and its
@@ -570,6 +586,10 @@ uv run python scripts/h2h_read.py --a data/training/<name>-loop/iter-024/train/l
 ```
 
 The two checkpoints must serve the same decision surfaces. The read is network-alone only.
+
+Both reads run their two seat arms through one queue of worker slots, so a read drains once.
+`--cells` gives the older one launch per arm, and `final_read.py --quiet` drops the completion
+notification for a smoke (a failed read still notifies).
 
 Workers run on a 2 GB heap. A read whose games roll out deep (a Monte Carlo opponent, a rollout leaf) can
 exhaust it; pass `--heap 4g` to `final_read.py` and size workers times heap against the box's memory.

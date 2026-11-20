@@ -125,3 +125,15 @@
   - It is a boundary for searched games. Network-alone figures stand; no Build 0 read is re-run.
   - **Build 1 is closed.** **Next:** Build 2.
 
+- **2026-11-20, midday — Build 2 is closed: one queue of worker slots across runs, and the same seeds give the same games** ([ADR-0134](../decisions/ADR-0134-m13-build2-one-queue.md); `data/runs/b2pair-pair.json`, `data/runs/m13-build2/`).
+  - **The queue.** The harness's `launch-group` runs several launches through one set of slots, each with its own dir, seeds and store. The loop's generation, its arm reads, `final_read.py` and `h2h_read.py` use it.
+  - **The paired cell:** 480 of 480 games identical through the old cells and the queue, on heuristic seats with the Monte Carlo share. The wall saving is not calibrated (24 minutes against 21 on a loaded box).
+  - **The Monte Carlo share** (`--mc-frac 0.1`, pin 7) is two batches at the head of the queue, on a 3 GB heap, capped at a quarter of the fleet together.
+  - **The Monte Carlo leak guard is fork commit `68168fb214`,** not pushed. It is not a boundary: forkcheck 500 of 500, and 96 of 96 Monte Carlo games identical across the two jars. It found no leak in 5,886 comparisons. The pin has not moved; that is the user's call.
+  - **The learner's memory.** Each store parsed its iteration's whole `mu.jsonl`, in every loader worker. It now holds raw lines of its own games. A 12-store window: 5,958 MB to 425 MB per loader process. A full pass over a 12-store big-run window with 12 loader workers (2,874 trajectories, 684 s) peaked at 21 GB across the learner and its workers, and the box's available memory fell by 19 GB at most (`data/runs/m13-build2/learner-mem2/`). The same shape held about 58 GB before and was killed twice in the big run. Each worker holds a little over 1 GB where it held about 7.
+  - **A third server does not help with the search off:** 2,053, 1,955 and 2,017 games an hour on two, three and two servers.
+  - **The loop smoke** ran two iterations from `iter-405` with the share and the arms through the queue, and completed with no anomaly. One game at the 20-minute draw clock nearly doubled its second generation (1,623 s against 866 s).
+  - **Also built:** a port check before a server starts, `final_read.py --quiet`, `anvil.runs stop`, a host-memory hold on new generation workers.
+  - **Not built:** the loop config prune. It removes parameters the checkpoint is served with, so it is a boundary; it goes to the recipe rewrite after the arms (the user agreed). The survey's remaining findings go to M13's closing documentation pass.
+  - **What broke.** The queue's spec files matched a run-dir prefix and the paired cell's driver failed at its last step with a false alert. I edited loop code while that cell ran.
+  - **Next:** Build 3. The user's call on the guard commit as the pin.
