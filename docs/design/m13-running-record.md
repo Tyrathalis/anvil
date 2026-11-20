@@ -84,3 +84,11 @@
   - The steps are 1,983, 2,198 and 1,815 new cards (46, 67 and 65 decks). Sub-eras are the fallback if the first step trains badly.
   - Exploratory: by script vocabulary today's pool covers 90.2% of Forge's 35,340 card scripts, and the full precon list 96.8% (76.4% and 91.5% with parameter names counted).
   - **Next:** pin 6's rules and reference opponents; Build 0 step 6.
+- **2026-11-19, night — Build 0 step 6 closes: the copier fails on what a departed player leaves behind** ([ADR-0131](../decisions/ADR-0131-m13-copier-cause.md); `data/runs/m13-copier/`).
+  - **94% of failed four-player rollouts map an object owned by a player who has left the game.** 78% are that player's commander in a survivor's commander-damage table; 16% are that player's effect card in a survivor's command zone.
+  - Every one of 2,434 unmapped commanders and 490 unplaceable effect cards had a lost owner. Two-player games are spared because the game ends when a player leaves.
+  - Upstream's own guard for the commander case never runs: it tests for nothing, and the copier's mapper throws.
+  - Measured on two diagnostic jars from a separate worktree (`../forge-copierdiag`), the 11-18 check's eight pods. The second cell failed 24.1% of 12,972 rollouts.
+  - **Routed to Build 1:** two skips in the copier, with their forkcheck. No four-player search or Monte Carlo read before they land.
+  - **Also launched:** `pc-mirror`, the heuristic mirror on the 178 benchmark decks (20,025 games), for per-deck strength.
+  - **Next:** the mirror's read; Builds 1 and 2.

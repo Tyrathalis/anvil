@@ -1118,3 +1118,7 @@ Consequences:
 ### 11-19 — two Secret Lair precon deck files, unqueued
 
 Forge's `res/quest/commanderprecons` lacks "20 Ways to Win" (2024) and "Everyone's Invited!" (2025); every card in both is scripted. Our copies are in Anvil's `scripts/precon_extra/`, without printings. One packaged file has a trailing space in its name (`Primal Genesis [C19] [2019] .dck`). A resource-only PR, outside the engine and GUI slots; not scheduled.
+
+### 11-19 — a candidate beside Tier 0.12: the copier and a player who has left
+
+Four-player rollouts fail in `GameCopier` once a player has left ([ADR-0131](../decisions/ADR-0131-m13-copier-cause.md)). `Player.copyCommandersToSnapshot` skips a commander-damage entry that maps to nothing, but `GameCopier.find` throws instead, so the skip never runs; and a lost player's effect card left in a survivor's command zone has no player to be placed with. Two skips in the copier fix both. The engine-side cleanup (the effect cards should leave with their owner) is a separate, larger change. Not built; queued behind our own Build 1 fix and its forkcheck.
