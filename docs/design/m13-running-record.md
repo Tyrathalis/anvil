@@ -74,3 +74,9 @@
   - **The gain is about 13 points in every third of the unseen-share split.** The model does worse with older decks (0.30 for 2011 to 2020, 0.47 for 2024 to 2026 in the text arm); unseen share and deck strength are not separated.
   - **Not clean:** the ability table lacks keys that arise only in play; a new `ArrayIndexOutOfBoundsException` crash (8 games in 15,000), routed to Build 1 with an unknown-card counter for the server.
   - **Next:** pin 6 (the benchmark's eras, rules and reference opponents) with the user; Build 0 step 6, the copier's cause.
+- **2026-11-19, night — the precon benchmark's list is settled at 178 decks** (the user; [ADR-0130](../decisions/ADR-0130-m13-held-out-precon-read.md), addendum).
+  - It is Forge's 184 files, less the eight anthology reprints (card-for-card copies), plus "20 Ways to Win" and "Everyone's Invited!", which Forge does not package and fully supports. It matches EDHREC's list of paper precons.
+  - Secret Lair decks are in; the two Magic Online theme decks are out; Foundations Commander counts as 2026.
+  - `scripts/precon_benchmark_decks.py` builds the list; the decks are installed at `~/.forge/decks/commander/anvil-precons-178/`.
+  - The step 5 read stands as filed; its pairs double-weighted the eight copies.
+  - **Next:** the rest of pin 6 (era boundaries, rules and bans, reference opponents); Build 0 step 6.

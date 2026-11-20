@@ -75,3 +75,15 @@ Preparing the read turned up how the model sees a card outside its pool. A check
 - **Pool growth by precon era starts from 0.41, not 0.28,** and the first era's training is measured against the text arm on that era's decks.
 - **Routed to Build 1:** the `ArrayIndexOutOfBoundsException` crash; the unknown-card counter. **Routed to the pool-growth scoping:** ability keys that arise in play; the heuristic mirror on precon pairs as the deck-strength control.
 - No standing rule is born.
+
+## Addendum, 2026-11-19: the benchmark's deck list is 178 decks
+
+**The precon benchmark's list is every paper Commander precon, 178 decks** (the user, 11-19). It is Forge's 184 files, less the eight Commander Anthology reprints, plus two Secret Lair decks Forge does not package. `scripts/precon_benchmark_decks.py` builds it to `data/benchmark/precons-178/` and installs it at `~/.forge/decks/commander/anvil-precons-178/`.
+
+- **The list was checked against EDHREC's precon page:** 178 paper decks through Star Trek, the same 178. It is one outside source; both wikis refused the fetch.
+- **The eight anthology decks are card-for-card copies** (set codes CMA and CM2). Two of them list their basic lands split by art, which reads as a difference in the files and is none.
+- **The two added decks are "20 Ways to Win" (2024) and "Everyone's Invited!" (2025).** Every card in both has a Forge script. Their lists are from EDHREC and sit in `scripts/precon_extra/`. A 30-game heuristic smoke on them ran clean.
+- **Secret Lair decks are in** (the user: they are not balanced differently from the other precons). **The two Magic Online theme decks are out.** **Foundations Commander is a 2026 release** (the user); its edition file's 2024 date is the set's.
+- **The list's figures:** 6,583 unique non-basic cards, 585 in the pool; the median deck is 79.8% unseen (56.4% to 92.6%). By year: 5 each for 2011 and 2013 to 2016, 4 each for 2017 to 2019, then 9, 16, 24, 27, 26, 14 and 25 for 2020 to 2026.
+- **The read above stands as filed.** Its 500 pairs were drawn over the 184 files, so the eight copied decks carried double weight (about 4% of deck slots). The next precon read uses the 178.
+- **Still open in pin 6:** the era boundaries, the rules and bans per track, the reference opponents.

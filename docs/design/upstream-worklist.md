@@ -1114,3 +1114,7 @@ Consequences:
 - **Test:** `FlatMonteCarloCountBudgetTest.sameSeedGivesTheSameGame` plays one seed twice at max strength with both time budgets at 0 ms and compares the full game log. It passes. The Flat Monte Carlo suites pass with it (945 tests, 1 skipped).
 - **Two caveats for the PR text.** The test was not run against unpatched code. Stock upstream also replayed the same two-player game identically on an idle box, so the patch's case is "the clock breaks replay when it binds", not "replay is broken today".
 - **Left for the user:** a leftover `stash@{0}` in that worktree, identical to the commit.
+
+### 11-19 — two Secret Lair precon deck files, unqueued
+
+Forge's `res/quest/commanderprecons` lacks "20 Ways to Win" (2024) and "Everyone's Invited!" (2025); every card in both is scripted. Our copies are in Anvil's `scripts/precon_extra/`, without printings. One packaged file has a trailing space in its name (`Primal Genesis [C19] [2019] .dck`). A resource-only PR, outside the engine and GUI slots; not scheduled.
