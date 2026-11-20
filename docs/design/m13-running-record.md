@@ -103,3 +103,7 @@
   - The first player wins 0.5225 ± 0.0035 in the heuristic mirror. No per-deck difference is resolved.
   - Read by replaying the mirror's seeds with a one-turn cap and the census log, eleven minutes in place of two hours (the user's suggestion). The full replay `pc-first` was paused at about 700 games and is not needed.
   - **Next:** Builds 1 and 2.
+- **2026-11-19, late night — the mirror's deck analysis is filed** ([precon-deck-analysis.md](precon-deck-analysis.md); `scripts/precon_deck_analysis.py`).
+  - Strength by release year, by color and color count, the decks furthest from their year's trend, and the first player's edge by deck strength.
+  - **The first player's edge grows with deck strength:** +5.1pp when both decks are in the strongest third, +0.7pp when both are in the weakest (the user's guess, 11-19).
+  - The user's note: the heuristic's quirks dominate the outliers. Peace Offering and Counter Intelligence are regarded as strong and read weak here. A possible later use is deck analysis posted to the Discord; not scheduled.

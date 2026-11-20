@@ -56,6 +56,7 @@
 
 - [discord-ai-plotting-survey.md](design/discord-ai-plotting-survey.md) — Forge Discord #ai-plotting, read 2026-07-16
 - [manabrew-protocol-445-review.md](design/manabrew-protocol-445-review.md) — delivered protocol review, 2026-07-18
+- [precon-deck-analysis.md](design/precon-deck-analysis.md) — the precon heuristic mirror of 2026-11-19 (ADR-0130, third and fourth addenda)
 - [prior-work-survey.md](design/prior-work-survey.md) — pre-M0 prior-work survey, 2026-07-02
 - [survey-dive-austinio-rl-branch.md](design/survey-dive-austinio-rl-branch.md) — deep dive: austinio7116 BC→RL branch
 - [survey-dive-manabrew-harness.md](design/survey-dive-manabrew-harness.md) — deep dive: manabrew's Forge-integration layer
