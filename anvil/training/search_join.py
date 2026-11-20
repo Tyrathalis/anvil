@@ -369,6 +369,35 @@ def acted_override(
     return rec2, applied
 
 
+def soft_values(
+    row: dict, o_to_dec: dict[int, int], opt_to_cand: dict[int, int], bar: float,
+) -> dict[int, float]:
+    """Candidate index -> the search's value at an UN-ACTED window, the soft
+    target's raw material (ADR-0135). A window qualifies when the natural
+    line was played (`applied` natural), the rule did not fire (no `p`) and
+    the margin is under the acting bar: the population of the search-ranking
+    gate's un-acted slope. An option's value is the mean of its valued rolls;
+    a voided or skipped option has none and is left out. Options collapsed
+    onto one candidate take the best. Fewer than two valued candidates = no
+    ranking, {}."""
+    if row.get("applied") != "natural" or row.get("p"):
+        return {}
+    margin = row.get("margin")
+    if margin is None or float(margin) >= bar:
+        return {}
+    out: dict[int, float] = {}
+    for pos, o in enumerate(row.get("opts") or []):
+        vs = [float(v) for v in (o.get("v") or []) if v is not None]
+        if not vs:
+            continue
+        c = _cand_of_row_option(int(o.get("o", pos)), o_to_dec, opt_to_cand)
+        if c is None:
+            continue
+        q = sum(vs) / len(vs)
+        out[c] = max(out[c], q) if c in out else q
+    return out if len(out) >= 2 else {}
+
+
 def alloc_fields(row: dict, bar: float, floor: float = 0.1) -> tuple[int, float]:
     """(the allocation label: the search's margin at this window >= the
     acting bar, the window's population weight). Under the head the searched

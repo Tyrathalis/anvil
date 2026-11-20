@@ -1254,6 +1254,7 @@ def guard_flags(
     follow_calib_raw: float | None = None,
     distill_share_max: float | None = None,
     alloc_share_max: float | None = None,
+    soft_share_max: float | None = None,
     state_spearman: float | None = None,
     spearman_floor: float | None = None,
     state_spearman_run: float | None = None,
@@ -1279,7 +1280,7 @@ def guard_flags(
     if kl is not None and kl > kl_max:
         flags.append(f"guard: kl_mu {kl} > {kl_max}")
     # the search-row terms' shares (the plan-share twin; ADR-0113)
-    for name, mx in (("distill", distill_share_max), ("alloc", alloc_share_max)):
+    for name, mx in (("distill", distill_share_max), ("alloc", alloc_share_max), ("soft", soft_share_max)):
         v = med.get(f"{name}_share", m.get(f"{name}_share"))
         if mx is not None and v is not None and v > mx:
             flags.append(f"guard: {name}_share {v} > {mx}")
@@ -1457,6 +1458,10 @@ def _rl_summary(train_dir: Path) -> dict:
         "alloc_raw",
         "alloc_pos",
         "alloc_share",
+        "soft_raw",
+        "soft_n",
+        "soft_share",
+        "gn_soft",
     ):
         vals = [r[k] for r in rows if k in r]
         if vals:
@@ -1493,6 +1498,7 @@ def _rl_summary(train_dir: Path) -> dict:
         "seedlab_raw",
         "distill_share",
         "alloc_share",
+        "soft_share",
     ):
         vals = sorted(r[k] for r in rows if k in r)
         if vals:
@@ -1873,6 +1879,16 @@ def main() -> None:
                     help="carry iteration-0's w_distill for the whole run (the --plan-carry-w twin)")
     ap.add_argument("--guard-distill-share", type=float, default=0.15,
                     help="halt if the iteration-MEDIAN distill_share exceeds this (3x the 0.05 target)")
+    # ADR-0135 (M13 Build 3): the soft-targets arm
+    ap.add_argument("--soft-frac", type=float, default=0.0,
+                    help="target share of PG mass for the soft-target KL on the searched, un-acted "
+                    "windows (rl.py --soft-frac; needs a recipe; 0 = off)")
+    ap.add_argument("--soft-temp", type=float, default=0.1,
+                    help="the soft target's temperature in win probability (rl.py --soft-temp)")
+    ap.add_argument("--soft-carry-w", action="store_true",
+                    help="carry iteration-0's w_soft for the whole run")
+    ap.add_argument("--guard-soft-share", type=float, default=0.0,
+                    help="halt if the iteration-MEDIAN soft_share exceeds this (0 = 3x --soft-frac)")
     ap.add_argument("--alloc-frac", type=float, default=0.02,
                     help="target share of PG mass for the allocation head's BCE on the searched "
                     "windows (rl.py --alloc-frac; 0 = the head does not train)")
@@ -2739,6 +2755,15 @@ def main() -> None:
                               else ["--distill-frac", str(args.distill_frac)]),
                             *(["--alloc-w", str(state["alloc_w"])] if state.get("alloc_w")
                               else ["--alloc-frac", str(args.alloc_frac)]),
+                            *(
+                                [
+                                    "--soft-temp", str(args.soft_temp),
+                                    "--soft-calib-steps", str(args.search_calib_steps),
+                                    *(["--soft-w", str(state["soft_w"])] if state.get("soft_w")
+                                      else ["--soft-frac", str(args.soft_frac)]),
+                                ]
+                                if args.soft_frac else []
+                            ),
                         ]
                         if args.search_recipe
                         else []
@@ -2895,6 +2920,9 @@ def main() -> None:
             ),
             distill_share_max=args.guard_distill_share if args.search_recipe and args.distill_frac else None,
             alloc_share_max=args.guard_alloc_share if args.search_recipe and args.alloc_frac else None,
+            soft_share_max=(
+                (args.guard_soft_share or 3 * args.soft_frac) if args.search_recipe and args.soft_frac else None
+            ),
             state_spearman=state_rank["spearman"] if state_rank else None,
             spearman_floor=args.guard_spearman_floor,
             state_spearman_run=(state_rank or {}).get("spearman_run"),
@@ -3077,7 +3105,8 @@ def main() -> None:
         if args.seq_carry_w and seq_runs and "seq_w" not in state and cal_path.exists():
             state["seq_w"] = json.loads(cal_path.read_text())["w_seq"]
             print(f"[selfplay] w_seq calibrated at run start: {state['seq_w']:.6g} (carried)")
-        for name, carry in (("distill", args.distill_carry_w), ("alloc", args.alloc_carry_w)):
+        for name, carry in (("distill", args.distill_carry_w), ("alloc", args.alloc_carry_w),
+                            ("soft", args.soft_carry_w and bool(args.soft_frac))):
             cal = train_dir / f"{name}_calibration.json"
             if carry and args.search_recipe and f"{name}_w" not in state and cal.exists():
                 state[f"{name}_w"] = json.loads(cal.read_text())[f"w_{name}"]

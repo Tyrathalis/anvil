@@ -40,6 +40,7 @@ from anvil.training.search_join import (
     forced_after,
     match_rows,
     natural_before,
+    soft_values,
 )
 
 # bf16 autocast around every forward; --no-autocast clears it (a device
@@ -107,6 +108,31 @@ def composite_logp(fwd: dict, batch: dict, temperature: float = 1.0) -> dict:
         "atgt": lp_atgt,
         "blk": lp_blk,
     }
+
+
+def soft_target_kl(policy_logits, soft_q, temp: float, clip: float):
+    """The soft-target term on one segment (ADR-0135). soft_q is [B, C] search
+    values with NaN where a candidate has none; a window counts when at least
+    two of its valued candidates are unmasked in the policy. The target is the
+    policy's own distribution over those candidates, detached and tilted by
+    the search's values: t ∝ pi · exp(q / temp). Equal values leave the policy
+    where it is; the term moves mass toward the options the search ranks
+    higher and carries no pull toward uniform (a softmax of the values alone
+    did: its KL sat at the cap on a sharp policy). Returns (the mean per-window
+    KL(t || pi), each window capped at `clip` nats; the window count), or
+    (None, 0)."""
+    logits = policy_logits.float()
+    c = min(soft_q.shape[1], logits.shape[1])
+    q, lg = soft_q[:, :c].float(), logits[:, :c]
+    valid = ~torch.isnan(q) & (lg > -1e8)
+    rows = valid.sum(1) >= 2
+    if not rows.any():
+        return None, 0
+    q, lg, valid = q[rows], lg[rows], valid[rows]
+    lp = torch.log_softmax(lg.masked_fill(~valid, -1e9), dim=1)
+    lt = torch.log_softmax((lp.detach() + torch.nan_to_num(q) / temp).masked_fill(~valid, -1e9), dim=1)
+    kl = (lt.exp() * (lt - lp)).masked_fill(~valid, 0.0).sum(1)
+    return kl.clamp(max=clip).mean(), int(rows.sum())
 
 
 def apply_mu_labels(ex: dict, rec: dict) -> dict:
@@ -568,6 +594,11 @@ def game_trajectories(
                 # searched window
                 ex["_acted"] = bool(rec.get("acted"))
                 ex["_search_mu"] = bool(rec.get("search_mu"))  # the mu is the search's (incl. act_void / natural_sampled)
+                if srow is not None and search.get("soft") and cls == "natural":
+                    # ADR-0135: the search's values at an un-acted window, by candidate
+                    sq = soft_values(srow, o2d, cand_of_options(dec, aux), float(search.get("bar", 0.10)))
+                    if sq:
+                        ex["_soft_q"] = sq
                 if srow is not None:
                     lab, wgt = alloc_fields(srow, float(search.get("bar", 0.10)), float(search.get("floor", 0.1)))
                     ex["_alloc_valid"], ex["_alloc_label"], ex["_alloc_weight"] = True, lab, wgt
@@ -877,6 +908,15 @@ class RlTrajectories(torch.utils.data.IterableDataset):
                             s["alloc_label"] = torch.tensor(
                                 [float(e.get("_alloc_label", 0)) for e in chunk], dtype=torch.float32
                             )
+                            if self.search.get("soft"):
+                                # ADR-0135: [T, C] search values, NaN = no value
+                                cw = s["cand_mask"].shape[1]
+                                sq = torch.full((len(chunk), cw), float("nan"))
+                                for j, e in enumerate(chunk):
+                                    for c, q in (e.get("_soft_q") or {}).items():
+                                        if c < cw:
+                                            sq[j, c] = q
+                                s["soft_q"] = sq
                         for e in plain:
                             if e.get("_alloc_valid"):
                                 alloc_exs.append(
@@ -1440,6 +1480,19 @@ def main() -> None:
                     "--distill-calib-steps; 0 = off)")
     ap.add_argument("--distill-w", type=float, default=0.0, help="explicit w_distill (skips calibration)")
     ap.add_argument("--distill-calib-steps", type=int, default=50)
+    # ADR-0135 (M13 Build 3, the soft-targets arm): the search's ranking as a
+    # training target at the windows where it does not act
+    ap.add_argument("--soft-frac", type=float, default=0.0,
+                    help="target share of PG loss magnitude for the soft-target KL on the searched, "
+                    "un-acted windows: KL(t || the policy over the valued candidates), t = the policy "
+                    "detached and tilted by exp(search value / --soft-temp). Needs --search. 0 = off, and the loader builds nothing")
+    ap.add_argument("--soft-w", type=float, default=0.0, help="explicit w_soft (skips calibration)")
+    ap.add_argument("--soft-calib-steps", type=int, default=50)
+    ap.add_argument("--soft-temp", type=float, default=0.1,
+                    help="the soft target's temperature, in win probability (0.1 = the acting bar: "
+                    "one bar of value difference is one nat)")
+    ap.add_argument("--soft-clip", type=float, default=2.0,
+                    help="per-window cap on the soft-target KL, in nats (clips at birth)")
     ap.add_argument("--alloc-frac", type=float, default=0.0,
                     help="target share of PG loss magnitude for the allocation head's BCE on "
                     "every searched window (0 = the head does not train)")
@@ -1661,6 +1714,10 @@ def main() -> None:
                 "alloc_w",
                 "alloc_recall",
                 "alloc_floor",
+                "soft_frac",
+                "soft_w",
+                "soft_temp",
+                "soft_clip",
             )
         },
         "init_step": ckpt.get("step"),
@@ -1680,7 +1737,10 @@ def main() -> None:
         penalty_grouping=args.penalty_grouping,
         plan=args.plan,
         sched=args.sched,
-        search={"bar": args.search_bar, "floor": args.alloc_floor} if args.search else None,
+        search=(
+            {"bar": args.search_bar, "floor": args.alloc_floor, "soft": bool(args.soft_frac or args.soft_w)}
+            if args.search else None
+        ),
     )
     loader = torch.utils.data.DataLoader(
         ds,
@@ -1902,6 +1962,10 @@ def main() -> None:
     # windows for the tau pass (a seeded reservoir)
     distill = AuxShare("distill", args.distill_frac, args.distill_w, args.distill_calib_steps, out_dir) if args.search else None
     alloc = AuxShare("alloc", args.alloc_frac, args.alloc_w, args.alloc_calib_steps, out_dir) if args.search else None
+    soft = (
+        AuxShare("soft", args.soft_frac, args.soft_w, args.soft_calib_steps, out_dir)
+        if args.search and (args.soft_frac or args.soft_w) else None
+    )
     search_counts: Counter = Counter()
     alloc_pool: list = []
     alloc_seen = 0
@@ -2083,6 +2147,7 @@ def main() -> None:
         traj_sched = 0.0
         traj_distill = 0.0
         traj_alloc = 0.0
+        traj_soft = 0.0
         for seg, fwd in forward_segments(net, segs, grad=True):
             b = seg["label"].shape[0]
             adv = pg_adv[off : off + b].to(dev)
@@ -2204,9 +2269,25 @@ def main() -> None:
                     traj_alloc += float(alloc_term.detach())
                     acc["alloc_raw"] = acc.get("alloc_raw", 0.0) + float(alloc_term.detach())
                     acc["alloc_pos"] = acc.get("alloc_pos", 0.0) + float(seg["alloc_label"][amask].mean())
+            # ---- the soft-target term (ADR-0135): at a searched, un-acted
+            # window the search's values rank the options it left alone.
+            # KL(t || the policy over the valued, unmasked candidates), t the
+            # detached policy tilted by exp(q / T); capped per window,
+            # averaged over the segment's soft windows. Measured during calibration, applied after.
+            soft_term = None
+            if soft is not None and "soft_q" in seg:
+                soft_term, n_soft = soft_target_kl(
+                    fwd["policy_logits"], seg["soft_q"], args.soft_temp, args.soft_clip
+                )
+                if soft_term is not None:
+                    traj_soft += float(soft_term.detach())
+                    acc["soft_raw"] = acc.get("soft_raw", 0.0) + float(soft_term.detach())
+                    acc["soft_n"] = acc.get("soft_n", 0.0) + n_soft
             loss = (
                 pg_loss + args.value_weight * v_loss + args.ent_weight * ent_pen
             ) / args.traj_per_step
+            if soft_term is not None and soft.active:
+                loss = loss + soft.w * soft_term / args.traj_per_step
             if plan_term is not None and w_plan:
                 loss = loss + w_plan * plan_term / args.traj_per_step
             if sched_term is not None and w_sched:
@@ -2231,6 +2312,7 @@ def main() -> None:
                     if distill_term is not None and distill is not None and distill.active else None,
                     "alloc": alloc.w * alloc_term
                     if alloc_term is not None and alloc is not None and alloc.active else None,
+                    "soft": soft.w * soft_term if soft_term is not None and soft.active else None,
                 }
                 gn_last = {f"gn_{k_}": round(trunk_grad_norm(t_, trunk_params), 6)
                            for k_, t_ in terms.items() if t_ is not None and t_.requires_grad}
@@ -2255,6 +2337,8 @@ def main() -> None:
                 acc["acted_kl"] = acc.get("acted_kl", 0.0) + float((mu_logp - logp_pi)[acted].mean())
             distill.observe(traj_distill, traj_pg)
             alloc.observe(traj_alloc, traj_pg)
+            if soft is not None:
+                soft.observe(traj_soft, traj_pg)
         else:
             acc["kl_mu"] = acc.get("kl_mu", 0.0) + float((mu_logp - logp_pi).mean())
         acc["reward"] = acc.get("reward", 0.0) + reward
@@ -2364,6 +2448,8 @@ def main() -> None:
             if args.search:
                 distill.on_step()
                 alloc.on_step()
+                if soft is not None:
+                    soft.on_step()
             if args.plan and w_plan is None and plan_calib_traj:
                 plan_calib_steps += 1
                 if plan_calib_steps >= args.plan_calib_steps:
@@ -2671,6 +2757,7 @@ def main() -> None:
                     ),
                     **(distill.window() if distill is not None else {}),
                     **(alloc.window() if alloc is not None else {}),
+                    **(soft.window() if soft is not None else {}),
                     # the anchor's per-STEP means over the window + the last
                     # gradient-norm read (ADR-0118 / ADR-0119)
                     **({f"{k_}_step": round(v_ / anchor_steps, 5) for k_, v_ in anchor_sum.items()}

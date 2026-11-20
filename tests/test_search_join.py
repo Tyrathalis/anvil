@@ -183,3 +183,60 @@ def test_natural_before_walks_back_to_the_candidate_window():
     assert natural_before(decs, 3) == 0
     decs2 = [_dec(3, "MAIN1", 1, [(20, "Counter")], s=1), _dec(3, "MAIN1", 0, [(10, "Cast Bolt")], by="search", s=2)]
     assert natural_before(decs2, 1) is None
+
+
+# ---- ADR-0135: the soft-target arm's values and its KL ----
+
+
+def _soft_row(**kw):
+    row = {
+        "applied": "natural", "margin": 0.02,
+        "opts": [
+            {"o": 0, "v": [0.60, 0.62]},
+            {"o": 1, "v": [0.50, None]},
+            {"o": 2, "v": [None, None]},
+            {"o": 3, "v": [0.70, 0.66]},
+        ],
+    }
+    row.update(kw)
+    return row
+
+
+def test_soft_values_unacted_window_only():
+    from anvil.training.search_join import soft_values
+
+    o2d, o2c = {1: 4, 2: 5, 3: 6}, {4: 1, 5: 2, 6: 1}  # options 1 and 3 collapse onto candidate 1
+    q = soft_values(_soft_row(), o2d, o2c, 0.10)
+    assert set(q) == {0, 1} and abs(q[0] - 0.61) < 1e-9 and abs(q[1] - 0.68) < 1e-9  # the best of the collapsed pair
+    assert soft_values(_soft_row(margin=0.10), o2d, o2c, 0.10) == {}  # at the bar: the acting population
+    assert soft_values(_soft_row(applied="act"), o2d, o2c, 0.10) == {}
+    assert soft_values(_soft_row(p=[0.5, 0.5]), o2d, o2c, 0.10) == {}  # the rule fired
+    assert soft_values(_soft_row(margin=None), o2d, o2c, 0.10) == {}
+    one = _soft_row(opts=[{"o": 0, "v": [0.6]}, {"o": 2, "v": [None]}])
+    assert soft_values(one, o2d, o2c, 0.10) == {}  # one valued candidate ranks nothing
+
+
+def test_soft_target_kl():
+    import math
+
+    import torch
+
+    from anvil.training.rl import soft_target_kl
+
+    nan = float("nan")
+    q = torch.tensor([[0.6, 0.7, nan], [nan, nan, nan], [0.5, 0.5, 0.9]])
+    logits = torch.tensor([[0.0, 0.0, 5.0], [1.0, 2.0, 3.0], [3.0, 0.0, -1e9]], requires_grad=True)
+    term, n = soft_target_kl(logits, q, 0.1, 2.0)
+    assert n == 2  # row 1 has no values
+    # row 0: a uniform pair tilted by exp(q / 0.1) = softmax([6, 7]); row 2: the masked candidate drops out and
+    # the two equal values leave the (sharp) policy as its own target, KL 0
+    t = math.exp(7) / (math.exp(6) + math.exp(7))
+    kl0 = t * math.log(t / 0.5) + (1 - t) * math.log((1 - t) / 0.5)
+    assert abs(float(term.detach()) - kl0 / 2) < 1e-5
+    term.backward()
+    assert logits.grad[1].abs().sum() == 0 and logits.grad[0, 2] == 0  # unvalued rows and candidates get no gradient
+    assert logits.grad[2].abs().sum() < 1e-6  # equal values: no pull, however sharp the policy
+    assert logits.grad[0, 1] < 0  # descent raises the better-valued candidate
+    assert soft_target_kl(logits, torch.full((3, 3), nan), 0.1, 2.0) == (None, 0)
+    big, _ = soft_target_kl(torch.tensor([[10.0, -10.0]]), torch.tensor([[0.0, 5.0]]), 0.1, 2.0)
+    assert float(big) == 2.0  # the per-window cap
