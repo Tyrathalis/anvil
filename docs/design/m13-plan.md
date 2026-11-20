@@ -85,7 +85,7 @@ All three start from `iter-405` on the merged jar, run for equal box time under 
 3. **Straggler carry-over runs after the arms.** Every arm goes without it, so the comparison is fair; each arm gives up about 15% of its games (*estimate*).
 4. **The play-or-draw surface lands after the arms**, with the first pool-growth boundary, so the arms run on one engine.
 5. **`Hard.ai` and `Hardest.ai` stay out of the arms' profile draw.** They are read once in Build 0 against the four current profiles.
-6. **The benchmark's pins** *(the deck list is set, 11-19: 178 decks, [ADR-0130](../decisions/ADR-0130-m13-held-out-precon-read.md) addendum; the rest is open)* (era boundaries, the rule set and bans per track, the reference opponents) are set when the held-out precon read is in.
+6. **The benchmark's pins** *(set 11-19, [ADR-0130](../decisions/ADR-0130-m13-held-out-precon-read.md) addenda: 178 decks; three eras, 2011 to 2020, 2021 to 2023, 2024 to 2026, grown oldest-first; the rules and the reference opponents are open)* (era boundaries, the rule set and bans per track, the reference opponents) are set when the held-out precon read is in.
 7. **Monte Carlo is a training opponent at 10% of games, in every arm** (the user, 11-19, on Build 0's read 4; [ADR-0129](../decisions/ADR-0129-m13-monte-carlo-opponent.md), second addendum). The share comes out of the heuristic-seat games: about 50% self-play, 40% plain heuristic, 10% Monte Carlo at the 8-round count budget. Other ratios are an arm of their own after the three.
 8. **The search-off arm keeps 480 games per iteration.** An equal-updates arm follows if it wins.
 9. **Forced-decision replay is an M13 item** (Build 1).

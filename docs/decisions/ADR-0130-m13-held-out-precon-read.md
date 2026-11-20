@@ -87,3 +87,19 @@ Preparing the read turned up how the model sees a card outside its pool. A check
 - **The list's figures:** 6,583 unique non-basic cards, 585 in the pool; the median deck is 79.8% unseen (56.4% to 92.6%). By year: 5 each for 2011 and 2013 to 2016, 4 each for 2017 to 2019, then 9, 16, 24, 27, 26, 14 and 25 for 2020 to 2026.
 - **The read above stands as filed.** Its 500 pairs were drawn over the 184 files, so the eight copied decks carried double weight (about 4% of deck slots). The next precon read uses the 178.
 - **Still open in pin 6:** the era boundaries, the rules and bans per track, the reference opponents.
+
+## Second addendum, 2026-11-19: the eras are three, and the pool grows oldest-first
+
+**The benchmark reports by three eras: 2011 to 2020, 2021 to 2023, 2024 to 2026** (the user, 11-19). Pool growth takes them oldest-first. If the first era trains badly, it is split into sub-eras.
+
+| Era | Decks | Unique non-basic cards | In the pool today | New cards, oldest-first |
+|---|---|---|---|---|
+| 2011 to 2020 | 46 | 2,158 | 175 | 1,983 |
+| 2021 to 2023 | 67 | 3,218 | 327 | 2,198 |
+| 2024 to 2026 | 65 | 3,186 | 421 | 1,815 |
+| All | 178 | 6,583 | 585 | 5,996 |
+
+- Each era more than doubles today's 1,701-card pool; the full list ends near 7,700 cards.
+- Later precons reprint earlier ones: 802 of the middle era's cards and 1,177 of the last era's appear in an earlier era. Oldest-first gives three even steps.
+- **Coverage of Forge's card scripts** (exploratory; 35,340 scripts, digital-only and un-cards included). A card counts as covered when every keyword, ability API, trigger mode, static mode and replacement event in its script appears on some card in the pool. Today's pool covers 90.2% of cards; the three eras bring that to 94.8%, 96.0% and 96.8%. Counting parameter names as well, the figures are 76.4%, then 84.9%, 89.1% and 91.5%. This counts script vocabulary, not how well a card is played.
+- **Still open in pin 6:** the rules and bans per track, the reference opponents.

@@ -80,3 +80,7 @@
   - `scripts/precon_benchmark_decks.py` builds the list; the decks are installed at `~/.forge/decks/commander/anvil-precons-178/`.
   - The step 5 read stands as filed; its pairs double-weighted the eight copies.
   - **Next:** the rest of pin 6 (era boundaries, rules and bans, reference opponents); Build 0 step 6.
+- **2026-11-19, night — the benchmark's eras are set: 2011 to 2020, 2021 to 2023, 2024 to 2026; the pool grows oldest-first** (the user; [ADR-0130](../decisions/ADR-0130-m13-held-out-precon-read.md), second addendum).
+  - The steps are 1,983, 2,198 and 1,815 new cards (46, 67 and 65 decks). Sub-eras are the fallback if the first step trains badly.
+  - Exploratory: by script vocabulary today's pool covers 90.2% of Forge's 35,340 card scripts, and the full precon list 96.8% (76.4% and 91.5% with parameter names counted).
+  - **Next:** pin 6's rules and reference opponents; Build 0 step 6.
