@@ -1,7 +1,7 @@
 # ADR-0133: a search copy can change the live game: refunded mana lands in the real player's pool, and a copy's prompt can be asked of the real controller
 
 - **Date:** 2026-11-20
-- **Status:** proposed (the finding is measured; the fix is built and proven on 500 heuristic seeds; landing it is the user's call, because it changes searched games)
+- **Status:** accepted (the user chose option 1 on 2026-11-20; see the addendum)
 - **Design-doc anchor:** §9 (state forking); invariant 1 (the engine adjudicates every claim); [m13-plan.md](../design/m13-plan.md) Build 1 ("a crash fix never qualifies"); [ADR-0131](ADR-0131-m13-copier-cause.md) (the copier's departed-player failures); [ADR-0132](ADR-0132-m13-build1-forced-decision-replay.md) (the replay that found this)
 
 ## Context
@@ -75,3 +75,12 @@ The guard names the copy: `g0.s61r0o1`, the forced option a modal removal spell.
 - **Upstream candidates**, for the worklist: the copier's mana copy (a clear bug in upstream's own simulation AI), the `OptionalDecider` ordering, the `SacrificeEffect` index, the charm null check. None is filed.
 - **Standing rule born** (search, budgets and run sizing): a run that plays copies reports its leak count, and a nonzero count is read before the run's numbers are.
 - **Routed:** the guard on the Monte Carlo path (with Build 2, where the Monte Carlo share enters the queue). A wider offline scan of old stores only if the user wants the old era sized further.
+
+## Addendum, 2026-11-20: the user chose option 1, and the pin moved
+
+- **The decision** (the user): the fixes land. Changing behaviour is right here, because the leak was an error against the rules the engine is meant to play.
+- **The pin is `cf78d3f046`**, pushed: the inert commits, then `87d9411e7b` (the fixes) and a test commit. The snapshot jar that serves runs is `data/runs/m13-build1/forge-m13-build1.jar`.
+- **It is a boundary for searched games.** A with-lookahead figure or a searched store from an earlier jar is not compared with one on this pin. Network-alone figures stand, apart from the games that crashed on the two fixed sites (about 0.3%).
+- **No day-zero read is re-run.** Build 0's reads are network alone. The arms' control starts on this pin and is their reference.
+- **Proof on file:** forkcheck 500 of 500 on heuristic games at `87d9411e7b` (`run-20261119-b1-fixes2`); the fidelity read's searched cells on the same jar, no leak in 5,379 windows. The test commit changes no jar class.
+

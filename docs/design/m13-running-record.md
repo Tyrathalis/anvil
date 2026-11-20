@@ -119,3 +119,9 @@
   - **What broke.** I ran two servers on one port and six games of the read's first cell crashed; the cell was rerun. I edited the read's driver while a smoke was running it.
   - **Not done:** the token "Couldn't map" class (the fixes commit prints its asking site); the replay's fork point (to Build 4's truth stream); the fork pin (after the user's call).
   - **Next:** the user's call on ADR-0133; then the pin, then Build 2.
+- **2026-11-20, morning — the user lands the fixes; the fork pin is `cf78d3f046`** ([ADR-0133](../decisions/ADR-0133-m13-search-copies-leak.md), addendum).
+  - The user's reason: the leak was an error against the intended rules, so changing behaviour is correct.
+  - The pin carries Build 1's inert commits and the fixes commit, pushed. The serving jar is `data/runs/m13-build1/forge-m13-build1.jar`.
+  - It is a boundary for searched games. Network-alone figures stand; no Build 0 read is re-run.
+  - **Build 1 is closed.** **Next:** Build 2.
+

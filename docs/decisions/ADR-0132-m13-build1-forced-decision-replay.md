@@ -1,7 +1,7 @@
 # ADR-0132: forced-decision replay is an answer tape recorded at the bridge, and Build 1's inert commit is not a boundary
 
 - **Date:** 2026-11-20
-- **Status:** accepted (the replay and the inert commit); the fork pin has not moved, pending the user's call on [ADR-0133](ADR-0133-m13-search-copies-leak.md)
+- **Status:** accepted
 - **Design-doc anchor:** §9 (seeded replay, state forking); [m13-plan.md](../design/m13-plan.md) Build 1, pin 9, done-when 2; [ADR-0025](ADR-0025-d4-rebase-closeout.md) (the exemption); [ADR-0117](ADR-0117-certifier-merge.md) (the certifier deletion)
 
 ## Context
@@ -61,3 +61,8 @@ The forkcheck plays heuristic seats and does not pass through the gRPC bridge, w
 - **Not done here, routed by name:** the token "Couldn't map" class (0.3% of two-player rollouts; the fixes commit prints the asking site once per JVM, so the next Monte Carlo run names it) stays with Build 1's fixes commit. The three single-occurrence crashes (`getDividedValue`, `AttachAi.affectsAttached`, `checkRemoveCounterCost`) and the `StackOverflowError` go to the upstream worklist as candidates.
 - **The fork pin does not move in this ADR.** The inert tip can become the pin under the exemption as it stands. Whether the fixes commit rides with it is ADR-0133's question.
 - **Standing rule born** (engine, fork and data hygiene): a served run records its answer tape, and a claim about a stored game's state is checked by replaying it.
+
+## Addendum, 2026-11-20: the pin moved
+
+The user chose to land the fixes commit with this one ([ADR-0133](ADR-0133-m13-search-copies-leak.md), addendum). The fork pin is `cf78d3f046`; this ADR's inert tip `39827cb3b5` is in its history and has its own row in [fork-lineage.md](../design/fork-lineage.md).
+
