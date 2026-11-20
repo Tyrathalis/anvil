@@ -103,3 +103,40 @@ Preparing the read turned up how the model sees a card outside its pool. A check
 - Later precons reprint earlier ones: 802 of the middle era's cards and 1,177 of the last era's appear in an earlier era. Oldest-first gives three even steps.
 - **Coverage of Forge's card scripts** (exploratory; 35,340 scripts, digital-only and un-cards included). A card counts as covered when every keyword, ability API, trigger mode, static mode and replacement event in its script appears on some card in the pool. Today's pool covers 90.2% of cards; the three eras bring that to 94.8%, 96.0% and 96.8%. Counting parameter names as well, the figures are 76.4%, then 84.9%, 89.1% and 91.5%. This counts script vocabulary, not how well a card is played.
 - **Still open in pin 6:** the rules and bans per track, the reference opponents.
+
+## Third addendum, 2026-11-19: deck strength, and the read adjusted for it
+
+**Precon decks differ widely in strength, and once that is accounted for the model's deficit is flat: about 9 points below a heuristic holding the same decks, in every era and at every unseen share.** The era gradient in the read above is the decks, not the model's unfamiliarity.
+
+**The mirror** (`pc-mirror`; `data/runs/pcmirror-20261119-200332`, `data/benchmark/precons-178/strength.json`; `scripts/precon_strength_report.py`). The plain heuristic in both seats on the 178 decks: 45 rounds in which every deck plays one opponent, five games a pair, 20,024 games, seeds 20261122. Each deck has about 225 games. 59 games were drawn and 38 crashed.
+
+- **Deck winrates run from 0.151 to 0.893,** with a standard deviation of 0.140 across decks. Sampling alone would give 0.032.
+- **A Bradley-Terry rating per deck** is fitted on all games, so a deck's opponents are accounted for. The spread is 112 on the Elo scale.
+- **The seat does not matter:** seat 0 wins 0.4996 ± 0.0035.
+- **Older decks are weaker.** Mean winrate 0.383 for 2011 to 2020 (46 decks), 0.533 for 2021 to 2023 (67), 0.547 for 2024 to 2026 (65).
+- **Strongest:** Calling All Angels (0.893), Tramplesaurus Rex (0.809), Reign of Dragons (0.791), the Secret Lair Angels deck (0.782). Four of the five Foundations Commander decks are in the top seven. **Weakest:** Nature of the Beast (0.151), Political Puppets (0.191), Seize Control (0.200).
+- A deck's rating correlates −0.19 with its share of unseen cards.
+- These are strengths in the plain heuristic's hands, two-player. A deck the heuristic pilots badly reads as weak.
+
+**The step 5 read, adjusted.** For each game of the read, the ratings give the winrate a plain heuristic would expect holding the model's deck against the opponent's. The eight anthology copies take their originals' ratings.
+
+| Text arm (no-card id) | Games | Model winrate | A heuristic's expected winrate, same decks | Difference |
+|---|---|---|---|---|
+| All | 5,000 | 0.4078 ± 0.0069 | 0.5000 | −9.2pp |
+| Model's deck from 2011 to 2020 | 1,480 | 0.3020 ± 0.0119 | 0.3945 | −9.3pp |
+| 2021 to 2023 | 1,775 | 0.4355 ± 0.0118 | 0.5387 | −10.3pp |
+| 2024 to 2026 | 1,745 | 0.4693 ± 0.0119 | 0.5501 | −8.1pp |
+| Model's deck under 77% unseen | 1,715 | 0.4606 ± 0.0120 | 0.5329 | −7.2pp |
+| 77% to 84% | 1,670 | 0.4305 ± 0.0121 | 0.5298 | −9.9pp |
+| 84% and over | 1,615 | 0.3282 ± 0.0117 | 0.4342 | −10.6pp |
+| Opponent's deck under 77% unseen | 1,715 | 0.3819 ± 0.0117 | 0.4671 | −8.5pp |
+| 77% to 84% | 1,670 | 0.3617 ± 0.0118 | 0.4702 | −10.8pp |
+| 84% and over | 1,615 | 0.4830 ± 0.0124 | 0.5658 | −8.3pp |
+
+- **As served the same adjustment gives −22.0pp overall,** between −20.3 and −24.2pp in every cell.
+- **What remains of the unseen-share effect is small:** −7.2pp for the most familiar third of decks against −10.6pp for the least. The cells' errors are about 1.2pp before the ratings' own error, which is not propagated here.
+- **Exploratory.** The expected figure comes from ratings fitted on about 225 games a deck. The thirds are cut at the read's fixed 77% and 84%, so the middle and upper cells differ a little from the table above.
+
+**What it changes.** Later precon reads report the model's winrate beside the heuristic's expectation for the same decks, from `strength.json`. The benchmark's pairs can also be balanced on rating. Neither is pinned here.
+
+**A crash to route:** `ArrayIndexOutOfBoundsException` in 37 of 20,024 heuristic-only games, so it is the engine's and not the bridge's. It is already Build 1's (eight games in the read above).

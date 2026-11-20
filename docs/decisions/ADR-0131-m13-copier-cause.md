@@ -53,3 +53,7 @@ In the second cell, by cause:
 - **`scripts/precon_cost.py`'s shared home** is routed to Build 2 with the other driver fixes.
 - The diagnostic worktree and branch stay until the fix is built; they are the reproduction.
 - No standing rule is born.
+
+## Addendum, 2026-11-19: the first cell's final totals
+
+The first diagnostic cell was read above before its last pod finished. Complete, it holds 21 of 24 games (one pod failed at startup), 11,749 rollouts and 1,435 failures (12.2%). All 486 of its unmapped-card lines show an owner who had lost. The diagnosis is unchanged.

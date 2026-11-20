@@ -92,3 +92,10 @@
   - **Routed to Build 1:** two skips in the copier, with their forkcheck. No four-player search or Monte Carlo read before they land.
   - **Also launched:** `pc-mirror`, the heuristic mirror on the 178 benchmark decks (20,025 games), for per-deck strength.
   - **Next:** the mirror's read; Builds 1 and 2.
+- **2026-11-19, late night — the deck-strength mirror: precons differ widely, and the model's deficit is flat once that is accounted for** ([ADR-0130](../decisions/ADR-0130-m13-held-out-precon-read.md), third addendum; `data/benchmark/precons-178/strength.json`).
+  - The plain heuristic against itself on the 178 decks, 20,024 games. Deck winrates run from 0.151 to 0.893. Older decks are weaker: 0.383 for 2011 to 2020, 0.533 and 0.547 for the later eras.
+  - **Adjusted for the decks held, `iter-405` with card text is 9.2pp below a heuristic with the same decks,** and between −7.2 and −10.8pp in every era and unseen-share cell. As served it is −22.0pp.
+  - So step 5's era gradient was the decks. The unseen share itself moves the deficit by about 3 points.
+  - `ArrayIndexOutOfBoundsException` crashed 37 heuristic-only games; it is the engine's.
+  - ADR-0131 gained an addendum with its first cell's final totals (21 games, 12.2% of 11,749 rollouts failed).
+  - **Next:** Builds 1 and 2.
