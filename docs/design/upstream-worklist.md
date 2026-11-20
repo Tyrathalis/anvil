@@ -457,6 +457,21 @@ new line count and base; it still names #9038 as related, not closed.
 - **Where it is.** The fork carries it as `09133a7ad4` with `CopierStateTest` (three cases). No upstream branch is cut yet; cut it on a fresh `upstream/master` when the slot frees, and re-check that upstream has not closed the TODOs meanwhile.
 - **It sits beside the Copier → Snapshot consolidation** below: `CardCopyService` already copies `turnInZone` and the exile links on the snapshot path.
 
+### 11-20 — Tier 0.13 queued: a `GameCopier` copy pays into, and asks, the original game
+
+**Verdict: queued, not filed. One forge-ai PR beside Tier 0.12, after the engine slot frees; it is the stronger of the two.**
+
+- **The bug.** The copier puts the original pool's `Mana` objects into the copy's pool. A `Mana` names its player, and `ManaRefundService` returns paying mana to that player's pool, so a payment the copy rolls back adds mana to the original game. Separately, an effect card's abilities are copied as last-known information and keep the original's activating player, and `ReplacementHandler` reads an optional replacement's decider from the ability before it sets it, so the copy asks the original game's controller.
+- **The evidence.** Ours is a search that copies at windows where the network has left mana floating: 5 of 881 searched windows in self-play gained mana, none of 5,379 with the fix ([ADR-0133](../decisions/ADR-0133-m13-search-copies-leak.md)). Upstream's simulation AI and Flat Monte Carlo use the same copier; a stock AI rarely holds floating mana across a decision, so upstream's rate is unmeasured.
+- **Where it is.** The fork carries it in `87d9411e7b` with two `CopierStateTest` cases (`cf78d3f046`). That commit also holds Anvil's departed-player skips (ADR-0131), which are a separate candidate; cut the mana copy and the activator remap alone.
+
+### 11-20 — crash candidates from the M13 reads, none filed
+
+- **`SacrificeEffect.resolve`, `ArrayIndexOutOfBoundsException`.** A `SacEachValid` script without `SacMessage` builds one description and indexes it once per type. Every one of the four cards that use it (To the Slaughter, Structural Collapse, Perilous Predicament, Catch // Release) throws on its second type. The commonest crash of the merged era (about 0.2% of games). Fixed in the fork (`87d9411e7b`); a clear small PR.
+- **`SpellAbilityStackInstance.<init>`, `NullPointerException`.** A charm with `ChoiceRestriction` whose modes are all used has no sub-ability. Fixed in the fork with a null check; upstream may prefer to remove the trigger from the stack (CR 603.3c).
+- **Seen once each in 25,000 games, not fixed:** `DamageDealEffect.resolve` (`getDividedValue` null), `AttachAi.affectsAttached` (`String.contains(null)`), `ComputerUtilCost.checkRemoveCounterCost` (a null counter type), and a `StackOverflowError` under `GameEntity.getAttachedCards`. Traces are in `data/runs/eb-*arm-*/workers/*/out.log` and `data/runs/pc-*arm-*`.
+- **The commander-damage skip** (ADR-0131): `Player.copyCommandersToSnapshot` skips a commander that maps to nothing, but the copier's mapper throws first. The fork passes a mapper that returns nothing for a departed player's card.
+
 ## Engine crashes — 50K pilot `d3pilot-20260704-175219` (fork `ca76c842a8`, 2026-07-06)
 
 7 crashes in 50,000 games. All games' obs frames are readable; policy labels

@@ -129,7 +129,7 @@ All three start from `iter-405` on the merged jar, run for equal box time under 
 | The short format, the Pauper testbed, a second format | Deferred: the benchmark is precons |
 | The belief sampler, ponder-time search | After the arms' decision on search |
 | A hidden-card prediction target (the opponent's deck contents from the commander and the cards seen, labelled by full-visibility states) | With Tutor: it shares the deck representation. Raised 11-18; read as intermediate data whether or not it moves the winrate. Distinct from the belief sampler above, which it could later feed |
-| The four-player track | After the copier's cause and the two-player held-out read; a held-out pod read before any pod training |
+| The four-player track | After the copier's cause and the two-player held-out read; a held-out pod read before any pod training. It opens by re-measuring the rollout failure rate with ADR-0131's skips in the pin (not yet run) |
 | Pool growth by precon era, the trunk-capacity probe | After the recipe is rewritten; the probe before any capacity change |
 | Learnable stops | Re-deferred: a new surface, after the arms |
 | The generic target choosers, the untraced callbacks, the late-payability scan | With the play-or-draw boundary |

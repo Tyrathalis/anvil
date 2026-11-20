@@ -571,6 +571,9 @@ uv run python scripts/h2h_read.py --a data/training/<name>-loop/iter-024/train/l
 
 The two checkpoints must serve the same decision surfaces. The read is network-alone only.
 
+Workers run on a 2 GB heap. A read whose games roll out deep (a Monte Carlo opponent, a rollout leaf) can
+exhaust it; pass `--heap 4g` to `final_read.py` and size workers times heap against the box's memory.
+
 **Reading on decks outside the pool.** A checkpoint carries its own card table. A card that is not in
 it is served as "no card", the row hidden cards use, and nothing reports it. To read a checkpoint on
 other decks, extend its table first. This adds each new card's text and features and trains nothing

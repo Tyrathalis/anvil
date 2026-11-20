@@ -83,3 +83,7 @@ mode retired, drill mining moved to AnvilRun census rows.
   budget, ADR-0101 item 3 — the coordinate is the window, not a cast; the pick hook is its hook point);
   the deletion of `CensusRun -certify` + `PayDirective` at the big run's launch ADR; `nan-guard` +
   `certifier-merge` merge into main when the shakedown closes.
+
+## Addendum, 2026-11-20: the deletion is done
+
+`CensusRun -certify` and `PayDirective` were deleted at M13 Build 1 (fork `e54061fa0b`, in pin `cf78d3f046`; [ADR-0132](ADR-0132-m13-build1-forced-decision-replay.md)). `payment_certify.py` and `payment_drill_score.py` keep the anvil runner alone. The re-certification of `payment-evalset-v2` ran as the witness this ADR named: the replay runner reaches 25 of its 280 windows on the merged engine, and the set is retired there.

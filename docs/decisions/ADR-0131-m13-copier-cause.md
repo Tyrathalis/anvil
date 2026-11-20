@@ -57,3 +57,7 @@ In the second cell, by cause:
 ## Addendum, 2026-11-19: the first cell's final totals
 
 The first diagnostic cell was read above before its last pod finished. Complete, it holds 21 of 24 games (one pod failed at startup), 11,749 rollouts and 1,435 failures (12.2%). All 486 of its unmapped-card lines show an owner who had lost. The diagnosis is unchanged.
+
+## Addendum, 2026-11-20: the two skips are in the pin
+
+Both skips are built (fork `87d9411e7b`, in pin `cf78d3f046`; [ADR-0133](ADR-0133-m13-search-copies-leak.md)): a survivor's commander-damage entry for a departed player's commander maps to nothing, and a card whose owner is not among the copied players is not copied. The forkcheck owed here matches the era's baseline 500 of 500 with copy fidelity 467 and 33, so two-player heuristic games are unchanged. **No four-player rollout has been run on the fix**; the 24% failure rate is not yet re-measured, and a four-player search or Monte Carlo read should open with that cell. The token class is not fixed; the pin prints the asking site of an unmapped card once per JVM.
