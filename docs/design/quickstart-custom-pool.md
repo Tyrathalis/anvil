@@ -570,6 +570,21 @@ uv run python scripts/h2h_read.py --a data/training/<name>-loop/iter-024/train/l
 
 The two checkpoints must serve the same decision surfaces. The read is network-alone only.
 
+**Reading on decks outside the pool.** A checkpoint carries its own card table. A card that is not in
+it is served as "no card", the row hidden cards use, and nothing reports it. To read a checkpoint on
+other decks, extend its table first. This adds each new card's text and features and trains nothing
+([ADR-0130](../decisions/ADR-0130-m13-held-out-precon-read.md): 0.28 as served against 0.41 extended,
+on Commander precons):
+
+```bash
+uv run python scripts/m13_precon_table.py --ckpt <ckpt> --names <one card name per line> --tag <tag> --out-dir <dir>
+```
+
+It writes `<dir>/ckpt-<tag>-<hash>-idnull.pt`; pass that to `--ckpt`. Extend the ability table for the
+same cards with `forge anvil -abilities` and `scripts/extend_ability_table.py`, and pass it through
+`--server-args '--abilities <stem>'`. Decks go under `~/.forge/decks/commander/`; a subfolder works
+in a pairs file.
+
 ## 9. What it costs
 
 | Stage | Wall (one 7950X + 4090) |

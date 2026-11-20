@@ -188,6 +188,8 @@ def pool_features(manifest: dict, names: list[str]):
     files = _scan_files()
     rows = []
     for name in names:
-        with open(files[normalize(name)], encoding="utf-8", errors="replace") as f:
+        # a split card's full name ("A // B") is indexed by its first face
+        path = files.get(normalize(name)) or files[normalize(name.split(" // ")[0])]
+        with open(path, encoding="utf-8", errors="replace") as f:
             rows.append(face_features(parse_faces(f.read())))
     return np.asarray(rows, dtype="float32") * np.asarray(FEATURE_SCALE, dtype="float32")

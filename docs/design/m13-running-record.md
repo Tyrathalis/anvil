@@ -66,3 +66,11 @@
   - Every iteration carries its share, as worker slices with the larger heap, queued early and interleaved. It is built with Build 2's queue.
   - Other ratios (the user raised 60 / 30 / 10) are routed after the arms as their own arm.
   - **Next:** Build 0 step 5, the held-out precon read.
+- **2026-11-19, evening — Build 0 step 5 closes: on held-out precons `iter-405` wins 0.41 with card text and 0.28 as served** ([ADR-0130](../decisions/ADR-0130-m13-held-out-precon-read.md); `data/runs/m13-precon/read/read.md`).
+  - **The decks:** Forge's 184 Commander precons, 2011 through Star Trek. The median deck has 80.3% of its non-basic cards outside the pool (56.4% to 92.6%); 586 of 6,525 unique cards are in it.
+  - **A card outside the checkpoint's table is served as the no-card row,** uncounted. That is how the model sees four fifths of a precon deck as it stands.
+  - **As served: 0.2798 ± 0.0063** against the plain heuristic, network alone, 5,000 games on 500 random precon pairs.
+  - **With every card's text and features in the table, and no training: 0.4078 ± 0.0069,** paired +12.80 ± 0.72pp. The mean id row for new cards reads the same as the no-card id (−0.02 ± 0.57pp).
+  - **The gain is about 13 points in every third of the unseen-share split.** The model does worse with older decks (0.30 for 2011 to 2020, 0.47 for 2024 to 2026 in the text arm); unseen share and deck strength are not separated.
+  - **Not clean:** the ability table lacks keys that arise only in play; a new `ArrayIndexOutOfBoundsException` crash (8 games in 15,000), routed to Build 1 with an unknown-card counter for the server.
+  - **Next:** pin 6 (the benchmark's eras, rules and reference opponents) with the user; Build 0 step 6, the copier's cause.
