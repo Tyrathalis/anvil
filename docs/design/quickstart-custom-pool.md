@@ -585,6 +585,13 @@ same cards with `forge anvil -abilities` and `scripts/extend_ability_table.py`, 
 `--server-args '--abilities <stem>'`. Decks go under `~/.forge/decks/commander/`; a subfolder works
 in a pairs file.
 
+The Commander precon benchmark's own decks come from `scripts/precon_benchmark_decks.py` (178 decks,
+written as `pc-NNN.dck` with a map that names each). `scripts/precon_strength_report.py` turns a
+heuristic mirror on them into a rating per deck, so a read can be set beside what the heuristic
+would win with the same decks. To learn who played first in a finished run, replay its seeds with
+`--census "--forge-args=-turncap 1"`: each game ends after one turn and the census log names the
+starting player.
+
 ## 9. What it costs
 
 | Stage | Wall (one 7950X + 4090) |
