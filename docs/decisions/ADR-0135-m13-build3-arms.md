@@ -1,7 +1,7 @@
 # ADR-0135: M13 Build 3 — the three arms' launch settings, the pre-registered reads, and the soft-target term
 
 - **Date:** 2026-11-20
-- **Status:** accepted (sections 1 to 5); section 6, the soft-target definition and its dose ladder, is proposed and waits on the user
+- **Status:** accepted (section 6 and the open items' recommendations by the user, 11-20; see the addendum)
 - **Design-doc anchor:** [m13-plan.md](../design/m13-plan.md), Build 3 and pins 1, 2, 7 and 8; anvil-design-v2 §3e (search as the behavior policy), §6 (the loop); [ADR-0127](ADR-0127-m13-charter.md); [ADR-0134](ADR-0134-m13-build2-one-queue.md)
 
 ## Context
@@ -95,3 +95,11 @@ The plan pins what the three arms are, their length, their game count and their 
   5. **The "nothing to decide" asks.** They are about 0.2% of a generation server's asks and the same in every arm, so they do not bias the comparison. They are not attributed: no played game's census records a fallback, which points at game copies (the Monte Carlo opponent's or the sampled seats'). The recommendation is to attribute them on the control's first iteration's logs, at the desk, and route a fix to the next boundary.
 - **No standing rule is born.** The tilt's reason is ADR-0076's rule applied.
 - **Routed:** the quickstart gains the soft-target flags when the arm's dose is pinned; until then the term is this ADR's.
+
+## Addendum (2026-11-20, evening): the user accepts the four proposals
+
+- **Section 6 is accepted:** the tilt, temperature 0.1, and the dose ladder (0.02, 0.05, 0.15; a 24-hour loop each, after the search-off arm).
+- **The search-off arm launches with `--guard-veto-mult 2.5`** and keeps `--anchor-every 32`, taking the pauses.
+- **Build 4's box jobs run between arms.**
+- **The veto line is not yet in `scripts/m13_arms.sh`.** The control is running that file, and a running bash driver is not edited. The change is made at the arm boundary, before the search-off launch.
+- The smokes' data is the user's to delete; section 7 holds their figures.

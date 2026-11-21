@@ -151,3 +151,6 @@
   - **Open for the user:** the soft-target temperature (0.1 proposed) and dose ladder (0.02, 0.05, 0.15; a day each); the search-off arm's veto line (2.5 times proposed) and anchor cadence (32 proposed, taking the pauses); Build 4's box jobs between arms; the generation servers' "nothing to decide" asks (about 0.2% of asks, every arm, not attributed).
   - **What broke.** The first smoke driver ran the two smokes in one launch, so the search-off halt cancelled the soft smoke and it was relaunched alone.
   - **Next:** the control's first iterations and day-zero read; the search-off arm at the control's stop.
+- **2026-11-20, evening — the user accepts ADR-0135's proposals** ([ADR-0135](../decisions/ADR-0135-m13-build3-arms.md), addendum).
+  - The soft target is the tilt at temperature 0.1, with the ladder 0.02, 0.05 and 0.15 after the search-off arm. The search-off arm takes a veto line of 2.5 times and keeps the anchor at every 32 steps. Build 4's box jobs run between arms.
+  - The veto line goes into the arm script at the arm boundary; the control is running that file.
