@@ -154,3 +154,8 @@
 - **2026-11-20, evening — the user accepts ADR-0135's proposals** ([ADR-0135](../decisions/ADR-0135-m13-build3-arms.md), addendum).
   - The soft target is the tilt at temperature 0.1, with the ladder 0.02, 0.05 and 0.15 after the search-off arm. The search-off arm takes a veto line of 2.5 times and keeps the anchor at every 32 steps. Build 4's box jobs run between arms.
   - The veto line goes into the arm script at the arm boundary; the control is running that file.
+- **2026-11-20, evening — the control's day zero and first four iterations; the smokes' data is deleted.**
+  - **Day zero on the in-loop instrument: 0.5825 ± 0.0247** (`iter-405`, 400 games, network alone, 0 crashes; `data/runs/m13-control/dayzero.log`). The "control falls" line is read against it.
+  - **Iterations 0 to 3 completed with no guard** in 4.7 loop hours: generation 3,400 to 4,300 s, training 240 to 410 s. The distillation share reads 0.05 to 0.07. The memory watchdog has not tripped. The first in-loop read comes with iteration 4.
+  - **The "nothing to decide" asks at the arm's scale:** 252 to 2,159 per iteration, 0.17% of iteration 3's 1.26 million requests. Under search they come on all five entity surfaces, mostly `entity_one`. The census records 1 to 3 fallbacks an iteration in played games, so nearly all are in game copies.
+  - **Deleted by the user:** this session's smoke data (`m13s-*`, 2.1 GB) and Build 2's leftovers (2.6 GB). Kept from Build 2: the serving jar, the guard's forkcheck dir, the two pair JSONs, the learner-memory log and `third-server/`. M12's `b2-*` stores share the prefix and were not touched.
