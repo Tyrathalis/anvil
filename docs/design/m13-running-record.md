@@ -163,3 +163,6 @@
   - **Why.** The arms are compared at equal box time. A kernel point release (7.3.5-1 to -2) and a driver bump (620.70.06 to 620.73.04) were pending 22 loop hours into the control, and the other two arms would have run wholly on the new driver.
   - **Python joins the set** (3.14.10-2). The run's environment is built on the system interpreter, and the big run's 11-11 update moved it inside a segment.
   - The control was not paused. The pins lift together at the last arm's close (after the dose ladder).
+- **2026-11-21 12:10 — the control is paused for the user's reboot** (`anvil.runs pause --name m13-control --now --scope all --wait`; the state reads `paused`).
+  - It stopped in iteration 17's generation, about 110 of 480 games in, at 21.67 loop hours with 17 iterations complete. No process of the run is left.
+  - The update took 25 packages; the kernel, the driver, the JDK and Python held. Resume is `anvil.runs relaunch --name m13-control`, on the user's word. The session's 6-hourly check and its wait end with the reboot and are re-armed after it.
