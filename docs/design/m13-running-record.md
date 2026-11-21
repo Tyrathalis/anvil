@@ -159,3 +159,7 @@
   - **Iterations 0 to 3 completed with no guard** in 4.7 loop hours: generation 3,400 to 4,300 s, training 240 to 410 s. The distillation share reads 0.05 to 0.07. The memory watchdog has not tripped. The first in-loop read comes with iteration 4.
   - **The "nothing to decide" asks at the arm's scale:** 252 to 2,159 per iteration, 0.17% of iteration 3's 1.26 million requests. Under search they come on all five entity surfaces, mostly `entity_one`. The census records 1 to 3 fallbacks an iteration in played games, so nearly all are in game copies.
   - **Deleted by the user:** this session's smoke data (`m13s-*`, 2.1 GB) and Build 2's leftovers (2.6 GB). Kept from Build 2: the serving jar, the guard's forkcheck dir, the two pair JSONs, the learner-memory log and `third-server/`. M12's `b2-*` stores share the prefix and were not touched.
+- **2026-11-21, midday — the box's kernel, driver, JDK and Python are held for the arms** (the user, `IgnorePkg` in `/etc/pacman.conf`).
+  - **Why.** The arms are compared at equal box time. A kernel point release (7.3.5-1 to -2) and a driver bump (620.70.06 to 620.73.04) were pending 22 loop hours into the control, and the other two arms would have run wholly on the new driver.
+  - **Python joins the set** (3.14.10-2). The run's environment is built on the system interpreter, and the big run's 11-11 update moved it inside a segment.
+  - The control was not paused. The pins lift together at the last arm's close (after the dose ladder).
