@@ -166,3 +166,8 @@
 - **2026-11-21 12:10 — the control is paused for the user's reboot** (`anvil.runs pause --name m13-control --now --scope all --wait`; the state reads `paused`).
   - It stopped in iteration 17's generation, about 110 of 480 games in, at 21.67 loop hours with 17 iterations complete. No process of the run is left.
   - The update took 25 packages; the kernel, the driver, the JDK and Python held. Resume is `anvil.runs relaunch --name m13-control`, on the user's word. The session's 6-hourly check and its wait end with the reboot and are re-armed after it.
+- **2026-11-21 17:22 — the control is relaunched after the reboot** (`anvil.runs relaunch --name m13-control --launched-by 'M13 Build 3: the three arms [a53084]'`; the session's ref changed with the app restart).
+  - Coverage line: "stall alarm 180 min on data/runs/m13-control + data/training/m13-control data/runs/m13-control-*, sinks queue+desk, check-in claude (self-test OK, 3 s), relay to M13 Build 3: the three arms [a53084], memory watchdog: ARMED".
+  - **Iteration 17 restarted from its first game; it did not resume.** The loop opened new run dirs on the same seeds, so the 122 games played before the pause are played again. I had told the user the finished games would be kept. The loss is about 14 minutes of generation, and none of it is charged: the loop's wall clock restarted at 21.67 hours.
+  - The earlier attempt's run dirs (`data/runs/m13-control-i017*-20261121-115*`) are orphans; the loop's store list does not name them.
+  - The box is on the held set: kernel 7.3.5-1, driver 620.70.06, Python 3.14.10-2, JDK 27.0.1. The 6-hourly check survived the restart; the wait on the run's state is re-armed.
