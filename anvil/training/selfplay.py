@@ -814,18 +814,21 @@ def batches_short(run_dirs: "list[Path]") -> "list[tuple[str, int, int]]":
     return short
 
 
-def resumable_runs(todo: "list[tuple[str, int, int, int]]") -> "list[Path] | None":
+def resumable_runs(todo: "list[tuple[str, int, int, int]]", stores: bool = True) -> "list[Path] | None":
     """The unfinished run dirs of an interrupted generation, one per batch
     still to store, or None when the iteration must start those batches
     again. `todo` = (purpose, games, start_index, seed_base). A batch's dir
     is its newest run dir with no store; its manifest must name the same
     games, start index and seed base, so the resumed games are the ones a
     fresh launch would play. Several dirs must be members of one queue (the
-    harness resumes a group as a whole); a single dir may stand alone."""
+    harness resumes a group as a whole); a single dir may stand alone.
+    `stores=False` is for runs that are never ingested (the in-loop reads):
+    a batch's dir is then its newest run dir, finished or not."""
     dirs: list[Path] = []
     for purpose, games, start, seed_base in todo:
         cands = [Path(c) for c in sorted(glob.glob(str(RUNS_DIR / f"{purpose}-*")))
-                 if (Path(c) / "run.json").exists() and not (TRAJ_DIR / Path(c).name / "manifest.json").exists()]
+                 if (Path(c) / "run.json").exists()
+                 and not (stores and (TRAJ_DIR / Path(c).name / "manifest.json").exists())]
         if not cands:
             return None
         m = json.loads((cands[-1] / "run.json").read_text())
@@ -2517,6 +2520,131 @@ def main() -> None:
         print(f"[selfplay] clearing the loop's own pause STOP ({(out / 'STOP').read_text().strip()[:160]}) — "
               f"resuming on the relaunch {_stamp()}")
         (out / "STOP").unlink()
+    def _arm_read(k: int, it_dir: Path) -> bool:
+        """The in-loop read of iteration k's checkpoint (argmax serve, paired seeds,
+        both seat assignments). False = it stopped with games to play and the loop
+        must exit as paused; the relaunch resumes it at the game (ADR-0136)."""
+        nonlocal wall_base
+        arms_due = args.arms_every and (k + 1) % args.arms_every == 0 and args.arms_pairs
+        pending, arms_open = it_dir / "arms-pending", it_dir / "arms-open.json"
+        if arms_due and (it_dir / "arms-report.json").exists():
+            print(f"[selfplay] iteration {k}: reusing the completed arm read")
+            pending.unlink(missing_ok=True)
+        elif arms_due:
+            # the state already names iteration k + 1: this mark is what tells
+            # a relaunch that iteration k's read is still owed
+            pending.write_text(_stamp() + "\n")
+            arm_dirs = []
+            server = _start_server(
+                state["ckpt"], args.port, it_dir / "arms-server.log", sample=False,
+                sched_flags=sched_flags(args), device=args.device, autocast=not args.no_autocast,
+                servers=fleet_size(args),
+            )
+            la_dirs = []
+            arm_fa = search_forge_args(args, state["ckpt"]) if args.arms_lookahead == "on" else []
+            try:
+                arm_members = []
+                for seat, la in ((0, False), (1, False), (0, True), (1, True)):
+                    if la and not arm_fa:
+                        continue
+                    ap_purpose = f"{args.name}-arm{'la' if la else ''}-i{k:03d}-s{seat}"
+                    arm_cmd = [
+                        "--pairs-file",
+                        args.arms_pairs,
+                        "--format",
+                        args.format,
+                        "--games",
+                        str(args.arms_games),
+                        "--workers",
+                        str(args.workers),
+                        "--bridge",
+                        fleet_bridge(args),
+                        "--census",
+                        "--obs",
+                        "--purpose",
+                        ap_purpose,
+                        "--seed-base",
+                        str(args.arms_seed_base),
+                        "--bridge-seats",
+                        str(seat),
+                    ]
+                    if args.reask:
+                        arm_cmd.append("--reask")
+                    if la:
+                        # the with-lookahead arm (ADR-0113) — the same
+                        # ckpt under the run's search recipe (the network-
+                        # alone vs with-lookahead gap, read mid-run)
+                        arm_cmd += [f"--forge-args={' '.join(arm_fa)}", "--labels"]
+                    if args.jar:
+                        arm_cmd += ["--jar", str(args.jar)]
+                    arm_members.append((ap_purpose, arm_cmd, None, la))
+                if args.gen_queue == "one" and len(arm_members) > 1:
+                    arm_members.sort(key=lambda m: not m[3])
+                # an interrupted read resumes at the game, as generation does (ADR-0136)
+                arm_resume = resumable_runs(
+                    [(m[0], args.arms_games, 0, args.arms_seed_base) for m in arm_members], stores=False)
+                lost = lost_segment_s(arms_open, arm_resume) if arm_resume else 0.0
+                if lost:
+                    # the killed session's read time: its games are kept, so it is box time spent
+                    wall_base += lost
+                    print(f"[selfplay] iteration {k}: charging {lost:.0f} s of the interrupted arm read "
+                          f"to the wall budget")
+                arms_open.write_text(json.dumps({"t0": time.time()}))
+                if arm_resume:
+                    if batches_short(arm_resume):
+                        n_drop = purge_partial_attempts(arm_resume, it_dir / "no-mu.jsonl")
+                        print(f"[selfplay] iteration {k}: resuming the arm read at the game; "
+                              f"dropped {n_drop['labels']} label rows of unfinished games")
+                        _run([sys.executable, "-m", "anvil.bridge.harness", "resume", str(arm_resume[0])])
+                    got = arm_resume
+                elif args.gen_queue == "one" and len(arm_members) > 1:
+                    # one queue across the seat arms (M13 Build 2); the
+                    # with-lookahead arms go first: their games are the long ones
+                    got = launch_queue(f"{args.name}-arms-i{k:03d}-q", args.workers,
+                                       [m[:3] for m in arm_members])
+                else:
+                    got = []
+                    for ap_purpose, arm_cmd, _, _ in arm_members:
+                        before = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*")))
+                        _run([sys.executable, "-m", "anvil.bridge.harness", "launch", *arm_cmd])
+                        got.append(_new_run_dir(ap_purpose, before))
+                # arms_report reads the dirs in seat order
+                for (ap_purpose, _, _, la), rd in sorted(zip(arm_members, got), key=lambda t: t[0][0]):
+                    (la_dirs if la else arm_dirs).append(str(rd))
+            finally:
+                _stop_server(server)
+            arms_open.unlink(missing_ok=True)  # the segment closed; the session clock holds its time
+            short = batches_short([Path(d) for d in arm_dirs + la_dirs])
+            if short:
+                # a STOP reached the read's harness: no report on short arms; the relaunch resumes the read
+                print(f"[selfplay] arm read paused with games to play "
+                      f"({', '.join(f'{n} {d}/{g}' for n, d, g in short)}) — exiting {_stamp()}")
+                state["wall_used_s"] = wall_used()
+                state_path.write_text(json.dumps(state, indent=2))
+                _watch_unregister(args.name)
+                return False
+            _run(
+                [
+                    sys.executable,
+                    "scripts/arms_report.py",
+                    "--arm",
+                    f"iter{k:03d}={','.join(arm_dirs)}",
+                    *(["--arm", f"iter{k:03d}la={','.join(la_dirs)}"] if la_dirs else []),
+                    "--out",
+                    str(it_dir / "arms-report.json"),
+                ]
+            )
+            pending.unlink(missing_ok=True)
+        return True
+
+    # a read the last session did not finish (its mark is in the iteration's dir)
+    kp = state["iteration"] - 1
+    if kp >= 0 and (out / f"iter-{kp:03d}" / "arms-pending").exists():
+        print(f"[selfplay] iteration {kp}: its arm read was interrupted — finishing it first {_stamp()}")
+        if not _arm_read(kp, out / f"iter-{kp:03d}"):
+            return
+        state["wall_used_s"] = wall_used()
+        state_path.write_text(json.dumps(state, indent=2))
     while state["iteration"] < args.iterations:
         if (out / "STOP").exists():
             print(f"[selfplay] STOP file present — exiting between iterations {_stamp()}")
@@ -3365,79 +3493,8 @@ def main() -> None:
             _notify(f"anvil {args.name}: PAUSE LINE iter {k}", pause_reason)
 
         # ---- arms (argmax serve, paired seeds, both seat assignments) ----
-        if args.arms_every and (k + 1) % args.arms_every == 0 and args.arms_pairs:
-            arm_dirs = []
-            server = _start_server(
-                state["ckpt"], args.port, it_dir / "arms-server.log", sample=False,
-                sched_flags=sched_flags(args), device=args.device, autocast=not args.no_autocast,
-                servers=fleet_size(args),
-            )
-            la_dirs = []
-            arm_fa = search_forge_args(args, state["ckpt"]) if args.arms_lookahead == "on" else []
-            try:
-                arm_members = []
-                for seat, la in ((0, False), (1, False), (0, True), (1, True)):
-                    if la and not arm_fa:
-                        continue
-                    ap_purpose = f"{args.name}-arm{'la' if la else ''}-i{k:03d}-s{seat}"
-                    arm_cmd = [
-                        "--pairs-file",
-                        args.arms_pairs,
-                        "--format",
-                        args.format,
-                        "--games",
-                        str(args.arms_games),
-                        "--workers",
-                        str(args.workers),
-                        "--bridge",
-                        fleet_bridge(args),
-                        "--census",
-                        "--obs",
-                        "--purpose",
-                        ap_purpose,
-                        "--seed-base",
-                        str(args.arms_seed_base),
-                        "--bridge-seats",
-                        str(seat),
-                    ]
-                    if args.reask:
-                        arm_cmd.append("--reask")
-                    if la:
-                        # the with-lookahead arm (ADR-0113) — the same
-                        # ckpt under the run's search recipe (the network-
-                        # alone vs with-lookahead gap, read mid-run)
-                        arm_cmd += [f"--forge-args={' '.join(arm_fa)}", "--labels"]
-                    if args.jar:
-                        arm_cmd += ["--jar", str(args.jar)]
-                    arm_members.append((ap_purpose, arm_cmd, None, la))
-                if args.gen_queue == "one" and len(arm_members) > 1:
-                    # one queue across the seat arms (M13 Build 2); the
-                    # with-lookahead arms go first: their games are the long ones
-                    arm_members.sort(key=lambda m: not m[3])
-                    got = launch_queue(f"{args.name}-arms-i{k:03d}-q", args.workers,
-                                       [m[:3] for m in arm_members])
-                else:
-                    got = []
-                    for ap_purpose, arm_cmd, _, _ in arm_members:
-                        before = set(glob.glob(str(RUNS_DIR / f"{ap_purpose}-*")))
-                        _run([sys.executable, "-m", "anvil.bridge.harness", "launch", *arm_cmd])
-                        got.append(_new_run_dir(ap_purpose, before))
-                # arms_report reads the dirs in seat order
-                for (ap_purpose, _, _, la), rd in sorted(zip(arm_members, got), key=lambda t: t[0][0]):
-                    (la_dirs if la else arm_dirs).append(str(rd))
-            finally:
-                _stop_server(server)
-            _run(
-                [
-                    sys.executable,
-                    "scripts/arms_report.py",
-                    "--arm",
-                    f"iter{k:03d}={','.join(arm_dirs)}",
-                    *(["--arm", f"iter{k:03d}la={','.join(la_dirs)}"] if la_dirs else []),
-                    "--out",
-                    str(it_dir / "arms-report.json"),
-                ]
-            )
+        if not _arm_read(k, it_dir):
+            return
 
         # ---- mid-run drill-evalset decomposition (advisory; own server) ----
         if args.drill_eval_every and (k + 1) % args.drill_eval_every == 0:

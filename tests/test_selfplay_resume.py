@@ -99,3 +99,14 @@ def test_lost_segment_is_start_to_last_finished_game(dirs, tmp_path):
     assert sp.lost_segment_s(op, [a]) == 600.0
     os.utime(a / "workers" / "inv-0000" / "games.jsonl", (900.0, 900.0))
     assert sp.lost_segment_s(op, [a]) == 0.0  # no game finished in the segment
+
+
+def test_resumable_runs_for_reads_ignores_stores(dirs):
+    runs, traj = dirs
+    a = _run_dir(runs, "x-arm-i004-s0-20260101-000000", 2, 0, group="g9", done=[("inv-0000", [0, 1])])
+    b = _run_dir(runs, "x-arm-i004-s1-20260101-000000", 2, 0, group="g9", done=[("inv-0000", [0])])
+    _queue(runs, "g9", [a.name, b.name])
+    todo = [("x-arm-i004-s0", 2, 0, 7), ("x-arm-i004-s1", 2, 0, 7)]
+    assert sp.resumable_runs(todo, stores=False) == [a, b]  # a finished member is still the batch's dir
+    assert sp.batches_short([a, b]) == [(b.name, 1, 2)]
+    assert sp.resumable_runs([("x-arm-i005-s0", 2, 0, 7)], stores=False) is None  # an uninterrupted read finds none
