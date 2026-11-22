@@ -183,3 +183,8 @@
   - **Training keeps restarting from its start,** by decision: an exact mid-step resume cannot be checked bitwise and saves minutes.
   - **The user's calls:** no merge mid-arm; reboots this week take the default pause at an iteration boundary.
   - Six unit tests pass on the branch (two commits). The box proof, five cells, runs at the control's stop.
+- **2026-11-22 — a promotion gate joins the arms' closes** ([ADR-0135](../decisions/ADR-0135-m13-build3-arms.md), second addendum; the user's decision).
+  - **Each arm's final checkpoint is read for promotion.** The gate is the continuity number: 5,000 games against the heuristic, paired with `iter-405`'s 0.6064, cleared above 2 standard errors. The Monte Carlo and precon reads sit beside it.
+  - **Every Build 3 arm still starts from `iter-405`.** The experiment after the arms starts from the best of them.
+  - **Written before any final read exists.** The control is at 35 loop hours of 168; its in-loop reads so far are 0.5800, 0.5900, 0.6125, 0.5725 and 0.6150 against day zero's 0.5825 ± 0.0247.
+  - The non-decisive flag returned on iterations 25 and 26 (10 draws; 8 draws and 2 timeouts, of 480). It is watched at the six-hourly checks.

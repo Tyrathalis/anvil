@@ -103,3 +103,14 @@ The plan pins what the three arms are, their length, their game count and their 
 - **Build 4's box jobs run between arms.**
 - **The veto line is not yet in `scripts/m13_arms.sh`.** The control is running that file, and a running bash driver is not edited. The change is made at the arm boundary, before the search-off launch.
 - The smokes' data is the user's to delete; section 7 holds their figures.
+
+## Addendum (2026-11-22): a promotion gate on each arm's final checkpoint
+
+Written during the control arm, at 35 loop hours, before any arm's final read exists. The user decided it.
+
+- **Each arm's final checkpoint is read for promotion at its close.** The gate is section 4's continuity number: network alone against the plain heuristic, 5,000 games on the 11-07 confirm's seeds, paired game for game against `iter-405`'s 0.6064 ± 0.0069. A checkpoint clears if the paired difference is above 2 standard errors.
+- **Two reads sit beside the gate and do not gate.** The Monte Carlo opponent read (`iter-405`: 0.5099 ± 0.0071, [ADR-0129](ADR-0129-m13-monte-carlo-opponent.md)) and the held-out precon read (`iter-405`: 0.4078 ± 0.0069, [ADR-0130](ADR-0130-m13-held-out-precon-read.md)), each on `iter-405`'s seeds. They show a gain against the heuristic that is a loss elsewhere. A paired loss of more than 2 standard errors on either holds the promotion for the user's call.
+- **A cleared gate promotes,** unless the run itself is suspect. If more than one arm clears, the head-to-head read of section 4 picks between them.
+- **Every arm of this build still starts from `iter-405`.** A promotion mid-build moves the checkpoint of record and nothing else. The search-off arm, the dose ladder, the soft-target arm and any equal-updates arm keep `iter-405` as their warm start, or the arms stop being comparable.
+- **The next experiment starts from the best of these.** Whatever follows Build 3's arms takes the promoted checkpoint as its warm start, not `iter-405`.
+- **The reads run between arms,** with the head-to-head reads, on an idle box. No arm is taxed.
