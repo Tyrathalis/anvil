@@ -60,3 +60,11 @@ Carry-over (pin 3) lets a game outlive its iteration; resume lets an iteration o
 - **Not covered:** a stop during training or an in-loop read still restarts that step. Training is 4 to 7 minutes; a read is one queue and could use the same resume.
 - **Routed:** the quickstart's pause section, when this lands. The cells path (`--gen-queue cells`) resumes a single unfinished batch through the same code and is not in the proof.
 - **No standing rule is born.**
+
+## Addendum (2026-11-21, later): the in-loop read resumes too; training does not; the landing waits for the arm's end
+
+- **An interrupted in-loop read was lost, not restarted.** The loop writes the next iteration into its state before the read begins, so a relaunch went straight on and that read was never made. The "Not covered" line above had this wrong.
+- **The read now resumes at the game** (branch `m13-game-resume`). A mark in the iteration's dir says the read is owed. A relaunch finishes it before the next iteration, through the same queue resume. Its killed segment is charged to the wall budget. A read that stops short writes no report and the loop exits as paused.
+- **The proof gains a cell.** 5. One in-loop read, network alone and with lookahead, killed mid-read and relaunched, against the same read uninterrupted. Registered: the network-alone arm's games identical; the report is written once.
+- **Training does not resume mid-step, by decision** (the user agreed). An exact resume needs the optimizer, the loader's place in its schedule, the auxiliary weights' calibration, the anchor's draw count and the generators restored, and GPU arithmetic gives no bitwise check that they were. The gain is 4 to 7 minutes an interruption. A stopped training step restarts from its start, as now.
+- **The landing waits for the control's end** (the user, 11-21): one loop version per arm. Reboots this week pause at an iteration boundary with the default `anvil.runs pause --name m13-control --wait`.

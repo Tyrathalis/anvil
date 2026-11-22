@@ -178,3 +178,8 @@
   - **Not proven on the box.** Five unit tests pass. The paired proof (96 of 96 identical network-alone games, interrupted against uninterrupted) waits for the control's stop, since a box job would tax the arm.
   - The orphan run dirs of the abandoned iteration 17 are deleted (the user).
   - **Next:** the proof at the boundary; straggler carry-over on the same ledger after the arms.
+- **2026-11-21, late — read resume joins the branch; the landing waits for the control's end** ([ADR-0136](../decisions/ADR-0136-m13-game-level-resume.md), addendum).
+  - **An interrupted in-loop read was being lost.** The state names the next iteration before the read starts, so a relaunch skipped it. The branch marks the read as owed and finishes it at the game on relaunch.
+  - **Training keeps restarting from its start,** by decision: an exact mid-step resume cannot be checked bitwise and saves minutes.
+  - **The user's calls:** no merge mid-arm; reboots this week take the default pause at an iteration boundary.
+  - Six unit tests pass on the branch (two commits). The box proof, five cells, runs at the control's stop.
