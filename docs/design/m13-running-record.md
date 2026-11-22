@@ -171,3 +171,10 @@
   - **Iteration 17 restarted from its first game; it did not resume.** The loop opened new run dirs on the same seeds, so the 122 games played before the pause are played again. I had told the user the finished games would be kept. The loss is about 14 minutes of generation, and none of it is charged: the loop's wall clock restarted at 21.67 hours.
   - The earlier attempt's run dirs (`data/runs/m13-control-i017*-20261121-115*`) are orphans; the loop's store list does not name them.
   - The box is on the held set: kernel 7.3.5-1, driver 620.70.06, Python 3.14.10-2, JDK 27.0.1. The 6-hourly check survived the restart; the wait on the run's state is re-armed.
+- **2026-11-21, evening — game-level resume is built on a branch; it lands at the arm boundary** ([ADR-0136](../decisions/ADR-0136-m13-game-level-resume.md); branch `m13-game-resume`, worktree `.claude/worktrees/game-resume`).
+  - **Why iteration 17 restarted.** The loop reused a batch only when its store existed. The harness's per-game ledger and its `resume` verb were there; the loop did not call them.
+  - **What is built.** The loop resumes an unfinished queue when it would play what a fresh launch would. It first drops the unfinished games' mu and label rows, since a replayed searched game need not repeat its first attempt. It charges the killed segment's time to the wall budget.
+  - **A second fault, fixed on the branch.** A graceful STOP in the harness dirs mid-generation made the loop ingest and train on short batches. It now exits as paused.
+  - **Not proven on the box.** Five unit tests pass. The paired proof (96 of 96 identical network-alone games, interrupted against uninterrupted) waits for the control's stop, since a box job would tax the arm.
+  - The orphan run dirs of the abandoned iteration 17 are deleted (the user).
+  - **Next:** the proof at the boundary; straggler carry-over on the same ledger after the arms.
