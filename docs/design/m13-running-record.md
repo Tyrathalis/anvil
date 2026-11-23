@@ -188,3 +188,9 @@
   - **Every Build 3 arm still starts from `iter-405`.** The experiment after the arms starts from the best of them.
   - **Written before any final read exists.** The control is at 35 loop hours of 168; its in-loop reads so far are 0.5800, 0.5900, 0.6125, 0.5725 and 0.6150 against day zero's 0.5825 ± 0.0247.
   - The non-decisive flag returned on iterations 25 and 26 (10 draws; 8 draws and 2 timeouts, of 480). It is watched at the six-hourly checks.
+- **2026-11-23 — the extra draws under GPU sharing are game-clock draws; the limit moves to a count after the arms** (the user's decision).
+  - **A yield does not interrupt a game.** The harness holds new games back while a foreign job uses the GPU; the games in flight play on, slowed.
+  - **The slowed games hit the 20-minute game clock.** ComfyUI held the GPU on 11-22. Clock draws per 480 games: 17, 13 and 8 on iterations 33, 34 and 36 (yields of 47, 50 and 28 minutes), against 2, 2, 0 and 4 on iterations 37, 38, 40 and 41 (no yield). The other draw causes (turn cap, window cap, loop) did not move. About 30 games of some 20,000 are affected. The arm was not paused.
+  - **Training under the same contention is charged to the wall.** Iterations 30 and 33 trained in 792 s and 1,363 s against the usual 380 to 470 s, about 20 minutes of the control's 168 hours.
+  - **Routed to the arm boundary:** a yield guard for the remaining arms (the clock stops during a yield, or a game clock-drawn during a yield is replayed on its seed). It does nothing on a quiet box, so the arms keep one rule.
+  - **Routed to after the arms, with straggler carry-over:** a count of game work decides a long game, so the same seed ends the same way on any box. The wall clock stays as a backstop, set high enough to bind only on degenerate games, and a hit is recorded as a hang, not a draw. The count and the clock's new limit are set from the measured distribution; where the clock lives (harness or fork) is not yet read.
