@@ -704,6 +704,7 @@ class PriorityWindows(IterableDataset):
                     tgt_mask_ex["tgt_allow"] = torch.from_numpy(ta[0])
             yield {
                 "entities": torch.from_numpy(out["entities"]),
+                "atk_tgt_ok": torch.from_numpy(out["atk_tgt_ok"]),
                 "ent_emb": torch.tensor(
                     [self.embed.row(n) for n in out["entity_names"]], dtype=torch.int64
                 ),
@@ -778,6 +779,9 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         "entities": torch.zeros(b, n, f),
         "ent_emb": torch.full((b, n), -1, dtype=torch.int64),
         "ent_mask": torch.zeros(b, n, dtype=torch.bool),
+        # ADR-0137: legal attack-target rows; an example without the field
+        # (an older caller) leaves its real rows unmasked
+        "atk_tgt_ok": torch.zeros(b, n, dtype=torch.bool),
         "cand_rows": torch.full((b, c), -1, dtype=torch.int64),
         "cand_sa": torch.full((b, c), -1, dtype=torch.int64),
         "cand_kind": torch.full((b, c), -1, dtype=torch.int64),
@@ -945,6 +949,7 @@ def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         out["entities"][i, :ni] = x["entities"]
         out["ent_emb"][i, :ni] = x["ent_emb"]
         out["ent_mask"][i, :ni] = True
+        out["atk_tgt_ok"][i, :ni] = x["atk_tgt_ok"] if "atk_tgt_ok" in x else True
         out["cand_rows"][i, :ci] = x["cand_rows"]
         out["cand_sa"][i, :ci] = x["cand_sa"]
         out["cand_kind"][i, :ci] = x["cand_kind"]

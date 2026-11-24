@@ -47,6 +47,7 @@ class Batch(TypedDict, total=True):
     entities: torch.Tensor
     ent_emb: torch.Tensor
     ent_mask: torch.Tensor
+    atk_tgt_ok: torch.Tensor  # ADR-0137: legal attack-target rows
     cand_rows: torch.Tensor
     cand_sa: torch.Tensor
     cand_kind: torch.Tensor

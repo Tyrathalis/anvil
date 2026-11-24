@@ -23,11 +23,17 @@ that was never fitted does not serve (the server's has_* checks).
 
 from __future__ import annotations
 
+import os
+
 import torch
 from torch import nn
 
 from anvil.encoder.cards import CardEncoder
 from anvil.state.tokens import StateAssembler
+
+# ADR-0137: the attack-target head scores only legal defenders. The variable
+# restores the unmasked head for a control run; it is read once at import.
+ATK_TGT_MASK = not os.environ.get("ANVIL_NO_ATK_TGT_MASK")
 
 
 def masked_cross_entropy(logits, labels, ignore_index: int = -1):
@@ -739,9 +745,10 @@ class AnvilNet(nn.Module):
     def _combat_outputs(self, state: torch.Tensor, ent_out: torch.Tensor, batch: dict) -> dict:
         """Combat-head logits (D5), shared by forward() and act(). Per
         candidate row (cmb_rows): attack yes/no logit; count-class logits
-        masked to [1, group size]; attack-target pointer over entities+players
-        (a training-time superset of the engine's legal defenders — labels
-        only land on legal ones, serve masks exactly via the executor);
+        masked to [1, group size]; attack-target pointer over the legal
+        defenders (players, and the entity rows batch["atk_tgt_ok"] marks:
+        ADR-0137; without the field or under ANVIL_NO_ATK_TGT_MASK every
+        entity row is scored, the behavior before the mask);
         block pointer over attacker slots + the learned none key at index M."""
         d = ent_out.shape[-1]
         rows = batch["cmb_rows"].clamp(min=0)
@@ -759,9 +766,13 @@ class AnvilNet(nn.Module):
         q = self.atk_tgt_query(cin)  # (B,A,d)
         tkeys = torch.cat([self.atk_tgt_key(ent_out), self.atk_player_key(batch["players"])], dim=1)
         tgt_logits = q @ tkeys.transpose(1, 2) / d**0.5  # (B,A,N+P)
+        ent_illegal = ~batch["ent_mask"]
+        if ATK_TGT_MASK and "atk_tgt_ok" in batch:
+            # ADR-0137: only the engine's legal defenders stay in the softmax
+            ent_illegal = ent_illegal | ~batch["atk_tgt_ok"]
         pmask = torch.cat(
             [
-                ~batch["ent_mask"],
+                ent_illegal,
                 torch.zeros(
                     ent_out.shape[0],
                     batch["players"].shape[1],

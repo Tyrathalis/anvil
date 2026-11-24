@@ -28,6 +28,7 @@ import torch
 import torch.nn.functional as F
 
 from anvil.encoder.target_mask import MASK_FLAG, PRUNE_FLAG
+from anvil.policy.model import ATK_TGT_MASK
 from anvil.torch.utils import get_torch_device
 from anvil.training.dataset import TASKS, collate, default_methods
 from anvil.training.search_join import (
@@ -579,6 +580,13 @@ def game_trajectories(
                 rec = rec2
             if not mu_matches(ex, rec):
                 return [], "mu_mismatch"
+            if ATK_TGT_MASK and rec["task"] == "attack" and "atk_tgt_ok" in ex:
+                # ADR-0137: a game recorded before the mask may attack a row the
+                # mask removes; its label would sit on a masked logit
+                n_ent = ex["entities"].shape[0]
+                if any(y and t < n_ent and not bool(ex["atk_tgt_ok"][t])
+                       for y, t in zip(rec["atk"], rec["atgt"])):
+                    return [], "atk_tgt_illegal"
             rej = rejected_events(
                 traj.decisions, len(prior), dec, rec, aux, mu=mu, grouping=penalty_grouping
             )

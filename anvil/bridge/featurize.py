@@ -417,6 +417,7 @@ class Featurizer:
         stack_ex = {k: torch.from_numpy(a) for k, a in stack_fields(out, self.abil, p).items()}
         ex = {
             "entities": torch.from_numpy(out["entities"]),
+            "atk_tgt_ok": torch.from_numpy(out["atk_tgt_ok"]),
             "ent_emb": torch.tensor(
                 [self.embed.row(n) for n in out["entity_names"]], dtype=torch.int64
             ),

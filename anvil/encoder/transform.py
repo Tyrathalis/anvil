@@ -264,6 +264,24 @@ def visible_to(ent: dict[str, Any], perspective: int) -> bool:
     return not ent.get("fd")
 
 
+def attack_target_ok(ent: dict[str, Any], perspective: int) -> bool:
+    """May `perspective` declare an attacker against this permanent (ADR-0137).
+
+    The engine's legal defenders other than players: an opponent's
+    planeswalker, or a battle. The obs record carries no type line, so the
+    test is the counter that defines each on the battlefield: loyalty (a
+    transformed flip-walker has it, its creature face does not) and defense.
+    The attack-target head scored every entity before this mask, and from
+    iteration 57 of the M13 control the model declared attacks against lands
+    and creatures, which the engine drops."""
+    if ent.get("z") != "battlefield":
+        return False
+    cnt = ent.get("cnt") or {}
+    if "DEFENSE" in cnt:
+        return True
+    return "LOYALTY" in cnt and ent.get("c") != perspective
+
+
 def _dedup_key(ent: dict[str, Any], name: str | None) -> str:
     """Multiset dedup (§2): identical entities -> one token + count.
     Identity-bearing fields only when visible; entity id never participates."""
@@ -370,11 +388,14 @@ def assemble(
     # invariance to it. Order is non-semantic by schema; sets are what §2 wants.
     groups: dict[str, list] = {}
     ids_of_key: dict[str, list[int]] = {}
+    atk_ok_keys: set[str] = set()  # ADR-0137: rows an attacker may be declared against
     for ent in obs.get("ents", []):
         vis = full_vis or visible_to(ent, perspective)
         name = ent["n"] if vis else None
         key = _dedup_key(ent, name)
         ids_of_key.setdefault(key, []).append(ent["e"])
+        if attack_target_ok(ent, perspective):
+            atk_ok_keys.add(key)
         if key in groups:
             groups[key][2] += 1
             continue
@@ -480,6 +501,9 @@ def assemble(
         "entity_names": names,  # len N; None = hidden from perspective
         "entity_counts": np.array(counts, dtype=np.int32),
         "entity_row_of": entity_row_of,  # entity id -> row; pointer-head targets
+        # ADR-0137: per row, may an attacker be declared against it (the
+        # attack-target head's mask; players are always legal and are not rows)
+        "atk_tgt_ok": np.array([k in atk_ok_keys for k in sorted(groups)], dtype=bool),
         "globals": globals_vec,
         "players": players,  # (n_players, len(PLAYER_FEATURES)), self first
         "history": history or [],  # history_tokens() output, oldest first
