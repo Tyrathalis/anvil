@@ -44,3 +44,15 @@ The illegal targets are lands, creatures and the creature face of flip-walkers. 
 - **The mask treats where the fault showed, not why it began.** The ordinary divergence also doubled by iteration 60, and the in-loop reads' priority vetoes tripled from iteration 54. Both are watched on the resumed control.
 - **A standing rule is born:** a head's candidate set is the engine's legal set, in serving and in the learner alike; a superset "the engine will reject" is a training hazard.
 - **Routed:** the engine's legal-defender list on the declare-attackers request, to the fork's next boundary. An audit of the other pointer heads for the same gap (block, the target decoder outside ADR-0122's mask, the surfaces), to the desk before the search-off arm. The guard's sensitivity to single decisions (a per-decision cap in the measure), to the loop config prune after the arms.
+
+## Addendum (2026-11-25): the audit of the other heads
+
+No other head has the attack-target head's gap. Two combat heads score a superset of the engine's legal set, at steady and small rates; their masks need the engine's lists and are routed with the defender list. Nothing here holds the search-off launch.
+
+- **What made the attack-target head dangerous** was a softmax over every entity row, most of them rows the head never trained on. No other head has that shape.
+- **The block pointer scores every attacker, legal to block or not.** The candidates are the attacking rows; whether this blocker can block that attacker (flying, menace, protection) is not known to the Python side. The engine drops an illegal block and counts it. In the control arm it dropped 36 to 55 of 764 to 1,005 declared blocks per iteration (4.7% to 5.7%) at iterations 0, 20, 40, 56, 61 and 64, with no trend. A dropped block is no block.
+- **The attack yes-or-no head scores every untapped, unsick creature.** The engine drops a creature that cannot attack. It dropped 12 to 35 of about 7,000 attack assignments per iteration (0.2% to 0.5%), no trend, and as many behind the attack-target mask as before it.
+- **Masked to the engine's own set, in serving and in the learner alike:** the priority choice (the wire's options), the target decoder (ADR-0122's legal-target union, keyed by the mu row's flag), the surfaces (the wire's options), the payment head (the wire's plans), the count heads and the number head (their ranges).
+- **Not re-measured:** how often a target decision arrives without its legal-target union. ADR-0122 measured it.
+- **Routed, with the defender list, to the fork's next boundary:** the engine's legal blockers per attacker and legal attackers on the combat requests, so both heads mask to them.
+- **Instrument:** the per-iteration counts are the census rows of `declareAttackers` and `declareBlockers` answered by the bridge (`assign`, `dropped`).
