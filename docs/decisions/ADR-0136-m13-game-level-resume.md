@@ -1,7 +1,7 @@
 # ADR-0136: The loop resumes an interrupted generation at the game
 
 - **Date:** 2026-11-21
-- **Status:** proposed — built and unit-tested on branch `m13-game-resume`; not landed. It lands at an arm boundary after the paired proof in section 4.
+- **Status:** accepted — landed on main 2026-11-25 at the control's arm boundary, under the replacement criterion of the 11-25 addenda (cell 1 as registered was not met).
 - **Design-doc anchor:** anvil-design-v2 §6 (the loop), §9 (harnesses stop gracefully and resume at seeded game granularity); [m13-plan.md](../design/m13-plan.md), pin 3 (straggler carry-over); [ADR-0134](ADR-0134-m13-build2-one-queue.md); [ADR-0107](ADR-0107-run-launcher-and-checkin.md)
 
 ## Context
@@ -82,3 +82,7 @@ Seven one-iteration loops of 96 games from `iter-405`, in the branch's worktree 
 - **Cell 4, the clock.** The stopped time is not charged. A killed search-off generation used 377 s of loop time against 390 uninterrupted; the graceful stop 418 s. The killed recipe generation used 1,058 s against 961: the games in flight at the kill are replayed. The killed read charged its 73 s.
 - **One finding beside the proof.** An uninterrupted loop saves its clock before the last iteration's read; a loop resumed inside a read saves it after. The clock itself counts reads in both.
 - **The criterion proposed in cell 1's place:** the within-run checks exact, and the twin agreement no lower than two uninterrupted runs' by more than sampling. Both hold. Replacing a registered criterion is the user's decision; the branch stays unmerged until then.
+
+## Addendum (2026-11-25, later): landed on the replacement criterion
+
+**The user accepted the replacement criterion (11-25) and the branch is merged into main.** Cell 1 as registered stays not met; the record above stands. The suite reads 509 passed on the merge. The search-off arm is the first run on this loop version; the control ran on the version before it. The quickstart's pause section carries the resume.
