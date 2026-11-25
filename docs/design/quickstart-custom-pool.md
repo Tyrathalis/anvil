@@ -422,6 +422,8 @@ uv run python -m anvil.runs pause --name mydecks-loop --wait   # STOP for the lo
 uv run python -m anvil.runs relaunch --name mydecks-loop       # the same command again, in place; the loop resumes its state
 ```
 
+A command that exits within 8 seconds of its launch fails at the launch line (`[runs] FAILED AT LAUNCH`, exit 1) with the log's tail; `--settle-sec` sets the window.
+
 A timing you mean to compare against another is launched with `--quiet-box`. The launch is refused
 unless the box is idle (no other launched run, 1-minute load under 2). While it runs, other launches
 are refused and the pre-push hook waits, so a test run cannot land on the measurement.

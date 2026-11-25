@@ -10,12 +10,12 @@
 # launch's environment):
 #   uv run python -m anvil.runs launch --name m13-control --dir data/runs/m13-control --resume-on-gone \
 #     --launched-by '<ListAgents name> [<ref>]' --watch data/training/m13-control --watch 'data/runs/m13-control-*' \
-#     --stall-min 180 -- bash scripts/m13_arms.sh control 168
+#     --stall-min 180 -- bash scripts/m13_arms.sh control 84
 #   A third argument sets the soft arm's SOFT_FRAC; a fourth its SOFT_TEMP.
 # A smoke overrides by environment: NAME GAMES ITERS ARMS_EVERY ARMS_GAMES PORT SEED DAYZERO=0.
 set -u
 REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
-ARM=${1:?arm: control | nosearch | soft}; HOURS=${2:-168}
+ARM=${1:?arm: control | nosearch | soft}; HOURS=${2:-84}   # 84 loop hours an arm (ADR-0135, third addendum)
 SOFT_FRAC=${3:-${SOFT_FRAC:-}}; SOFT_TEMP=${4:-${SOFT_TEMP:-0.1}}
 case "$ARM" in
   control)  SEED_DEFAULT=20261201; PORT_DEFAULT=50140 ;;
@@ -40,7 +40,7 @@ log() { echo "$(date -Iseconds) $*" | tee -a "$OUT/queue.log"; }
 # loop runs its pre-wiring path (no -search on the workers, no --search in the trainer, no with-lookahead arm).
 case "$ARM" in
   control)  ARM_FLAGS=(--search-recipe "$RECIPE" --search-alloc head --search-floor 0.1 --arms-lookahead on) ;;
-  nosearch) ARM_FLAGS=() ;;
+  nosearch) ARM_FLAGS=(); VETO_MULT=2.5 ;;   # ADR-0135 addendum 1: fewer vetoes per iteration without search, so a wider line
   soft)     ARM_FLAGS=(--search-recipe "$RECIPE" --search-alloc head --search-floor 0.1 --arms-lookahead on
                        --soft-frac "$SOFT_FRAC" --soft-temp "$SOFT_TEMP" --soft-carry-w) ;;
 esac
@@ -60,7 +60,7 @@ while true; do
   uv run python -m anvil.training.selfplay --name "$NAME" --ckpt "$START" --iterations "$ITERS" --wall-hours "$HOURS" \
     --games "$GAMES" --games-per-pair 2 --workers 24 --chunk 30 --port "$PORT" --seed-base "$SEED" \
     --temperature 1.0 --replay 4 --fresh-weight 1.0 --replay-weight 0.33 --rl-workers "$RL_WORKERS" --epochs 1 --lr 1e-5 \
-    --ent-weight 0.003 --ent-floor 0.08 --rl-seg 128 --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult 1.5 \
+    --ent-weight 0.003 --ent-floor 0.08 --rl-seg 128 --guard-kl 0.06 --guard-ent-mult 2.0 --guard-veto-mult "${VETO_MULT:-1.5}" \
     --guard-casts-floor 0.8 --guard-alloc-share 0.10 --penalty 0.02 --heur-frac 0.5 --mc-frac 0.1 --value-weight 0.5 --traj-per-step 4 \
     --arms-every "$ARMS_EVERY" --arms-pairs data/runs/d5arm-d0-s0-20260714-143546/pairs.txt --arms-games "$ARMS_GAMES" --arms-seed-base 20260710 \
     --reask --jar "$JAR" --server-args "$ABIL" "${ARM_FLAGS[@]}" \

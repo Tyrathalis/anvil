@@ -211,3 +211,10 @@ verb that is still open from 09-18.
 - **Why.** Nothing protected a timing from the rest of the tooling. During `search-wall-cost` (11-18) the launching session held its pushes by hand, because a push runs the test suite for over a minute on every core.
 - **What it does not cover.** Load from outside the launcher: a desktop application, a GPU job, a hand-started process. The load check is taken once, at launch.
 - **Escape.** `SKIP_HOOK=1 git push` pushes without the checks, as before.
+
+## Addendum (2026-11-25): a command that fails at once fails at the launch line
+
+- **What changed.** After the supervisor confirms, `launch` watches the run's state for `--settle-sec` seconds (default 8, 0 turns it off). If the command has already failed, it prints `[runs] FAILED AT LAUNCH <name>` with the exit code and the log's tail, prints no coverage line, and exits 1. A command still running after the window launches as before.
+- **Why.** `m13-promo-ctl` (11-25 02:25) died in 5 seconds on a quoting error in a new script. The launch line read LAUNCHED and the failure arrived through the check-in's relay a minute later. The launching session is the one that can fix a typo, and it was looking at a success line.
+- **What it does not cover.** A script that fails after the window. A dry run of a new chain script before its launch is still the launching session's job.
+- **Proof.** `tests/test_runs.py::test_detached_launch_reports_a_command_that_fails_at_once`; the suite's other 52 tests pass.

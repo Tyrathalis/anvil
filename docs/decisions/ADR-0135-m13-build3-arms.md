@@ -103,3 +103,26 @@ The plan pins what the three arms are, their length, their game count and their 
 - **Build 4's box jobs run between arms.**
 - **The veto line is not yet in `scripts/m13_arms.sh`.** The control is running that file, and a running bash driver is not edited. The change is made at the arm boundary, before the search-off launch.
 - The smokes' data is the user's to delete; section 7 holds their figures.
+
+## Addendum (2026-11-22): a promotion gate on each arm's final checkpoint
+
+Written during the control arm, at 35 loop hours, before any arm's final read exists. The user decided it.
+
+- **Each arm's final checkpoint is read for promotion at its close.** The gate is section 4's continuity number: network alone against the plain heuristic, 5,000 games on the 11-07 confirm's seeds, paired game for game against `iter-405`'s 0.6064 ± 0.0069. A checkpoint clears if the paired difference is above 2 standard errors.
+- **Two reads sit beside the gate and do not gate.** The Monte Carlo opponent read (`iter-405`: 0.5099 ± 0.0071, [ADR-0129](ADR-0129-m13-monte-carlo-opponent.md)) and the held-out precon read (`iter-405`: 0.4078 ± 0.0069, [ADR-0130](ADR-0130-m13-held-out-precon-read.md)), each on `iter-405`'s seeds. They show a gain against the heuristic that is a loss elsewhere. A paired loss of more than 2 standard errors on either holds the promotion for the user's call.
+- **A cleared gate promotes,** unless the run itself is suspect. If more than one arm clears, the head-to-head read of section 4 picks between them.
+- **Every arm of this build still starts from `iter-405`.** A promotion mid-build moves the checkpoint of record and nothing else. The search-off arm, the dose ladder, the soft-target arm and any equal-updates arm keep `iter-405` as their warm start, or the arms stop being comparable.
+- **The next experiment starts from the best of these.** Whatever follows Build 3's arms takes the promoted checkpoint as its warm start, not `iter-405`.
+- **The reads run between arms,** with the head-to-head reads, on an idle box. No arm is taxed.
+
+## Addendum (2026-11-24, evening): the control resumes behind an attack-target mask; arms are 84 loop hours, reads are 20,000 games
+
+The control halted on the divergence guard at iteration 60 (78.7 loop hours). The running record of 11-24 holds the attribution. The user decided what follows, before any arm's final read exists.
+
+- **The control resumes from `iter-056`** (73.7 loop hours), the last checkpoint before the model began aiming attacks at lands and creatures. Iterations 57 to 60 are discarded.
+- **The attack-target head is masked to legal targets** in serving and in the learner, in every arm. The mask and its proof get their own ADR. The proof is empirical: an early iteration replayed with the mask plays identical games, since the model named no illegal target there.
+- **Arms are 84 loop hours, not 168.** Length buys effect size, and from `iter-405` the recipe gained about 1pp a week at best (the big run's ladder: +1.33 ± 0.54pp over its last gaining stretch, then nothing). A week was not well powered for a small difference, and a large one shows early.
+- **The head-to-head reads are 20,000 games, not 5,000.** Four times the games halves the standard error. The bar stays at 2 standard errors, about 0.55pp. If the effect grows in proportion to training time, this detects what a week-long arm with a 5,000-game read would. The proportionality is assumed, not measured.
+- **One extension rule.** If an arm reads between 1 and 2 standard errors from the control at 84 hours, that arm and the control both continue to 168 hours and are read again. A result under 1 or over 2 ends the arm at 84.
+- **Unchanged:** every arm starts from `iter-405`; the promotion gate of the second addendum (5,000 games paired against `iter-405`); the dose ladder's 24-hour rungs; the "control falls" rule, which is now read at the in-loop read nearest 42 loop hours and has already passed (iteration 34, at 45.1 loop hours: 0.5850 against day zero's 0.5825).
+- **Noted for the next experiment's design, not decided:** arms that start from an earlier checkpoint, where the recipe gained 3.9pp a week, would make an ingredient's effect larger. The user's caution stands with it: faster growth early does not show that a technique helps at the plateau.
