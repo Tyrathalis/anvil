@@ -238,3 +238,11 @@
   - **The battery** (exploratory): 17.0% of `iter-405`'s cast decisions changed, 37% of those from cast to pass; agreement over all windows is 0.965.
   - **The promotion read** (`m13-promo-ctl`, launched 02:26 with `--quiet-box`; `scripts/m13_promo_read.sh`): `iter-064` against the plain heuristic on the 11-07 confirm's seeds (the gate), against the Monte Carlo heuristic, and on held-out precons, each 5,000 games paired with `iter-405`'s arm on file. It serves on the pinned jar and with the attack-target mask; `iter-405`'s arms were read on the earlier jars of the pin row and without the mask. Its first launch failed in 5 seconds on a quoting error in the new script.
   - **Next, on the user's word:** the pointer-head audit ADR-0137 routes, the game-resume proof (ADR-0136), the yield guard, then the search-off launch.
+- **2026-11-25, 08:48: the control's promotion read is level with `iter-405` on all three reads; no promotion.** `m13-control/iter-064`, network alone, 5,000 games per read, paired game for game with `iter-405`'s arm on file.
+  - **Plain heuristic (the gate):** 0.6090 ± 0.0069 against 0.6064 ± 0.0069; paired +0.30 ± 0.67pp. The gate is 2 standard errors; it does not clear.
+  - **Monte Carlo heuristic:** 0.5128 ± 0.0071 against 0.5099 ± 0.0071; paired +0.02 ± 0.70pp.
+  - **Held-out precons:** 0.4078 ± 0.0069 against 0.4078 ± 0.0069; paired −0.06 ± 0.66pp.
+  - **What it means.** 84 loop hours of the recipe of record from `iter-405` moved nothing these reads can resolve. That agrees with the big run's flat last segment. The control's final checkpoint is the reference for the arms' head-to-head reads; `iter-405` stays the checkpoint of record.
+  - **Caveat, as launched.** This read served on the pinned jar with the attack-target mask; `iter-405`'s arms on file predate both.
+  - **The report's table repeats two rows** (`data/runs/m13-promo/ctl/promo.md`); the figures are right and the script's loop is being traced.
+  - **The launcher** now fails at the launch line when a command exits at once ([ADR-0107](../decisions/ADR-0107-run-launcher-and-checkin.md), addendum 11-25; `--settle-sec`).

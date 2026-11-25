@@ -470,6 +470,7 @@ def claude_selftest(timeout: int = 120) -> tuple[bool, str, int]:
 # ------------------------------------------------- the run's scope, and liveness
 
 SPEC_ENV = "ANVIL_RUNS_SPEC"   # the launch's arguments, handed to the re-executed supervisor
+SETTLE_S = 8.0                # how long `launch` then watches for a command that exits at once
 START_WAIT_S = 30.0            # how long `launch` waits for the supervisor's first state write
 LIVE_STATES = ("running", "stalled", "orphaned")
 
@@ -976,6 +977,17 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
         print(f"[runs] UNCONFIRMED {a.name}: supervisor pid {sup} is alive and wrote no state in "
               f"{int(START_WAIT_S)} s; read {run_dir / 'supervisor.log'} and `anvil.runs status`", file=sys.stderr, flush=True)
         return 1
+    # a command that dies at once (a typo, a missing file) fails HERE, at the launch line, not through the relay
+    settle = time.time() + max(0.0, getattr(a, "settle_sec", SETTLE_S))
+    now = st  # the coverage line and the exit code below stay on the state the supervisor confirmed with
+    while now.get("state") == "running" and time.time() < settle:
+        time.sleep(0.2)
+        now = read_run(a.name) or now
+    if now.get("state") == "failed" and st.get("state") != "failed":
+        print(f"[runs] FAILED AT LAUNCH {a.name}: rc={now.get('rc')} within {now.get('wall_s', '?')} s; log tail: "
+              + (_tail(Path(now.get("log") or run_dir / "run.log"), 5).replace("\n", " | ") or "no output"),
+              file=sys.stderr, flush=True)
+        return 1
     sinks = ["queue"]
     if os.environ.get("ANVIL_NOTIFY_CMD"):
         sinks.append("notify-cmd")
@@ -1465,6 +1477,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="the LLM check-in on failed / stalled / gone / orphaned / long done (auto = claude when the CLI "
                          "is on PATH; $ANVIL_CHECKIN overrides)")
     la.add_argument("--no-selftest", action="store_true", help="skip the launch-time claude -p self-test")
+    la.add_argument("--settle-sec", type=float, default=SETTLE_S,
+                    help="after the supervisor confirms, watch this long for a command that fails at once and "
+                         "report it at the launch line (exit 1); 0 = off")
     la.add_argument("--no-memsampler", action="store_true",
                     help="do not arm the memory sampler + watchdog user unit for this launch (every detached "
                          "launch arms it; ANVIL_MEMSAMPLER=0 is the environment's off switch)")
