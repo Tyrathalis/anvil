@@ -246,3 +246,4 @@
   - **Caveat, as launched.** This read served on the pinned jar with the attack-target mask; `iter-405`'s arms on file predate both.
   - **The report's table repeats two rows** (`data/runs/m13-promo/ctl/promo.md`); the figures are right and the script's loop is being traced.
   - **The launcher** now fails at the launch line when a command exits at once ([ADR-0107](../decisions/ADR-0107-run-launcher-and-checkin.md), addendum 11-25; `--settle-sec`).
+- **2026-11-25, correction: the promotion report does not repeat rows.** `data/runs/m13-promo/ctl/promo.md` holds three rows. The two "repeated" rows of the entry above were the tail of `queue.log`, printed after the report by the command that read it. `scripts/m13_promo_read.sh` is unchanged.
