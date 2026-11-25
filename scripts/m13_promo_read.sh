@@ -14,7 +14,7 @@
 #     -- bash scripts/m13_promo_read.sh <tag> <ckpt>
 #   env: JAR, GAMES (per seat), WORKERS, STAGES
 set -u
-TAG=${1:?tag, e.g. ctl}; CKPT=${2:?the arm's final checkpoint}
+TAG=${1:?tag, e.g. ctl}; CKPT=${2:?final checkpoint path}
 REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
 JAR=${JAR:-$REPO/data/runs/m13-build2/forge-b2-mcguard.jar}
 GAMES=${GAMES:-2500}; WORKERS=${WORKERS:-24}; STAGES=${STAGES:-"plain mc precon"}
