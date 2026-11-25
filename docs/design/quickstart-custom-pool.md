@@ -440,7 +440,9 @@ parked on a VRAM cotenant) writes `heartbeat.json` in the run dir so the stall a
 GPU to another job is not counted, and an interim paired read is skipped once the budget is
 reached. `pause` writes STOP to the loop's root only — a running generation finishes and the loop
 stops at its iteration boundary (`--scope all` stops every watched dir, a live generation included). The
-loop's log stamps every phase line, and a yielding harness marks its progress line.
+loop's log stamps every phase line, and a yielding harness marks its progress line. A game that reaches the
+20-minute game clock while a foreign GPU job is detected is voided: its status reads `yield_clock`, the
+learner skips it, and `yield-draws.jsonl` in the run dir lists it (ADR-0135, addendum 11-25).
 
 Two value-head instruments ride every loop
 ([ADR-0118](../decisions/ADR-0118-value-head-drift-under-the-loop.md)): each iteration's checkpoint
