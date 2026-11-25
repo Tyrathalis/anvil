@@ -187,3 +187,58 @@ def test_group_holds_new_workers_while_memory_is_low(tmp_path, fake_workers, mon
     assert sorted(a.completed()) == [0, 1, 2, 3]
     ledger = json.loads(a.yield_state_file.read_text())
     assert ledger["yielding"] is False and ledger["yielded_s"] > 0  # the hold is on the yield ledger
+
+
+# ---- the yield guard (11-25): a clock draw during a GPU yield is voided
+
+def test_overlaps_yield_reads_the_games_own_span():
+    w = [(1000.0, 1600.0)]
+    assert orc.overlaps_yield(1_200_000, 2000.0, w)            # ran 800..2000: inside the window
+    assert not orc.overlaps_yield(60_000, 2000.0, w)           # ran 1940..2000: after it, past the slack
+    assert orc.overlaps_yield(60_000, 1650.0, w)               # within the slack of the window's end
+    assert not orc.overlaps_yield(1_200_000, 900.0, w)         # finished before the window opened
+    assert orc.overlaps_yield(1_200_000, 5000.0, [(4000.0, float("inf"))])  # a window still open
+    assert not orc.overlaps_yield(1_200_000, 5000.0, [])
+
+
+def test_group_voids_a_clock_draw_under_a_gpu_yield_and_leaves_the_rest(tmp_path, monkeypatch):
+    a = _mk_run(tmp_path, "a", games=4, chunk=4)
+    m = json.loads((a.dir / "run.json").read_text())
+    (a.dir / "run.json").write_text(json.dumps(dict(m, yield_gpu=True)))
+    a = orc.Run(a.dir)
+    worker = WORKER.replace('"status": "won", "ms": 1', '"status": "draw" if i % 2 else "won", "draw_clock": bool(i % 2), "ms": 1')
+
+    def launch_worker(self, span, inv):
+        wdir = self.workers_dir / f"inv-{inv:04d}"
+        wdir.mkdir(parents=True, exist_ok=True)
+        return subprocess.Popen([sys.executable, "-c", worker, str(wdir / "games.jsonl"),
+                                 str(span[0]), str(span[1]), "0.05"])
+
+    class Busy:  # quiet until the workers are out, then a foreign job for the rest of the run
+        n = 0
+
+        def poll(self):
+            Busy.n += 1
+            return Busy.n > 1
+
+        def describe(self):
+            return "python[1] 9000 MB sm 90%"
+
+    monkeypatch.setattr(orc.Run, "launch_worker", launch_worker)
+    monkeypatch.setattr(orc.Run, "_verify_jar", lambda self: Path("x.jar"), raising=False)
+    monkeypatch.setattr(orc, "GpuYield", Busy)
+    monkeypatch.setattr(orc, "heartbeat", lambda *_: None)
+    orc.schedule_group([a], slots=1)
+    assert orc.yield_draws(a.dir) == {1, 3}
+    rows = {r["i"]: r for r in map(json.loads, (a.dir / "games.jsonl").read_text().splitlines())}
+    assert [rows[i]["status"] for i in range(4)] == ["won", orc.YIELD_DRAW_STATUS, "won", orc.YIELD_DRAW_STATUS]
+    assert rows[1]["yield_draw"] is True and "yield_draw" not in rows[0]
+    assert json.loads((a.dir / "summary.json").read_text())["statuses"] == {"won": 2, orc.YIELD_DRAW_STATUS: 2}
+
+
+def test_no_yield_no_void(tmp_path, fake_workers, monkeypatch):
+    a = _mk_run(tmp_path, "a", games=3, chunk=1)
+    monkeypatch.setattr(orc, "heartbeat", lambda *_: None)
+    orc.schedule_group([a], slots=2)
+    assert not (a.dir / "yield-draws.jsonl").exists()
+    assert all(json.loads(x)["status"] == "won" for x in (a.dir / "games.jsonl").read_text().splitlines())

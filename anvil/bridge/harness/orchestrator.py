@@ -45,6 +45,40 @@ PROTOCOL_VERSION = 0
 POLL_S = 2.0
 
 
+YIELD_DRAW_STATUS = "yield_clock"  # a game the wall game clock drew while a foreign job held the GPU
+YIELD_DRAW_SLACK_S = 70.0          # a finished game is first seen up to a progress tick after its end
+
+
+def yield_draws(run_dir: Path) -> set[int]:
+    """The games of a run the yield guard voided (`yield-draws.jsonl`)."""
+    f = Path(run_dir) / "yield-draws.jsonl"
+    if not f.exists():
+        return set()
+    out: set[int] = set()
+    for line in f.read_text().splitlines():
+        try:
+            out.add(int(json.loads(line)["i"]))
+        except (ValueError, KeyError, TypeError):
+            continue
+    return out
+
+
+def void_yield_draws(row: dict, voided: set[int]) -> dict:
+    """A voided game's outcome row: its status says why, so the learner skips
+    it (rl.py trains won and draw only) and no report counts it as a draw."""
+    if row.get("i") in voided:
+        return dict(row, status=YIELD_DRAW_STATUS, yield_draw=True)
+    return row
+
+
+def overlaps_yield(ms: float, seen_at: float, windows: "list[tuple[float, float]]",
+                   slack_s: float = YIELD_DRAW_SLACK_S) -> bool:
+    """Did a game of `ms` milliseconds, first seen finished at `seen_at`, run
+    during any GPU-yield window ((start, end) epoch seconds)?"""
+    start = seen_at - ms / 1000.0 - slack_s
+    return any(w0 <= seen_at and w1 >= start for w0, w1 in windows)
+
+
 def progress_note(n_done: int, total: int, rate: float, yield_why: str, last: "tuple | None") -> "tuple[str | None, tuple]":
     """The scheduler's once-a-minute progress line, or None when neither the
     completed count nor the yield state has moved since the last one
@@ -443,6 +477,28 @@ def schedule_group(runs: "list[Run]", slots: "int | None" = None, caps: "list[in
     yield_state = {"on": False, "since": 0.0, "closed_s": 0.0, "why": ""}
     ledger = runs[0].yield_state_file
 
+    # the yield guard (11-25): a game that hits the wall game clock while a
+    # foreign job held the GPU was slowed, not stalled — it is voided, not
+    # recorded as a draw. Nothing here runs on a box that never yields.
+    gpu_windows: "list[list[float]]" = []
+    gpu_window = {"open": False}
+    checked = [set(r.completed()) for r in runs]  # a resumed run's earlier games: their spans are unknown
+
+    def _void_yield_draws() -> None:
+        if not gpu_windows:
+            return
+        now = time.time()
+        for r, seen in zip(runs, checked):
+            for i, g in r.completed().items():
+                if i in seen:
+                    continue
+                seen.add(i)
+                if g.get("draw_clock") and overlaps_yield(g.get("ms", 0), now, [(a, b) for a, b in gpu_windows]):
+                    with open(r.dir / "yield-draws.jsonl", "a") as f:
+                        f.write(json.dumps({"i": i, "ms": g.get("ms"), "at": round(now, 1)}) + "\n")
+                    print(f"[harness] game {i} hit the game clock during a GPU yield -> voided "
+                          f"(status {YIELD_DRAW_STATUS})", flush=True)
+
     def _yielded_s() -> float:
         live = (time.monotonic() - yield_state["since"]) if yield_state["on"] else 0.0
         return yield_state["closed_s"] + live
@@ -469,6 +525,13 @@ def schedule_group(runs: "list[Run]", slots: "int | None" = None, caps: "list[in
         avail = mem_available_mb()
         mem = mem_state["hold"] = mem_hold(avail, floor_mb, mem_state["hold"])
         on = manual or auto or mem
+        # the yield guard's windows: only a foreign GPU job slows the games in flight
+        if auto and not gpu_window["open"]:
+            gpu_window["open"] = True
+            gpu_windows.append([time.time(), float("inf")])
+        elif not auto and gpu_window["open"]:
+            gpu_window["open"] = False
+            gpu_windows[-1][1] = time.time()
         if on != yield_state["on"]:
             why = ("YIELD file" if manual
                    else f"host memory ({avail:.0f} MB available, floor {floor_mb:.0f} MB)" if mem and not auto
@@ -559,6 +622,7 @@ def schedule_group(runs: "list[Run]", slots: "int | None" = None, caps: "list[in
             print("[harness] paused (STOP present); `resume` to continue")
             return
         if int(time.monotonic() - t0) % 60 < POLL_S:
+            _void_yield_draws()
             n_done = _n_done()
             if n_done:
                 # the rate excludes yielded time; a live yield is marked on the
@@ -570,6 +634,7 @@ def schedule_group(runs: "list[Run]", slots: "int | None" = None, caps: "list[in
                 if yielding:  # the ledger keeps its minute cadence: yielded_s stays current for `status`
                     _write_yield_state(True, _manual(), yield_state["why"])
         time.sleep(POLL_S)
+    _void_yield_draws()  # the games that finished after the last progress tick
     if yield_state["on"] or yield_state["closed_s"]:
         if yield_state["on"]:  # close the live window at the run's end
             yield_state["closed_s"] += time.monotonic() - yield_state["since"]
@@ -859,7 +924,8 @@ def replay(run_dir: Path, index: int) -> None:
 
 def summarize(run_dir: Path, quiet: bool = False) -> None:
     r = Run(run_dir)
-    done = r.completed()
+    voided = yield_draws(r.dir)
+    done = {i: void_yield_draws(g, voided) for i, g in r.completed().items()}
     merged = r.dir / "games.jsonl"
     with open(merged, "w") as f:
         for i in sorted(done):

@@ -478,6 +478,11 @@ def ingest(
                     outcomes[r["i"]] = r
                 except (json.JSONDecodeError, KeyError):
                     continue
+        # the yield guard: a game the clock drew during a GPU yield is voided
+        from anvil.bridge.harness.orchestrator import void_yield_draws, yield_draws
+
+        voided = yield_draws(run_dir)
+        outcomes = {i: void_yield_draws(r, voided) for i, r in outcomes.items()}
         with open(dest / "games.jsonl", "w") as f:
             for i in sorted(outcomes):
                 f.write(json.dumps(outcomes[i]) + "\n")
