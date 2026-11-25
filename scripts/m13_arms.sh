@@ -14,7 +14,7 @@
 #   A third argument sets the soft arm's SOFT_FRAC; a fourth its SOFT_TEMP.
 # A smoke overrides by environment: NAME GAMES ITERS ARMS_EVERY ARMS_GAMES PORT SEED DAYZERO=0.
 set -u
-REPO=/home/tyrathalis/Everything/Projects/Anvil; cd "$REPO"
+REPO=${REPO:-/home/tyrathalis/Everything/Projects/Anvil}; cd "$REPO"
 ARM=${1:?arm: control | nosearch | soft}; HOURS=${2:-84}   # 84 loop hours an arm (ADR-0135, third addendum)
 SOFT_FRAC=${3:-${SOFT_FRAC:-}}; SOFT_TEMP=${4:-${SOFT_TEMP:-0.1}}
 case "$ARM" in
