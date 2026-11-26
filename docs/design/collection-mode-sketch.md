@@ -1058,6 +1058,216 @@ pins took the recommended option:
   Pocket reference footage the ritual isn't embarrassing; a box/starter batch
   reveal preserves the jackpot moment in ~a minute.*
 
+## Completion round (2026-11-21 — user decisions and a first simulation)
+
+The question of the round: how a player completes a collection when a new set
+arrives every played week. The weekly cadence stays. Completion moves off the
+packs and onto three other channels. Nothing here is built.
+
+### Decided (user, 2026-11-21)
+
+1. **The release cadence stays at one primary per played week.** A monthly
+   cadence is Pocket's, and it suits a live-service game with a real meta. It
+   does not give an accelerated tour of the history.
+2. **The main dex is name-based; printings are a second layer.** Owning any
+   printing fills the card's space. Tapping a space shows its printings. Beta,
+   Unlimited and Revised therefore act as catch-up for Alpha, as they did
+   historically.
+3. **The dex has a fill-in-the-gaps view.** Blank spaces are shown. After an
+   opening, new cards stack up and the player swipes them into the collection,
+   which scrolls to the spaces they fill (Pocket's animation, as the reference).
+4. **Sub-set collector logs.** Each set carries a few curated groupings, and
+   completing one is recorded. Lean (session): period groupings before Oracle
+   types (the Moxes, the dual lands, the boon cycle, the Elder Dragons). The
+   award is a Chronicle clipping. The data is one file of filters per set.
+5. **Universal card-for-card trading is rejected.** A rare of today does not
+   trade for an Alpha rare. Trading with rivals may stay as flavour, bounded by
+   each rival's derived pool, which already holds what that kid really pulled.
+6. **The singles market arrives early and carries the targeted tail.** This
+   revises pin 4 of the daily-gacha round ("deliberately slow"). The intended
+   reconciliation (session, not yet pinned): a thin glass case at the shop from
+   early 1994, a few rotating singles a day, a want list that biases what turns
+   up, and price as the lever, because cash is bounded.
+7. **Played tournaments with tickets.** The player plays a real game of Magic.
+   Each tournament is keyed to an era and admits older cards by name. It stays
+   available for as long as the player keeps a legal deck. A win pays one prize
+   card from that era's sets. There is no penalty for a loss and retries are
+   unlimited. **Three tickets per day** bound the prizes across all
+   tournaments. A ticket is spent by a win and its prize, not by an attempt.
+   The prize is a card and not a pack, since a daily pack would keep a set in
+   print forever. Lean (session): a pick-one-of-three is the wonder-pick
+   moment.
+8. **Played tournaments are a separate system from the background
+   tournaments.** The background board (deck design only, passive entries)
+   stays as sketched in the daily-gacha round.
+
+Open: which eras the tournaments are keyed to (the old-school community's
+pools are the reference); whether the alternative, harsher economy (miss
+cards early, race the price rise) is kept as a difficulty option.
+
+### History check (from memory, unverified)
+
+Shops sold singles by about the turn of 1994, and printed price guides came in
+1994. Sanctioned play and the first restricted list date to January 1994. Store
+and convention tournaments were common through 1994, and the first World
+Championship was in August 1994. Friday Night Magic and the Pro Tour date to
+1996. **The MVP plan's line that venues and organized play are anachronistic
+for 1993–94 is too strong.** An unsanctioned shop tournament night is period
+correct from about Antiquities; the branded forms are not. Verify the dates
+before the paper prints them.
+
+### First simulation (`scripts/chronicle_window_sim.py`)
+
+The 1993–94 window holds 981 card names in 1,849 printings (basics and art
+variants excluded). The calendar is the shipped `releases.txt`. The ration
+goes to the in-print set with the most missing names. Tournaments and singles
+open on day 35 and reach every released set. Singles cost 25 / 100 / 400 cents
+by rarity (an assumption). From day 70 no packs are opened, as if the tour had
+moved on, and the stipend buys singles.
+
+| Channels | Names at day 70 | Printings at day 70 | 90% of names | All names |
+|---|---|---|---|---|
+| ration 2 only | 57% | 42% | never | never |
+| + $10 a week on packs | 65% | 48% | day 491 | day 768 |
+| + 3 prize wins a day, random card | 71% | 53% | day 141 | day 267 |
+| + 3 prize wins a day, pick 1 of 3 | 73% | 54% | day 113 | day 183 |
+| the same with 2 wins a day | 71% | 52% | day 133 | day 225 |
+| the same with 1 win a day | 68% | 52% | day 176 | day 316 |
+| 3 wins, $30 a week on singles | 80% | 54% | day 85 | day 127 |
+| ration 4, $10 on packs, 3 wins | 84% | 62% | day 85 | day 155 |
+
+Medians of 40 runs. Readings:
+
+- **Packs alone reach about two thirds of the names at tour pace.** Alpha
+  alone reads 77% by day 70, because three later sets reprint it.
+- **The tickets are what make completion finite.** Three wins a day take the
+  window from never to about half a year.
+- **The days after day 70 are optimistic.** In the real game later eras compete
+  for the same tickets and cash. At ration 2 and three wins the intake is about
+  85 new names a week against about 98 arriving, and later sets are larger. The
+  player falls behind at tour pace by construction. Completion is then a
+  backfill activity, or income has to scale, as the incremental layer already
+  intends.
+- **Printing-level completion is a different order of effort**, about half at
+  day 70 under every mix. That suits its role as the second layer.
+
+Not modelled: the starter decks, purses, rival trades, a win rate below one,
+the buylist, and print-sheet weights inside the uncommon/rare slot.
+
+### Selling duplicates into an unlimited market (same day, `market` mode)
+
+Confirmed (user): a ticket is spent by a win and its prize; the prize is a
+card. About 73% of names at the end of the era is acceptable, since the player
+can return for the rest. The market is available by the end of the first era.
+
+The player sells every copy past a kept count and buys missing names with the
+proceeds. The market has no depth limit. The base is two ration packs, $10 a
+week and three pick-of-three wins. The result depends on one number, the sell
+price as a share of the buy price.
+
+| Keep | Sell at | Market from day 35: names at day 70 | 90% | All | Market from day 70: 90% | All |
+|---|---|---|---|---|---|---|
+| no selling | — | 73% | 113 | 183 | 113 | 183 |
+| 4 | 100% | 83% | 89 | 148 | 78 | 148 |
+| 4 | 50% | 80% | 98 | 168 | 88 | 162 |
+| 4 | 10% | 75% | 110 | 183 | 106 | 176 |
+| 1 | 100% | 100% | 64 | 69 | 71 | 71 |
+| 1 | 50% | 91% | 68 | 104 | 71 | 98 |
+| 1 | 10% | 79% | 96 | 155 | 91 | 155 |
+
+- **Keeping one copy and selling at par completes the era as it ends.**
+  Keeping a playset buys much less, because few cards pass four copies.
+- **The sell ratio cannot be high.** At the assumed singles prices a 15-card
+  booster holds 975 cents of cards and costs 245. Any sell ratio above about a
+  quarter makes a pack worth more than its price, which breaks the EV-negative
+  invariant and lets cash from sales buy packs without end. Sale proceeds were
+  therefore restricted to singles in this run. The shipped buylist is about a
+  tenth of the assumed prices, so the 10% rows are the nearest to the build.
+- **Open for the market spec:** whether commons sell for anything. If bulk is
+  worth almost nothing, as it really was, the ratio on rares can be higher
+  without breaking the invariant.
+
+### Period prices (Scrye #4, February 1995)
+
+Read 2026-11-21 from the archive.org OCR text of
+[Scrye #4](https://archive.org/stream/ScryeMagazineIssue4-February1995/Scrye%20Magazine%20Issue%20%234%20-%20February%201995_djvu.txt)
+by one automated pass. Figures are the guide's median of retailer prices.
+They are asking prices, three months after the MVP window closes. Check a row
+against the scan before it becomes data.
+
+- **Commons about 25¢, uncommons about $1** (Unlimited and Revised). Hypnotic
+  Specter $2.50, Sol Ring $2.
+- **Weak rares about $3** (Purelace, Revised and Unlimited). Dual lands $5.50
+  to $6.75. Serra Angel $4. Wrath of God $6 to $7.
+- **Splashy cards outpriced staples.** Shivan Dragon $15. Nicol Bolas $21. Ali
+  from Cairo $25. Lich $25 (Unlimited). Against them: Juzam Djinn $11,
+  Mishra's Workshop $8.50, Mana Drain $5, Library of Alexandria $13.
+- **Power:** Unlimited Moxes $37.50, Time Walk $32.50. Alpha Black Lotus $100,
+  Alpha Ancestral Recall $46.50.
+- **Printing premium:** Alpha roughly twice the next table (probably Beta) and
+  three to four times Unlimited on the same card.
+- **Sealed:** Revised booster $2.45 and Fallen Empires $1.45, both at retail.
+  The Dark $3. Antiquities $13. Legends $20. Unlimited $25. Beta $35. Arabian
+  Nights $36.50. Alpha $50.
+
+Readings. The top-to-bottom spread among rares was about 30 to 1, far flatter
+than today. An in-print Revised booster held more than its price at guide
+values, since its weakest rare alone listed above $2.45; the user's read that
+early packs were profitable holds. The session's earlier $1 average rare was a
+modern figure and is wrong for the period. Out-of-print sealed product is where
+the money went. These rows are the natural seed for `notables.txt`.
+
+### Shop rules for the early market (user, 2026-11-21; `till` mode)
+
+Decided:
+
+1. **Prices take the period's shape, not its letter.** Base prices by rarity
+   come from the guide (commons 25¢, uncommons $1, rares $3). The notables keep
+   literal prices. Prices may differ by era.
+2. **The shop buys at about half, and only so much a day** (the till). Early
+   packs may be profitable. The daily cap, not the discount, closes the loop.
+3. **Commons do not sell at a material price.** The player can still buy them.
+4. **Purchase limits** on packs, and a limited singles selection early. The
+   singles market opens in a limited way from week 2.
+5. **Cash is encouraged toward singles.**
+
+6. **Basic lands (user): packs carry them at the real rate, and owning one
+   copy of a basic printing gives unlimited copies of it for decks.** Lands
+   were never a limit on play, so they are not one here. A land printing stays
+   a collectible, and collecting it unlocks that art for decks. The player
+   starts with one of each basic type so that no colour is ever locked. Spare
+   basics are worth nothing.
+
+Forge's booster definitions for Alpha through Sixth Edition carry no basics.
+Basics have their own rarity, and those sets are written as 11 commons, 3
+uncommons and 1 rare; sets from Seventh Edition on have a land slot (121 of
+198 definitions). Quest hides the gap with free basics in its editor. The fix
+is data: print sheets with basics at their real weight, which Forge already
+supports. It goes in Chronicle's own data first, since the shared edition
+files would change draft and sealed for everyone; an upstream PR can follow.
+The real sheet counts need a source before they are written. From memory:
+basics were about a fifth of the common sheet in the early core sets, sat on
+the uncommon sheet too, and a few Islands were on the rare sheet. This
+supersedes the plan's note that the deviation is engine-wide to change.
+
+First numbers (30 runs each; two packs and three singles buyable a day, three
+pick-of-three wins from day 35, $10 a week, flat rarity prices, greedy
+spending):
+
+| Rule | Names at day 70 | 90% | All |
+|---|---|---|---|
+| no selling | 74% | day 116 | day 182 |
+| till $2 a day, keep 1 | 80% | day 89 | day 132 |
+| till $5 a day, keep 1 | 85% | day 79 | day 107 |
+| till $10 a day, keep 1 | 86% | day 77 | day 107 |
+| any till, keep 4 | 74% | day 114 | day 176 |
+| till $5, keep 1, no tickets | 78% | day 253 | day 456 |
+
+A till above about $5 a day changes nothing, because the purchase limits bind
+first. A player who keeps playsets sells almost nothing, since commons do not
+sell and few uncommons or rares pass four copies. The tickets remain the
+channel that finishes the era.
+
 ## Risks / honest caveats
 
 - **Scope:** a whole game mode beside an RL research program, competing for the same

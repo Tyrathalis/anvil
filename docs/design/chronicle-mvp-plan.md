@@ -527,6 +527,12 @@ first commit.
 
 ## Open items (tracked, not blocking)
 
+- **Completion round (2026-11-21, sketch "Completion round"):** name-based dex,
+  early thin singles, played era tournaments on three daily tickets. Design
+  only; not scheduled. It corrects D6's line that organized play is
+  anachronistic for 1993–94 (a shop tournament night is period correct from
+  early 1994).
+
 - ~~Reveal-UX bar definition~~ CLOSED 2026-07-31 (sketch "Reveal-UX bar v1";
   D3 above carries the operative form). Residue: gather Pocket reference
   footage at D3 build time.
