@@ -72,6 +72,49 @@ All three start from `iter-405` on the merged jar, run for equal box time under 
 - **The reads.** Each arm's final checkpoint against the control's, head to head on 5,000 fresh-seed games. The read against the plain heuristic is the continuity number. The in-loop arm reads continue.
 - **The soft-target arm's known risk** is ADR-0111: offline distillation toward the search lost up to 47pp with the dose. Its target weight is pinned from a short dose ladder before the arm launches.
 
+#### At search off's close (written 2026-11-27)
+
+The arm reaches 84 loop hours about 11-29 06:00. The launching session owns the close. Sources: the [audit review](../ops/audit-review-2026-11-27.md) and the audit session's follow-up notes (section 4 of its doc on branch `anvil-audit-fixes`, `cc0d7d1`), which this plan accepts.
+
+**1. The arm's reads, on the tree and jar as they are.** Nothing merges before or during them, so search off is read with the instruments the control was read with.
+
+- The promotion read: 5,000 games paired against `iter-405`, with the Monte Carlo and precon reads beside it (`scripts/m13_promo_read.sh`).
+- The head-to-head against `m13-control/iter-064`: 20,000 games, bar 0.55pp.
+- The battery's `analysis.md`, the run ledger row, the Now block.
+- Check each read's `games.jsonl` for `yield_clock` rows. None are expected under `--quiet-box`; if any appear, score that read again after step 2.
+
+**2. The merges, in the gap after the reads, with no loop or read importing the tree.**
+
+- `m13-tail-log` and `audit-land-now` into main. Both merge cleanly.
+- Before the merge, one more commit on `audit-land-now`: `_game_stats` in `selfplay.py` leaves voided games out of `games` and of the non-decisive count, and reports them as `yield_voided`. Today a voided game inflates the non-decisive flag and lowers casts per game toward the casts-floor guard. It changes a guard's input only in an iteration that has voided games.
+- The suite, the lint gate, the push.
+
+**3. The fork branch `audit-stage-a-split`, once the box is free.**
+
+- The copier's crew and saddle lists map through `lenientMap`, not the strict map: a crew member that changed zones is found by id, and one that is gone is skipped without a "Couldn't map" line.
+- Build. Run `McRolloutBridgeIsolationTest` and `CopierStateTest`, each alone (fork test classes are order-dependent).
+- forkcheck, 500 heuristic games, pinned jar against the new one. Expected identical; any mismatch is a boundary.
+- The 96 Monte Carlo games on the same seeds. Expected to differ: the isolation is a boundary for that opponent.
+- The paired read of the Monte Carlo opponent against the plain heuristic, old jar and new, to size what the passing seat cost it. `iter-405`'s 0.5099 is re-read on the new jar.
+- An ADR for the pin, a fork-lineage row, the state table.
+
+**4. What runs next is the user's decision.** Two orders:
+
+- **Soft targets as planned.** The dose ladder (three 24-hour rungs) and the 84-hour arm, about 6.5 box days, on the pinned jar and the recipe of record. It completes the three-arm design and compares with the control and search off.
+- **The corrected recipe first.** The new jar becomes the pin, and a second control runs on it with the corrections: the X mask, the two model corrections and the loss weighting (`audit-arms` commits 1, 5 and 7 of the eight). 84 loop hours, read head to head against `m13-control/iter-064` and for promotion. Soft targets and the remaining changes then run against that control.
+
+  The recommendation is the second. The control closed level with `iter-405`, so the recipe of record is not improving the network, and the audit found three defects in the signal it trains on. A soft-target arm on that recipe answers a question about a recipe that is about to change. The cost is attribution: the second control bundles three corrections and a jar. If it clears the bar, ablation arms on that one reference separate them.
+
+**5. Before any arm from `audit-arms`.**
+
+- `m13_arms.sh` takes each change as its own arm switch. Today commit 3 turns surface distillation on for the control and commit 8 sets the penalty for every arm.
+- Optimizer state: the loop unlinks the previous accepted iteration's `opt_state.pt`, so an arm holds one file, not one per iteration.
+- The ability table: `cand_abil_proj`, and the stack projections' text columns if separable, get a learning-rate group of their own (ADR-0069).
+- Surface distillation, to know and log before its first arm: its gradient reaches the trunk as well as the surface heads; it samples sub-rows evenly across the replay stores, ignoring `--weights`.
+- The capacity and optimizer changes (the ability table, surface distillation, optimizer state, the allocation detach) and `--penalty 0` are one arm each, after the second control.
+
+**Unchanged:** every arm starts from `iter-405` unless a promotion moves the warm start (ADR-0135, addendum 11-22); the package pins hold until the last arm's close.
+
 ### Build 4 — the value-head track, beside the arms
 
 [ADR-0125](../decisions/ADR-0125-value-head-track.md) in a worktree: the truth stream, the critic, the student. It opens with the recompute of the Build 1 holdout figure with ties averaged, since the guard floors are in the old unit. Its bars are pinned at its own scoping. It does not enter an arm.
