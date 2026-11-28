@@ -136,3 +136,15 @@ The control halted on the divergence guard at iteration 60 (78.7 loop hours). Th
 - **What decides a void:** the game's row has `draw_clock`, and its span (its end as the harness first sees it, less its length, with 70 seconds of slack) overlaps a window in which a foreign GPU job was detected. A memory hold or a manual YIELD file opens no window.
 - **Not covered:** a game slowed by a yield that still finishes; a harness resumed after a stop does not judge games that finished before the stop. The count-based game limit, after the arms, replaces the guard.
 - **Proof:** `tests/test_harness_queue.py`, three tests. No live yield has exercised it.
+
+## Addendum (2026-11-27): a second control on the corrected recipe runs before soft targets
+
+**The order of Build 3 changes, on the user's word.** After search off closes, the next arm is a second control, not the soft-target ladder.
+
+- **Why.** The first control closed level with `iter-405` (the addendum above). A codebase audit the same week found defects in the training signal, re-measured in its [review](../ops/audit-review-2026-11-27.md): the X head's log-probability and entropy counted at every cast (31% of recorded entropy in `m13-control/iter-064`), the allocation term trained without its sampling weights (tau 0.038 to 0.0078 over the control), and the Monte Carlo opponent's rollouts answered by the live bridge.
+- **The arm.** The recipe of record with the X mask, the two model corrections and the loss weighting, on a fork pin that carries the bridge isolation, the mode gate's quiet probe and the per-option X flag. From `iter-405`, 84 loop hours, 480 games per iteration.
+- **The reads are the ones this ADR already pins.** Head to head against `m13-control/iter-064`, network alone, decoder masked, 20,000 games, bar 0.55pp. The promotion gate of the 11-22 addendum against `iter-405`.
+- **The jar differs between the two controls' generation.** The head-to-head is played on the new jar by both checkpoints. Figures against the Monte Carlo opponent are read on the new jar on both sides and do not compare with the old jar's.
+- **The arm bundles.** A cleared bar says the corrected recipe trains better on the corrected engine, not which correction did it. Attribution is ablation arms on the second control.
+- **Soft targets and its ladder follow**, on the corrected recipe, read against the second control. Search off is read against the first control, as launched.
+- **To pin at launch, not here:** the fork pin and its proof, the exact flag string, and the seeds.

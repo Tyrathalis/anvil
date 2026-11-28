@@ -98,12 +98,13 @@ The arm reaches 84 loop hours about 11-29 06:00. The launching session owns the 
 - The paired read of the Monte Carlo opponent against the plain heuristic, old jar and new, to size what the passing seat cost it. `iter-405`'s 0.5099 is re-read on the new jar.
 - An ADR for the pin, a fork-lineage row, the state table.
 
-**4. What runs next is the user's decision.** Two orders:
+**4. A second control on the corrected recipe runs next** (the user, 11-27; [ADR-0135](../decisions/ADR-0135-m13-build3-arms.md), addendum 11-27). Soft targets and its dose ladder follow it and are read against it.
 
-- **Soft targets as planned.** The dose ladder (three 24-hour rungs) and the 84-hour arm, about 6.5 box days, on the pinned jar and the recipe of record. It completes the three-arm design and compares with the control and search off.
-- **The corrected recipe first.** The new jar becomes the pin, and a second control runs on it with the corrections: the X mask, the two model corrections and the loss weighting (`audit-arms` commits 1, 5 and 7 of the eight). 84 loop hours, read head to head against `m13-control/iter-064` and for promotion. Soft targets and the remaining changes then run against that control.
-
-  The recommendation is the second. The control closed level with `iter-405`, so the recipe of record is not improving the network, and the audit found three defects in the signal it trains on. A soft-target arm on that recipe answers a question about a recipe that is about to change. The cost is attribution: the second control bundles three corrections and a jar. If it clears the bar, ablation arms on that one reference separate them.
+- **What it is.** The recipe of record plus three corrections: the X mask, the two model corrections and the loss weighting (`audit-arms` commits 1, 5 and 7 of the eight), on the new jar from step 3. From `iter-405`, 84 loop hours, 480 games per iteration.
+- **Its reads.** Head to head against `m13-control/iter-064` on 20,000 games, bar 0.55pp; the promotion read against `iter-405`. The Monte Carlo figures are read on the new jar on both sides.
+- **Why before soft targets.** The control closed level with `iter-405`, so the recipe of record is not improving the network, and the audit found defects in the signal it trains on. A soft-target arm on that recipe would answer a question about a recipe that is about to change.
+- **Its known cost is attribution.** It bundles three corrections and a jar. If it clears the bar, ablation arms on that one reference separate them. If it does not, the corrections stay in as corrections and the recipe question is unchanged.
+- **Search off's reads are not affected.** They close against the first control.
 
 **5. Before any arm from `audit-arms`.**
 
@@ -112,6 +113,7 @@ The arm reaches 84 loop hours about 11-29 06:00. The launching session owns the 
 - The ability table: `cand_abil_proj`, and the stack projections' text columns if separable, get a learning-rate group of their own (ADR-0069).
 - Surface distillation, to know and log before its first arm: its gradient reaches the trunk as well as the surface heads; it samples sub-rows evenly across the replay stores, ignoring `--weights`.
 - The capacity and optimizer changes (the ability table, surface distillation, optimizer state, the allocation detach) and `--penalty 0` are one arm each, after the second control.
+- For the second control itself: `audit-arms` is reordered or cherry-picked so commits 1, 5 and 7 stand without the others, and the X mask is smoke-tested on the new jar (a sampled server; an X spell cast with its X, a non-X cast recording no X).
 
 **Unchanged:** every arm starts from `iter-405` unless a promotion moves the warm start (ADR-0135, addendum 11-22); the package pins hold until the last arm's close.
 
