@@ -88,6 +88,7 @@ The arm reaches 84 loop hours about 11-29 06:00. The launching session owns the 
 - `m13-tail-log` and `audit-land-now` into main. Both merge cleanly.
 - `runs-launch-race` into main: the launcher reports a command that failed before its first state read at the launch line. GitHub's pytest job has failed on this since 11-25 and stays red until it lands. `anvil.runs` is imported by the live harness, so it waits with the others.
 - Before the merge, one more commit on `audit-land-now`: `_game_stats` in `selfplay.py` leaves voided games out of `games` and of the non-decisive count, and reports them as `yield_voided`. Today a voided game inflates the non-decisive flag and lowers casts per game toward the casts-floor guard. It changes a guard's input only in an iteration that has voided games.
+- Pyright, the configuration part only (the user, 11-27): leave the generated protobuf modules out and put `scripts/` on its path, then record the remaining count as a baseline and make the job fail only above it. The job reports 365 errors and is non-blocking; about 100 of them are configuration (*estimate from the log: 71 lines name the generated modules, 28 are scripts importing each other*). No runtime code changes.
 - The suite, the lint gate, the push.
 
 **3. The fork branch `audit-stage-a-split`, once the box is free.**
