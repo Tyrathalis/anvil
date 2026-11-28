@@ -86,6 +86,7 @@ The arm reaches 84 loop hours about 11-29 06:00. The launching session owns the 
 **2. The merges, in the gap after the reads, with no loop or read importing the tree.**
 
 - `m13-tail-log` and `audit-land-now` into main. Both merge cleanly.
+- `runs-launch-race` into main: the launcher reports a command that failed before its first state read at the launch line. GitHub's pytest job has failed on this since 11-25 and stays red until it lands. `anvil.runs` is imported by the live harness, so it waits with the others.
 - Before the merge, one more commit on `audit-land-now`: `_game_stats` in `selfplay.py` leaves voided games out of `games` and of the non-decisive count, and reports them as `yield_voided`. Today a voided game inflates the non-decisive flag and lowers casts per game toward the casts-floor guard. It changes a guard's input only in an iteration that has voided games.
 - The suite, the lint gate, the push.
 
