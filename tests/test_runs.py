@@ -1129,6 +1129,26 @@ def test_quiet_box_is_refused_on_a_loaded_box(state, monkeypatch):
     assert runs.main(["quiet"]) == 0  # a finished run holds nothing
 
 
+def test_a_command_that_failed_before_the_first_state_read_is_reported_the_same(state, monkeypatch, capsys):
+    """The supervisor's first state the launcher sees can already be `failed` (a fast box, a command that
+    exits at once). That is still a failure at the launch line, not a LAUNCHED line with exit code 1."""
+    d = state / "quick"
+
+    def spawn(a, cmd, run_dir):
+        (run_dir / "run.log").write_text("unbound variable\n")
+        runs._write_json(runs._run_file(a.name), dict(
+            runs._base_state(a, cmd, run_dir, run_dir / "run.log"), state="failed", rc=1, wall_s=0.0,
+            supervisor_pid=os.getpid()))
+        return os.getpid()
+
+    monkeypatch.setattr(runs, "_spawn_supervisor", spawn)
+    rc = runs.main(["launch", "--name", "quick", "--dir", str(d), "--tick-sec", "0.2", "--", "false"])
+    out = capsys.readouterr()
+    assert rc == 1
+    assert "[runs] FAILED AT LAUNCH quick: rc=1" in out.err and "unbound variable" in out.err
+    assert "LAUNCHED" not in out.out
+
+
 def test_detached_launch_reports_a_command_that_fails_at_once(state):
     d = state / "die"
     env = dict(os.environ, ANVIL_STATE_DIR=str(state / "state"), ANVIL_NOTIFY_SILENT="1", ANVIL_CHECKIN="none",

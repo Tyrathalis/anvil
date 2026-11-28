@@ -983,7 +983,8 @@ def launch(a: argparse.Namespace, cmd: list[str]) -> int:
     while now.get("state") == "running" and time.time() < settle:
         time.sleep(0.2)
         now = read_run(a.name) or now
-    if now.get("state") == "failed" and st.get("state") != "failed":
+    # a command quick enough to fail before the first read above arrives here already failed: the same report
+    if now.get("state") == "failed":
         print(f"[runs] FAILED AT LAUNCH {a.name}: rc={now.get('rc')} within {now.get('wall_s', '?')} s; log tail: "
               + (_tail(Path(now.get("log") or run_dir / "run.log"), 5).replace("\n", " | ") or "no output"),
               file=sys.stderr, flush=True)
